@@ -22,7 +22,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="inv in INVOICES" :key="inv.id" class="border-b border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(inv.id)">
+            <tr v-for="inv in rows" :key="inv.id" class="border-b border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(inv.id)">
               <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ inv.id }}</td>
               <td class="px-4 py-2.5 truncate max-w-[160px]">{{ inv.customer }}</td>
               <td class="px-4 py-2.5 text-end tnum">{{ fmt2(inv.net) }}</td>
@@ -43,14 +43,28 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { INVOICES, INV_STATUS, invStatusLabel, invoiceTiles, fmt2 } from "@/data/invoices";
+import { liveOrSample, currentCompany } from "@/composables/useLive";
 
 const { locale } = useI18n();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const tiles = computed(() => invoiceTiles(locale.value));
+
+// Live ERPNext invoices (fallback to the June sample).
+const rows = ref(INVOICES);
+const isLive = ref(null);
+onMounted(async () => {
+  const res = await liveOrSample(
+    "accounting_portal.api.sales.list_invoices", { company: currentCompany(), limit: 100 }, () => INVOICES,
+    (data) => data.map((r) => ({ id: r.name, customer: r.customer, net: r.net, vat: r.vat, gross: r.gross, status: (r.status || "").toLowerCase().includes("paid") ? "paid" : "overdue" })),
+  );
+  rows.value = res.data;
+  isLive.value = res.live;
+});
+
 function open(id) { router.push({ path: "/accounting/sales/invoices", query: { id } }); }
 </script>

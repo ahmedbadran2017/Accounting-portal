@@ -22,6 +22,10 @@
         <input v-model.trim="search" :placeholder="t('module.search')"
                class="w-full bg-white border border-line-2 rounded-chip ps-8 pe-3 py-1.5 text-[12px] focus:outline-none focus:border-accent/40" />
       </div>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+            :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">
+        {{ isLive ? "Live" : "Sample" }}
+      </span>
       <span v-if="filterState" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-chip"
             :style="{ background: STATE_META[filterState].bg, color: STATE_META[filterState].fg }">
         {{ stateLabel(filterState, locale) }}
@@ -84,12 +88,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { ORDERS, STATE_META, stateLabel, MACHINE, machineCounts, AV, postingInfo } from "@/data/orders";
 import { useCreated } from "@/composables/useCreated";
+import { liveOrSample, avFor, iniOf, currentCompany } from "@/composables/useLive";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -98,6 +103,22 @@ const { createdOrders } = useCreated();
 const search = ref("");
 const filterState = ref(null);
 const sort = ref({ key: null, dir: 1 });
+
+// Live ERPNext orders (fallback to the June sample); merged with in-session creations.
+const loaded = ref(ORDERS);
+const isLive = ref(null);
+onMounted(async () => {
+  const res = await liveOrSample(
+    "accounting_portal.api.sales.list_orders", { company: currentCompany(), limit: 100 }, () => ORDERS,
+    (rows) => rows.map((r, i) => ({
+      id: r.name, customer: r.customer, city: r.city || "—", carrier: r.carrier || "—",
+      trackStatus: r.custom_track_shipment_status || "Pending", state: r.state,
+      value: r.value, initials: iniOf(r.customer), av: avFor(i),
+    })),
+  );
+  loaded.value = res.data;
+  isLive.value = res.live;
+});
 
 const cols = computed(() => [
   { key: "id", label: lbl("Order", "الطلب", "Commande") },
@@ -116,7 +137,7 @@ function toggleSort(key) {
 }
 
 const rows = computed(() => {
-  let r = [...createdOrders, ...ORDERS];
+  let r = [...createdOrders, ...loaded.value];
   const q = search.value.toLowerCase();
   if (q) r = r.filter((o) => (o.id + o.customer + o.city + o.carrier).toLowerCase().includes(q));
   if (filterState.value) r = r.filter((o) => o.state === filterState.value);

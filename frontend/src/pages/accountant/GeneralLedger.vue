@@ -18,7 +18,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(g, i) in GL" :key="i" class="border-b border-line-hair hover:bg-app-warm/60">
+          <tr v-for="(g, i) in rows" :key="i" class="border-b border-line-hair hover:bg-app-warm/60">
             <td class="px-4 py-2.5 whitespace-nowrap text-ink-3">{{ g.date }}</td>
             <td class="px-4 py-2.5 font-mono whitespace-nowrap">{{ g.ref }}</td>
             <td class="px-4 py-2.5 font-mono text-ink-2">{{ g.account }}</td>
@@ -33,9 +33,20 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { GL } from "@/data/accountant";
+import { liveOrSample, currentCompany } from "@/composables/useLive";
+
+const rows = ref(GL);
+onMounted(async () => {
+  const res = await liveOrSample(
+    "accounting_portal.api.ledger.general_ledger", { company: currentCompany(), limit: 100 }, () => GL,
+    (data) => data.map((r) => ({ date: r.date, ref: r.ref, account: r.account, dim: r.party || "—", dr: r.dr ? Number(r.dr).toFixed(2) : "", cr: r.cr ? Number(r.cr).toFixed(2) : "" })),
+  );
+  rows.value = res.data;
+});
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 </script>

@@ -16,7 +16,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(r, i) in TRIAL" :key="i" class="border-b border-line-hair" :class="r.anomaly ? 'bg-rose-50/40' : 'hover:bg-app-warm/60'">
+          <tr v-for="(r, i) in rows" :key="i" class="border-b border-line-hair" :class="r.anomaly ? 'bg-rose-50/40' : 'hover:bg-app-warm/60'">
             <td class="px-4 py-2.5 font-mono text-ink-3 whitespace-nowrap">{{ r.code }}</td>
             <td class="px-4 py-2.5">
               <span class="inline-flex items-center gap-1.5">{{ r.name }}<Icon v-if="r.anomaly" name="alert" :size="12" color="#be123c" /></span>
@@ -44,14 +44,28 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { TRIAL } from "@/data/accountant";
+import { liveOrSample, currentCompany } from "@/composables/useLive";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const sum = (k) => TRIAL.reduce((s, r) => s + Number((r[k] || "0").replace(/,/g, "")), 0);
+
+const fmt = (n) => (n ? Number(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "");
+const rows = ref(TRIAL);
+const isLive = ref(null);
+onMounted(async () => {
+  const res = await liveOrSample(
+    "accounting_portal.api.ledger.trial_balance", { company: currentCompany() }, () => TRIAL,
+    (data) => (data.rows || data).map((r) => ({ code: r.code, name: r.name, dr: fmt(r.dr), cr: fmt(r.cr), anomaly: r.anomaly })),
+  );
+  rows.value = res.data;
+  isLive.value = res.live;
+});
+
+const sum = (k) => rows.value.reduce((s, r) => s + Number((r[k] || "0").replace(/,/g, "")), 0);
 const totalDr = computed(() => sum("dr").toLocaleString("en-US"));
 const totalCr = computed(() => sum("cr").toLocaleString("en-US"));
 </script>
