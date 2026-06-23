@@ -6,10 +6,10 @@
       :class="[sideBorder, open ? 'translate-x-0' : sideHidden]"
     >
       <!-- Brand -->
-      <div class="h-[60px] flex flex-col justify-center px-4 border-b border-line">
-        <img :src="LOGO_URL" alt="Justyol" class="h-[15px] w-auto self-start" />
-        <div class="text-[12px] font-bold tracking-tight leading-tight mt-1">JoyAgent Books</div>
-        <div class="text-[9.5px] text-ink-muted leading-tight">Justyol | Books</div>
+      <div class="h-[60px] flex items-center gap-2.5 px-4 border-b border-line">
+        <img :src="LOGO_URL" alt="Justyol" class="h-[15px] w-auto" />
+        <span class="w-px h-[18px] bg-line-2"></span>
+        <span class="text-[16px] font-bold tracking-tight text-accent-dark">Books</span>
       </div>
 
       <!-- Entity switcher -->

@@ -1,10 +1,10 @@
 <template>
   <div class="min-h-screen grid place-items-center bg-app-bg p-4">
     <div class="w-full max-w-sm bg-white rounded-card shadow-card border border-line p-7">
-      <div class="mb-6">
+      <div class="flex items-center gap-3 mb-6">
         <img :src="LOGO_URL" alt="Justyol" class="h-[20px] w-auto" />
-        <div class="text-[14px] font-bold tracking-tight mt-2">JoyAgent Books</div>
-        <div class="text-[11px] text-ink-muted">Justyol | Books</div>
+        <span class="w-px h-6 bg-line-2"></span>
+        <span class="text-[20px] font-bold tracking-tight text-accent-dark">Books</span>
       </div>
 
       <h1 class="text-[17px] font-bold mb-5 tracking-tight">{{ t("auth.login_title") }}</h1>
