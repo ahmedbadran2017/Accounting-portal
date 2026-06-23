@@ -77,20 +77,26 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { findInvoice, INV_STATUS, invStatusLabel, invoiceJournal, fmt2 } from "@/data/invoices";
+import { INV_STATUS, invStatusLabel, fmt2 } from "@/data/invoices";
+import { useInvoices } from "@/composables/useInvoices";
 
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const { loadDetail } = useInvoices();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
-const inv = computed(() => findInvoice(route.query.id));
+const vm = ref(null);
+async function load() { vm.value = await loadDetail(route.query.id); }
+watch(() => route.query.id, load, { immediate: true });
+
+const inv = computed(() => vm.value?.inv || null);
 const st = computed(() => INV_STATUS[inv.value?.status] || INV_STATUS.paid);
-const paid = computed(() => inv.value?.status === "paid");
-const journal = computed(() => invoiceJournal(inv.value));
+const paid = computed(() => !!vm.value?.paid);
+const journal = computed(() => vm.value?.journal || []);
 function back() { router.push({ path: "/accounting/sales/invoices" }); }
 </script>

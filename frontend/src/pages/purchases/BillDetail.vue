@@ -56,43 +56,28 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { findBill, BILL_STATUS, billStatusLabel } from "@/data/purchases";
+import { BILL_STATUS, billStatusLabel } from "@/data/purchases";
+import { useBills } from "@/composables/useBills";
 
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
-
-const b = computed(() => findBill(route.query.id));
-const matched = computed(() => b.value?.match === "ok");
+const { loadDetail } = useBills();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
-const legs = computed(() => {
-  const ok = matched.value;
-  return [
-    { key: "po", label: L("Purchase order", "أمر الشراء", "Bon de commande"), ok: true, state: L("Linked", "مرتبط", "Lié") },
-    { key: "grn", label: L("Goods receipt", "سند الاستلام", "Réception"), ok: ok, state: ok ? L("Received", "مستلَم", "Reçu") : L("Qty short", "نقص كمية", "Qté manquante") },
-    { key: "inv", label: L("Invoice", "الفاتورة", "Facture"), ok: ok, state: ok ? L("Matched", "مطابقة", "Rapprochée") : L("Price gap", "فرق سعر", "Écart prix") },
-  ];
-});
+// Live get_bill (real 3-way match + posted journal) with sample fallback.
+const vm = ref(null);
+async function load() { vm.value = await loadDetail(route.query.id, locale.value); }
+watch(() => [route.query.id, locale.value], load, { immediate: true });
 
-// Bill posts to Creditors. Returns reverse it (negative amount).
-const journal = computed(() => {
-  if (!b.value) return [];
-  const isReturn = b.value.amount.includes("-");
-  const amt = b.value.amount.replace(/[^0-9.\-]/g, "");
-  if (isReturn) return [
-    { acc: "320.01 Creditors", dr: amt.replace("-", ""), cr: "" },
-    { acc: "71.801 Cost of Goods Sold / Stock", dr: "", cr: amt.replace("-", "") },
-  ];
-  return [
-    { acc: "153.01 Stock in Hand / Expense", dr: amt, cr: "" },
-    { acc: "320.01 Creditors", dr: "", cr: amt },
-  ];
-});
+const b = computed(() => vm.value?.b || null);
+const matched = computed(() => !!vm.value?.matched);
+const legs = computed(() => vm.value?.legs || []);
+const journal = computed(() => vm.value?.journal || []);
 
 function back() { router.push({ path: "/accounting/purchases/bills" }); }
 </script>
