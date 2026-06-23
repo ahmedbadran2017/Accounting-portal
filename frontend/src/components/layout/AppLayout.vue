@@ -79,9 +79,12 @@
           <div class="px-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ t("groups.jonly") }}</div>
           <div class="space-y-0.5">
             <button v-for="j in jonly" :key="j.label"
-                    class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[12.5px] text-ink-2 font-medium hover:bg-app-warm/70"
+                    class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[12.5px]"
+                    :class="isJonlyActive(j)
+                      ? 'text-accent-dark font-semibold bg-app-warm shadow-[inset_0_0_0_1px_#f3e4de]'
+                      : 'text-ink-2 font-medium hover:bg-app-warm/70'"
                     @click="goJonly(j)">
-              <Icon :name="j.icon" :size="16" color="#a8a29e" />
+              <Icon :name="j.icon" :size="16" :color="isJonlyActive(j) ? '#a33a22' : '#a8a29e'" />
               <span class="flex-1 text-start">{{ t(j.label) }}</span>
             </button>
           </div>
@@ -228,6 +231,14 @@ function goSub(m, s) {
 function goJonly(j) {
   if (j.entity) setEntity(j.entity);
   goSub(j.module, j.sub);
+}
+// A ★Justyol-only shortcut is "active" when the current module (+ sub, + entity
+// for Consolidation) matches where it points.
+function isJonlyActive(j) {
+  if (activeModule.value !== j.module) return false;
+  if (j.sub && activeSub.value !== j.sub) return false;
+  if (j.entity && entityId.value !== j.entity) return false;
+  return true;
 }
 function pickEntity(id) { setEntity(id); entityOpen.value = false; }
 function cycleLocale() {
