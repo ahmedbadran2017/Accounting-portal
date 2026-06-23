@@ -7,13 +7,13 @@ at `/accounting/*`. The built bundle is committed, so the production bench does
 ## 0. One-time: push this app to a Git repo
 The server pulls the app with `bench get-app <url>`, so it must be on Git first.
 
-Create an empty repo named **`accountant_portal`** on GitHub (account
+Create an empty repo named **`Accounting-portal`** on GitHub (account
 `ahmedbadran2017`, no README/license), then:
 
 ```bash
 cd /Users/ahmedbadran/Accounting/accounting_portal
 # (already a git repo with a first commit)
-git remote add origin git@github.com:ahmedbadran2017/accountant_portal.git
+git remote add origin git@github.com:ahmedbadran2017/Accounting-portal.git
 git push -u origin main
 ```
 
@@ -40,7 +40,7 @@ git push
 ```bash
 cd ~/frappe-bench                         # your bench directory
 # first arg = app name (accounting_portal); URL = the accountant_portal repo
-bench get-app accounting_portal https://github.com/ahmedbadran2017/accountant_portal
+bench get-app accounting_portal https://github.com/ahmedbadran2017/Accounting-portal
 bench --site admin.justyol.com install-app accounting_portal
 bench --site admin.justyol.com migrate    # creates the 4 portal roles
 bench --site admin.justyol.com clear-cache
