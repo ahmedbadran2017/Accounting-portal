@@ -70,21 +70,6 @@
           </div>
         </div>
 
-        <!-- ★ Justyol-only -->
-        <div>
-          <div class="px-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ t("groups.jonly") }}</div>
-          <div class="space-y-0.5">
-            <button v-for="j in jonly" :key="j.label"
-                    class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[12.5px]"
-                    :class="isJonlyActive(j)
-                      ? 'text-accent-dark font-semibold bg-app-warm shadow-[inset_0_0_0_1px_#f3e4de]'
-                      : 'text-ink-2 font-medium hover:bg-app-warm/70'"
-                    @click="goJonly(j)">
-              <Icon :name="j.icon" :size="16" :color="isJonlyActive(j) ? '#a33a22' : '#a8a29e'" />
-              <span class="flex-1 text-start">{{ t(j.label) }}</span>
-            </button>
-          </div>
-        </div>
       </nav>
 
       <!-- Footer user -->
@@ -123,10 +108,6 @@
           {{ localeLabel }}
         </button>
 
-        <button class="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-ink-3 hover:text-ink border border-line-2 px-2 py-1.5 rounded-lg hover:bg-app-warm" @click="paletteOpen = true">
-          <Icon name="search" :size="13" /><kbd class="font-sans">⌘K</kbd>
-        </button>
-
         <div class="relative" v-click-outside="() => (createMenuOpen = false)">
           <button class="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-2 rounded-chip shadow-prim" @click="createMenuOpen = !createMenuOpen">
             <Icon name="plus" :size="16" /><span class="hidden sm:inline">{{ t("header.create") }}</span>
@@ -159,7 +140,7 @@ import CreateModal from "@/components/CreateModal.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useUi } from "@/composables/useUi";
 import { applyLocale, LOCALES, LOCALE_LABEL, RTL_LOCALES } from "@/i18n";
-import { NAV_GROUPS, JONLY, SUBTABS, defaultSub } from "@/data/nav";
+import { NAV_GROUPS, SUBTABS, defaultSub } from "@/data/nav";
 import { LOGO_URL } from "@/utils/constants";
 
 const { t, locale } = useI18n();
@@ -174,7 +155,6 @@ const paletteOpen = ref(false);
 const createMenuOpen = ref(false);
 const createType = ref(null);
 const groups = NAV_GROUPS;
-const jonly = JONLY;
 
 const createOptions = computed(() => [
   { type: "customer", icon: "user", label: L("Customer", "عميل", "Client") },
@@ -222,20 +202,6 @@ function goModule(m) {
 function goSub(m, s) {
   open.value = false;
   router.push(s ? `/accounting/${m}/${s}` : `/accounting/${m}`);
-}
-// ★Justyol-only shortcut: some entries also switch entity (e.g. Consolidation
-// → Holding) before navigating.
-function goJonly(j) {
-  if (j.entity) setEntity(j.entity);
-  goSub(j.module, j.sub);
-}
-// A ★Justyol-only shortcut is "active" when the current module (+ sub, + entity
-// for Consolidation) matches where it points.
-function isJonlyActive(j) {
-  if (activeModule.value !== j.module) return false;
-  if (j.sub && activeSub.value !== j.sub) return false;
-  if (j.entity && entityId.value !== j.entity) return false;
-  return true;
 }
 function pickEntity(id) { setEntity(id); entityOpen.value = false; }
 function cycleLocale() {
