@@ -17,7 +17,7 @@ git remote add origin git@github.com:ahmedbadran2017/Accounting-portal.git
 git push -u origin main
 ```
 
-> The GitHub repo is `accountant_portal`, but the Frappe **app name stays
+> The GitHub repo is `Accounting-portal`, but the Frappe **app name stays
 > `accounting_portal`** (the python package). `bench get-app` takes the app name
 > as its first argument, so we pass `accounting_portal` explicitly below — no
 > mismatch.
