@@ -35,6 +35,12 @@ def register_poster(action_type, fn):
     _POSTERS[action_type] = fn
 
 
+def _ensure_posters():
+    """Lazily import modules that register posters, so posting works even in a
+    fresh request that never imported them (e.g. a standalone approve_action)."""
+    import accounting_portal.api.accountant  # noqa: F401 — registers the Journal Entry poster
+
+
 def _existing(dedupe_key):
     name = frappe.db.get_value(APA, {"dedupe_key": dedupe_key}, "name")
     return frappe.get_doc(APA, name) if name else None
@@ -43,6 +49,9 @@ def _existing(dedupe_key):
 def _post(doc):
     """Run the registered poster, link the voucher, mark Posted. Internal."""
     poster = _POSTERS.get(doc.action_type)
+    if not poster:
+        _ensure_posters()
+        poster = _POSTERS.get(doc.action_type)
     if not poster:
         frappe.throw(f"No poster registered for action '{doc.action_type}'")
     try:

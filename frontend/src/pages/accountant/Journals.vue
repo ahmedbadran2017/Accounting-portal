@@ -7,7 +7,7 @@
         <div class="text-[13px] font-bold">{{ L("Maker-checker queue","طابور الصانع–المراجع","File maker-checker") }}</div>
         <div class="text-[11px] text-ink-muted">{{ L("Every manual journal needs a second sign-off before it posts","كل قيد يدوي يحتاج اعتماداً ثانياً قبل ترحيله","Chaque écriture manuelle exige une seconde validation") }}</div>
       </div>
-      <button class="inline-flex items-center gap-1.5 h-[33px] px-3 rounded-[9px] text-white text-[12px] font-bold" style="background:linear-gradient(135deg,#c4492a,#a33a22)">
+      <button class="inline-flex items-center gap-1.5 h-[33px] px-3 rounded-[9px] text-white text-[12px] font-bold" style="background:linear-gradient(135deg,#c4492a,#a33a22)" @click="showForm = true">
         <Icon name="plus" :size="13" />{{ L("New JE","قيد جديد","Nouvelle écriture") }}
       </button>
     </div>
@@ -43,21 +43,33 @@
       </div>
     </div>
   </div>
+
+  <JournalEntryForm v-if="showForm" @close="showForm = false" @posted="onPosted" />
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { ref, reactive } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { useToast } from "@/composables/useToast";
 import { JOURNALS, JOURNAL_STATUS, journalStatusLabel } from "@/data/accountant";
+import JournalEntryForm from "@/components/JournalEntryForm.vue";
 
 const { locale } = useI18n();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
+const showForm = ref(false);
 const items = reactive(JOURNALS.map((j) => ({ ...j })));
 const st = (j) => JOURNAL_STATUS[j.status] || JOURNAL_STATUS.pending;
+
+function onPosted(res) {
+  if (res && res.status === "Posted") {
+    toast.success(L(`Journal ${res.voucher_no || ""} posted`, `قيد ${res.voucher_no || ""} رُحّل`, `Écriture ${res.voucher_no || ""} passée`));
+  } else {
+    toast.info(L("Entry recorded — awaiting an approver", "القيد سُجّل — بانتظار موافِق", "Écriture enregistrée — en attente"));
+  }
+}
 
 function approve(j) { j.status = "approved"; toast.success(L(`${j.ref} approved & posted`, `${j.ref} اعتُمد ورُحِّل`, `${j.ref} approuvée & passée`)); }
 function reject(j) { j.status = "rejected"; toast.info(L(`${j.ref} bounced to maker`, `${j.ref} أُرجع للصانع`, `${j.ref} renvoyée au maker`)); }
