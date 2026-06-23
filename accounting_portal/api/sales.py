@@ -154,6 +154,31 @@ def list_receipts(company=None, limit=100):
 
 
 @frappe.whitelist()
+def list_credits(company=None, limit=100):
+    """Returns / credit notes — COD orders returned or in delivery exception.
+    There are no per-customer Sales-Invoice returns in this book; the revenue
+    reversal lives on the order, so that's the real credit-note source."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    return frappe.db.sql(
+        """
+        SELECT name, customer,
+               CASE WHEN custom_logistics_status='Returned' OR custom_sales_status='Returned'
+                    THEN 'Returned' ELSE custom_track_shipment_status END AS reason,
+               transaction_date AS date, ROUND(grand_total) AS amount
+        FROM `tabSales Order`
+        WHERE company=%s AND docstatus=1
+          AND (custom_sales_status='Returned' OR custom_logistics_status='Returned'
+               OR custom_track_shipment_status IN ('Delivery Exception','Failed Attempt'))
+        ORDER BY transaction_date DESC, creation DESC LIMIT %s
+        """,
+        (target, min(int(limit or 100), 300)), as_dict=True)
+
+
+@frappe.whitelist()
 def get_order(name):
     """One order: header, COD operational fields, and the live posted journal."""
     assert_portal_access()

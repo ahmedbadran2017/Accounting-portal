@@ -28,10 +28,13 @@ export const SCAFFOLDS = {
         ["PAY-22491", "زكرياء الرحماني", "2026-06-21", "Cathadis Transactions", "129.00"],
         ["PAY-22475", "Siham Elfilali", "2026-06-20", "Cathadis Transactions", "298.00"],
       ] },
-    credits: { icon: "receipt", cols: [["Credit note"], ["Customer"], ["Reason"], ["Date"], ["Amount", "e"]], rows: [
-      ["CN-00231", "Khadija", "Return — size", "19 Jun", "-149.00"],
-      ["CN-00230", "Attman", "Delivery exception", "18 Jun", "-144.00"],
-    ] },
+    credits: { icon: "receipt", cols: [["Return / Credit"], ["Customer"], ["Reason"], ["Date"], ["Amount", "e"]],
+      live: { method: "accounting_portal.api.sales.list_credits", map: (r) => [r.name, r.customer, r.reason || "—", String(r.date || ""), "-" + _f2(r.amount)] },
+      rows: [
+        ["#240013-ex", "Salma Salma", "Returned", "2026-06-15", "-179.00"],
+        ["#239427-ex", "Osama Nassar", "Returned", "2026-06-15", "-249.00"],
+        ["#236409-ex", "Chahd Hamzaoui", "Delivery Exception", "2026-06-15", "-89.00"],
+      ] },
   },
   purchases: {
     pos: { icon: "cart", cols: [["PO"], ["Vendor"], ["Date"], ["Amount", "e"], ["Status"]], rows: [
