@@ -1,17 +1,18 @@
 <template>
   <div class="space-y-3.5">
-    <!-- State-machine count tiles -->
-    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-      <button v-for="st in MACHINE" :key="st"
-              class="yo-card bg-white rounded-card border px-3 py-2.5 text-start"
-              :class="filterState === st ? 'border-accent/40 shadow-card' : 'border-line'"
-              @click="filterState = filterState === st ? null : st">
-        <div class="flex items-center gap-1.5 mb-1">
-          <span class="w-1.5 h-1.5 rounded-full" :style="{ background: STATE_META[st].c }"></span>
-          <span class="text-[11px] font-medium text-ink-3">{{ stateLabel(st, locale) }}</span>
-        </div>
-        <div class="text-[18px] font-bold tnum">{{ machineCounts[st].toLocaleString() }}</div>
-      </button>
+    <!-- State-machine strip (connected, click to filter) -->
+    <div class="bg-white border border-line rounded-[14px] p-3.5 shadow-card overflow-x-auto">
+      <div class="flex items-center gap-1 min-w-[680px]">
+        <template v-for="(st, i) in MACHINE" :key="st">
+          <button class="flex flex-col items-start flex-1 px-3 py-1.5 rounded-lg"
+                  :class="filterState === st ? 'bg-app-warm' : 'hover:bg-app-warm/60'"
+                  @click="filterState = filterState === st ? null : st">
+            <span class="text-[18px] font-bold tnum leading-none" :style="{ color: filterState === st ? STATE_META[st].fg : '#1c1917' }">{{ machineCounts[st].toLocaleString() }}</span>
+            <span class="text-[10.5px] font-semibold mt-[3px]" :class="filterState === st ? 'text-accent-dark' : 'text-ink-3'">{{ stateLabel(st, locale) }}</span>
+          </button>
+          <Icon v-if="i < MACHINE.length - 1" name="chev" :size="15" color="#d6d3d1" class="flex-shrink-0 rtl:rotate-180" />
+        </template>
+      </div>
     </div>
 
     <!-- Toolbar -->
@@ -66,6 +67,12 @@
                   {{ stateLabel(o.state, locale) }}
                 </span>
               </td>
+              <td class="px-4 py-2.5">
+                <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border"
+                      :style="postingInfo(o.state, locale).posted ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#f5f5f4;color:#a8a29e;border-color:#e7e5e4'">
+                  {{ postingInfo(o.state, locale).label }}
+                </span>
+              </td>
               <td class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ o.value }}</td>
             </tr>
           </tbody>
@@ -81,7 +88,7 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { ORDERS, STATE_META, stateLabel, MACHINE, machineCounts, AV } from "@/data/orders";
+import { ORDERS, STATE_META, stateLabel, MACHINE, machineCounts, AV, postingInfo } from "@/data/orders";
 import { useCreated } from "@/composables/useCreated";
 
 const { t, locale } = useI18n();
@@ -99,6 +106,7 @@ const cols = computed(() => [
   { key: "carrier", label: lbl("Carrier", "الناقل", "Transporteur") },
   { key: "trackStatus", label: lbl("Shipment", "الشحن", "Expédition") },
   { key: "state", label: lbl("State", "الحالة", "État") },
+  { key: "posting", label: lbl("Posting", "الترحيل", "Passation") },
   { key: "value", label: lbl("Value", "القيمة", "Valeur"), end: true },
 ]);
 function lbl(en, ar, fr) { return locale.value === "ar" ? ar : locale.value === "fr" ? fr : en; }

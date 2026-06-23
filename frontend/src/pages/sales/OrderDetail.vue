@@ -1,79 +1,97 @@
 <template>
-  <div v-if="o" class="space-y-3.5">
-    <!-- Back + header -->
+  <div v-if="o" class="max-w-[1080px] mx-auto space-y-3.5">
     <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-3 hover:text-ink" @click="back">
-      <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ backLabel }}
+      <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ L("Back to orders","العودة للطلبات","Retour aux commandes") }}
     </button>
 
-    <div class="bg-white rounded-card border border-line p-5">
-      <div class="flex flex-wrap items-start gap-3">
-        <span class="w-11 h-11 rounded-card grid place-items-center text-white text-[13px] font-bold flex-shrink-0"
-              :style="{ background: AV[o.av] }">{{ o.initials }}</span>
-        <div class="min-w-0">
-          <div class="text-[17px] font-bold tracking-tight font-mono">{{ o.id }}</div>
-          <div class="text-[12.5px] text-ink-3">{{ o.customer }} · {{ o.date }}</div>
-        </div>
-        <div class="ms-auto text-end">
-          <div class="text-[22px] font-bold tnum">{{ o.value }} <span class="text-[13px] text-ink-3">MAD</span></div>
-          <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border mt-1"
-                :style="{ background: sm.bg, color: sm.fg, borderColor: sm.bd }">{{ stateLabel(o.state, locale) }}</span>
-        </div>
-      </div>
-
-      <!-- State machine -->
-      <div class="flex items-center gap-1 mt-5 overflow-x-auto pb-1">
-        <template v-for="(st, i) in MACHINE" :key="st">
-          <div class="flex flex-col items-center gap-1 min-w-[64px]">
-            <div class="w-7 h-7 rounded-full grid place-items-center text-[11px] font-bold"
-                 :class="i <= activeStep ? 'text-white' : 'text-ink-muted bg-app-warm'"
-                 :style="i <= activeStep ? { background: STATE_META[st].c } : {}">
-              <Icon v-if="i < activeStep" name="check" :size="14" color="#fff" />
-              <span v-else>{{ i + 1 }}</span>
-            </div>
-            <span class="text-[10px] font-medium" :class="i <= activeStep ? 'text-ink-2' : 'text-ink-muted'">{{ stateLabel(st, locale) }}</span>
+    <!-- Header card -->
+    <div class="bg-white rounded-[16px] border border-line px-5 py-[18px] shadow-card">
+      <div class="flex items-start gap-3.5 flex-wrap">
+        <div class="flex-1 min-w-[200px]">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span class="text-[19px] font-bold font-mono">{{ o.id }}</span>
+            <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-[7px] border"
+                  :style="{ background: sm.bg, color: sm.fg, borderColor: sm.bd }">{{ stateLabel(o.state, locale) }}</span>
+            <span class="inline-block text-[10px] font-bold px-2.5 py-1 rounded-[7px] border"
+                  :style="post.posted ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#f5f5f4;color:#a8a29e;border-color:#e7e5e4'">{{ post.label }}</span>
           </div>
-          <div v-if="i < MACHINE.length - 1" class="h-0.5 flex-1 min-w-[16px] rounded"
-               :class="i < activeStep ? 'bg-success' : 'bg-line-2'"></div>
-        </template>
+          <div class="flex items-center gap-3.5 mt-[7px] text-[12px] text-ink-3 flex-wrap">
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" :style="{ background: AV[o.av] }">{{ o.initials }}</span>{{ o.customer }}
+            </span>
+            <span>{{ o.city }}</span><span>{{ o.carrier }}</span><span>{{ o.date }}</span>
+          </div>
+        </div>
+        <div class="text-end">
+          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Order total (gross)","إجمالي الطلب","Total commande (TTC)") }}</div>
+          <div class="text-[24px] font-bold tnum">{{ o.value }} <span class="text-[13px] text-ink-3">MAD</span></div>
+        </div>
+      </div>
+      <!-- Dimensions -->
+      <div class="flex gap-2 flex-wrap mt-3.5 pt-3.5 border-t border-line-hair">
+        <span v-for="d in dims" :key="d.k" class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-[5px] rounded-[8px] bg-app-warm2 border border-line text-ink-2">
+          <span class="font-semibold text-ink-muted">{{ d.k }}</span>{{ d.v || "—" }}
+        </span>
       </div>
     </div>
 
-    <!-- Operational chips -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-      <div v-for="op in opChips" :key="op.label" class="bg-white rounded-card border border-line p-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ op.label }}</div>
-        <div class="text-[13px] font-semibold mt-1 truncate">{{ op.value }}</div>
+    <div class="grid lg:grid-cols-[1fr_1.25fr] gap-3.5">
+      <!-- Lifecycle timeline -->
+      <div class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
+        <div class="text-[13px] font-bold mb-3.5">{{ L("Lifecycle & posting","الدورة والترحيل","Cycle & passation") }}</div>
+        <div class="flex flex-col">
+          <div v-for="(e, i) in timeline" :key="i" class="flex gap-[11px]">
+            <div class="flex flex-col items-center flex-shrink-0">
+              <span class="w-6 h-6 rounded-full grid place-items-center flex-shrink-0"
+                    :style="e.done ? 'background:linear-gradient(135deg,#34d399,#059669);color:#fff' : 'background:#f4f2f0;color:#bcb6b0;border:1px solid #e7e5e4'">
+                <Icon :name="e.done ? 'check' : e.icon" :size="12" />
+              </span>
+              <span v-if="!e.last" class="w-0.5 flex-1 min-h-[18px]" :style="{ background: e.done ? '#a7f3d0' : '#f0efed' }"></span>
+            </div>
+            <div class="pb-4 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-[12.5px] font-bold" :class="e.done ? 'text-ink' : 'text-ink-muted'">{{ e.title }}</span>
+                <span class="text-[10.5px] text-ink-muted">{{ e.time }}</span>
+              </div>
+              <div class="text-[11.5px] text-ink-3 mt-0.5 leading-snug">{{ e.desc }}</div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Auto-posted journal -->
-    <div class="bg-white rounded-card border border-line overflow-hidden">
-      <div class="px-4 py-3 border-b border-line flex items-center gap-2">
-        <Icon name="ledger" :size="15" color="#a33a22" />
-        <span class="text-[13px] font-bold">{{ jTitle }}</span>
-      </div>
-      <table v-if="journal.lines.length" class="w-full text-[12px]">
-        <thead>
-          <tr class="border-b border-line">
-            <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ accLabel }}</th>
-            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ drLabel }}</th>
-            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ crLabel }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(j, i) in journal.lines" :key="i" class="border-b border-line-hair">
-            <td class="px-4 py-2.5 font-mono text-ink-2">{{ j.acc }}</td>
-            <td class="px-4 py-2.5 text-end tnum font-semibold">{{ j.dr || "—" }}</td>
-            <td class="px-4 py-2.5 text-end tnum font-semibold">{{ j.cr || "—" }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="px-4 py-3 text-[11px] text-ink-3 bg-app-warm/50 flex items-start gap-1.5">
-        <Icon name="spark" :size="13" color="#a33a22" class="flex-shrink-0 mt-px" />{{ journal.note }}
+      <!-- Auto-posted journal -->
+      <div class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
+        <div class="flex items-center gap-2 mb-1.5">
+          <div class="flex-1">
+            <div class="text-[13px] font-bold">{{ L("Auto-posted journal","قيد تلقائي","Écriture auto-passée") }}</div>
+            <div class="text-[11px] text-ink-muted">{{ L("No manual GL — every state posts itself","لا قيود يدوية — كل حالة تُرحّل نفسها","Aucun GL manuel — chaque état se passe seul") }}</div>
+          </div>
+          <span v-if="!journal.noJournal" class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-[3px] rounded-full" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0">
+            <Icon name="check" :size="11" />{{ L("Balanced","متوازن","Équilibrée") }}
+          </span>
+        </div>
+        <div class="flex flex-col gap-3 mt-2.5">
+          <div v-for="(j, i) in journal.stages" :key="i" class="border border-line rounded-[11px] overflow-hidden">
+            <div class="flex items-center gap-2 px-3 py-2.5 bg-app-warm2 border-b border-line-hair">
+              <span class="w-1.5 h-1.5 rounded-full" :style="{ background: j.dot }"></span>
+              <span class="text-[11.5px] font-bold">{{ j.stage }}</span>
+              <span class="text-[10.5px] text-ink-muted ms-auto font-mono">{{ j.ref }}</span>
+            </div>
+            <table class="w-full">
+              <tbody>
+                <tr v-for="(ln, k) in j.lines" :key="k" class="border-t border-line-hair">
+                  <td class="px-3 py-[7px] text-[11.5px] text-ink-2" :class="ln.indent ? 'ps-7' : ''">{{ ln.acc }}</td>
+                  <td class="px-2 py-[7px] text-end text-[11.5px] font-semibold w-[90px] text-success-dark">{{ ln.dr || "" }}</td>
+                  <td class="px-3 py-[7px] text-end text-[11.5px] font-semibold w-[90px] text-sale">{{ ln.cr || "" }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="journal.noJournal" class="text-center px-3 py-6 text-ink-muted text-[12px] leading-relaxed">{{ journal.msg }}</div>
+        </div>
       </div>
     </div>
   </div>
-
   <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
 </template>
 
@@ -82,7 +100,7 @@ import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { findOrder, orderJournal, STATE_META, stateLabel, MACHINE, AV } from "@/data/orders";
+import { findOrder, STATE_META, stateLabel, AV, postingInfo, orderTimeline, orderStageJournals, orderDims } from "@/data/orders";
 import { useCreated } from "@/composables/useCreated";
 
 const { t, locale } = useI18n();
@@ -92,29 +110,11 @@ const { findCreatedOrder } = useCreated();
 
 const o = computed(() => findCreatedOrder(route.query.id) || findOrder(route.query.id));
 const sm = computed(() => STATE_META[o.value?.state] || STATE_META.placed);
-const journal = computed(() => orderJournal(o.value, locale.value));
-
-// Active step: cancelled stalls at Placed; undelivered counts as transit.
-const activeStep = computed(() => {
-  if (!o.value) return 0;
-  const map = { placed: 0, confirmed: 1, transit: 2, undelivered: 2, delivered: 3, settled: 4, cancelled: 0 };
-  return map[o.value.state] ?? 0;
-});
+const post = computed(() => postingInfo(o.value?.state, locale.value));
+const dims = computed(() => orderDims(o.value, locale.value));
+const timeline = computed(() => orderTimeline(o.value, locale.value));
+const journal = computed(() => orderStageJournals(o.value, locale.value));
 
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const backLabel = computed(() => L("Back to orders", "العودة للطلبات", "Retour aux commandes"));
-const jTitle = computed(() => L("Auto-posted journal", "القيد المُرحَّل تلقائياً", "Écriture passée"));
-const accLabel = computed(() => L("Account", "الحساب", "Compte"));
-const drLabel = computed(() => L("Debit", "مدين", "Débit"));
-const crLabel = computed(() => L("Credit", "دائن", "Crédit"));
-
-const opChips = computed(() => o.value ? [
-  { label: L("Confirmation", "التأكيد", "Confirmation"), value: o.value.salesStatus },
-  { label: L("Logistics", "اللوجستيك", "Logistique"), value: o.value.logiStatus },
-  { label: L("Tracking", "التتبّع", "Suivi"), value: o.value.trackStatus },
-  { label: L("Carrier", "الناقل", "Transporteur"), value: o.value.carrier },
-  { label: L("City", "المدينة", "Ville"), value: o.value.city },
-] : []);
-
 function back() { router.push({ path: "/accounting/sales/orders" }); }
 </script>

@@ -43,6 +43,73 @@ export const ORDERS = [
 
 export const findOrder = (id) => ORDERS.find((o) => o.id === id) || null;
 const f2 = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const L = (l, en, ar, fr) => (l === "ar" ? ar : l === "fr" ? fr : en);
+
+// Posting state for the list/detail: delivered & settled orders have auto-posted
+// their revenue journal; everything earlier is awaiting delivery.
+export function postingInfo(state, l) {
+  const posted = state === "delivered" || state === "settled";
+  return {
+    posted,
+    label: posted ? L(l, "Auto-posted", "تم الترحيل تلقائياً", "Passation auto")
+                   : L(l, "Awaiting delivery", "بانتظار التسليم", "En attente livraison"),
+  };
+}
+
+// Lifecycle timeline — 5 events; "reached" depends on the order's state.
+export function orderTimeline(o, l) {
+  if (!o) return [];
+  const reached = { settled: 5, delivered: 4, transit: 3, undelivered: 3, confirmed: 2, placed: 1, cancelled: 1 }[o.state] || 1;
+  const defs = [
+    { icon: "receipt", title: L(l, "Order placed", "الطلب مُسجَّل", "Commande passée"), desc: L(l, "From Shopify · no GL", "من Shopify · لا قيد محاسبي", "Depuis Shopify · aucun GL") },
+    { icon: "check", title: L(l, "Confirmed", "تم التأكيد", "Confirmée"), desc: L(l, "Confirmed by agent · soft reservation", "تأكيد عبر الوكيل · حجز مخزون", "Confirmée par l’agent · réservation") },
+    { icon: "truck", title: L(l, "Shipped — in transit", "شُحنت — في الطريق", "Expédiée — en transit"), desc: L(l, "Delivery note → Stock in Transit posted", "إذن تسليم → مخزون في الطريق", "Bon de livraison → stock en transit") },
+    { icon: "check", title: L(l, "Delivered — collected", "تم التسليم — تحصيل", "Livrée — encaissée"), desc: L(l, "Recognition point: revenue + VAT + COGS", "نقطة الاعتراف: إيراد + ضريبة + تكلفة", "Reconnaissance : revenu + TVA + COGS") },
+    { icon: "coins", title: L(l, "Settled", "تمت التسوية", "Réglée"), desc: L(l, "Carrier remitted cash − fee", "حوّل الناقل النقد ناقصاً الرسوم", "Transporteur a versé le cash − frais") },
+  ];
+  return defs.map((d, i) => ({ ...d, done: i + 1 <= reached, time: i + 1 <= reached ? o.date : "—", last: i === defs.length - 1 }));
+}
+
+// Auto-posted journal grouped by stage (the design's right column). Each stage
+// is balanced; placed/confirmed/cancelled post nothing before delivery.
+export function orderStageJournals(o, l) {
+  if (!o) return { stages: [], noJournal: true, msg: "" };
+  const id6 = o.id.slice(-6);
+  const ln = (acc, dr, cr, indent) => ({ acc, dr: dr ? f2(dr) : "", cr: cr ? f2(cr) : "", indent: !!indent });
+  const stages = [];
+  if (["transit", "undelivered", "delivered", "settled"].includes(o.state)) {
+    stages.push({ stage: L(l, "Shipped — in transit", "شحن — في الطريق", "Expédition — transit"), ref: "DN-" + id6, dot: "#d97706",
+      lines: [ln("Stock in Transit – COD", o.cost, 0), ln("Inventory", 0, o.cost, true)] });
+  }
+  if (["delivered", "settled"].includes(o.state)) {
+    stages.push({ stage: L(l, "Delivered — revenue", "تسليم — اعتراف بالإيراد", "Livraison — revenu"), ref: o.id, dot: "#10b981",
+      lines: [ln("COD Receivable – " + o.carrier, o.value, 0), ln("Sales Revenue", 0, o.net, true), ln("VAT Output Payable", 0, o.vat, true)] });
+    stages.push({ stage: L(l, "Delivered — COGS", "تسليم — تكلفة البضاعة", "Livraison — COGS"), ref: o.id, dot: "#10b981",
+      lines: [ln("COGS", o.cost, 0), ln("Stock in Transit – COD", 0, o.cost, true)] });
+  }
+  if (o.state === "settled") {
+    const fee = Math.round(o.value * 0.04);
+    stages.push({ stage: L(l, "Remittance — settled", "تحصيل — تسوية", "Versement — règlement"), ref: "PE-" + id6, dot: "#065f46",
+      lines: [ln("Bank", o.value - fee, 0), ln("Carrier Fee Expense", fee, 0), ln("COD Receivable – " + o.carrier, 0, o.value, true)] });
+  }
+  const noJournal = stages.length === 0;
+  return { stages, noJournal,
+    msg: L(l, "No GL before delivery — this is status & inventory movement only. Revenue is recognised only on delivery.",
+      "لا قيد محاسبي قبل التسليم — هذه مجرد حركة حالة ومخزون. الإيراد يُعترف به عند التسليم فقط.",
+      "Aucun GL avant la livraison — simple changement d’état et de stock. Le revenu n’est reconnu qu’à la livraison.") };
+}
+
+// Dimensions row (header chips) for the order detail.
+export function orderDims(o, l) {
+  if (!o) return [];
+  return [
+    { k: L(l, "Confirmation", "حالة التأكيد", "Confirmation"), v: o.salesStatus },
+    { k: L(l, "Logistics", "اللوجستيات", "Logistique"), v: o.logiStatus },
+    { k: L(l, "Tracking", "التتبع", "Suivi"), v: o.trackStatus },
+    { k: L(l, "Carrier", "الناقل", "Transporteur"), v: o.carrier },
+    { k: L(l, "City", "المدينة", "Ville"), v: o.city },
+  ];
+}
 
 /**
  * Auto-posted journal for an order. In-transit orders only move goods into
