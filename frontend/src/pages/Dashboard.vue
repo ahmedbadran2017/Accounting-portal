@@ -33,6 +33,9 @@
             <span class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(167,139,250,.25);color:#ddd6fe">
               <span class="w-[5px] h-[5px] rounded-full bg-violet-400 animate-pulse"></span>{{ t("dash.auditing") }}
             </span>
+            <span v-if="isLive" class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(52,211,153,.22);color:#a7f3d0">
+              <span class="w-[5px] h-[5px] rounded-full bg-emerald-400"></span>Live{{ asOf ? " · " + asOf : "" }}
+            </span>
           </div>
           <p class="text-[13px] mt-1.5 leading-relaxed max-w-2xl" style="color:#e9e3ff">{{ vm.digest }}</p>
         </div>
@@ -196,14 +199,15 @@ const router = useRouter();
 const { entityId } = useUi();
 const { loadCockpit } = useDashboard();
 
-// Live cockpit figures overlaid on the sample VM (Auditor narration stays
-// sample until Phase 4). Reloads when the entity changes.
+// CFO cockpit from live ERPNext (KPIs, digest, working capital all computed
+// from real figures); reloads when the entity changes.
 const cockpit = ref(null);
 const isLive = ref(null);
-async function load() { cockpit.value = await loadCockpit(); isLive.value = !!cockpit.value; }
+async function load() { cockpit.value = await loadCockpit(); isLive.value = !!(cockpit.value && cockpit.value.company); }
 watch(entityId, load, { immediate: true });
 
-const vm = computed(() => overlayCockpit(buildDashVM(locale.value, entityId.value), cockpit.value));
+const vm = computed(() => overlayCockpit(buildDashVM(locale.value, entityId.value), cockpit.value, locale.value));
+const asOf = computed(() => cockpit.value?.as_of || "");
 const anomalies = ANOMALIES.slice(0, 4);
 const sev = (a) => SEV_META[a.sev] || SEV_META.low;
 

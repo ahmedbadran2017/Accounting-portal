@@ -44,7 +44,7 @@ export default defineConfig(({ command }) => ({
         // Point at the ERPNext backend. Override with VITE_PROXY_TARGET to
         // hit a local bench. cookieDomainRewrite lets the browser accept the
         // sid + csrf cookies on localhost.
-        target: process.env.VITE_PROXY_TARGET || "https://admin.justyol.com",
+        target: process.env.VITE_PROXY_TARGET || "https://admin-dev.justyol.com",
         changeOrigin: true,
         secure: false,
         cookieDomainRewrite: { "*": "" },
