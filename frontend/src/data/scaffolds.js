@@ -3,23 +3,31 @@
 // renders any of these. Representative June-2026 rows; live ERPNext later.
 // cols: [label, align?]  ('e' = end-aligned). rows: array of cell arrays.
 
+const _f2 = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export const SCAFFOLDS = {
   sales: {
-    challans: { icon: "truck", cols: [["Challan"], ["Customer"], ["City"], ["Carrier"], ["Status"]], rows: [
-      ["DN-167144", "زكرياء الرحماني", "Casablanca", "Cathedis", "To Bill"],
-      ["DN-167002", "Salsabil El Kati", "Rabat", "Cathedis", "Completed"],
-      ["DN-166890", "Siham Elfilali", "Marrakech", "Sendit", "Return Issued"],
-    ] },
-    receipts: { icon: "coins", cols: [["Receipt"], ["Customer"], ["Order"], ["Method"], ["Collected", "e"]], rows: [
-      ["REC-19042", "Siham Elfilali", "#242385", "COD · Cathedis", "298.00"],
-      ["REC-19041", "Jihad Elouarti", "#242542", "COD · Cathedis", "546.00"],
-      ["REC-19040", "مليكة بلالي", "#242458", "COD · Cathedis", "149.00"],
-    ] },
-    payments: { icon: "wallet", cols: [["Payment"], ["Customer"], ["Date"], ["Method"], ["Amount", "e"]], rows: [
-      ["PAY-22493", "Lachhed najia", "20 Jun", "Cathedis clearing", "129.00"],
-      ["PAY-22491", "زكرياء الرحماني", "21 Jun", "Cathedis clearing", "129.00"],
-      ["PAY-22475", "Siham Elfilali", "20 Jun", "Cathedis clearing", "298.00"],
-    ] },
+    challans: { icon: "truck", cols: [["Challan"], ["Customer"], ["Carrier"], ["Tracking"], ["Status"]],
+      live: { method: "accounting_portal.api.sales.list_challans", map: (r) => [r.name, r.customer, r.carrier, r.tracking, r.status] },
+      rows: [
+        ["DN-167144", "زكرياء الرحماني", "Cathedis", "CTH019432", "Delivered"],
+        ["DN-167002", "Salsabil El Kati", "Cathedis", "CTH019410", "In transit"],
+        ["DN-166890", "Siham Elfilali", "Sendit", "SND08821", "Return Issued"],
+      ] },
+    receipts: { icon: "coins", cols: [["Receipt"], ["Customer"], ["Reference"], ["Method"], ["Collected", "e"]],
+      live: { method: "accounting_portal.api.sales.list_receipts", map: (r) => [r.name, r.customer, r.ref, r.method, _f2(r.collected)] },
+      rows: [
+        ["PAY-19042", "Siham Elfilali", "CATH…2385", "Cathadis Transactions", "298.00"],
+        ["PAY-19041", "Jihad Elouarti", "CATH…2542", "Cathadis Transactions", "546.00"],
+        ["PAY-19040", "مليكة بلالي", "CATH…2458", "Cathadis Transactions", "149.00"],
+      ] },
+    payments: { icon: "wallet", cols: [["Payment"], ["Customer"], ["Date"], ["Method"], ["Amount", "e"]],
+      live: { method: "accounting_portal.api.sales.list_receipts", map: (r) => [r.name, r.customer, String(r.date || ""), r.method, _f2(r.collected)] },
+      rows: [
+        ["PAY-22493", "Lachhed najia", "2026-06-20", "Cathadis Transactions", "129.00"],
+        ["PAY-22491", "زكرياء الرحماني", "2026-06-21", "Cathadis Transactions", "129.00"],
+        ["PAY-22475", "Siham Elfilali", "2026-06-20", "Cathadis Transactions", "298.00"],
+      ] },
     credits: { icon: "receipt", cols: [["Credit note"], ["Customer"], ["Reason"], ["Date"], ["Amount", "e"]], rows: [
       ["CN-00231", "Khadija", "Return — size", "19 Jun", "-149.00"],
       ["CN-00230", "Attman", "Delivery exception", "18 Jun", "-144.00"],

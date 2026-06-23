@@ -113,6 +113,47 @@ def list_orders(company=None, state=None, search=None, limit=100):
 
 
 @frappe.whitelist()
+def list_challans(company=None, limit=100):
+    """Delivery Notes (COD challans) for one company — carrier, tracking, status."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    return frappe.db.sql(
+        """
+        SELECT name, customer,
+               IFNULL(NULLIF(custom_tracking_company, ''), '—') AS carrier,
+               IFNULL(NULLIF(custom_tracking_number, ''), '—') AS tracking,
+               IFNULL(NULLIF(custom_track_shipment_status, ''), IFNULL(custom_logistics_status, status)) AS status
+        FROM `tabDelivery Note`
+        WHERE company=%s AND docstatus=1
+        ORDER BY posting_date DESC, creation DESC LIMIT %s
+        """,
+        (target, min(int(limit or 100), 300)), as_dict=True)
+
+
+@frappe.whitelist()
+def list_receipts(company=None, limit=100):
+    """COD receipts (Payment Entry · Receive) for one company — the cash landing."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    return frappe.db.sql(
+        """
+        SELECT name, party AS customer, IFNULL(NULLIF(reference_no, ''), '—') AS ref,
+               IFNULL(NULLIF(mode_of_payment, ''), '—') AS method, paid_amount AS collected,
+               posting_date AS date
+        FROM `tabPayment Entry`
+        WHERE company=%s AND docstatus=1 AND payment_type='Receive'
+        ORDER BY posting_date DESC, creation DESC LIMIT %s
+        """,
+        (target, min(int(limit or 100), 300)), as_dict=True)
+
+
+@frappe.whitelist()
 def get_order(name):
     """One order: header, COD operational fields, and the live posted journal."""
     assert_portal_access()

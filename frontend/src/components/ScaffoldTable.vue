@@ -5,6 +5,8 @@
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon :name="cfg.icon" :size="14" color="#a33a22" /></span>
       <span class="text-[13px] font-bold">{{ title }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+            :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? "Live" : "Sample" }}</span>
       <span class="text-[11px] text-ink-muted">{{ entityName }}</span>
     </div>
     <div class="overflow-x-auto">
@@ -17,7 +19,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(row, ri) in cfg.rows" :key="ri" class="border-t border-line-hair hover:bg-app-warm/60">
+          <tr v-for="(row, ri) in rows" :key="ri" class="border-t border-line-hair hover:bg-app-warm/60">
             <td v-for="(cell, ci) in row" :key="ci"
                 class="px-4 py-2.5 whitespace-nowrap"
                 :class="[cfg.cols[ci] && cfg.cols[ci][1] === 'e' ? 'text-end tnum' : '', ci === 0 ? 'font-semibold font-mono' : 'text-ink-2', String(cell).startsWith('-') ? 'text-sale' : '']">
@@ -39,13 +41,15 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS } from "@/data/nav";
 import { scaffoldFor } from "@/data/scaffolds";
+import { currentCompany } from "@/composables/useLive";
+import api from "@/services/api";
 
 const route = useRoute();
 const { t } = useI18n();
@@ -55,6 +59,25 @@ const module = computed(() => route.params.module);
 const sub = computed(() => route.params.sub);
 const cfg = computed(() => scaffoldFor(module.value, sub.value));
 const entityName = computed(() => (entities.find((e) => e.id === entityId.value) || entities[0]).name);
+
+// Tabs with a `live` config fetch real ERPNext rows (mapped to the columns),
+// falling back to the sample rows on failure. Static tabs just show the sample.
+const rows = ref([]);
+const isLive = ref(null);
+async function load() {
+  const c = cfg.value;
+  if (!c) { rows.value = []; isLive.value = null; return; }
+  if (!c.live) { rows.value = c.rows; isLive.value = null; return; }
+  try {
+    const data = await api.call(c.live.method, { company: currentCompany(), limit: 100 });
+    rows.value = (Array.isArray(data) ? data : []).map(c.live.map);
+    isLive.value = true;
+  } catch {
+    rows.value = c.rows;
+    isLive.value = false;
+  }
+}
+watch([() => route.params.sub, () => route.params.module, entityId], load, { immediate: true });
 const title = computed(() => {
   const s = (SUBTABS[module.value] || []).find((x) => x[0] === sub.value);
   return s ? t(s[1]) : t("nav." + module.value);
