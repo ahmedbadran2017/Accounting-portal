@@ -37,7 +37,7 @@
                 <td class="px-2 py-1.5">
                   <select v-model="ln.account" class="w-full bg-transparent text-[12px] py-1 focus:outline-none cursor-pointer">
                     <option value="">—</option>
-                    <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.name }}</option>
+                    <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.name }}{{ a.currency ? " · " + a.currency : "" }}</option>
                   </select>
                 </td>
                 <td class="px-2 py-1.5"><input type="number" min="0" v-model.number="ln.debit" class="w-full text-end tnum bg-transparent py-1 focus:outline-none" placeholder="0" /></td>
@@ -64,12 +64,13 @@
           <span v-if="totalDr >= 10000" class="text-[11px] text-amber-700 inline-flex items-center gap-1"><Icon name="shield" :size="12" />{{ L("needs an approver", "يحتاج موافِق", "approbation requise") }}</span>
         </div>
 
+        <div v-if="mixedCurrency" class="text-[11.5px] text-sale inline-flex items-center gap-1.5"><Icon name="alert" :size="13" />{{ L("Mixed currencies (" + usedCurrencies.join(", ") + ") — use one currency per entry", "عملات مختلطة (" + usedCurrencies.join("، ") + ") — استخدم عملة واحدة للقيد", "Devises mixtes — une seule par écriture") }}</div>
         <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
       </div>
 
       <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
         <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim disabled:opacity-50" :disabled="!balanced || posting" @click="post">
+        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim disabled:opacity-50" :disabled="!balanced || mixedCurrency || posting" @click="post">
           {{ posting ? L("Posting…", "جارٍ…", "…") : L("Post entry", "ترحيل القيد", "Passer") }}
         </button>
       </div>
@@ -115,6 +116,9 @@ onMounted(async () => {
 const totalDr = computed(() => lines.value.reduce((s, l) => s + (Number(l.debit) || 0), 0));
 const totalCr = computed(() => lines.value.reduce((s, l) => s + (Number(l.credit) || 0), 0));
 const balanced = computed(() => totalDr.value > 0 && Math.round((totalDr.value - totalCr.value) * 100) === 0);
+const curMap = computed(() => Object.fromEntries(accounts.value.map((a) => [a.name, a.currency])));
+const usedCurrencies = computed(() => [...new Set(lines.value.filter((l) => l.account).map((l) => curMap.value[l.account]).filter(Boolean))]);
+const mixedCurrency = computed(() => usedCurrencies.value.length > 1);
 
 async function post() {
   error.value = "";

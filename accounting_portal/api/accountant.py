@@ -26,7 +26,7 @@ def account_options(company=None):
         return []
     target = company if (company and company in companies) else companies[0]
     return frappe.db.sql(
-        """SELECT name, account_name, IFNULL(account_type, '') AS type
+        """SELECT name, account_name, IFNULL(account_type, '') AS type, account_currency AS currency
            FROM `tabAccount` WHERE company=%s AND is_group=0 AND disabled=0
            ORDER BY name""",
         (target,), as_dict=True)
