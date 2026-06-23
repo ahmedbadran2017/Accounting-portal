@@ -40,6 +40,9 @@ def _je_poster(action):
         "company": action.company,
         "posting_date": p.get("posting_date") or nowdate(),
         "voucher_type": "Journal Entry",
+        # Allow lines on accounts whose currency differs from the company default
+        # (the books carry USD/TRY accounts); same-currency lines just use rate 1.
+        "multi_currency": 1,
         "user_remark": p.get("remark") or "Posted via Accounting Portal",
         "accounts": [
             {
