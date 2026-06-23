@@ -21,6 +21,9 @@
 
     <RemittanceDetail v-if="activeSub === 'remittance' && route.query.id" />
     <RemittanceList v-else-if="activeSub === 'remittance'" />
+    <VarianceQueue v-else-if="activeSub === 'variance'" />
+    <CarrierAging v-else-if="activeSub === 'aging'" />
+    <BankRec v-else-if="activeSub === 'bankrec'" />
     <div v-else class="bg-white rounded-card border border-line">
       <div class="flex flex-col items-center justify-center text-center py-20 px-6">
         <div class="w-12 h-12 rounded-card grid place-items-center mb-4" style="background:#fbf2ee"><Icon name="spark" :size="22" color="#a33a22" /></div>
@@ -39,6 +42,9 @@ import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import RemittanceList from "@/pages/banking/RemittanceList.vue";
 import RemittanceDetail from "@/pages/banking/RemittanceDetail.vue";
+import VarianceQueue from "@/pages/banking/VarianceQueue.vue";
+import CarrierAging from "@/pages/banking/CarrierAging.vue";
+import BankRec from "@/pages/banking/BankRec.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 

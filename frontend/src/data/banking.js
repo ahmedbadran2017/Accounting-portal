@@ -58,6 +58,49 @@ export function reconLines(batch) {
   ];
 }
 
+// ── Variance queue ──
+export const VAR_TYPE = {
+  uncollected: { bg: "#fef2f2", fg: "#be123c", bd: "#fecaca", en: "Uncollected", ar: "غير مُحصَّل", fr: "Non collecté" },
+  partial:     { bg: "#fff7ed", fg: "#c2410c", bd: "#fed7aa", en: "Partial", ar: "جزئي", fr: "Partiel" },
+  fee_gap:     { bg: "#eff6ff", fg: "#0369a1", bd: "#bae6fd", en: "Fee gap", ar: "فرق رسوم", fr: "Écart frais" },
+};
+export const varTypeLabel = (s, l) => { const x = VAR_TYPE[s] || VAR_TYPE.uncollected; return x[l] || x.en; };
+export const VARIANCE_QUEUE = [
+  { order: "YC-000185", carrier: "Sendit", expected: "149", collected: "0", variance: "-149", type: "uncollected", age: "4d" },
+  { order: "YC-000177", carrier: "Sendit", expected: "89", collected: "0", variance: "-89", type: "uncollected", age: "4d" },
+  { order: "YC-000183", carrier: "Sendit", expected: "129", collected: "60", variance: "-69", type: "partial", age: "4d" },
+  { order: "#242397", carrier: "Cathedis", expected: "149", collected: "140", variance: "-9", type: "fee_gap", age: "6d" },
+  { order: "#240956", carrier: "Cathedis", expected: "144", collected: "0", variance: "-144", type: "uncollected", age: "7d" },
+  { order: "YC-000150", carrier: "Ozon Express", expected: "99", collected: "90", variance: "-9", type: "fee_gap", age: "9d" },
+];
+export const VARIANCE_TOTAL = "469";
+
+// ── Carrier aging ──
+export const CARRIER_AGING = [
+  { carrier: "Cathedis", b0: "182,000", b1: "96,000", b2: "40,000", b3: "12,000", total: "330,000", days: "5.2d", alert: false },
+  { carrier: "Sendit", b0: "48,000", b1: "31,000", b2: "22,000", b3: "18,400", total: "119,400", days: "9.8d", alert: true },
+  { carrier: "Ozon Express", b0: "21,000", b1: "8,000", b2: "2,800", b3: "0", total: "31,800", days: "3.1d", alert: false },
+];
+
+// ── Bank reconciliation ──
+export const REC_STATUS = {
+  matched:   { bg: "#eff6ff", fg: "#0369a1", bd: "#bae6fd", en: "Matched", ar: "مطابَق", fr: "Rapproché" },
+  unmatched: { bg: "#fffbeb", fg: "#b45309", bd: "#fde68a", en: "Needs review", ar: "يحتاج مراجعة", fr: "À revoir" },
+  posted:    { bg: "#ecfdf5", fg: "#047857", bd: "#a7f3d0", en: "Posted", ar: "مُرحَّل", fr: "Passé" },
+};
+export const recStatusLabel = (s, l) => { const x = REC_STATUS[s] || REC_STATUS.matched; return x[l] || x.en; };
+export const BANK_REC = {
+  bank: "BMCE Bank", matchedPct: "83%", unmatched: "2",
+  rows: [
+    { date: "21 Jun", desc: "COD remittance · Sendit", amount: "+63,700", to: "108.021.003", status: "matched" },
+    { date: "20 Jun", desc: "Supplier payment · Meta Ads", amount: "-44,800", to: "320.01", status: "matched" },
+    { date: "19 Jun", desc: "Bank fee", amount: "-130", to: "—", status: "unmatched" },
+    { date: "18 Jun", desc: "COD remittance · Cathedis", amount: "+50,200", to: "108.021.003", status: "matched" },
+    { date: "17 Jun", desc: "FX transfer out", amount: "-31,214", to: "—", status: "unmatched" },
+    { date: "16 Jun", desc: "COD remittance · Ozon", amount: "+28,400", to: "108.021.003", status: "posted" },
+  ],
+};
+
 export function varianceMsg(l) {
   return pick(l,
     "Collected is short of what the orders expected — 2 orders never collected, 1 partial. Post the matched portion and send the variance to the variance queue.",
