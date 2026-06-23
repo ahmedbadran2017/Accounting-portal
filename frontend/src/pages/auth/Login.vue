@@ -1,13 +1,9 @@
 <template>
   <div class="min-h-screen grid place-items-center bg-app-bg p-4">
     <div class="w-full max-w-sm bg-white rounded-card shadow-card border border-line p-7">
-      <div class="flex items-center gap-2.5 mb-6">
-        <div class="w-9 h-9 rounded-[10px] grid place-items-center text-white font-extrabold"
-             style="background:linear-gradient(135deg,#e17f62,#a33a22)">J</div>
-        <div class="leading-tight">
-          <div class="text-[14px] font-bold">{{ t("app.title") }}</div>
-          <div class="text-[11px] text-ink-muted">{{ t("app.sub") }} · Justyol</div>
-        </div>
+      <div class="mb-6">
+        <img :src="LOGO_URL" alt="Justyol" class="h-[22px] w-auto" />
+        <div class="text-[11px] text-ink-muted mt-1.5">{{ t("app.title") }}</div>
       </div>
 
       <h1 class="text-[17px] font-bold mb-5 tracking-tight">{{ t("auth.login_title") }}</h1>
@@ -47,6 +43,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useAuth } from "@/composables/useAuth";
 import { applyLocale, LOCALES, LOCALE_LABEL } from "@/i18n";
+import { LOGO_URL } from "@/utils/constants";
 import SpinnerIcon from "@/components/shared/SpinnerIcon.vue";
 
 const { t, locale } = useI18n();

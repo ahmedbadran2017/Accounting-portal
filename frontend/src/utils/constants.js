@@ -2,6 +2,7 @@
 
 export const ASSET_BASE = import.meta.env.DEV ? "" : "/assets/accounting_portal";
 export const asset = (path) => `${ASSET_BASE}${path}`;
+export const LOGO_URL = asset("/justyol-logo.png");
 
 // Route paths (client-side, under the /accounting mount).
 export const ROUTES = {

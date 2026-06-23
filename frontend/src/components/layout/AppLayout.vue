@@ -6,13 +6,9 @@
       :class="[sideBorder, open ? 'translate-x-0' : sideHidden]"
     >
       <!-- Brand -->
-      <div class="h-[60px] flex items-center gap-2.5 px-4 border-b border-line">
-        <div class="w-8 h-8 rounded-[9px] grid place-items-center text-white font-extrabold text-[15px]"
-             style="background:linear-gradient(135deg,#e17f62,#a33a22)">J</div>
-        <div class="leading-tight">
-          <div class="text-[13.5px] font-bold tracking-tight">{{ t("app.title") }}</div>
-          <div class="text-[10.5px] text-ink-muted">{{ t("app.sub") }} · Justyol</div>
-        </div>
+      <div class="h-[60px] flex flex-col justify-center px-4 border-b border-line">
+        <img :src="LOGO_URL" alt="Justyol" class="h-[18px] w-auto self-start" />
+        <div class="text-[10.5px] text-ink-muted mt-1">{{ t("app.title") }}</div>
       </div>
 
       <!-- Entity switcher -->
@@ -164,6 +160,7 @@ import { useAuth } from "@/composables/useAuth";
 import { useUi } from "@/composables/useUi";
 import { applyLocale, LOCALES, LOCALE_LABEL, RTL_LOCALES } from "@/i18n";
 import { NAV_GROUPS, JONLY, SUBTABS, defaultSub } from "@/data/nav";
+import { LOGO_URL } from "@/utils/constants";
 
 const { t, locale } = useI18n();
 const route = useRoute();
