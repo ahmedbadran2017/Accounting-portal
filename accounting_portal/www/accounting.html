@@ -6,7 +6,7 @@
 <title>{{ title or "Justyol Accounting Portal" }}</title>
 <!-- Vite-built bundle. CSS is pre-compiled by Vite and must not run through
      Frappe's PostCSS chain again. -->
-<link rel="stylesheet" href="/assets/accounting_portal/app.css">
+<link rel="stylesheet" href="/assets/accounting_portal/app.css?v={{ asset_version }}">
 <style>
   /* Hide Frappe's default website chrome */
   .web-footer, .website-footer,
@@ -60,5 +60,5 @@
   window.csrf_token = "{{ frappe.session.csrf_token }}";
   window.site_name = "{{ frappe.local.site }}";
 </script>
-<script type="module" src="/assets/accounting_portal/app.js"></script>
+<script type="module" src="/assets/accounting_portal/app.js?v={{ asset_version }}"></script>
 {%- endblock %}

@@ -96,24 +96,29 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { findOrder, STATE_META, stateLabel, AV, postingInfo, orderTimeline, orderStageJournals, orderDims } from "@/data/orders";
-import { useCreated } from "@/composables/useCreated";
+import { STATE_META, stateLabel, AV, postingInfo } from "@/data/orders";
+import { useOrders } from "@/composables/useOrders";
 
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { findCreatedOrder } = useCreated();
+const { loadDetail } = useOrders();
 
-const o = computed(() => findCreatedOrder(route.query.id) || findOrder(route.query.id));
+// Live get_order (real posted journal) with sample fallback; rebuilt on id/locale change.
+const vm = ref(null);
+async function load() { vm.value = await loadDetail(route.query.id, locale.value); }
+watch(() => [route.query.id, locale.value], load, { immediate: true });
+
+const o = computed(() => vm.value?.o || null);
+const dims = computed(() => vm.value?.dims || []);
+const timeline = computed(() => vm.value?.timeline || []);
+const journal = computed(() => vm.value?.journal || { noJournal: true, msg: "" });
 const sm = computed(() => STATE_META[o.value?.state] || STATE_META.placed);
 const post = computed(() => postingInfo(o.value?.state, locale.value));
-const dims = computed(() => orderDims(o.value, locale.value));
-const timeline = computed(() => orderTimeline(o.value, locale.value));
-const journal = computed(() => orderStageJournals(o.value, locale.value));
 
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 function back() { router.push({ path: "/accounting/sales/orders" }); }
