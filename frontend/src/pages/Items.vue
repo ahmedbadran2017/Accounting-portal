@@ -20,6 +20,7 @@
     </div>
 
     <LandedCost v-if="activeSub === 'landed'" />
+    <ItemsList v-else-if="activeSub === 'items'" />
     <div v-else class="bg-white rounded-card border border-line">
       <div class="flex flex-col items-center justify-center text-center py-20 px-6">
         <div class="w-12 h-12 rounded-card grid place-items-center mb-4" style="background:#fbf2ee"><Icon name="spark" :size="22" color="#a33a22" /></div>
@@ -37,6 +38,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import LandedCost from "@/pages/items/LandedCost.vue";
+import ItemsList from "@/pages/items/ItemsList.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 

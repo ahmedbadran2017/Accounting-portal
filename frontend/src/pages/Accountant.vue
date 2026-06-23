@@ -23,6 +23,8 @@
     <ChartOfAccounts v-else-if="activeSub === 'coa'" />
     <GeneralLedger v-else-if="activeSub === 'gl'" />
     <TrialBalance v-else-if="activeSub === 'trial'" />
+    <FixedAssets v-else-if="activeSub === 'assets'" />
+    <PeriodClose v-else-if="activeSub === 'close'" />
     <div v-else class="bg-white rounded-card border border-line">
       <div class="flex flex-col items-center justify-center text-center py-20 px-6">
         <div class="w-12 h-12 rounded-card grid place-items-center mb-4" style="background:#fbf2ee"><Icon name="spark" :size="22" color="#a33a22" /></div>
@@ -43,6 +45,8 @@ import Journals from "@/pages/accountant/Journals.vue";
 import ChartOfAccounts from "@/pages/accountant/ChartOfAccounts.vue";
 import GeneralLedger from "@/pages/accountant/GeneralLedger.vue";
 import TrialBalance from "@/pages/accountant/TrialBalance.vue";
+import FixedAssets from "@/pages/accountant/FixedAssets.vue";
+import PeriodClose from "@/pages/accountant/PeriodClose.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
