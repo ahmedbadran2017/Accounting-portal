@@ -1,5 +1,10 @@
 <template>
-  <div class="bg-white rounded-card border border-line overflow-hidden">
+  <div class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
+    <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair">
+      <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#ecfdf5"><Icon name="list" :size="14" color="#047857" /></span>
+      <span class="text-[13px] font-bold">{{ L("Trial balance","ميزان المراجعة","Balance") }}</span>
+      <span class="text-[11px] text-ink-muted">{{ L("Net balance per account · reconciled to the GL","الرصيد الصافي لكل حساب · مطابق للأستاذ","Solde net par compte · rapproché au GL") }}</span>
+    </div>
     <div class="overflow-x-auto">
       <table class="w-full text-[12px]">
         <thead>

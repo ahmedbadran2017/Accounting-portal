@@ -1,5 +1,9 @@
 <template>
-  <div class="bg-white rounded-card border border-line overflow-hidden">
+  <div class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
+    <div class="px-[18px] pt-4 pb-3">
+      <div class="text-[13px] font-bold">{{ L("Chart of accounts","دليل الحسابات","Plan comptable") }}</div>
+      <div class="text-[11px] text-ink-muted">{{ L("Live balances · anomalies flagged in red","أرصدة حيّة · الشذوذ بالأحمر","Soldes en direct · anomalies en rouge") }}</div>
+    </div>
     <table class="w-full text-[12px]">
       <tbody>
         <template v-for="(c, i) in COA" :key="i">

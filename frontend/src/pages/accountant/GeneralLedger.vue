@@ -1,5 +1,10 @@
 <template>
-  <div class="bg-white rounded-card border border-line overflow-hidden">
+  <div class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
+    <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair">
+      <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#f5f3ff"><Icon name="ledger" :size="14" color="#7c3aed" /></span>
+      <span class="text-[13px] font-bold">{{ L("General ledger","الأستاذ العام","Grand livre") }}</span>
+      <span class="text-[11px] text-ink-muted">{{ L("Every posting, reconciled to source","كل قيد، مطابق للمصدر","Chaque écriture, rapprochée à la source") }}</span>
+    </div>
     <div class="overflow-x-auto">
       <table class="w-full text-[12px]">
         <thead>
@@ -29,6 +34,7 @@
 
 <script setup>
 import { useI18n } from "vue-i18n";
+import Icon from "@/components/Icon.vue";
 import { GL } from "@/data/accountant";
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
