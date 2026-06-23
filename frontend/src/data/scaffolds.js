@@ -8,7 +8,21 @@ const _f2 = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigit
 export const SCAFFOLDS = {
   sales: {
     challans: { icon: "truck", cols: [["Challan"], ["Customer"], ["Carrier"], ["Tracking"], ["Status"]],
-      live: { method: "accounting_portal.api.sales.list_challans", map: (r) => [r.name, r.customer, r.carrier, r.tracking, r.status] },
+      live: {
+        method: "accounting_portal.api.sales.list_challans",
+        map: (r) => [r.name, r.customer, r.carrier, r.tracking, r.status],
+        open: (r) => r.tracking_url || null,
+      },
+      insights: {
+        method: "accounting_portal.api.sales.challans_summary",
+        sample: { total: 7553, delivered: 2779, in_transit: 554, exceptions: 92, delivery_rate: 36.8 },
+        cards: (s) => [
+          { label: "Challans (MTD)", value: (s.total || 0).toLocaleString(), color: "#1c1917", glow: "#a8a29e", sub: "delivery notes" },
+          { label: "Delivered", value: (s.delivered || 0).toLocaleString(), color: "#047857", glow: "#34d399", sub: `${s.delivery_rate}% rate` },
+          { label: "In transit", value: (s.in_transit || 0).toLocaleString(), color: "#0369a1", glow: "#38bdf8", sub: "on the way" },
+          { label: "Exceptions", value: (s.exceptions || 0).toLocaleString(), color: "#be123c", glow: "#f87171", sub: "RTO / failed" },
+        ],
+      },
       rows: [
         ["DN-167144", "زكرياء الرحماني", "Cathedis", "CTH019432", "Delivered"],
         ["DN-167002", "Salsabil El Kati", "Cathedis", "CTH019410", "In transit"],

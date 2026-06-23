@@ -125,12 +125,39 @@ def list_challans(company=None, limit=100):
         SELECT name, customer,
                IFNULL(NULLIF(custom_tracking_company, ''), '—') AS carrier,
                IFNULL(NULLIF(custom_tracking_number, ''), '—') AS tracking,
-               IFNULL(NULLIF(custom_track_shipment_status, ''), IFNULL(custom_logistics_status, status)) AS status
+               IFNULL(NULLIF(custom_track_shipment_status, ''), IFNULL(custom_logistics_status, status)) AS status,
+               custom_tracking_url AS tracking_url
         FROM `tabDelivery Note`
         WHERE company=%s AND docstatus=1
         ORDER BY posting_date DESC, creation DESC LIMIT %s
         """,
         (target, min(int(limit or 100), 300)), as_dict=True)
+
+
+@frappe.whitelist()
+def challans_summary(company=None):
+    """Insights for the Delivery challans tab — month-to-date delivery funnel."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return {}
+    target = company if (company and company in companies) else companies[0]
+    r = frappe.db.sql(
+        """
+        SELECT COUNT(*) AS total,
+               SUM(custom_track_shipment_status='Delivered' OR custom_logistics_status='Delivered') AS delivered,
+               SUM(custom_track_shipment_status IN ('In Transit','Out For Delivery') OR custom_logistics_status='Shipped') AS in_transit,
+               SUM(custom_track_shipment_status IN ('Delivery Exception','Failed Attempt') OR custom_logistics_status='Returned') AS exceptions
+        FROM `tabDelivery Note`
+        WHERE company=%s AND docstatus=1 AND posting_date >= %s
+        """,
+        (target, _month_start()), as_dict=True)[0]
+    total = r.total or 0
+    return {
+        "company": target, "total": total, "delivered": r.delivered or 0,
+        "in_transit": r.in_transit or 0, "exceptions": r.exceptions or 0,
+        "delivery_rate": round((r.delivered or 0) / total * 100, 1) if total else 0,
+    }
 
 
 @frappe.whitelist()
