@@ -122,7 +122,11 @@ def get_order(name):
          "total_taxes_and_charges", "status", "transaction_date",
          "custom_sales_status", "custom_logistics_status",
          "custom_track_shipment_status", "custom_tracking_company",
-         "custom_shipping_city"], as_dict=True,
+         "custom_shipping_city", "custom_shipping_governorate",
+         "custom_shipping_phone", "custom_customer_phone",
+         "custom_tracking_number", "custom_awb", "custom_tracking_url",
+         "custom_channel", "advance_paid", "per_billed", "per_delivered"],
+        as_dict=True,
     )
     if not so:
         frappe.throw("Order not found")
