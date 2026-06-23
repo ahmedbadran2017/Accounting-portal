@@ -7,8 +7,9 @@
     >
       <!-- Brand -->
       <div class="h-[60px] flex flex-col justify-center px-4 border-b border-line">
-        <img :src="LOGO_URL" alt="Justyol" class="h-[18px] w-auto self-start" />
-        <div class="text-[10.5px] text-ink-muted mt-1">{{ t("app.title") }}</div>
+        <img :src="LOGO_URL" alt="Justyol" class="h-[15px] w-auto self-start" />
+        <div class="text-[12px] font-bold tracking-tight leading-tight mt-1">JoyAgent Books</div>
+        <div class="text-[9.5px] text-ink-muted leading-tight">Justyol | Books</div>
       </div>
 
       <!-- Entity switcher -->
