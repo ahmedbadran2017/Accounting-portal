@@ -1,0 +1,57 @@
+{
+  "app": { "title": "JoyAgent Books", "sub": "Comptes" },
+  "header": {
+    "search": "Rechercher commandes, écritures, SKU…",
+    "create": "Créer",
+    "synced": "Synchro",
+    "finance_lead": "Resp. finance",
+    "auditor": "Ouvrir l’auditeur"
+  },
+  "groups": {
+    "overview": "Vue d’ensemble", "operations": "Opérations", "money": "Trésorerie",
+    "books": "Comptes", "jonly": "★ Spécifique Justyol"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord", "sales": "Ventes · COD", "purchases": "Achats",
+    "items": "Articles & marge", "banking": "Banque & COD", "accountant": "Comptable",
+    "reports": "Rapports & DD", "settings": "Paramètres", "copilot": "Copilote audit",
+    "consolidation": "Consolidation"
+  },
+  "sub": {
+    "customers": "Clients", "orders": "Commandes", "challans": "Bons de livraison",
+    "invoices": "Factures", "receipts": "Reçus", "payments_in": "Paiements reçus", "credits": "Avoirs",
+    "vendors": "Fournisseurs", "pos": "Bons de commande", "bills": "Factures", "expenses": "Dépenses",
+    "recurring": "Récurrent", "payments_out": "Paiements émis", "vcredits": "Avoirs fourn.",
+    "items": "Articles", "pricelists": "Listes de prix", "landed": "Coût de revient",
+    "accounts": "Comptes", "transactions": "Transactions", "rules": "Règles",
+    "remittance": "Encaissement COD", "variance": "File écarts", "aging": "Ancienneté", "bankrec": "Rappr. bancaire",
+    "journals": "Écritures", "coa": "Plan comptable", "gl": "Grand livre", "trial": "Balance",
+    "assets": "Immobilisations", "fx": "Ajust. change", "opening": "Solde d’ouverture", "close": "Clôture",
+    "statements": "États financiers", "taxreports": "Taxes & dimensions", "dd": "Indicateurs DD", "dataroom": "Data room",
+    "orgs": "Organisations", "users": "Utilisateurs", "taxconf": "Taxes", "currencies": "Devises",
+    "locations": "Emplacements", "tags": "Étiquettes", "custom": "Modules perso.", "integrations": "Intégrations", "anomrules": "Règles d’anomalie"
+  },
+  "jonly": {
+    "cod": "Encaissement COD", "carrier": "Créances transporteur", "margin": "Marge réelle SKU",
+    "consolidation": "Consolidation", "dd": "Pack investisseur / DD", "copilot": "Anomalies & copilote"
+  },
+  "dash": {
+    "auditing": "Auditeur IA · Audit", "open_auditor": "Ouvrir l’auditeur",
+    "cashflow": "Flux de trésorerie — entrées / sorties", "cashflow_sub": "22 jours · écritures de paiement réelles",
+    "in": "Entrées", "out": "Sorties", "net": "Net",
+    "channel_title": "Encaissement par canal", "channel_sub": "Où le cash de juin a atterri",
+    "wc_title": "Fonds de roulement", "wc_sub": "AR / AP — réel ERPNext",
+    "anomalies": "Anomalies"
+  },
+  "module": {
+    "search": "Rechercher…", "filters": "Filtres", "new": "Nouveau",
+    "placeholder_title": "Écran à construire",
+    "placeholder_body": "Ce module est relié à la navigation. Ses tableaux et vues de détail seront construits à partir du design JoyAgent Books et des données ERPNext en direct, par étapes."
+  },
+  "auth": {
+    "login_title": "Connexion à JoyAgent Books", "email": "E-mail", "password": "Mot de passe",
+    "sign_in": "Se connecter", "signing_in": "Connexion…", "invalid": "E-mail ou mot de passe invalide.",
+    "no_access": "Votre compte n’a pas accès au portail."
+  },
+  "common": { "loading": "Chargement…", "error_loading": "Échec du chargement.", "retry": "Réessayer", "logout": "Déconnexion" }
+}

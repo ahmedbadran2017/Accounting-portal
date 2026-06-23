@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #app { height: 100%; }
+
+body {
+  background: #f3f1ef;
+  color: #1c1917;
+  font-family: "Instrument Sans", system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Arabic / RTL → Tajawal + flipped layout (dir toggled by the locale watcher). */
+html[dir="rtl"] body { font-family: "Tajawal", system-ui, -apple-system, sans-serif; }
+
+/* All figures use tabular numerals so columns align. */
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* House scrollbar from the design. */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #dcd8d4; border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: #bdb8b2; background-clip: padding-box; }
+
+button { transition: transform .14s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, background .15s ease, color .15s ease, border-color .15s ease; }
+button:active { transform: scale(.985); }
+
+.yo-card { transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease; }
+.yo-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(28,25,23,.05), 0 18px 40px -16px rgba(28,25,23,.20); }

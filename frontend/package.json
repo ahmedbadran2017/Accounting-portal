@@ -1,0 +1,30 @@
+{
+  "name": "accounting-portal-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "node -e \"require('fs').rmSync('../accounting_portal/public/assets',{recursive:true,force:true})\"",
+    "build": "vite build && node scripts/fix-asset-urls.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/alexandria": "^5.2.8",
+    "@fontsource/instrument-sans": "^5.2.8",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/tajawal": "^5.2.7",
+    "vue": "^3.4.21",
+    "vue-i18n": "^9.10.2",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@iconify-json/lucide": "^1.1.150",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "unplugin-icons": "^0.18.5",
+    "vite": "^5.2.8"
+  }
+}

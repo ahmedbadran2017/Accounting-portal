@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.eggs/
+
+# Built SPA bundle IS committed (accounting_portal/public/app.js, app.css,
+# assets/) so the production bench serves the portal without running Node.
+# Rebuild with `cd frontend && npm run build` before each deploy commit.
+
+# Node
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+
+# Env / editor
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+recursive-include accounting_portal *.css
+recursive-include accounting_portal *.csv
+recursive-include accounting_portal *.html
+recursive-include accounting_portal *.ico
+recursive-include accounting_portal *.js
+recursive-include accounting_portal *.json
+recursive-include accounting_portal *.md
+recursive-include accounting_portal *.png
+recursive-include accounting_portal *.py
+recursive-include accounting_portal *.svg
+recursive-include accounting_portal *.woff
+recursive-include accounting_portal *.woff2
+recursive-exclude accounting_portal *.pyc

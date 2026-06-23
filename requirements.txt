@@ -1,0 +1,1 @@
+# Frappe / ERPNext provide all runtime deps; nothing extra required.
