@@ -23,6 +23,22 @@ def _company_filter(companies):
     return f"gl.company IN ({placeholders})", list(companies)
 
 
+def _resolve_companies(company=None):
+    """Companies the user may see, optionally narrowed to one. Validates the
+    requested company against the allowed set so a caller can't read an entity
+    they're not permitted to (and so a bad value yields nothing, not an error)."""
+    allowed = allowed_companies()
+    if company:
+        return [c for c in allowed if c == company]
+    return allowed
+
+
+def _month_start():
+    """First day of the month containing today (server date at runtime)."""
+    d = getdate(nowdate())
+    return d.replace(day=1).isoformat()
+
+
 @frappe.whitelist()
 def get_overview():
     """Per-company snapshot: receivables, payables, cash & bank, and a
@@ -150,6 +166,106 @@ def get_recent_entries(limit=20, company=None):
         as_dict=True,
     )
     return rows
+
+
+@frappe.whitelist()
+def get_cod_cockpit(company=None):
+    """Entity-scoped COD financial cockpit (the Dashboard hero) — all live.
+
+    Defaults to the first allowed company (Justyol Morocco for the team). Every
+    figure is month-to-date off Bank/Cash GL movement, scoped to one company,
+    filtering is_cancelled = 0. Validated against the live instance: Cathadis
+    (108.021.003) carries ~99% of COD collection — surfaced as a concentration
+    warning.
+
+    Returns:
+        {
+          "company", "currency", "as_of", "month_start",
+          "cash_collected_mtd", "paid_out_mtd", "net_cash",
+          "receivable", "payable",
+          "channels": [{"account", "cash_in", "share", "is_clearing"}],
+          "cash_flow": [{"day": "DD", "in": n, "out": n}]
+        }
+    """
+    assert_portal_access()
+    companies = _resolve_companies(company)
+    if not companies:
+        return {}
+    target = company if (company and company in companies) else companies[0]
+    currency = frappe.db.get_value("Company", target, "default_currency")
+    month_start = _month_start()
+
+    # Month-to-date Bank/Cash movement, per account → channels + totals.
+    chan = frappe.db.sql(
+        """
+        SELECT gl.account AS account,
+               SUM(gl.debit) AS cash_in, SUM(gl.credit) AS cash_out
+        FROM `tabGL Entry` gl
+        JOIN `tabAccount` acc ON acc.name = gl.account
+        WHERE gl.is_cancelled = 0 AND gl.company = %s
+          AND acc.account_type IN ('Bank', 'Cash')
+          AND gl.posting_date >= %s
+        GROUP BY gl.account
+        ORDER BY cash_in DESC
+        """,
+        (target, month_start),
+        as_dict=True,
+    )
+    collected = sum(flt(r.cash_in) for r in chan)
+    paid_out = sum(flt(r.cash_out) for r in chan)
+    channels = [
+        {
+            "account": r.account,
+            "cash_in": flt(r.cash_in),
+            "share": round(flt(r.cash_in) / collected * 100, 1) if collected else 0,
+            # A single Bank/Cash account taking the lion's share is the COD
+            # clearing-account concentration risk the auditor flags.
+            "is_clearing": bool(collected and flt(r.cash_in) / collected > 0.5),
+        }
+        for r in chan if flt(r.cash_in) > 0
+    ]
+
+    # Daily money-in / money-out for the cash-flow bars.
+    flow = frappe.db.sql(
+        """
+        SELECT DATE_FORMAT(gl.posting_date, '%%d') AS day,
+               SUM(gl.debit) AS cin, SUM(gl.credit) AS cout
+        FROM `tabGL Entry` gl
+        JOIN `tabAccount` acc ON acc.name = gl.account
+        WHERE gl.is_cancelled = 0 AND gl.company = %s
+          AND acc.account_type IN ('Bank', 'Cash')
+          AND gl.posting_date >= %s
+        GROUP BY day ORDER BY day
+        """,
+        (target, month_start),
+        as_dict=True,
+    )
+    cash_flow = [{"day": r.day, "in": flt(r.cin), "out": flt(r.cout)} for r in flow]
+
+    # All-time AR / AP balances (account_type), scoped to the entity.
+    bal = frappe.db.sql(
+        """
+        SELECT acc.account_type AS t, SUM(gl.debit - gl.credit) AS bal
+        FROM `tabGL Entry` gl
+        JOIN `tabAccount` acc ON acc.name = gl.account
+        WHERE gl.is_cancelled = 0 AND gl.company = %s
+          AND acc.account_type IN ('Receivable', 'Payable')
+        GROUP BY acc.account_type
+        """,
+        (target,),
+        as_dict=True,
+    )
+    receivable = next((flt(r.bal) for r in bal if r.t == "Receivable"), 0.0)
+    payable = -next((flt(r.bal) for r in bal if r.t == "Payable"), 0.0)
+
+    return {
+        "company": target, "currency": currency,
+        "as_of": nowdate(), "month_start": month_start,
+        "cash_collected_mtd": collected, "paid_out_mtd": paid_out,
+        "net_cash": collected - paid_out,
+        "receivable": receivable, "payable": payable,
+        "channels": channels, "cash_flow": cash_flow,
+    }
 
 
 def _fiscal_year_start():
