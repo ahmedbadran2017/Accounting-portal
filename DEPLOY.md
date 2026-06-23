@@ -7,12 +7,20 @@ at `/accounting/*`. The built bundle is committed, so the production bench does
 ## 0. One-time: push this app to a Git repo
 The server pulls the app with `bench get-app <url>`, so it must be on Git first.
 
+Create an empty repo named **`accountant_portal`** on GitHub (account
+`ahmedbadran2017`, no README/license), then:
+
 ```bash
 cd /Users/ahmedbadran/Accounting/accounting_portal
-# (already a git repo with a first commit — see below)
-git remote add origin git@github.com:ahmedbadran2017/accounting_portal.git
+# (already a git repo with a first commit)
+git remote add origin git@github.com:ahmedbadran2017/accountant_portal.git
 git push -u origin main
 ```
+
+> The GitHub repo is `accountant_portal`, but the Frappe **app name stays
+> `accounting_portal`** (the python package). `bench get-app` takes the app name
+> as its first argument, so we pass `accounting_portal` explicitly below — no
+> mismatch.
 
 ## 1. Rebuild the SPA before every deploy commit
 Whenever frontend code changes, rebuild and commit the bundle:
@@ -31,7 +39,8 @@ git push
 ## 2. Install on the ERPNext bench (run on the server)
 ```bash
 cd ~/frappe-bench                         # your bench directory
-bench get-app accounting_portal https://github.com/ahmedbadran2017/accounting_portal
+# first arg = app name (accounting_portal); URL = the accountant_portal repo
+bench get-app accounting_portal https://github.com/ahmedbadran2017/accountant_portal
 bench --site admin.justyol.com install-app accounting_portal
 bench --site admin.justyol.com migrate    # creates the 4 portal roles
 bench --site admin.justyol.com clear-cache

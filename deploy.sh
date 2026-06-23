@@ -28,6 +28,6 @@ if git remote get-url origin >/dev/null 2>&1; then
   echo "✓ Pushed. Now on the server: bench get-app / migrate (see DEPLOY.md)."
 else
   echo "✓ Committed locally. Add a remote and push:"
-  echo "    git remote add origin git@github.com:ahmedbadran2017/accounting_portal.git"
+  echo "    git remote add origin git@github.com:ahmedbadran2017/accountant_portal.git"
   echo "    git push -u origin main"
 fi
