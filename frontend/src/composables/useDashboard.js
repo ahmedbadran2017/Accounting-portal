@@ -21,32 +21,46 @@ function compact(n) {
   return s + Math.round(a);
 }
 
+// A 100×26 SVG polyline for a KPI sparkline, normalised from a number series.
+export function sparkPts(arr) {
+  const a = arr && arr.length > 1 ? arr : [0, 0];
+  const min = Math.min(...a), max = Math.max(...a), range = max - min || 1;
+  const w = 100, h = 26, pad = 3;
+  return a.map((v, i) => `${((i / (a.length - 1)) * w).toFixed(1)},${(h - pad - ((v - min) / range) * (h - 2 * pad)).toFixed(1)}`).join(" ");
+}
+
 function cfoKpis(d, l) {
   const cohPos = d.cash_on_hand >= 0, netPos = d.net_cash >= 0;
   const coh = vu(d.cash_on_hand), col = vu(d.cash_collected_mtd), net = vu(Math.abs(d.net_cash)), pay = vu(d.payable);
+  // Real daily series → sparklines.
+  const flow = d.cash_flow || [];
+  const inS = flow.map((r) => Number(r.in) || 0);
+  const outS = flow.map((r) => Number(r.out) || 0);
+  const netS = flow.map((r) => (Number(r.in) || 0) - (Number(r.out) || 0));
+  let acc = 0; const cumS = netS.map((v) => (acc += v));
   return [
     {
       label: pick(l, "Cash on hand", "النقدية الفعلية", "Trésorerie"),
       value: coh.value, unit: coh.unit, up: cohPos, icon: "coins",
-      ic: cohPos ? "#047857" : "#be123c", ibg: cohPos ? "#ecfdf5" : "#fff1f2",
+      ic: cohPos ? "#047857" : "#be123c", ibg: cohPos ? "#ecfdf5" : "#fff1f2", spark: sparkPts(cumS),
       sub: pick(l, `Bank ${compact(d.bank_balance)} · Cash ${compact(d.cash_balance)}`,
         `بنك ${compact(d.bank_balance)} · كاش ${compact(d.cash_balance)}`,
         `Banque ${compact(d.bank_balance)} · Caisse ${compact(d.cash_balance)}`),
     },
     {
       label: pick(l, "Collected (MTD)", "محصّل (الشهر)", "Encaissé (mois)"),
-      value: col.value, unit: col.unit, up: true, icon: "wallet", ic: "#0369a1", ibg: "#eff6ff",
+      value: col.value, unit: col.unit, up: true, icon: "wallet", ic: "#0369a1", ibg: "#eff6ff", spark: sparkPts(inS),
       sub: pick(l, "COD via Cathadis", "COD عبر Cathadis", "COD via Cathadis"),
     },
     {
       label: pick(l, "Net cash (MTD)", "صافي النقد (الشهر)", "Flux net (mois)"),
       value: (netPos ? "+" : "−") + net.value, unit: net.unit, up: netPos, icon: "trend",
-      ic: netPos ? "#047857" : "#be123c", ibg: netPos ? "#ecfdf5" : "#fff1f2",
+      ic: netPos ? "#047857" : "#be123c", ibg: netPos ? "#ecfdf5" : "#fff1f2", spark: sparkPts(netS),
       sub: pick(l, "collected − paid", "محصّل − مدفوع", "encaissé − décaissé"),
     },
     {
       label: pick(l, "Payables (AP)", "دائنون (AP)", "Dettes (AP)"),
-      value: pay.value, unit: pay.unit, up: false, icon: "receipt", ic: "#be123c", ibg: "#fff1f2",
+      value: pay.value, unit: pay.unit, up: false, icon: "receipt", ic: "#be123c", ibg: "#fff1f2", spark: sparkPts(outS),
       sub: pick(l, "owed to suppliers", "مستحق للموردين", "dû aux fournisseurs"),
     },
   ];

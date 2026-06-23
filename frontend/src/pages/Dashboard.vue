@@ -55,15 +55,29 @@
 
     <!-- KPI row -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <div v-for="k in vm.kpis" :key="k.label" class="yo-card bg-white rounded-[14px] border border-line p-4 shadow-card">
-        <div class="flex items-center justify-between">
+      <div v-for="(k, ki) in vm.kpis" :key="k.label"
+           class="relative bg-white rounded-[16px] border border-line p-4 shadow-card overflow-hidden transition-all duration-200 hover:shadow-cardHover hover:-translate-y-[2px]">
+        <!-- soft accent glow tinted to the metric -->
+        <div class="absolute -top-10 -end-10 w-28 h-28 rounded-full blur-2xl pointer-events-none" :style="{ background: k.ic, opacity: 0.07 }"></div>
+        <div class="relative flex items-center justify-between">
           <span class="text-[11.5px] font-semibold text-ink-3">{{ k.label }}</span>
-          <span class="w-7 h-7 rounded-[8px] grid place-items-center" :style="{ background: k.ibg }"><Icon :name="k.icon" :size="15" :color="k.ic" /></span>
+          <span class="w-8 h-8 rounded-[10px] grid place-items-center shadow-sm" :style="{ background: k.ibg }"><Icon :name="k.icon" :size="16" :color="k.ic" /></span>
         </div>
-        <div class="text-[24px] font-bold tracking-tight tnum mt-2">
-          {{ k.value }}<span class="text-[13px] text-ink-muted font-semibold ms-0.5">{{ k.unit }}</span>
+        <div class="relative text-[27px] font-extrabold tracking-tight tnum mt-2.5 leading-none">
+          {{ k.value }}<span class="text-[13px] text-ink-muted font-bold ms-0.5">{{ k.unit }}</span>
         </div>
-        <div class="text-[10.5px] text-ink-muted mt-1.5">{{ k.sub }}</div>
+        <div class="relative text-[10.5px] text-ink-muted mt-1.5">{{ k.sub }}</div>
+        <!-- live sparkline -->
+        <svg v-if="k.spark" class="relative block w-full h-[26px] mt-2.5" viewBox="0 0 100 26" preserveAspectRatio="none">
+          <defs>
+            <linearGradient :id="'kspark' + ki" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" :stop-color="k.ic" stop-opacity="0.20" />
+              <stop offset="100%" :stop-color="k.ic" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <polygon :points="k.spark + ' 100,26 0,26'" :fill="'url(#kspark' + ki + ')'" />
+          <polyline :points="k.spark" fill="none" :stroke="k.ic" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+        </svg>
       </div>
     </div>
 

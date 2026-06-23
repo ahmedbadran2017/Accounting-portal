@@ -36,14 +36,21 @@ export function buildDashVM(lang, entity) {
     })),
   };
 
+  const _inA = Object.values(CIN), _outA = Object.values(COUT);
+  const _netA = Object.keys(CIN).map((d) => (CIN[d] || 0) - (COUT[d] || 0));
+  const _sp = (arr) => {
+    const a = arr && arr.length > 1 ? arr : [0, 0];
+    const mn = Math.min(...a), mx = Math.max(...a), rg = mx - mn || 1, w = 100, h = 26, p = 3;
+    return a.map((v, i) => `${((i / (a.length - 1)) * w).toFixed(1)},${(h - p - ((v - mn) / rg) * (h - 2 * p)).toFixed(1)}`).join(" ");
+  };
   const kpis = [
-    { label: pick(lang, "Cash collected (MTD)", "نقد مُحصَّل (الشهر)", "Encaissé (mois)"), value: "1.15", unit: "M", up: true, icon: "coins", ic: "#047857", ibg: "#ecfdf5",
+    { label: pick(lang, "Cash collected (MTD)", "نقد مُحصَّل (الشهر)", "Encaissé (mois)"), value: "1.15", unit: "M", up: true, icon: "coins", ic: "#047857", ibg: "#ecfdf5", spark: _sp(_inA),
       sub: pick(lang, "6,106 payments · June", "٦٬١٠٦ دفعة · يونيو", "6 106 paiements · juin") },
-    { label: pick(lang, "Paid out (MTD)", "مدفوعات صادرة", "Décaissé"), value: "405", unit: "K", up: false, icon: "wallet", ic: "#b45309", ibg: "#fff4e0",
+    { label: pick(lang, "Paid out (MTD)", "مدفوعات صادرة", "Décaissé"), value: "405", unit: "K", up: false, icon: "wallet", ic: "#b45309", ibg: "#fff4e0", spark: _sp(_outA),
       sub: pick(lang, "suppliers, fees & FX", "موردون ورسوم وصرف", "fourn., frais & change") },
-    { label: pick(lang, "Net cash movement", "صافي حركة النقد", "Flux net"), value: "+747", unit: "K", up: true, icon: "trend", ic: "#0369a1", ibg: "#eff6ff",
+    { label: pick(lang, "Net cash movement", "صافي حركة النقد", "Flux net"), value: "+747", unit: "K", up: true, icon: "trend", ic: "#0369a1", ibg: "#eff6ff", spark: _sp(_netA),
       sub: pick(lang, "collected − paid", "محصَّل − مدفوع", "encaissé − décaissé") },
-    { label: pick(lang, "Payables (AP)", "دائنون (AP)", "Dettes (AP)"), value: "3.60", unit: "M", up: false, icon: "receipt", ic: "#be123c", ibg: "#fff1f2",
+    { label: pick(lang, "Payables (AP)", "دائنون (AP)", "Dettes (AP)"), value: "3.60", unit: "M", up: false, icon: "receipt", ic: "#be123c", ibg: "#fff1f2", spark: _sp(_outA),
       sub: pick(lang, "89 suppliers open", "٨٩ مورّد مفتوح", "89 fournisseurs") },
   ];
 
