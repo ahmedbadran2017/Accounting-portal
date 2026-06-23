@@ -1,0 +1,158 @@
+"""Sales · COD endpoints — live ERPNext, entity-scoped.
+
+Sales Order carries the COD lifecycle (custom_sales_status / custom_logistics_
+status / custom_track_shipment_status / custom_tracking_company /
+custom_shipping_city). Sales Invoice = revenue recognised on delivery (VAT 20%).
+Every list is scoped to one company and excludes cancelled documents.
+"""
+import frappe
+from frappe.utils import flt
+
+from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+
+
+# ── COD state machine ──
+# Map the raw ERPNext COD fields onto the portal's state vocabulary
+# (placed → confirmed → transit → delivered → settled, plus cancelled /
+# undelivered). Kept server-side so the list and detail agree.
+def _order_state(row):
+    sales = (row.get("custom_sales_status") or "").strip()
+    logi = (row.get("custom_logistics_status") or "").strip()
+    track = (row.get("custom_track_shipment_status") or "").strip()
+    status = (row.get("status") or "").strip()
+
+    if sales in ("Cancelled", "Duplicated") or status == "Cancelled":
+        return "cancelled"
+    if track in ("Delivery Exception", "Failed Attempt"):
+        return "undelivered"
+    if logi == "Delivered" or track == "Delivered":
+        # Billed + paid → settled, otherwise just delivered.
+        return "settled" if status in ("Completed", "Closed") else "delivered"
+    if logi == "Shipped":
+        return "transit"
+    if sales == "Confirmed":
+        return "confirmed"
+    return "placed"
+
+
+@frappe.whitelist()
+def list_orders(company=None, state=None, search=None, limit=100):
+    """COD sales orders for one company (newest first), excluding cancelled docs.
+    Optional `state` filters by the mapped portal state; `search` matches the
+    order id or customer."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    limit = min(int(limit or 100), 500)
+
+    conds = ["so.company = %(company)s", "so.docstatus < 2"]
+    params = {"company": target, "limit": limit}
+    if search:
+        conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    rows = frappe.db.sql(
+        f"""
+        SELECT so.name, so.customer, so.grand_total AS value, so.status,
+               so.transaction_date AS date, so.custom_sales_status,
+               so.custom_logistics_status, so.custom_track_shipment_status,
+               so.custom_tracking_company AS carrier, so.custom_shipping_city AS city
+        FROM `tabSales Order` so
+        WHERE {' AND '.join(conds)}
+        ORDER BY so.transaction_date DESC, so.creation DESC
+        LIMIT %(limit)s
+        """,
+        params, as_dict=True,
+    )
+    for r in rows:
+        r["state"] = _order_state(r)
+        r["value"] = flt(r["value"])
+    if state:
+        rows = [r for r in rows if r["state"] == state]
+    return rows
+
+
+@frappe.whitelist()
+def get_order(name):
+    """One order: header, COD operational fields, and the live posted journal."""
+    assert_portal_access()
+    so = frappe.db.get_value(
+        "Sales Order", name,
+        ["name", "customer", "company", "grand_total", "net_total",
+         "total_taxes_and_charges", "status", "transaction_date",
+         "custom_sales_status", "custom_logistics_status",
+         "custom_track_shipment_status", "custom_tracking_company",
+         "custom_shipping_city"], as_dict=True,
+    )
+    if not so:
+        frappe.throw("Order not found")
+    if so.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+    so["state"] = _order_state(so)
+    so["journal"] = _voucher_journal(name)
+    return so
+
+
+@frappe.whitelist()
+def list_invoices(company=None, search=None, limit=100):
+    """Sales invoices for one company (revenue; VAT 20%), excluding cancelled."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    limit = min(int(limit or 100), 500)
+    conds = ["si.company = %(company)s", "si.docstatus < 2"]
+    params = {"company": target, "limit": limit}
+    if search:
+        conds.append("(si.name LIKE %(s)s OR si.customer LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    return frappe.db.sql(
+        f"""
+        SELECT si.name, si.customer, si.net_total AS net,
+               si.total_taxes_and_charges AS vat, si.grand_total AS gross,
+               si.status, si.posting_date AS date, si.outstanding_amount
+        FROM `tabSales Invoice` si
+        WHERE {' AND '.join(conds)}
+        ORDER BY si.posting_date DESC, si.creation DESC
+        LIMIT %(limit)s
+        """,
+        params, as_dict=True,
+    )
+
+
+@frappe.whitelist()
+def get_invoice(name):
+    """One invoice: header, line items, totals, payment status, posted journal."""
+    assert_portal_access()
+    si = frappe.db.get_value(
+        "Sales Invoice", name,
+        ["name", "customer", "company", "net_total", "total_taxes_and_charges",
+         "grand_total", "status", "posting_date", "outstanding_amount"], as_dict=True,
+    )
+    if not si:
+        frappe.throw("Invoice not found")
+    if si.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+    si["lines"] = frappe.db.sql(
+        """SELECT item_name AS name, qty, rate, amount
+           FROM `tabSales Invoice Item` WHERE parent = %s ORDER BY idx""",
+        (name,), as_dict=True,
+    )
+    si["paid"] = flt(si.outstanding_amount) <= 0
+    si["journal"] = _voucher_journal(name)
+    return si
+
+
+def _voucher_journal(voucher_no):
+    """The live GL postings for a voucher (the auto-posted journal)."""
+    return frappe.db.sql(
+        """
+        SELECT account AS acc, debit AS dr, credit AS cr, party
+        FROM `tabGL Entry`
+        WHERE voucher_no = %s AND is_cancelled = 0
+        ORDER BY CASE WHEN debit > 0 THEN 0 ELSE 1 END, account
+        """,
+        (voucher_no,), as_dict=True,
+    )

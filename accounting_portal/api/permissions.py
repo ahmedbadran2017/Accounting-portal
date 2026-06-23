@@ -84,6 +84,20 @@ def allowed_companies(user=None):
     return frappe.get_all("Company", pluck="name", order_by="name")
 
 
+def resolve_companies(company=None, user=None):
+    """The companies this user may see, optionally narrowed to one.
+
+    Validates a requested company against the allowed set, so an endpoint can
+    accept a `company` arg from the client without letting a user read an
+    entity they aren't permitted to. A bad/unknown value yields an empty list
+    (→ no rows), never an error or a permission bypass.
+    """
+    allowed = allowed_companies(user)
+    if company:
+        return [c for c in allowed if c == company]
+    return allowed
+
+
 @frappe.whitelist()
 def whoami():
     """Expose the current user's accounting role + capabilities to the SPA.

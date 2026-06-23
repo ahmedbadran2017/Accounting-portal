@@ -1,0 +1,88 @@
+"""Purchases endpoints — live ERPNext, entity-scoped.
+
+Purchase Invoice = bills (3-way match vs PO + Goods Receipt). Lists are scoped
+to one company and exclude cancelled docs. The 3-way match flag is derived from
+whether every line is linked to a Purchase Order (and a receipt).
+"""
+import frappe
+from frappe.utils import flt
+
+from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+from accounting_portal.api.sales import _voucher_journal
+
+
+def _bill_status(row):
+    """Normalise ERPNext Purchase Invoice status → portal vocabulary."""
+    if row.get("is_return"):
+        return "ret"
+    s = (row.get("status") or "").strip()
+    if s in ("Overdue", "Unpaid"):
+        return "overdue"
+    return "paid"
+
+
+@frappe.whitelist()
+def list_bills(company=None, search=None, limit=100):
+    """Bills for one company with a derived 3-way-match flag, excluding cancelled."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    currency = frappe.db.get_value("Company", target, "default_currency")
+    limit = min(int(limit or 100), 500)
+    conds = ["pi.company = %(company)s", "pi.docstatus = 1"]
+    params = {"company": target, "limit": limit}
+    if search:
+        conds.append("(pi.name LIKE %(s)s OR pi.supplier LIKE %(s)s OR pi.bill_no LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    rows = frappe.db.sql(
+        f"""
+        SELECT pi.name, pi.supplier, pi.grand_total, pi.is_return, pi.status,
+               pi.posting_date AS date, pi.bill_no,
+               (SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name) AS n_items,
+               (SELECT COUNT(*) FROM `tabPurchase Invoice Item` it
+                  WHERE it.parent = pi.name AND IFNULL(it.purchase_order, '') <> '') AS n_po
+        FROM `tabPurchase Invoice` pi
+        WHERE {' AND '.join(conds)}
+        ORDER BY pi.posting_date DESC, pi.creation DESC
+        LIMIT %(limit)s
+        """,
+        params, as_dict=True,
+    )
+    for r in rows:
+        r["currency"] = currency
+        r["status_norm"] = _bill_status(r)
+        # 3-way matched when every line ties back to a PO; else a match exception.
+        r["match"] = "ok" if (r["n_items"] and r["n_po"] == r["n_items"]) else "exc"
+        r["amount"] = flt(r["grand_total"]) * (-1 if r["is_return"] else 1)
+    return rows
+
+
+@frappe.whitelist()
+def get_bill(name):
+    """One bill: header, 3-way-match legs (PO / receipt / invoice), posted journal."""
+    assert_portal_access()
+    pi = frappe.db.get_value(
+        "Purchase Invoice", name,
+        ["name", "supplier", "company", "grand_total", "is_return", "status",
+         "posting_date", "bill_no"], as_dict=True,
+    )
+    if not pi:
+        frappe.throw("Bill not found")
+    if pi.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+    items = frappe.db.sql(
+        """SELECT item_name AS name, qty, rate, amount,
+                  IFNULL(purchase_order, '') AS po, IFNULL(purchase_receipt, '') AS pr
+           FROM `tabPurchase Invoice Item` WHERE parent = %s ORDER BY idx""",
+        (name,), as_dict=True,
+    )
+    n = len(items)
+    has_po = n and all(i.po for i in items)
+    has_pr = n and all(i.pr for i in items)
+    pi["items"] = items
+    pi["match"] = {"po": bool(has_po), "grn": bool(has_pr), "matched": bool(has_po and has_pr)}
+    pi["status_norm"] = _bill_status(pi)
+    pi["journal"] = _voucher_journal(name)
+    return pi
