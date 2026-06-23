@@ -92,13 +92,16 @@
       <header class="h-[60px] bg-white/70 backdrop-blur border-b border-line flex items-center gap-3 px-4 lg:px-5 sticky top-0 z-20">
         <button class="lg:hidden p-2 -ms-2 text-ink-3" @click="open = true"><Icon name="list" :size="20" /></button>
 
-        <div class="flex-1 max-w-md relative hidden sm:block">
-          <span class="absolute inset-block-0 flex items-center ps-3 text-ink-muted"><Icon name="search" :size="16" /></span>
-          <input :placeholder="t('header.search')" readonly @click="paletteOpen = true" @focus="paletteOpen = true"
-                 class="w-full bg-app-warm border border-line-2 rounded-chip ps-9 pe-9 py-2 text-[12.5px] cursor-pointer focus:outline-none hover:border-accent/40" />
-          <kbd class="absolute end-3 inset-block-0 my-auto h-fit text-[10px] text-ink-muted border border-line-2 rounded px-1.5 py-0.5">⌘K</kbd>
-        </div>
-        <div class="flex-1 sm:hidden" />
+        <!-- Search — opens the ⌘K command palette -->
+        <button type="button" @click="paletteOpen = true"
+                class="hidden sm:flex items-center gap-2 w-64 lg:w-80 bg-app-warm border border-line-2 rounded-chip px-3 py-2 hover:border-accent/40">
+          <Icon name="search" :size="16" color="#a8a29e" />
+          <span class="flex-1 text-start text-[12.5px] text-ink-muted truncate">{{ t("header.search") }}</span>
+          <kbd class="text-[10px] text-ink-muted border border-line-2 rounded px-1.5 py-0.5">⌘K</kbd>
+        </button>
+
+        <!-- Spacer pins the controls to the right edge -->
+        <div class="flex-1"></div>
 
         <span class="hidden md:inline-flex items-center gap-1.5 text-[11px] font-semibold text-success-dark bg-success/10 px-2.5 py-1.5 rounded-chip">
           <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>{{ t("header.synced") }}
