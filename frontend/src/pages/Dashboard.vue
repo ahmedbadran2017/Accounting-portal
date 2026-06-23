@@ -3,6 +3,23 @@
   <Consolidated v-if="entityId === 'group'" />
 
   <div v-else class="space-y-3.5">
+    <!-- Entity banner (non-Morocco) — shown first to set context -->
+    <div v-if="vm.entityBanner" class="rounded-[14px] p-4 border" style="background:#fffbeb;border-color:#fde68a">
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div class="min-w-0">
+          <div class="text-[13px] font-bold text-amber-900">{{ vm.entityBanner.name }} · {{ vm.entityBanner.ccy }}</div>
+          <div class="text-[11.5px] text-amber-800/80 max-w-xl">{{ vm.entityBanner.role }}</div>
+        </div>
+        <div class="flex items-center gap-5 ms-auto">
+          <div v-for="f in vm.entityBanner.figs" :key="f.label" class="leading-tight">
+            <div class="text-[10px] text-amber-700/80 uppercase tracking-wide">{{ f.label }}</div>
+            <div class="text-[14px] font-bold text-amber-900 tnum">{{ f.value }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="text-[11px] text-amber-800/70 mt-2 pt-2 border-t border-amber-200">{{ vm.entityBanner.note }}</div>
+    </div>
+
     <!-- Auditor digest banner -->
     <div class="rounded-[18px] px-5 py-[18px] text-white relative overflow-hidden"
          style="background:linear-gradient(115deg,#1e1b3a 0%,#2e1065 55%,#4c1d95 100%);box-shadow:0 14px 40px -16px rgba(76,29,149,.5)">
@@ -31,23 +48,6 @@
           <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ background: c.dot }"></span>{{ c.label }}
         </button>
       </div>
-    </div>
-
-    <!-- Entity banner (non-Morocco) -->
-    <div v-if="vm.entityBanner" class="rounded-[14px] p-4 border" style="background:#fffbeb;border-color:#fde68a">
-      <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div class="min-w-0">
-          <div class="text-[13px] font-bold text-amber-900">{{ vm.entityBanner.name }} · {{ vm.entityBanner.ccy }}</div>
-          <div class="text-[11.5px] text-amber-800/80 max-w-xl">{{ vm.entityBanner.role }}</div>
-        </div>
-        <div class="flex items-center gap-5 ms-auto">
-          <div v-for="f in vm.entityBanner.figs" :key="f.label" class="leading-tight">
-            <div class="text-[10px] text-amber-700/80 uppercase tracking-wide">{{ f.label }}</div>
-            <div class="text-[14px] font-bold text-amber-900 tnum">{{ f.value }}</div>
-          </div>
-        </div>
-      </div>
-      <div class="text-[11px] text-amber-800/70 mt-2 pt-2 border-t border-amber-200">{{ vm.entityBanner.note }}</div>
     </div>
 
     <!-- KPI row -->
