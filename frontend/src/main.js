@@ -2,15 +2,17 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import i18n, { applyLocale } from "./i18n";
-// Latin → Instrument Sans, Arabic → Tajawal (JoyAgent Books design).
-import "@fontsource/instrument-sans/400.css";
-import "@fontsource/instrument-sans/500.css";
-import "@fontsource/instrument-sans/600.css";
-import "@fontsource/instrument-sans/700.css";
-import "@fontsource/tajawal/400.css";
-import "@fontsource/tajawal/500.css";
-import "@fontsource/tajawal/700.css";
-import "@fontsource/tajawal/800.css";
+// Latin → Inter, Arabic → Alexandria (same as the Supplier Portal).
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
+import "@fontsource/inter/800.css";
+import "@fontsource/alexandria/400.css";
+import "@fontsource/alexandria/500.css";
+import "@fontsource/alexandria/600.css";
+import "@fontsource/alexandria/700.css";
+import "@fontsource/alexandria/800.css";
 import "./index.css";
 
 // Apply the persisted locale's lang/dir on first paint.

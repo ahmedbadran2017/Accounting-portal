@@ -5,8 +5,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Instrument Sans"', "system-ui", "-apple-system", "sans-serif"],
-        arabic: ['"Tajawal"', "system-ui", "-apple-system", "sans-serif"],
+        sans: ['"Inter"', "system-ui", "-apple-system", "sans-serif"],
+        arabic: ['"Alexandria"', "system-ui", "-apple-system", "sans-serif"],
       },
       colors: {
         // action accent — terracotta

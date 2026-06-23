@@ -7,15 +7,15 @@ html, body, #app { height: 100%; }
 body {
   background: #f3f1ef;
   color: #1c1917;
-  font-family: "Instrument Sans", system-ui, -apple-system, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* Arabic / RTL → Tajawal + flipped layout (dir toggled by the locale watcher). */
-html[dir="rtl"] body { font-family: "Tajawal", system-ui, -apple-system, sans-serif; }
+/* Arabic / RTL → Alexandria + flipped layout (dir toggled by the locale watcher). */
+html[dir="rtl"] body { font-family: "Alexandria", system-ui, -apple-system, sans-serif; }
 
 /* All figures use tabular numerals so columns align. */
 .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
