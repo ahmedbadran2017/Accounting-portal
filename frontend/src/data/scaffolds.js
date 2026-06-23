@@ -79,11 +79,13 @@ export const SCAFFOLDS = {
     ] },
   },
   banking: {
-    accounts: { icon: "bank", cols: [["Account"], ["Number"], ["Currency"], ["Balance", "e"]], rows: [
-      ["Cathadis – COD clearing", "108.021.003", "MAD", "471,081"],
-      ["BMCE Bank", "••• 1303", "MAD", "12,483"],
-      ["Kuveyt Türk", "•••• 4471", "TRY", "1,284,000"],
-    ] },
+    accounts: { icon: "bank", cols: [["Account"], ["Type"], ["Currency"], ["Balance", "e"]],
+      live: { method: "accounting_portal.api.reconciliation.list_accounts", map: (r) => [r.account, r.type, r.ccy || "MAD", _f2(r.balance)] },
+      rows: [
+        ["108.021.003 - Cathadis - JM", "Bank", "MAD", "471,081.00"],
+        ["BMCE - 0000192100011303", "Bank", "MAD", "12,483.00"],
+        ["100.002.002 - Petty cash - JM", "Cash", "MAD", "-845,264.00"],
+      ] },
     transactions: { icon: "list", cols: [["Date"], ["Description"], ["Account"], ["Amount", "e"]], rows: [
       ["21 Jun", "COD remittance · Sendit", "108.021.003", "+63,700"],
       ["20 Jun", "Supplier payment · Meta", "320.01", "-44,800"],

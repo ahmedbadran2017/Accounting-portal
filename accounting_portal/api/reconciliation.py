@@ -51,6 +51,27 @@ def cod_summary(company=None):
 
 
 @frappe.whitelist()
+def list_accounts(company=None):
+    """Bank & Cash accounts with live balances — the Banking → Accounts tab.
+    A negative Cash balance (overdraft) is a control flag worth seeing here."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return []
+    return frappe.db.sql(
+        """
+        SELECT a.name AS account, a.account_type AS type, a.account_currency AS ccy,
+               ROUND(SUM(gl.debit - gl.credit)) AS balance
+        FROM `tabAccount` a
+        JOIN `tabGL Entry` gl ON gl.account = a.name AND gl.is_cancelled = 0
+        WHERE a.company = %s AND a.account_type IN ('Bank', 'Cash')
+        GROUP BY a.name, a.account_type, a.account_currency
+        ORDER BY ABS(SUM(gl.debit - gl.credit)) DESC
+        """,
+        (target,), as_dict=True)
+
+
+@frappe.whitelist()
 def unmatched_payments(company=None, limit=50):
     """COD receipts holding unallocated cash (the queue to reconcile), biggest first."""
     assert_portal_access()
