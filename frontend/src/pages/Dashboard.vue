@@ -144,26 +144,28 @@
 
     <!-- Working capital -->
     <div class="grid sm:grid-cols-2 gap-3.5">
-      <div class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
-        <div class="flex items-center gap-2">
+      <div class="relative bg-white rounded-[16px] border border-line p-[17px] shadow-card overflow-hidden transition-all duration-200 hover:shadow-cardHover hover:-translate-y-[2px]">
+        <div class="absolute -top-10 -end-10 w-28 h-28 rounded-full blur-2xl pointer-events-none" style="background:#be123c;opacity:.07"></div>
+        <div class="relative flex items-center gap-2">
           <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff1f2"><Icon name="wallet" :size="14" color="#be123c" /></span>
           <span class="text-[13px] font-bold">{{ vm.arap.arLabel }}</span>
           <span class="text-[10.5px] text-ink-muted ms-auto">{{ vm.arap.arRows }} {{ t("dash.lines") }}</span>
         </div>
-        <div class="text-[26px] font-bold text-sale tnum mt-2.5 tracking-tight">{{ vm.arap.arVal }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
-        <div class="flex gap-2 mt-2.5 px-3 py-2.5 rounded-[10px]" style="background:#fef2f2;border:1px solid #fecaca">
+        <div class="relative text-[26px] font-bold text-sale tnum mt-2.5 tracking-tight">{{ vm.arap.arVal }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
+        <div class="relative flex gap-2 mt-2.5 px-3 py-2.5 rounded-[10px]" style="background:#fef2f2;border:1px solid #fecaca">
           <Icon name="alert" :size="13" color="#be123c" class="flex-shrink-0 mt-px" />
           <span class="text-[11px] leading-snug" style="color:#991b1b">{{ vm.arap.arNote }}</span>
         </div>
       </div>
-      <div class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
-        <div class="flex items-center gap-2">
+      <div class="relative bg-white rounded-[16px] border border-line p-[17px] shadow-card overflow-hidden transition-all duration-200 hover:shadow-cardHover hover:-translate-y-[2px]">
+        <div class="absolute -top-10 -end-10 w-28 h-28 rounded-full blur-2xl pointer-events-none" style="background:#b45309;opacity:.06"></div>
+        <div class="relative flex items-center gap-2">
           <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="bank" :size="14" color="#b45309" /></span>
           <span class="text-[13px] font-bold">{{ vm.arap.apLabel }}</span>
           <span class="text-[10.5px] text-ink-muted ms-auto">{{ vm.arap.apRows }} {{ t("dash.lines") }}</span>
         </div>
-        <div class="text-[26px] font-bold text-ink tnum mt-2.5 tracking-tight">{{ vm.arap.apVal }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
-        <div class="text-[11.5px] text-ink-3 mt-3.5 leading-snug">{{ vm.arap.apNote }}</div>
+        <div class="relative text-[26px] font-bold text-ink tnum mt-2.5 tracking-tight">{{ vm.arap.apVal }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
+        <div class="relative text-[11.5px] text-ink-3 mt-3.5 leading-snug">{{ vm.arap.apNote }}</div>
       </div>
     </div>
 
