@@ -36,7 +36,9 @@
     "consolidation": "Consolidation", "dd": "Pack investisseur / DD", "copilot": "Anomalies & copilote"
   },
   "dash": {
-    "auditing": "Auditeur IA · Audit", "open_auditor": "Ouvrir l’auditeur",
+    "auditor_name": "Auditeur IA", "auditing": "Audit", "open_auditor": "Ouvrir l’auditeur",
+    "flagged_title": "Ce que l’auditeur a signalé", "flagged_sub": "Classé par gravité · en direct sur le grand livre",
+    "view_all": "Tout voir", "lines": "lignes",
     "cashflow": "Flux de trésorerie — entrées / sorties", "cashflow_sub": "22 jours · écritures de paiement réelles",
     "in": "Entrées", "out": "Sorties", "net": "Net",
     "channel_title": "Encaissement par canal", "channel_sub": "Où le cash de juin a atterri",
