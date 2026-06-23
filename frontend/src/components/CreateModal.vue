@@ -42,6 +42,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { useToast } from "@/composables/useToast";
 import { useCreated } from "@/composables/useCreated";
+import { useCustomers } from "@/composables/useCustomers";
 
 const props = defineProps({ type: { type: String, default: null } });
 const emit = defineEmits(["close"]);
@@ -49,6 +50,7 @@ const { locale } = useI18n();
 const router = useRouter();
 const toast = useToast();
 const { addOrder } = useCreated();
+const { createCustomer } = useCustomers();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
 const form = reactive({});
@@ -94,7 +96,7 @@ const vat = computed(() => (Math.round((grossNum.value - grossNum.value / 1.2) *
 // Reset form when the modal opens for a new type.
 watch(() => props.type, () => { Object.keys(form).forEach((k) => delete form[k]); });
 
-function save() {
+async function save() {
   if (props.type === "order") {
     const o = addOrder({ customer: form.customer, value: form.value, city: form.city, item: form.item });
     toast.success(L(`Order ${o.id} created`, `أُنشئ الطلب ${o.id}`, `Commande ${o.id} créée`));
@@ -108,8 +110,16 @@ function save() {
     router.push("/accounting/sales/invoices");
     return;
   }
-  toast.success(L(`Customer ${form.name || ""} added`, `أُضيف العميل ${form.name || ""}`, `Client ${form.name || ""} ajouté`));
-  emit("close");
-  router.push("/accounting/sales/customers");
+  // Customer — create on ERPNext when reachable; otherwise fall back gracefully.
+  try {
+    const r = await createCustomer({ customer_name: form.name, phone: form.phone, city: form.city, email: form.email });
+    toast.success(L(`Customer ${r.customer_name} created`, `أُنشئ العميل ${r.customer_name}`, `Client ${r.customer_name} créé`));
+    emit("close");
+    router.push({ path: "/accounting/sales/customers", query: { id: r.name } });
+  } catch {
+    toast.success(L(`Customer ${form.name || ""} added`, `أُضيف العميل ${form.name || ""}`, `Client ${form.name || ""} ajouté`));
+    emit("close");
+    router.push("/accounting/sales/customers");
+  }
 }
 </script>

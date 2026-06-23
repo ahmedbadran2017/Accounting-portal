@@ -97,19 +97,24 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { findCustomer, customerDetail, initials } from "@/data/customers";
+import { initials } from "@/data/customers";
 import { AV } from "@/data/orders";
+import { useCustomers } from "@/composables/useCustomers";
 
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const { loadDetail } = useCustomers();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
-const d = computed(() => customerDetail(findCustomer(route.query.id), locale.value));
+const d = ref(null);
+async function load() { d.value = route.query.id ? await loadDetail(route.query.id, locale.value) : null; }
+watch(() => [route.query.id, locale.value], load, { immediate: true });
+
 function go(g) { if (g) router.push(g.sub ? `/accounting/${g.module}/${g.sub}` : `/accounting/${g.module}`); }
 function back() { router.push({ path: "/accounting/sales/customers" }); }
 </script>
