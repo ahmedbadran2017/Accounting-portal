@@ -1,96 +1,84 @@
 <template>
-  <div class="grid lg:grid-cols-[360px_1fr] gap-3.5 lg:h-[calc(100vh-104px)]">
-    <!-- Anomaly feed -->
-    <div class="bg-white rounded-card border border-line flex flex-col min-h-0">
-      <div class="px-4 py-3 border-b border-line flex items-center gap-2">
-        <Icon name="shield" :size="15" color="#7c3aed" />
-        <span class="text-[13px] font-bold">{{ L("Anomalies","الشذوذ","Anomalies") }}</span>
-        <span class="ms-auto text-[11px] text-ink-muted tnum">{{ ANOMALIES.length }} {{ L("open","مفتوحة","ouvertes") }}</span>
+  <div class="flex rounded-[14px] border border-line overflow-hidden shadow-card bg-white" style="height:calc(100vh - 104px)">
+    <!-- Anomaly feed (docked sidebar) -->
+    <div class="hidden md:flex w-[340px] lg:w-[380px] flex-shrink-0 border-e border-line flex-col min-h-0" style="background:rgba(255,255,255,.55)">
+      <div class="px-4 pt-[15px] pb-3 border-b border-line-hair">
+        <div class="flex items-center gap-2">
+          <span class="text-[13.5px] font-bold">{{ L("Anomaly feed","تغذية الشذوذ","Flux d’anomalies") }}</span>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#fef2f2;color:#be123c;border:1px solid #fecaca">{{ ANOMALIES.length }}</span>
+        </div>
+        <div class="text-[11px] text-ink-muted mt-0.5">{{ L("Everything the auditor wants a human to see","كل ما يريد المدقّق أن يراه إنسان","Tout ce que l’auditeur veut faire voir") }}</div>
       </div>
-      <div class="flex-1 overflow-y-auto p-3 space-y-2.5">
-        <div v-for="a in ANOMALIES" :key="a.id" class="rounded-card border border-line p-3 hover:bg-app-warm/50">
+      <div class="flex-1 overflow-y-auto min-h-0 p-3 flex flex-col gap-2.5">
+        <div v-for="a in ANOMALIES" :key="a.id" class="border border-line rounded-[12px] p-3 bg-white shadow-card">
           <div class="flex items-start gap-2.5">
-            <span class="w-7 h-7 rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: sev(a).bg }">
-              <Icon :name="a.icon" :size="14" :color="sev(a).fg" />
-            </span>
-            <div class="min-w-0 flex-1">
+            <span class="w-7 h-7 rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: sev(a).bg }"><Icon :name="a.icon" :size="14" :color="sev(a).fg" /></span>
+            <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-[12.5px] font-semibold">{{ a.title(locale) }}</span>
-                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge border"
-                      :style="{ background: sev(a).bg, color: sev(a).fg, borderColor: sev(a).bd }">{{ sevLabel(a.sev, locale) }}</span>
+                <span class="text-[12px] font-bold">{{ a.title(locale) }}</span>
+                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge border" :style="{ background: sev(a).bg, color: sev(a).fg, borderColor: sev(a).bd }">{{ sevLabel(a.sev, locale) }}</span>
               </div>
-              <div class="text-[11px] text-ink-3 mt-0.5 leading-snug">{{ a.desc(locale) }}</div>
-              <div class="flex items-center gap-2 mt-1.5">
-                <span class="font-mono text-[10.5px] text-ink-muted">{{ a.ref }}</span>
-                <span v-if="a.amount" class="text-[10.5px] font-bold tnum" :class="a.amount.includes('-') ? 'text-sale' : ''">{{ a.amount }}</span>
-                <button class="ms-auto text-[10.5px] font-semibold text-accent-dark hover:underline" @click="go(a.go)">{{ a.cta(locale) }} →</button>
-              </div>
+              <div class="text-[11px] text-ink-3 mt-[3px] leading-snug">{{ a.desc(locale) }}</div>
             </div>
+          </div>
+          <div class="flex items-center gap-[7px] mt-2.5">
+            <span class="text-[10px] text-ink-muted font-mono">{{ a.ref }}</span>
+            <div class="flex-1"></div>
+            <button class="h-7 px-2.5 rounded-[8px] bg-white border border-line-2 text-ink-2 text-[11px] font-semibold hover:bg-app-warm" @click="investigate(a)">{{ L("Investigate","تحقّق","Enquêter") }}</button>
+            <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold" style="background:#faf6f4;border:1px solid #f3e4de;color:#a33a22" @click="go(a.go)">{{ a.cta(locale) }}</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Chat composer -->
-    <div class="bg-white rounded-card border border-line flex flex-col min-h-0">
-      <div class="px-4 py-3 border-b border-line flex items-center gap-2" style="background:linear-gradient(115deg,#1e1b3a,#3b2566);border-radius:15px 15px 0 0">
-        <Icon name="shield" :size="15" color="#e9d5ff" />
-        <span class="text-[13px] font-bold text-white">{{ t("nav.copilot") }}</span>
-        <span class="inline-flex items-center gap-1.5 text-[10.5px] font-semibold text-violet-100 bg-white/15 px-2 py-0.5 rounded-full ms-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-violet-300 animate-pulse"></span>{{ t("dash.auditing") }}
-        </span>
-      </div>
+    <!-- Chat -->
+    <div class="flex-1 flex flex-col min-w-0 min-h-0" style="background:linear-gradient(180deg,#faf9f8,#f6f4f2)">
+      <div ref="thread" class="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 py-[22px] flex flex-col gap-3.5">
+        <div v-for="(m, i) in messages" :key="i" class="flex gap-[11px]" :class="m.role === 'user' ? 'justify-end' : 'items-start'">
+          <span v-if="m.role !== 'user'" class="w-[30px] h-[30px] rounded-[9px] grid place-items-center text-white flex-shrink-0 self-start" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)"><Icon name="shield" :size="16" color="#fff" /></span>
+          <div :class="m.role === 'user' ? 'max-w-[82%]' : 'max-w-[80%]'">
+            <div class="rounded-[14px] px-3.5 py-2.5 text-[13px] leading-relaxed" :class="m.role === 'user' ? 'bg-accent text-white' : 'bg-white border border-line text-ink'">{{ m.text }}</div>
 
-      <div ref="thread" class="flex-1 overflow-y-auto p-4 space-y-3">
-        <div v-for="(m, i) in messages" :key="i" class="flex" :class="m.role === 'user' ? 'justify-end' : 'justify-start'">
-          <div class="max-w-[80%]">
-            <div class="rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed"
-                 :class="m.role === 'user' ? 'bg-accent text-white' : 'bg-app-warm text-ink'">{{ m.text }}</div>
-
-            <!-- Proposed-journal card (maker-checker gated) -->
-            <div v-if="m.proposal" class="mt-2 rounded-card border border-violet-200 bg-violet-50/40 overflow-hidden">
-              <div class="px-3 py-2 border-b border-violet-100 flex items-center gap-1.5">
-                <Icon name="ledger" :size="13" color="#7c3aed" />
-                <span class="text-[12px] font-bold text-violet-900">{{ m.proposal.title }}</span>
-              </div>
-              <table class="w-full text-[11.5px]">
+            <!-- Proposed-journal action card -->
+            <div v-if="m.proposal" class="mt-2.5 rounded-[12px] overflow-hidden" style="border:1px solid #e9d5ff;background:#faf7ff">
+              <div class="flex items-center gap-1.5 px-3 py-2.5 border-b" style="border-color:#ede4fb"><Icon name="shield" :size="12" color="#7c3aed" /><span class="text-[11.5px] font-bold" style="color:#5b21b6">{{ m.proposal.title }}</span></div>
+              <table class="w-full bg-white">
                 <tbody>
-                  <tr v-for="(j, k) in m.proposal.lines" :key="k" class="border-b border-violet-100/60">
-                    <td class="px-3 py-1.5 font-mono text-ink-2">{{ j.acc }}</td>
-                    <td class="px-3 py-1.5 text-end tnum font-semibold">{{ j.dr || "—" }}</td>
-                    <td class="px-3 py-1.5 text-end tnum font-semibold">{{ j.cr || "—" }}</td>
+                  <tr v-for="(l, k) in m.proposal.lines" :key="k" class="border-t border-line-hair">
+                    <td class="px-3 py-[7px] text-[11px] text-ink-2 font-mono">{{ l.acc }}</td>
+                    <td class="px-2 py-[7px] text-end text-[11px] font-semibold text-success-dark w-24">{{ l.dr || "" }}</td>
+                    <td class="px-3 py-[7px] text-end text-[11px] font-semibold text-sale w-24">{{ l.cr || "" }}</td>
                   </tr>
                 </tbody>
               </table>
-              <div class="px-3 py-2 flex items-center gap-2">
-                <span class="text-[10px] text-violet-700 flex items-center gap-1"><Icon name="alert" :size="11" color="#7c3aed" />{{ m.proposal.note }}</span>
-                <button v-if="!m.proposal.queued" class="ms-auto inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-white bg-violet px-2.5 py-1.5 rounded-chip hover:opacity-90" @click="queue(m)">
-                  <Icon name="check" :size="13" />{{ L("Approve & queue","اعتماد وإرسال","Approuver & mettre en file") }}
-                </button>
-                <span v-else class="ms-auto inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-success-dark">
-                  <Icon name="check" :size="14" />{{ L("Queued for checker","في طابور المراجع","En file validateur") }}
-                </span>
+              <div class="flex items-center gap-2.5 px-3 py-2.5 border-t" style="border-color:#ede4fb">
+                <span class="flex-1 text-[10.5px]" style="color:#7c3aed">{{ m.proposal.note }}</span>
+                <button v-if="!m.proposal.queued" class="h-[30px] px-3 rounded-[8px] text-white text-[11px] font-bold" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)" @click="queue(m)">{{ L("Approve & queue","اعتماد وإرسال","Approuver & mettre en file") }}</button>
+                <span v-else class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-[5px] rounded-[8px]" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0"><Icon name="check" :size="12" />{{ L("Queued for checker","في طابور المراجع","En file validateur") }}</span>
               </div>
             </div>
           </div>
         </div>
-        <div v-if="typing" class="flex justify-start">
-          <div class="bg-app-warm rounded-2xl px-3.5 py-2.5 text-[12.5px] text-ink-muted">…</div>
+        <div v-if="typing" class="flex gap-[11px] items-start">
+          <span class="w-[30px] h-[30px] rounded-[9px] grid place-items-center text-white flex-shrink-0" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)"><Icon name="shield" :size="16" color="#fff" /></span>
+          <div class="bg-white border border-line rounded-[14px] px-4 py-3 flex gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" style="animation-delay:.2s"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" style="animation-delay:.4s"></span>
+          </div>
         </div>
       </div>
 
       <!-- Composer -->
-      <div class="p-3 border-t border-line">
-        <div class="flex items-end gap-2">
-          <textarea ref="input" v-model="draft" :placeholder="L('Ask the auditor… (Enter to send)','اسأل المدقّق… (Enter للإرسال)','Demandez à l’auditeur…')"
-                    rows="1" class="flex-1 resize-none bg-app-warm border border-line-2 rounded-chip px-3 py-2 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white"
-                    @keydown.enter.exact.prevent="send"></textarea>
-          <button class="inline-flex items-center justify-center w-9 h-9 rounded-chip text-white bg-accent hover:bg-accent-dark shadow-prim flex-shrink-0" @click="send">
-            <Icon name="send" :size="16" />
-          </button>
+      <div class="px-4 sm:px-5 pt-3 pb-[18px] border-t border-line" style="background:rgba(255,255,255,.7)">
+        <div class="flex gap-2 mb-2.5 flex-wrap">
+          <button v-for="s in suggestions" :key="s" class="px-3 py-[7px] rounded-full bg-white border border-line-2 text-ink-2 text-[11.5px] font-medium hover:bg-app-warm" @click="quick(s)">{{ s }}</button>
         </div>
-        <div class="flex flex-wrap gap-1.5 mt-2">
-          <button v-for="s in suggestions" :key="s" class="text-[10.5px] font-medium text-ink-3 bg-app-warm hover:text-ink px-2.5 py-1 rounded-chip" @click="quick(s)">{{ s }}</button>
+        <div class="flex items-center gap-2.5 bg-white border border-line-2 rounded-[13px] ps-3.5 pe-2 py-[7px] shadow-card">
+          <Icon name="shield" :size="15" color="#a8a29e" />
+          <input v-model="draft" :placeholder="L('Ask the auditor…','اسأل المدقّق…','Demandez à l’auditeur…')"
+                 class="flex-1 bg-transparent border-none outline-none text-[13px]" @keydown.enter="send" />
+          <button class="w-[34px] h-[34px] rounded-[10px] grid place-items-center text-white flex-shrink-0" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)" @click="send"><Icon name="send" :size="16" /></button>
         </div>
       </div>
     </div>
@@ -104,7 +92,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { ANOMALIES, SEV_META, sevLabel, seedMessages, replyTo } from "@/data/copilot";
 
-const { t, locale } = useI18n();
+const { locale } = useI18n();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
@@ -128,16 +116,12 @@ function send() {
   draft.value = "";
   scrollEnd();
   typing.value = true;
-  // Canned reply stand-in (real Claude API wired in a later slice).
-  setTimeout(() => {
-    typing.value = false;
-    messages.push(replyTo(text, locale.value));
-    scrollEnd();
-  }, 650);
+  setTimeout(() => { typing.value = false; messages.push(replyTo(text, locale.value)); scrollEnd(); }, 650);
 }
 function quick(s) { draft.value = s; send(); }
+function investigate(a) { draft.value = `${L("Investigate", "تحقّق من", "Enquêter sur")} ${a.ref} — ${a.title(locale.value)}`; send(); }
 function queue(m) { m.proposal.queued = true; }
-function go(g) { router.push(g.sub ? `/accounting/${g.module}/${g.sub}` : `/accounting/${g.module}`); }
+function go(g) { if (g) router.push(g.sub ? `/accounting/${g.module}/${g.sub}` : `/accounting/${g.module}`); }
 
 onMounted(scrollEnd);
 </script>
