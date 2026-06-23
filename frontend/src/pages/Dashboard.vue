@@ -181,7 +181,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -189,12 +189,21 @@ import Consolidated from "@/pages/Consolidated.vue";
 import { useUi } from "@/composables/useUi";
 import { buildDashVM } from "@/data/dashboard";
 import { ANOMALIES, SEV_META, sevLabel } from "@/data/copilot";
+import { useDashboard, overlayCockpit } from "@/composables/useDashboard";
 
 const { t, locale } = useI18n();
 const router = useRouter();
 const { entityId } = useUi();
+const { loadCockpit } = useDashboard();
 
-const vm = computed(() => buildDashVM(locale.value, entityId.value));
+// Live cockpit figures overlaid on the sample VM (Auditor narration stays
+// sample until Phase 4). Reloads when the entity changes.
+const cockpit = ref(null);
+const isLive = ref(null);
+async function load() { cockpit.value = await loadCockpit(); isLive.value = !!cockpit.value; }
+watch(entityId, load, { immediate: true });
+
+const vm = computed(() => overlayCockpit(buildDashVM(locale.value, entityId.value), cockpit.value));
 const anomalies = ANOMALIES.slice(0, 4);
 const sev = (a) => SEV_META[a.sev] || SEV_META.low;
 
