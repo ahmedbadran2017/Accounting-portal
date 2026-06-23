@@ -27,11 +27,11 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in rows" :key="c.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(c.name)">
+          <tr v-for="(c, i) in rows" :key="c.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(c.name)">
             <td class="px-4 py-2.5">
               <span class="flex items-center gap-2.5">
-                <span class="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold flex-shrink-0" :style="{ background: AV[c.av] }">{{ initials(c.name) }}</span>
-                <span class="font-semibold whitespace-nowrap">{{ c.name }}</span>
+                <span class="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold flex-shrink-0" :style="{ background: AV[c.av] || AV[avKeys[i % avKeys.length]] }">{{ initials(c.customer_name || c.name) }}</span>
+                <span class="font-semibold whitespace-nowrap">{{ c.customer_name || c.name }}</span>
               </span>
             </td>
             <td class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ c.city }}</td>
@@ -62,6 +62,7 @@ const { loadList, live } = useCustomers();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const search = ref("");
 const rows = ref([]);
+const avKeys = ["rose", "sky", "amber", "emerald", "violet", "accent"];
 
 async function reload() { rows.value = await loadList(search.value); }
 let timer;

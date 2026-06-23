@@ -42,12 +42,21 @@ def _customer_city(name):
 
 
 def _stats(name):
-    """All the computed per-customer figures in one round-trip each."""
-    orders = frappe.db.count("Sales Order", {"customer": name, "docstatus": ["<", 2]})
-    delivered = frappe.db.count("Sales Order", {"customer": name, "custom_logistics_status": "Delivered"})
-    exceptions = frappe.db.count("Sales Order", {"customer": name, "custom_track_shipment_status": ["in", ["Delivery Exception", "Failed Attempt"]]})
-    ltv = flt(frappe.db.sql(
-        "SELECT COALESCE(SUM(grand_total),0) FROM `tabSales Invoice` WHERE customer=%s AND docstatus=1", (name,))[0][0])
+    """Per-customer figures for one customer (indexed on `customer`, so fast).
+
+    LTV = delivered Sales-Order value. In this COD business revenue is realised
+    on delivery and is NOT invoiced per end-customer (it lands in the Cathadis
+    clearing account), so per-customer Sales-Invoice sums read ~0 — the delivered
+    order value is the only meaningful lifetime figure."""
+    o = frappe.db.sql(
+        """
+        SELECT COUNT(*) AS orders,
+               SUM(custom_logistics_status='Delivered') AS delivered,
+               SUM(custom_track_shipment_status IN ('Delivery Exception','Failed Attempt')) AS exceptions,
+               ROUND(SUM(CASE WHEN custom_logistics_status='Delivered' THEN grand_total ELSE 0 END)) AS ltv
+        FROM `tabSales Order` WHERE customer=%s AND docstatus=1
+        """, (name,), as_dict=True)[0]
+    orders, delivered, exceptions = (o.orders or 0), (o.delivered or 0), (o.exceptions or 0)
     # GL party balance: debit−credit. >0 = owes us; <0 = store credit we owe them.
     balance = flt(frappe.db.sql(
         "SELECT COALESCE(SUM(debit-credit),0) FROM `tabGL Entry` WHERE party_type='Customer' AND party=%s AND is_cancelled=0", (name,))[0][0])
@@ -56,45 +65,78 @@ def _stats(name):
         "delivered": delivered,
         "delivery_rate": round(delivered / orders * 100, 1) if orders else 0,
         "rto_rate": round(exceptions / orders * 100, 1) if orders else 0,
-        "ltv": ltv,
+        "ltv": flt(o.ltv),
         "store_credit": -balance if balance < 0 else 0,
         "outstanding": balance if balance > 0 else 0,
     }
 
 
+# Top-customers ranking is a heavy GROUP BY over every Shopify order (~seconds),
+# so it's computed once and cached. HAVING ltv>0 keeps only customers with real
+# delivered value — which also drops test/undelivered-spam accounts for free.
+TOP_CACHE_KEY = "ap_top_customers"
+
+_TOP_SQL = """
+    SELECT so.customer AS name, c.customer_name,
+           COUNT(*) AS orders,
+           SUM(so.custom_logistics_status='Delivered') AS delivered,
+           SUM(so.custom_track_shipment_status IN ('Delivery Exception','Failed Attempt')) AS exceptions,
+           ROUND(SUM(CASE WHEN so.custom_logistics_status='Delivered' THEN so.grand_total ELSE 0 END)) AS ltv
+    FROM `tabSales Order` so
+    JOIN `tabCustomer` c ON c.name = so.customer
+    WHERE c.customer_group = %(g)s AND so.docstatus = 1
+    GROUP BY so.customer
+    HAVING ltv > 0
+    ORDER BY ltv DESC
+    LIMIT 100
+"""
+
+
+def _row(r, city="—", credit="0"):
+    orders, delivered, exceptions = (r["orders"] or 0), (r["delivered"] or 0), (r["exceptions"] or 0)
+    return {
+        "name": r["name"], "customer_name": r["customer_name"], "city": city,
+        "orders": orders, "ltv": f"{int(r['ltv'] or 0):,}",
+        "delivery": f"{round(delivered / orders * 100)}%" if orders else "0%",
+        "rto": f"{round(exceptions / orders * 100)}%" if orders else "0%",
+        "credit": credit,
+    }
+
+
 @frappe.whitelist()
 def list_customers(search=None, limit=40):
-    """Real end-customers (Shopify group). Search-driven, since there are ~155k —
-    pass `search` to find by name; otherwise the most recent are returned. Each
-    row carries computed orders + LTV."""
+    """Top real end-customers by delivered order value (the meaningful COD LTV).
+
+    Default view = the cached top-100 ranking. `search` runs a fast name lookup
+    instead and computes each match's stats live (few rows)."""
     assert_portal_access()
     limit = min(int(limit or 40), 100)
-    conds = ["c.customer_group = %(g)s", "c.disabled = 0"]
-    params = {"g": REAL_GROUP, "limit": limit}
+
     if search:
-        conds.append("c.customer_name LIKE %(s)s")
-        params["s"] = f"%{search}%"
-    rows = frappe.db.sql(
-        f"""
-        SELECT c.name, c.customer_name
-        FROM `tabCustomer` c
-        WHERE {' AND '.join(conds)}
-        ORDER BY c.modified DESC
-        LIMIT %(limit)s
-        """,
-        params, as_dict=True,
-    )
-    out = []
-    for r in rows:
-        s = _stats(r.name)
-        out.append({
-            "name": r.name, "customer_name": r.customer_name,
-            "city": _customer_city(r.name),
-            "orders": s["orders"], "ltv": s["ltv"],
-            "delivery": f"{s['delivery_rate']:.0f}%", "rto": f"{s['rto_rate']:.0f}%",
-            "credit": ("+" + f"{s['store_credit']:.0f}") if s["store_credit"] else "0",
-        })
-    return out
+        rows = frappe.db.sql(
+            """
+            SELECT name, customer_name FROM `tabCustomer`
+            WHERE customer_group=%(g)s AND disabled=0 AND customer_name LIKE %(s)s
+            ORDER BY modified DESC LIMIT %(limit)s
+            """,
+            {"g": REAL_GROUP, "s": f"%{search}%", "limit": limit}, as_dict=True)
+        out = []
+        for r in rows:
+            s = _stats(r.name)
+            out.append({
+                "name": r.name, "customer_name": r.customer_name,
+                "city": _customer_city(r.name), "orders": s["orders"],
+                "ltv": f"{int(s['ltv']):,}",
+                "delivery": f"{s['delivery_rate']:.0f}%", "rto": f"{s['rto_rate']:.0f}%",
+                "credit": ("+" + f"{int(s['store_credit']):,}") if s["store_credit"] else "0",
+            })
+        return out
+
+    cached = frappe.cache().get_value(TOP_CACHE_KEY)
+    if cached is None:
+        cached = [_row(r) for r in frappe.db.sql(_TOP_SQL, {"g": REAL_GROUP}, as_dict=True)]
+        frappe.cache().set_value(TOP_CACHE_KEY, cached, expires_in_sec=3600)
+    return cached[:limit]
 
 
 @frappe.whitelist()
