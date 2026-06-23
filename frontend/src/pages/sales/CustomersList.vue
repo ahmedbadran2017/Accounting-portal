@@ -23,7 +23,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in rows" :key="c.name" class="border-t border-line-hair hover:bg-app-warm/70">
+          <tr v-for="c in rows" :key="c.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(c.name)">
             <td class="px-4 py-2.5">
               <span class="flex items-center gap-2.5">
                 <span class="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold flex-shrink-0" :style="{ background: AV[c.av] }">{{ initials(c.name) }}</span>
@@ -45,14 +45,17 @@
 
 <script setup>
 import { ref, computed } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { CUSTOMERS, initials, deliveryColor, rtoColor } from "@/data/customers";
 import { AV } from "@/data/orders";
 
 const { locale } = useI18n();
+const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const search = ref("");
+function open(name) { router.push({ path: "/accounting/sales/customers", query: { id: name } }); }
 const rows = computed(() => {
   const q = search.value.toLowerCase();
   return q ? CUSTOMERS.filter((c) => (c.name + c.city).toLowerCase().includes(q)) : CUSTOMERS;

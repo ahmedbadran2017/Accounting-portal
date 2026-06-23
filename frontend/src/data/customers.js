@@ -11,6 +11,56 @@ export const CUSTOMERS = [
   { name: "Ali Okahim", city: "Agadir", orders: 19, delivery: "77%", rto: "19%", ltv: "3,420", credit: "0", av: "accent" },
 ];
 
+export const findCustomer = (name) => CUSTOMERS.find((c) => c.name === name) || null;
+const pick = (l, en, ar, fr) => (l === "ar" ? ar : l === "fr" ? fr : en);
+
+// Rich customer detail (header stats, connections, contact, activity, ledger).
+// Derived from the list row + representative June data; live ERPNext later.
+export function customerDetail(c, l) {
+  if (!c) return null;
+  const repeat = c.orders > 30;
+  return {
+    ...c,
+    phone: "+212 6" + String(10000000 + c.name.length * 372841).slice(0, 8),
+    since: "2024",
+    stats: [
+      { label: "LTV", value: c.ltv + " MAD" },
+      { label: pick(l, "Orders", "الطلبات", "Commandes"), value: String(c.orders) },
+      { label: pick(l, "Delivery", "التسليم", "Livraison"), value: c.delivery },
+      { label: "RTO", value: c.rto },
+    ],
+    connections: [
+      { label: pick(l, "Orders", "الطلبات", "Commandes"), value: String(c.orders), go: { module: "sales", sub: "orders" } },
+      { label: pick(l, "Invoices", "الفواتير", "Factures"), value: String(Math.round(c.orders * 0.9)), go: { module: "sales", sub: "invoices" } },
+      { label: pick(l, "Receipts", "السندات", "Reçus"), value: String(Math.round(c.orders * 0.8)), go: { module: "sales", sub: "receipts" } },
+      { label: pick(l, "Returns", "الإرجاع", "Retours"), value: String(Math.round(c.orders * parseInt(c.rto) / 100)), go: { module: "sales", sub: "credits" } },
+    ],
+    contact: [
+      { k: pick(l, "Phone", "الهاتف", "Téléphone"), v: "+212 6•• •• •• ••" },
+      { k: pick(l, "City", "المدينة", "Ville"), v: c.city },
+      { k: pick(l, "Default carrier", "الناقل", "Transporteur"), v: "Cathedis" },
+      { k: pick(l, "Segment (RFM)", "الشريحة (RFM)", "Segment (RFM)"), v: repeat ? pick(l, "Loyal · high value", "وفيّ · قيمة عالية", "Fidèle · haute valeur") : pick(l, "Promising", "واعد", "Prometteur") },
+      { k: pick(l, "Lifecycle", "دورة الحياة", "Cycle de vie"), v: repeat ? pick(l, "Repeat", "متكرر", "Récurrent") : pick(l, "New", "جديد", "Nouveau") },
+    ],
+    activity: [
+      { icon: "check", iconBg: "#ecfdf5", iconColor: "#047857", title: pick(l, "Order delivered", "تم تسليم الطلب", "Commande livrée"), meta: "Cathedis · " + c.city, time: "2d" },
+      { icon: "coins", iconBg: "#eff6ff", iconColor: "#0369a1", title: pick(l, "COD payment received", "تم استلام دفعة COD", "Paiement COD reçu"), meta: c.credit !== "0" ? c.credit + " MAD credit" : "—", time: "2d" },
+      { icon: "receipt", iconBg: "#faf6f4", iconColor: "#a33a22", title: pick(l, "Order placed", "تم تسجيل طلب", "Commande passée"), meta: "Shopify", time: "5d" },
+      { icon: "truck", iconBg: "#fff7ed", iconColor: "#c2410c", title: pick(l, "Shipped", "تم الشحن", "Expédiée"), meta: "Cathedis", time: "4d" },
+    ],
+    ledger: [
+      { date: "21 Jun", doc: "BTB…167144", type: pick(l, "Invoice", "فاتورة", "Facture"), dr: "129.00", cr: "", bal: "129.00" },
+      { date: "21 Jun", doc: "PAY-22491", type: pick(l, "Receipt", "سند قبض", "Reçu"), dr: "", cr: "129.00", bal: "0.00" },
+      { date: "18 Jun", doc: "BTB…159042", type: pick(l, "Invoice", "فاتورة", "Facture"), dr: "124.17", cr: "", bal: "124.17" },
+    ],
+    contactTitle: pick(l, "Contact & segment", "التواصل والشريحة", "Contact & segment"),
+    activityTitle: pick(l, "Recent activity", "النشاط الأخير", "Activité récente"),
+    ledgerTitle: pick(l, "Customer ledger", "كشف حساب العميل", "Grand livre client"),
+    creditLabel: pick(l, "Store credit", "رصيد المتجر", "Avoir client"),
+    sinceLabel: pick(l, "since", "منذ", "depuis"),
+  };
+}
+
 export const initials = (name) => (name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 // Delivery rate ≥80% reads healthy; RTO ≥18% is a concern.
 export const deliveryColor = (d) => (parseInt(d) >= 80 ? "#047857" : "#b45309");
