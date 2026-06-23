@@ -80,7 +80,7 @@
           <div class="space-y-0.5">
             <button v-for="j in jonly" :key="j.label"
                     class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[12.5px] text-ink-2 font-medium hover:bg-app-warm/70"
-                    @click="goSub(j.module, j.sub)">
+                    @click="goJonly(j)">
               <Icon :name="j.icon" :size="16" color="#a8a29e" />
               <span class="flex-1 text-start">{{ t(j.label) }}</span>
             </button>
@@ -110,8 +110,9 @@
 
         <div class="flex-1 max-w-md relative hidden sm:block">
           <span class="absolute inset-block-0 flex items-center ps-3 text-ink-muted"><Icon name="search" :size="16" /></span>
-          <input :placeholder="t('header.search')"
-                 class="w-full bg-app-warm border border-line-2 rounded-chip ps-9 pe-3 py-2 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input :placeholder="t('header.search')" readonly @click="paletteOpen = true" @focus="paletteOpen = true"
+                 class="w-full bg-app-warm border border-line-2 rounded-chip ps-9 pe-9 py-2 text-[12.5px] cursor-pointer focus:outline-none hover:border-accent/40" />
+          <kbd class="absolute end-3 inset-block-0 my-auto h-fit text-[10px] text-ink-muted border border-line-2 rounded px-1.5 py-0.5">⌘K</kbd>
         </div>
         <div class="flex-1 sm:hidden" />
 
@@ -221,6 +222,12 @@ function goModule(m) {
 function goSub(m, s) {
   open.value = false;
   router.push(s ? `/accounting/${m}/${s}` : `/accounting/${m}`);
+}
+// ★Justyol-only shortcut: some entries also switch entity (e.g. Consolidation
+// → Holding) before navigating.
+function goJonly(j) {
+  if (j.entity) setEntity(j.entity);
+  goSub(j.module, j.sub);
 }
 function pickEntity(id) { setEntity(id); entityOpen.value = false; }
 function cycleLocale() {

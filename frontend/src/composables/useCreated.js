@@ -1,5 +1,4 @@
 import { reactive } from "vue";
-import { AV } from "@/data/orders";
 
 // Records created in-session via the global Create modal. Kept reactive and
 // module-scoped so the Sales list + order detail pick them up immediately.

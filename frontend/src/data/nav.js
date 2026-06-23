@@ -53,7 +53,7 @@ export const JONLY = [
   { label: "jonly.cod", icon: "truck", module: "banking", sub: "remittance" },
   { label: "jonly.carrier", icon: "clock", module: "banking", sub: "aging" },
   { label: "jonly.margin", icon: "box", module: "items", sub: "landed" },
-  { label: "jonly.consolidation", icon: "layers", module: "reports", sub: "dd" },
+  { label: "jonly.consolidation", icon: "layers", module: "dashboard", sub: null, entity: "group" },
   { label: "jonly.dd", icon: "chart", module: "reports", sub: "dd" },
   { label: "jonly.copilot", icon: "shield", module: "copilot", sub: null },
 ];

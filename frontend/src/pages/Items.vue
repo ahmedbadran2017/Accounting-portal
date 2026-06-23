@@ -1,6 +1,5 @@
 <template>
   <div class="space-y-3.5">
-    <!-- Header -->
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div class="flex items-center gap-2 ms-auto">
@@ -14,19 +13,13 @@
       </template>
     </PageHeader>
 
-    <!-- Sub-tab pills -->
     <div class="flex flex-wrap gap-1 bg-white border border-line rounded-chip p-1 w-fit max-w-full overflow-x-auto">
-      <button v-for="s in subs" :key="s[0]"
-              class="px-3 py-1.5 rounded-lg text-[12px] whitespace-nowrap"
+      <button v-for="s in subs" :key="s[0]" class="px-3 py-1.5 rounded-lg text-[12px] whitespace-nowrap"
               :class="activeSub === s[0] ? 'text-accent-dark font-semibold bg-app-warm shadow-card' : 'text-ink-3 font-medium hover:text-ink'"
               @click="goSub(s[0])">{{ t(s[1]) }}</button>
     </div>
 
-    <!-- Body -->
-    <OrderDetail v-if="activeSub === 'orders' && route.query.id" />
-    <OrdersList v-else-if="activeSub === 'orders'" />
-    <InvoiceDetail v-else-if="activeSub === 'invoices' && route.query.id" />
-    <InvoicesList v-else-if="activeSub === 'invoices'" />
+    <LandedCost v-if="activeSub === 'landed'" />
     <div v-else class="bg-white rounded-card border border-line">
       <div class="flex flex-col items-center justify-center text-center py-20 px-6">
         <div class="w-12 h-12 rounded-card grid place-items-center mb-4" style="background:#fbf2ee"><Icon name="spark" :size="22" color="#a33a22" /></div>
@@ -43,10 +36,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
-import OrdersList from "@/pages/sales/OrdersList.vue";
-import OrderDetail from "@/pages/sales/OrderDetail.vue";
-import InvoicesList from "@/pages/sales/InvoicesList.vue";
-import InvoiceDetail from "@/pages/sales/InvoiceDetail.vue";
+import LandedCost from "@/pages/items/LandedCost.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
@@ -55,13 +45,12 @@ const route = useRoute();
 const router = useRouter();
 const { entityId, entities } = useUi();
 
-const subs = SUBTABS.sales;
-const activeSub = computed(() => route.params.sub || defaultSub("sales"));
+const subs = SUBTABS.items;
+const activeSub = computed(() => route.params.sub || defaultSub("items"));
 const entityName = computed(() => (entities.find((e) => e.id === entityId.value) || entities[0]).name);
 const title = computed(() => {
   const found = subs.find((s) => s[0] === activeSub.value);
-  return found ? t(found[1]) : t("nav.sales");
+  return found ? t(found[1]) : t("nav.items");
 });
-
-function goSub(s) { router.push(`/accounting/sales/${s}`); }
+function goSub(s) { router.push(`/accounting/items/${s}`); }
 </script>
