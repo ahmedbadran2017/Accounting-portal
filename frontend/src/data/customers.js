@@ -19,9 +19,11 @@ const pick = (l, en, ar, fr) => (l === "ar" ? ar : l === "fr" ? fr : en);
 export function customerDetail(c, l) {
   if (!c) return null;
   const repeat = c.orders > 30;
+  const digits = String(10000000 + c.name.length * 372841).slice(0, 8);
+  const phone = "+212 6" + digits.replace(/(\d{2})(\d{2})(\d{2})(\d{2})/, " $1 $2 $3 $4");
   return {
     ...c,
-    phone: "+212 6" + String(10000000 + c.name.length * 372841).slice(0, 8),
+    phone,
     since: "2024",
     stats: [
       { label: "LTV", value: c.ltv + " MAD" },
@@ -36,7 +38,7 @@ export function customerDetail(c, l) {
       { label: pick(l, "Returns", "الإرجاع", "Retours"), value: String(Math.round(c.orders * parseInt(c.rto) / 100)), go: { module: "sales", sub: "credits" } },
     ],
     contact: [
-      { k: pick(l, "Phone", "الهاتف", "Téléphone"), v: "+212 6•• •• •• ••" },
+      { k: pick(l, "Phone", "الهاتف", "Téléphone"), v: phone },
       { k: pick(l, "City", "المدينة", "Ville"), v: c.city },
       { k: pick(l, "Default carrier", "الناقل", "Transporteur"), v: "Cathedis" },
       { k: pick(l, "Segment (RFM)", "الشريحة (RFM)", "Segment (RFM)"), v: repeat ? pick(l, "Loyal · high value", "وفيّ · قيمة عالية", "Fidèle · haute valeur") : pick(l, "Promising", "واعد", "Prometteur") },
