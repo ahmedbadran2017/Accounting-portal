@@ -44,6 +44,8 @@ const ICONS = {
   list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   send: "M4 12l16-8-6 16-3-6z",
   refresh: "M21 12a9 9 0 11-2.6-6.3M21 4v5h-5",
+  doc: "M6 2h8l4 4v16H6zM14 2v4h4",
+  scale: "M12 3v18M5 21h14M7 7l-4 6a4 4 0 008 0zM17 7l-4 6a4 4 0 008 0zM7 7l5-2 5 2",
 };
 
 const props = defineProps({
