@@ -53,12 +53,13 @@ function liveVM(d, l) {
       { k: L(l, "Net", "الصافي", "Net"), v: intFmt(d.net_total) },
       { k: L(l, "VAT", "ض.ق.م", "TVA"), v: intFmt(d.total_taxes_and_charges) },
     ],
+    items: (d.items || []).map((it) => ({ name: it.name, image: it.image, qty: it.qty, rate: fmt2(it.rate), amount: fmt2(it.amount) })),
     timeline, journal,
   };
 }
 
 function sampleVM(ord, l) {
-  return { o: ord, dims: orderDims(ord, l), timeline: orderTimeline(ord, l), journal: orderStageJournals(ord, l) };
+  return { o: ord, dims: orderDims(ord, l), timeline: orderTimeline(ord, l), journal: orderStageJournals(ord, l), items: ord.items || [] };
 }
 
 export function useOrders() {

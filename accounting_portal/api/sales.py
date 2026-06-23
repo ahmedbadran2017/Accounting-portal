@@ -226,6 +226,13 @@ def get_order(name):
     if so.company not in resolve_companies():
         frappe.throw("Not permitted", frappe.PermissionError)
     so["state"] = _order_state(so)
+    so["items"] = frappe.db.sql(
+        """SELECT soi.item_name AS name, soi.item_code, soi.qty, soi.rate, soi.amount, i.image
+           FROM `tabSales Order Item` soi
+           LEFT JOIN `tabItem` i ON i.name = soi.item_code
+           WHERE soi.parent = %s ORDER BY soi.idx""",
+        (name,), as_dict=True,
+    )
     so["journal"] = _voucher_journal(name)
     return so
 
@@ -272,8 +279,10 @@ def get_invoice(name):
     if si.company not in resolve_companies():
         frappe.throw("Not permitted", frappe.PermissionError)
     si["lines"] = frappe.db.sql(
-        """SELECT item_name AS name, qty, rate, amount
-           FROM `tabSales Invoice Item` WHERE parent = %s ORDER BY idx""",
+        """SELECT sii.item_name AS name, sii.item_code, sii.qty, sii.rate, sii.amount, i.image
+           FROM `tabSales Invoice Item` sii
+           LEFT JOIN `tabItem` i ON i.name = sii.item_code
+           WHERE sii.parent = %s ORDER BY sii.idx""",
         (name,), as_dict=True,
     )
     si["paid"] = flt(si.outstanding_amount) <= 0

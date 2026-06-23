@@ -29,11 +29,19 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(ln, i) in inv.lines" :key="i" class="border-b border-line-hair">
-              <td class="px-4 py-2.5">{{ ln.name }}</td>
-              <td class="px-4 py-2.5 text-end tnum">{{ ln.qty }}</td>
-              <td class="px-4 py-2.5 text-end tnum">{{ ln.rate }}</td>
-              <td class="px-4 py-2.5 text-end tnum font-semibold">{{ ln.amount }}</td>
+            <tr v-for="(ln, i) in inv.lines" :key="i" class="border-b border-line-hair hover:bg-app-warm/40">
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <img v-if="ln.image" :src="ln.image" :alt="ln.name" loading="lazy"
+                       class="w-12 h-12 rounded-[10px] object-cover border border-line bg-app-warm flex-shrink-0"
+                       @error="$event.target.style.display='none'" />
+                  <span v-else class="w-12 h-12 rounded-[10px] grid place-items-center bg-app-warm border border-line flex-shrink-0"><Icon name="box" :size="17" color="#a8a29e" /></span>
+                  <span class="text-[12px] leading-snug">{{ ln.name }}</span>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-end tnum align-middle">{{ ln.qty }}</td>
+              <td class="px-4 py-3 text-end tnum align-middle">{{ ln.rate }}</td>
+              <td class="px-4 py-3 text-end tnum font-semibold align-middle">{{ ln.amount }}</td>
             </tr>
           </tbody>
           <tfoot class="text-[12px]">

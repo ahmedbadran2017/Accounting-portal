@@ -12,17 +12,26 @@ export const invStatusLabel = (s, l) => { const x = INV_STATUS[s] || INV_STATUS.
 
 const f2 = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Real Shopify product images (representative) so the sample detail demos the layout.
+const IMG = {
+  pots: "https://cdn.shopify.com/s/files/1/0707/0839/6286/files/1_org_zoom_3ac1af5c-1050-4497-8555-aea148429948.jpg?v=1725742230",
+  bocaux: "https://cdn.shopify.com/s/files/1/0707/0839/6286/files/1_org_zoom_75a6d5d0-29c2-4d7f-9243-a0233ecc23b3.jpg?v=1725742308",
+  sac: "https://cdn.shopify.com/s/files/1/0707/0839/6286/files/Sd7be253f36864c6aafbb5334acaf08492.webp?v=1763803403",
+  magnesium: "https://cdn.shopify.com/s/files/1/0707/0839/6286/files/Magnesiumbisglycinate360mg-60geluleshallal.webp?v=1771510080",
+  jean: "https://cdn.shopify.com/s/files/1/0707/0839/6286/files/S95cef3e031114a51a906b1a6e8464decg.webp?v=1765267404",
+};
+
 const RAW = [
   { id: "BTB2026003167144", customer: "زكرياء الرحماني", date: "21 Jun 2026", status: "paid", track: "Cathedis", pay: "PAY-22491",
-    items: [["Set de 12 pots à épices avec support", 1, 107.5]] },
+    items: [["Set de 12 pots à épices avec support", 1, 107.5, IMG.pots]] },
   { id: "BTB2026003154001", customer: "Salsabil El Kati", date: "19 Jun 2026", status: "overdue", track: "Cathedis", pay: "—",
-    items: [["Set 4 boîtes de rangement 6 L", 1, 101], ["Set 2 bouteilles d’huile en verre 750", 1, 122.33]] },
+    items: [["Set 4 boîtes de rangement 6 L", 1, 101, IMG.bocaux], ["Set 2 bouteilles d’huile en verre 750", 1, 122.33, IMG.pots]] },
   { id: "BTB2026003168233", customer: "Lachhed najia", date: "20 Jun 2026", status: "paid", track: "Cathedis", pay: "PAY-22493",
-    items: [["Set 12 contenants carrés 1205 ml", 1, 107.5]] },
+    items: [["Set 12 contenants carrés 1205 ml", 1, 107.5, IMG.bocaux]] },
   { id: "BTB2026003165980", customer: "Siham Elfilali", date: "20 Jun 2026", status: "paid", track: "Cathedis", pay: "PAY-22475",
-    items: [["Organisateur de cuisine 3 niveaux", 1, 248.33]] },
+    items: [["Sac à Main Femme Luxe – Tote Élégant", 1, 248.33, IMG.sac]] },
   { id: "BTB2026003159042", customer: "Khadija", date: "18 Jun 2026", status: "overdue", track: "Cathedis", pay: "—",
-    items: [["Set de 12 contenants 1205 ml", 1, 124.17]] },
+    items: [["Magnésium bisglycinate 360 mg", 2, 60.83, IMG.magnesium], ["Sac Coussin Femme en Jean", 1, 165.83, IMG.jean]] },
 ];
 
 // Derive net / VAT / gross from line items.
@@ -31,7 +40,7 @@ export const INVOICES = RAW.map((d) => {
   const vat = Math.round(net * 0.2 * 100) / 100;
   const gross = Math.round((net + vat) * 100) / 100;
   return { ...d, net, vat, gross,
-    lines: d.items.map((it) => ({ name: it[0], qty: it[1], rate: f2(it[2]), amount: f2(it[1] * it[2]) })) };
+    lines: d.items.map((it) => ({ name: it[0], image: it[3], qty: it[1], rate: f2(it[2]), amount: f2(it[1] * it[2]) })) };
 });
 
 export const findInvoice = (id) => INVOICES.find((i) => i.id === id) || null;

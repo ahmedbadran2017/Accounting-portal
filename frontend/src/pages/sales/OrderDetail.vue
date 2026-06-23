@@ -35,6 +35,28 @@
       </div>
     </div>
 
+    <!-- Products -->
+    <div v-if="items.length" class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
+        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="box" :size="14" color="#a33a22" /></span>
+        <span class="text-[13px] font-bold">{{ L("Products","المنتجات","Produits") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ items.length }} {{ L("items","صنف","articles") }}</span>
+      </div>
+      <div>
+        <div v-for="(it, i) in items" :key="i" class="flex items-center gap-3.5 px-4 py-3 border-t border-line-hair first:border-t-0 hover:bg-app-warm/40">
+          <img v-if="it.image" :src="it.image" :alt="it.name" loading="lazy"
+               class="w-14 h-14 rounded-[10px] object-cover border border-line bg-app-warm flex-shrink-0"
+               @error="$event.target.style.display='none'" />
+          <span v-else class="w-14 h-14 rounded-[10px] grid place-items-center bg-app-warm border border-line flex-shrink-0"><Icon name="box" :size="20" color="#a8a29e" /></span>
+          <div class="flex-1 min-w-0">
+            <div class="text-[12.5px] font-semibold leading-snug">{{ it.name }}</div>
+            <div class="text-[11px] text-ink-3 mt-0.5">{{ it.qty }} × {{ it.rate }} <span class="text-ink-muted">MAD</span></div>
+          </div>
+          <div class="text-[13.5px] font-bold tnum whitespace-nowrap">{{ it.amount }} <span class="text-[11px] text-ink-muted">MAD</span></div>
+        </div>
+      </div>
+    </div>
+
     <div class="grid lg:grid-cols-[1fr_1.25fr] gap-3.5">
       <!-- Lifecycle timeline -->
       <div class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
@@ -115,6 +137,7 @@ watch(() => [route.query.id, locale.value], load, { immediate: true });
 
 const o = computed(() => vm.value?.o || null);
 const dims = computed(() => vm.value?.dims || []);
+const items = computed(() => vm.value?.items || []);
 const timeline = computed(() => vm.value?.timeline || []);
 const journal = computed(() => vm.value?.journal || { noJournal: true, msg: "" });
 const sm = computed(() => STATE_META[o.value?.state] || STATE_META.placed);
