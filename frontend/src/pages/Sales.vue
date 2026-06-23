@@ -27,6 +27,7 @@
     <OrdersList v-else-if="activeSub === 'orders'" />
     <InvoiceDetail v-else-if="activeSub === 'invoices' && route.query.id" />
     <InvoicesList v-else-if="activeSub === 'invoices'" />
+    <CustomersList v-else-if="activeSub === 'customers'" />
     <div v-else class="bg-white rounded-card border border-line">
       <div class="flex flex-col items-center justify-center text-center py-20 px-6">
         <div class="w-12 h-12 rounded-card grid place-items-center mb-4" style="background:#fbf2ee"><Icon name="spark" :size="22" color="#a33a22" /></div>
@@ -47,6 +48,7 @@ import OrdersList from "@/pages/sales/OrdersList.vue";
 import OrderDetail from "@/pages/sales/OrderDetail.vue";
 import InvoicesList from "@/pages/sales/InvoicesList.vue";
 import InvoiceDetail from "@/pages/sales/InvoiceDetail.vue";
+import CustomersList from "@/pages/sales/CustomersList.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 

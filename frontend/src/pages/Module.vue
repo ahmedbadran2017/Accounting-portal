@@ -13,6 +13,7 @@ import Banking from "@/pages/Banking.vue";
 import Accountant from "@/pages/Accountant.vue";
 import Items from "@/pages/Items.vue";
 import Reports from "@/pages/Reports.vue";
+import Settings from "@/pages/Settings.vue";
 import ModulePage from "@/pages/ModulePage.vue";
 
 // Single dynamic child of AppLayout: dispatch on the :module route param so we
@@ -29,6 +30,7 @@ const view = computed(() => {
   if (m === "accountant") return Accountant;
   if (m === "items") return Items;
   if (m === "reports") return Reports;
+  if (m === "settings") return Settings;
   return ModulePage;
 });
 </script>
