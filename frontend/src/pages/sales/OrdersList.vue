@@ -1,5 +1,16 @@
 <template>
   <div class="space-y-3.5">
+    <!-- CFO summary strip — GMV, AOV, realised value, backlog, RTO (month-to-date) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div v-for="m in summaryCards" :key="m.label"
+           class="relative bg-white border border-line rounded-[14px] p-3.5 shadow-card overflow-hidden">
+        <div class="absolute -top-8 -end-8 w-20 h-20 rounded-full blur-2xl pointer-events-none" :style="{ background: m.glow, opacity: .07 }"></div>
+        <div class="relative text-[9.5px] text-ink-muted font-bold uppercase tracking-wider">{{ m.label }}</div>
+        <div class="relative text-[19px] font-extrabold tnum mt-1 tracking-tight" :style="{ color: m.color }">{{ m.value }}</div>
+        <div class="relative text-[10px] text-ink-3 mt-0.5">{{ m.sub }}</div>
+      </div>
+    </div>
+
     <!-- State-machine strip (connected, click to filter) -->
     <div class="bg-white border border-line rounded-[14px] p-3.5 shadow-card overflow-x-auto">
       <div class="flex items-center gap-1 min-w-[680px]">
@@ -95,6 +106,8 @@ import Icon from "@/components/Icon.vue";
 import { ORDERS, STATE_META, stateLabel, MACHINE, machineCounts, AV, postingInfo } from "@/data/orders";
 import { useCreated } from "@/composables/useCreated";
 import { liveOrSample, avFor, iniOf, currentCompany } from "@/composables/useLive";
+import { fmtMAD } from "@/composables/useReconciliation";
+import api from "@/services/api";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -107,6 +120,7 @@ const sort = ref({ key: null, dir: 1 });
 // Live ERPNext orders (fallback to the June sample); merged with in-session creations.
 const loaded = ref(ORDERS);
 const isLive = ref(null);
+const summary = ref(null);
 onMounted(async () => {
   const res = await liveOrSample(
     "accounting_portal.api.sales.list_orders", { company: currentCompany(), limit: 100 }, () => ORDERS,
@@ -118,6 +132,20 @@ onMounted(async () => {
   );
   loaded.value = res.data;
   isLive.value = res.live;
+  try { summary.value = await api.call("accounting_portal.api.sales.orders_summary", { company: currentCompany() }); } catch { /* sample */ }
+});
+
+// CFO month-to-date metrics (live; sample headline until the endpoint lands).
+const SUMMARY_SAMPLE = { gmv: 1525056, orders: 7553, aov: 202, delivered_value: 547566, delivery_rate: 36.8, pending: 4092, exceptions: 92, rto_rate: 1.2 };
+const summaryCards = computed(() => {
+  const d = summary.value && summary.value.company ? summary.value : SUMMARY_SAMPLE;
+  return [
+    { label: lbl("GMV (MTD)", "إجمالي المبيعات", "GMV (mois)"), value: fmtMAD(d.gmv), color: "#1c1917", glow: "#a8a29e", sub: `${(d.orders || 0).toLocaleString()} ${lbl("orders", "طلب", "commandes")}` },
+    { label: lbl("Avg order", "متوسط الطلب", "Panier moyen"), value: fmtMAD(d.aov), color: "#1c1917", glow: "#a8a29e", sub: "AOV · MAD" },
+    { label: lbl("Realised", "المُحقَّق", "Réalisé"), value: fmtMAD(d.delivered_value), color: "#047857", glow: "#34d399", sub: `${d.delivery_rate}% ${lbl("delivered", "مُسلّم", "livré")}` },
+    { label: lbl("Backlog", "المعلّق", "En attente"), value: (d.pending || 0).toLocaleString(), color: "#b45309", glow: "#f59e0b", sub: lbl("pending fulfilment", "بانتظار التنفيذ", "à exécuter") },
+    { label: "RTO", value: `${d.rto_rate}%`, color: "#be123c", glow: "#f87171", sub: `${d.exceptions} ${lbl("exceptions", "استثناء", "exceptions")}` },
+  ];
 });
 
 const cols = computed(() => [

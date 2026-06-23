@@ -6,9 +6,48 @@ custom_shipping_city). Sales Invoice = revenue recognised on delivery (VAT 20%).
 Every list is scoped to one company and excludes cancelled documents.
 """
 import frappe
-from frappe.utils import flt
+from frappe.utils import flt, getdate, nowdate
 
 from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+
+
+def _month_start():
+    return getdate(nowdate()).replace(day=1).isoformat()
+
+
+@frappe.whitelist()
+def orders_summary(company=None, since=None):
+    """CFO order metrics for one company since `since` (default: month-to-date):
+    GMV, order count, AOV, the COD funnel, realised (delivered) value, and the
+    delivery / RTO rates. The numbers behind the orders list's summary strip."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return {}
+    target = company if (company and company in companies) else companies[0]
+    since = since or _month_start()
+    r = frappe.db.sql(
+        """
+        SELECT COUNT(*) AS total, ROUND(SUM(grand_total)) AS gmv, ROUND(AVG(grand_total)) AS aov,
+               SUM(custom_logistics_status='Delivered') AS delivered,
+               SUM(custom_logistics_status='Shipped') AS in_transit,
+               SUM(custom_logistics_status='Pending') AS pending,
+               SUM(custom_track_shipment_status IN ('Delivery Exception','Failed Attempt')
+                   OR custom_sales_status='Returned' OR custom_logistics_status='Returned') AS exceptions,
+               ROUND(SUM(CASE WHEN custom_logistics_status='Delivered' THEN grand_total ELSE 0 END)) AS delivered_value
+        FROM `tabSales Order`
+        WHERE company=%s AND docstatus=1 AND transaction_date >= %s
+        """,
+        (target, since), as_dict=True)[0]
+    total = r.total or 0
+    return {
+        "company": target, "since": since,
+        "orders": total, "gmv": flt(r.gmv), "aov": flt(r.aov),
+        "delivered": r.delivered or 0, "in_transit": r.in_transit or 0, "pending": r.pending or 0,
+        "exceptions": r.exceptions or 0, "delivered_value": flt(r.delivered_value),
+        "delivery_rate": round((r.delivered or 0) / total * 100, 1) if total else 0,
+        "rto_rate": round((r.exceptions or 0) / total * 100, 1) if total else 0,
+    }
 
 
 # ── COD state machine ──
