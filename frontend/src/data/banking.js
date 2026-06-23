@@ -19,3 +19,48 @@ export const BATCHES = [
 export const findBatch = (id) => BATCHES.find((b) => b.id === id) || null;
 export const batchStatusLabel = (s, l) => { const x = BATCH_STATUS[s] || BATCH_STATUS.posted; return x[l] || x.en; };
 export const money = (n) => n.toLocaleString("en-US");
+
+const pick = (l, en, ar, fr) => (l === "ar" ? ar : l === "fr" ? fr : en);
+
+// Bank & cash accounts (Justyol Morocco) shown atop the banking list.
+export const BANK_ACCOUNTS = [
+  { name: "Cathadis – COD clearing", no: "108.021.003", balance: "471,081", ccy: "MAD", bg: "#fff4e0", color: "#b45309" },
+  { name: "BMCE Bank", no: "••• 1303", balance: "12,483", ccy: "MAD", bg: "#eff6ff", color: "#0369a1" },
+  { name: "Petty cash", no: "100.002.002", balance: "375", ccy: "MAD", bg: "#ecfdf5", color: "#047857" },
+];
+
+// Per-order reconciliation line states.
+export const LINE_MATCH = {
+  matched:       { bg: "#ecfdf5", fg: "#047857", bd: "#a7f3d0", en: "Matched", ar: "مطابَق", fr: "Rapproché" },
+  partial:       { bg: "#fff7ed", fg: "#c2410c", bd: "#fed7aa", en: "Partial", ar: "جزئي", fr: "Partiel" },
+  not_collected: { bg: "#fef2f2", fg: "#be123c", bd: "#fecaca", en: "Not collected", ar: "لم يُحصَّل", fr: "Non collecté" },
+};
+export const lineMatchLabel = (s, l) => { const x = LINE_MATCH[s] || LINE_MATCH.matched; return x[l] || x.en; };
+
+// Reconciliation lines for a batch (carrier collected vs expected, per order).
+// Illustrative set for the variance batch; live ERPNext mapping later.
+export function reconLines(batch) {
+  if (!batch) return [];
+  if (batch.variance) {
+    return [
+      { order: "YC-000189", expected: 129, collected: 129, fee: 10, variance: 0, match: "matched" },
+      { order: "YC-000188", expected: 89, collected: 89, fee: 7, variance: 0, match: "matched" },
+      { order: "YC-000185", expected: 149, collected: 0, fee: 0, variance: -149, match: "not_collected" },
+      { order: "YC-000183", expected: 129, collected: 60, fee: 5, variance: -69, match: "partial" },
+      { order: "YC-000177", expected: 89, collected: 0, fee: 0, variance: -89, match: "not_collected" },
+      { order: "YC-000179", expected: 129, collected: 129, fee: 10, variance: 0, match: "matched" },
+    ];
+  }
+  return [
+    { order: "YC-000200", expected: 149, collected: 149, fee: 11, variance: 0, match: "matched" },
+    { order: "YC-000201", expected: 129, collected: 129, fee: 10, variance: 0, match: "matched" },
+    { order: "YC-000202", expected: 89, collected: 89, fee: 7, variance: 0, match: "matched" },
+  ];
+}
+
+export function varianceMsg(l) {
+  return pick(l,
+    "Collected is short of what the orders expected — 2 orders never collected, 1 partial. Post the matched portion and send the variance to the variance queue.",
+    "المُحصَّل أقل مما تتوقعه الطلبات — طلبان لم يُحصَّلا وواحد جزئي. رحِّل الجزء المطابق وأرسل الفرق لطابور الفروق.",
+    "Le collecté est inférieur à l’attendu — 2 commandes non collectées, 1 partielle. Passez la partie rapprochée et envoyez l’écart à la file des écarts.");
+}
