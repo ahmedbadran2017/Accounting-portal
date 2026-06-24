@@ -33,12 +33,59 @@ def _segment(orders, ltv):
     return "New"
 
 
+def _norm_city(c):
+    """Tidy the messy Shopify city strings (casa/CASA → Casa) for display."""
+    c = (c or "").strip()
+    if not c:
+        return "—"
+    # Title-case latin; leave Arabic/other scripts untouched.
+    return c.title() if c.isascii() else c
+
+
 def _customer_city(name):
-    """Best-effort city — the most recent order's shipping city (Customer has none)."""
-    return frappe.db.get_value(
-        "Sales Order", {"customer": name, "custom_shipping_city": ["is", "set"]},
-        "custom_shipping_city", order_by="transaction_date desc",
-    ) or "—"
+    """City from the customer's most-recent linked Address (the real source —
+    the order custom_shipping_city field is ~empty; Address.city is populated)."""
+    row = frappe.db.sql(
+        """SELECT a.city FROM `tabAddress` a
+           JOIN `tabDynamic Link` dl ON dl.parent=a.name AND dl.parenttype='Address'
+             AND dl.link_doctype='Customer' AND dl.link_name=%s
+           WHERE a.city IS NOT NULL AND a.city != ''
+           ORDER BY a.modified DESC LIMIT 1""", (name,))
+    return _norm_city(row[0][0]) if row else "—"
+
+
+def _cities_for(names):
+    """Bulk most-recent city for many customers in one query (for the top list)."""
+    if not names:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT dl.link_name AS customer,
+                  SUBSTRING_INDEX(GROUP_CONCAT(a.city ORDER BY a.modified DESC SEPARATOR '||'), '||', 1) AS city
+           FROM `tabAddress` a
+           JOIN `tabDynamic Link` dl ON dl.parent=a.name AND dl.parenttype='Address'
+             AND dl.link_doctype='Customer'
+           WHERE dl.link_name IN %(names)s AND a.city IS NOT NULL AND a.city != ''
+           GROUP BY dl.link_name""",
+        {"names": tuple(names)}, as_dict=True)
+    return {r.customer: _norm_city(r.city) for r in rows}
+
+
+def _tags(orders, delivery_rate, rto_rate, ltv):
+    """Attractive, always-fresh customer tags computed from behaviour (no stored
+    doctype needed — these are 100% derivable and would only go stale if cached).
+    Returns tone keys; the frontend maps them to a localized label + colour."""
+    tags = []
+    if (delivery_rate < 50 and orders >= 3) or rto_rate >= 10:
+        tags.append("risk")
+    if ltv >= 8000 or orders >= 20:
+        tags.append("vip")
+    elif orders >= 10 and delivery_rate >= 70:
+        tags.append("loyal")
+    elif orders >= 4:
+        tags.append("returning")
+    elif orders <= 2:
+        tags.append("new")
+    return tags[:2]
 
 
 def _stats(name):
@@ -74,7 +121,7 @@ def _stats(name):
 # Top-customers ranking is a heavy GROUP BY over every Shopify order (~seconds),
 # so it's computed once and cached. HAVING ltv>0 keeps only customers with real
 # delivered value — which also drops test/undelivered-spam accounts for free.
-TOP_CACHE_KEY = "ap_top_customers"
+TOP_CACHE_KEY = "ap_top_customers_v2"  # bump when the row shape changes
 
 _TOP_SQL = """
     SELECT so.customer AS name, c.customer_name,
@@ -94,12 +141,13 @@ _TOP_SQL = """
 
 def _row(r, city="—", credit="0"):
     orders, delivered, exceptions = (r["orders"] or 0), (r["delivered"] or 0), (r["exceptions"] or 0)
+    dr = (delivered / orders * 100) if orders else 0
+    rr = (exceptions / orders * 100) if orders else 0
     return {
         "name": r["name"], "customer_name": r["customer_name"], "city": city,
         "orders": orders, "ltv": f"{int(r['ltv'] or 0):,}",
-        "delivery": f"{round(delivered / orders * 100)}%" if orders else "0%",
-        "rto": f"{round(exceptions / orders * 100)}%" if orders else "0%",
-        "credit": credit,
+        "delivery": f"{round(dr)}%", "rto": f"{round(rr)}%",
+        "credit": credit, "tags": _tags(orders, dr, rr, flt(r["ltv"] or 0)),
     }
 
 
@@ -129,12 +177,15 @@ def list_customers(search=None, limit=40):
                 "ltv": f"{int(s['ltv']):,}",
                 "delivery": f"{s['delivery_rate']:.0f}%", "rto": f"{s['rto_rate']:.0f}%",
                 "credit": ("+" + f"{int(s['store_credit']):,}") if s["store_credit"] else "0",
+                "tags": _tags(s["orders"], s["delivery_rate"], s["rto_rate"], s["ltv"]),
             })
         return out
 
     cached = frappe.cache().get_value(TOP_CACHE_KEY)
     if cached is None:
-        cached = [_row(r) for r in frappe.db.sql(_TOP_SQL, {"g": REAL_GROUP}, as_dict=True)]
+        top = frappe.db.sql(_TOP_SQL, {"g": REAL_GROUP}, as_dict=True)
+        cities = _cities_for([r["name"] for r in top])
+        cached = [_row(r, city=cities.get(r["name"], "—")) for r in top]
         frappe.cache().set_value(TOP_CACHE_KEY, cached, expires_in_sec=3600)
     return cached[:limit]
 
