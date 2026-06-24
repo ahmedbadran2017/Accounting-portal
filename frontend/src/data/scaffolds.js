@@ -51,12 +51,12 @@ export const SCAFFOLDS = {
       ] },
   },
   purchases: {
-    pos: { icon: "cart", cols: [["PO"], ["Vendor"], ["Date"], ["Amount", "e"], ["Status"]], rows: [
+    pos: { icon: "cart", cols: [["PO"], ["Vendor"], ["Date"], ["Amount", "e"], ["Status"]], facets: [4], rows: [
       ["PO-3009", "TOMMYLIFE", "09 Jun", "TRY 412,000", "Open"],
       ["PO-3008", "SLA Import", "07 Jun", "MAD 96,400", "Received"],
       ["PO-3007", "Justyol China", "03 Jun", "USD 21,525", "Open"],
     ] },
-    expenses: { icon: "wallet", cols: [["Expense"], ["Category"], ["Date"], ["Amount", "e"], ["Status"]], rows: [
+    expenses: { icon: "wallet", cols: [["Expense"], ["Category"], ["Date"], ["Amount", "e"], ["Status"]], facets: [1, 4], rows: [
       ["EXP-0512", "Meta / Facebook Ads", "21 Jun", "MAD 44,800", "Paid"],
       ["EXP-0511", "Rent — warehouse", "01 Jun", "MAD 18,000", "Paid"],
       ["EXP-0510", "SaaS · ERPNext", "01 Jun", "MAD 2,400", "Paid"],
@@ -93,7 +93,7 @@ export const SCAFFOLDS = {
     ] },
   },
   banking: {
-    accounts: { icon: "bank", cols: [["Account"], ["Type"], ["Currency"], ["Balance", "e"]],
+    accounts: { icon: "bank", cols: [["Account"], ["Type"], ["Currency"], ["Balance", "e"]], facets: [1, 2],
       live: { method: "accounting_portal.api.reconciliation.list_accounts", map: (r) => [r.account, r.type, r.ccy || "MAD", _f2(r.balance)] },
       rows: [
         ["108.021.003 - Cathadis - JM", "Bank", "MAD", "471,081.00"],
