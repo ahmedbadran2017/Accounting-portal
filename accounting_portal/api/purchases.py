@@ -84,5 +84,42 @@ def get_bill(name):
     pi["items"] = items
     pi["match"] = {"po": bool(has_po), "grn": bool(has_pr), "matched": bool(has_po and has_pr)}
     pi["status_norm"] = _bill_status(pi)
+    pi["related_orders"] = sorted({i.po for i in items if i.po})
+    pi["related_receipts"] = sorted({i.pr for i in items if i.pr})
+    pi["related_payments"] = [r.name for r in frappe.db.sql(
+        """SELECT DISTINCT parent AS name FROM `tabPayment Entry Reference`
+           WHERE reference_doctype='Purchase Invoice' AND reference_name=%s""", (name,), as_dict=True)]
     pi["journal"] = _voucher_journal(name)
     return pi
+
+
+@frappe.whitelist()
+def list_vendors(company=None, limit=60):
+    """Top suppliers for one company ranked by outstanding payable (GL party
+    balance). Powers the Vendors cards — live, with a real payable figure."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    currency = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    rows = frappe.db.sql(
+        """
+        SELECT g.party AS name, COALESCE(s.supplier_name, g.party) AS supplier_name,
+               s.supplier_group,
+               ROUND(SUM(g.credit - g.debit)) AS payable,
+               (SELECT COUNT(*) FROM `tabPurchase Invoice` pi
+                  WHERE pi.supplier = g.party AND pi.company = %(c)s AND pi.docstatus = 1) AS n_bills
+        FROM `tabGL Entry` g
+        LEFT JOIN `tabSupplier` s ON s.name = g.party
+        WHERE g.party_type = 'Supplier' AND g.company = %(c)s AND g.is_cancelled = 0
+        GROUP BY g.party
+        HAVING ABS(SUM(g.credit - g.debit)) > 0
+        ORDER BY payable DESC
+        LIMIT %(limit)s
+        """,
+        {"c": target, "limit": min(int(limit or 60), 200)}, as_dict=True,
+    )
+    for r in rows:
+        r["currency"] = currency
+    return rows

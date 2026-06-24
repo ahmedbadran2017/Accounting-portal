@@ -20,12 +20,13 @@ function liveVM(d, l) {
   const sign = d.is_return ? "-" : "";
   return {
     b: {
-      id: d.name, vendor: d.supplier,
+      id: d.name, vendor: d.supplier, date: String(d.posting_date || ""), bill_no: d.bill_no || "",
       amount: sign + Math.round(Math.abs(Number(d.grand_total) || 0)).toLocaleString("en-US"),
       status: d.status_norm || "overdue", match: matched ? "ok" : "exc",
     },
     matched,
     legs: legsFor(matched, l),
+    related: { orders: d.related_orders || [], receipts: d.related_receipts || [], payments: d.related_payments || [] },
     journal: (d.journal || []).map((j) => ({ acc: j.acc, dr: j.dr ? f2(j.dr) : "", cr: j.cr ? f2(j.cr) : "" })),
   };
 }
@@ -38,7 +39,7 @@ function sampleVM(bill, l) {
   const journal = isReturn
     ? [{ acc: "320.01 Creditors", dr: amt.replace("-", ""), cr: "" }, { acc: "71.801 Cost of Goods Sold / Stock", dr: "", cr: amt.replace("-", "") }]
     : [{ acc: "153.01 Stock in Hand / Expense", dr: amt, cr: "" }, { acc: "320.01 Creditors", dr: "", cr: amt }];
-  return { b: bill, matched, legs: legsFor(matched, l), journal };
+  return { b: bill, matched, legs: legsFor(matched, l), related: { orders: [], receipts: [], payments: [] }, journal };
 }
 
 export function useBills() {

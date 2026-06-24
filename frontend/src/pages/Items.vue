@@ -3,9 +3,6 @@
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div class="flex items-center gap-2 ms-auto">
-          <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm">
-            <Icon name="filter" :size="14" />{{ t("module.filters") }}
-          </button>
           <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim">
             <Icon name="plus" :size="14" />{{ t("module.new") }}
           </button>
