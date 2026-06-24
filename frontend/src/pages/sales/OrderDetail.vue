@@ -38,7 +38,7 @@
     <!-- Products -->
     <div v-if="items.length" class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
-        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="box" :size="14" color="#a33a22" /></span>
+        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="box" :size="14" color="#0b5c4f" /></span>
         <span class="text-[13px] font-bold">{{ L("Products","المنتجات","Produits") }}</span>
         <span class="text-[11px] text-ink-muted">{{ items.length }} {{ L("items","صنف","articles") }}</span>
       </div>
@@ -95,7 +95,7 @@
       <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="layers" :size="13" color="#7c3aed" /></span><span class="text-[12.5px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
       <div v-if="related.invoices.length || related.deliveries.length || related.payments.length" class="flex flex-wrap gap-2">
         <button v-for="dn in related.deliveries" :key="dn" @click="openDoc('sales','challans',dn)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="truck" :size="12" color="#c2410c" />{{ dn }}</button>
-        <button v-for="inv in related.invoices" :key="inv" @click="openDoc('sales','invoices',inv)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="doc" :size="12" color="#a33a22" />{{ inv }}</button>
+        <button v-for="inv in related.invoices" :key="inv" @click="openDoc('sales','invoices',inv)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="doc" :size="12" color="#0b5c4f" />{{ inv }}</button>
         <button v-for="pe in related.payments" :key="pe" @click="openDoc('sales','payments',pe)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="12" color="#047857" />{{ pe }}</button>
       </div>
       <div v-else class="text-[11.5px] text-ink-muted">{{ L("No delivery, invoice or payment yet — this order hasn't reached a posting state.","لا يوجد تسليم أو فاتورة أو دفعة بعد — الطلب لم يصل لحالة ترحيل.","Aucun document lié pour le moment.") }}</div>

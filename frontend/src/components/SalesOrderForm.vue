@@ -2,7 +2,7 @@
   <div class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:p-8 overflow-y-auto" style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
     <div class="bg-white rounded-[18px] shadow-cardHover w-full max-w-2xl my-6 overflow-hidden">
       <div class="flex items-center gap-2.5 px-5 py-4 border-b border-line">
-        <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#faf6f4"><Icon name="receipt" :size="16" color="#a33a22" /></span>
+        <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#faf6f4"><Icon name="receipt" :size="16" color="#0b5c4f" /></span>
         <div class="flex-1 min-w-0">
           <div class="text-[14px] font-bold">{{ L("New sales order", "أمر بيع جديد", "Nouvelle commande") }}</div>
           <div class="text-[11px] text-ink-muted">{{ entityName }} · {{ L("COD · posts to ERPNext via the audit gateway", "COD · يُرحّل لـ ERPNext عبر بوابة التدقيق", "COD · via la passerelle d'audit") }}</div>
@@ -75,7 +75,7 @@
 
       <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
         <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim disabled:opacity-50" :disabled="!canPost || posting" @click="post">
+        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canPost || posting" @click="post">
           {{ posting ? L("Creating…", "جارٍ…", "…") : L("Create order", "إنشاء الطلب", "Créer") }}
         </button>
       </div>

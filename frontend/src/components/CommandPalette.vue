@@ -14,8 +14,8 @@
                 class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-start"
                 :class="i === active ? 'bg-app-warm' : 'hover:bg-app-warm/60'"
                 @mouseenter="active = i" @click="choose(it)">
-          <span class="w-7 h-7 rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: it.create ? '#fbf2ee' : '#faf6f4' }">
-            <Icon :name="it.icon" :size="15" :color="it.create ? '#a33a22' : '#78716c'" />
+          <span class="w-7 h-7 rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: it.create ? '#e7f4f1' : '#faf6f4' }">
+            <Icon :name="it.icon" :size="15" :color="it.create ? '#0b5c4f' : '#78716c'" />
           </span>
           <span class="flex-1 min-w-0">
             <span class="block text-[12.5px] font-medium truncate">{{ it.label }}</span>

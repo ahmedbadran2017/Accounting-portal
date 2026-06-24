@@ -26,7 +26,7 @@
             <span class="text-[10px] text-ink-muted font-mono">{{ a.ref }}</span>
             <div class="flex-1"></div>
             <button class="h-7 px-2.5 rounded-[8px] bg-white border border-line-2 text-ink-2 text-[11px] font-semibold hover:bg-app-warm" @click="investigate(a)">{{ L("Investigate","تحقّق","Enquêter") }}</button>
-            <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold" style="background:#faf6f4;border:1px solid #f3e4de;color:#a33a22" @click="go(a.go)">{{ a.cta(locale) }}</button>
+            <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold" style="background:#faf6f4;border:1px solid #f3e4de;color:#0b5c4f" @click="go(a.go)">{{ a.cta(locale) }}</button>
           </div>
         </div>
       </div>

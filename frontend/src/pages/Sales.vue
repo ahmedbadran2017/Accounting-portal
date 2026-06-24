@@ -4,7 +4,7 @@
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div v-if="showNew" class="flex items-center gap-2 ms-auto">
-          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim" @click="onNew">
+          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="onNew">
             <Icon name="plus" :size="14" />{{ newLabel }}
           </button>
         </div>

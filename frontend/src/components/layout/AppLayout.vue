@@ -9,7 +9,7 @@
       <div class="h-[60px] flex items-center gap-2.5 px-4 border-b border-line">
         <img :src="LOGO_URL" alt="Justyol" class="h-[15px] w-auto" />
         <span class="w-px h-[18px] bg-line-2"></span>
-        <span class="text-[16px] font-bold tracking-tight text-accent-dark">Books</span>
+        <span class="text-[16px] font-bold tracking-tight text-brand-dark">Books</span>
       </div>
 
       <!-- Entity switcher -->
@@ -35,7 +35,7 @@
               <span class="block text-[12px] font-semibold truncate">{{ e.name }}</span>
               <span class="block text-[10px] text-ink-muted">{{ e.place }} · {{ e.ccy }}</span>
             </span>
-            <Icon v-if="e.id === entityId" name="check" :size="15" color="#a33a22" />
+            <Icon v-if="e.id === entityId" name="check" :size="15" color="#0b5c4f" />
           </button>
         </div>
       </div>
@@ -51,7 +51,7 @@
                         ? 'text-accent-dark font-semibold bg-app-warm shadow-[inset_0_0_0_1px_#f3e4de]'
                         : 'text-ink-2 font-medium hover:bg-app-warm/70'"
                       @click="goModule(m.id)">
-                <Icon :name="m.icon" :size="16" :color="activeModule === m.id ? '#a33a22' : '#a8a29e'" />
+                <Icon :name="m.icon" :size="16" :color="activeModule === m.id ? '#0b5c4f' : '#a8a29e'" />
                 <span class="flex-1 text-start">{{ t('nav.' + m.id) }}</span>
                 <span v-if="m.badge"
                       class="min-w-[18px] h-[18px] px-1.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold grid place-items-center">{{ m.badge }}</span>
@@ -63,7 +63,7 @@
                         :class="activeSub === s[0] ? 'text-accent-dark font-semibold bg-accent-soft' : 'text-ink-3 font-normal hover:bg-app-warm/60'"
                         @click="goSub(m.id, s[0])">
                   <span class="w-[5px] h-[5px] rounded-full flex-shrink-0"
-                        :style="{ background: activeSub === s[0] ? '#c4492a' : '#cfc9c4' }"></span>
+                        :style="{ background: activeSub === s[0] ? '#0f766e' : '#cfc9c4' }"></span>
                   {{ t(s[1]) }}
                 </button>
               </div>
@@ -113,12 +113,12 @@
         </button>
 
         <div class="relative" v-click-outside="() => (createMenuOpen = false)">
-          <button class="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-2 rounded-chip shadow-prim" @click="createMenuOpen = !createMenuOpen">
+          <button class="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand" @click="createMenuOpen = !createMenuOpen">
             <Icon name="plus" :size="16" /><span class="hidden sm:inline">{{ t("header.create") }}</span>
           </button>
           <div v-if="createMenuOpen" class="absolute end-0 mt-1 w-48 bg-white rounded-chip border border-line-2 shadow-cardHover p-1 z-50 animate-fadeIn">
             <button v-for="o in createOptions" :key="o.type" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-app-warm text-start" @click="openCreate(o.type)">
-              <Icon :name="o.icon" :size="15" color="#a33a22" /><span class="text-[12.5px] font-medium">{{ o.label }}</span>
+              <Icon :name="o.icon" :size="15" color="#0b5c4f" /><span class="text-[12.5px] font-medium">{{ o.label }}</span>
             </button>
           </div>
         </div>

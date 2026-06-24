@@ -73,7 +73,7 @@
         <div class="mt-3 pt-3 border-t border-line-hair">
           <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted mb-2">{{ L("Related","مرتبط","Lié") }}</div>
           <div v-if="related.orders.length || related.deliveries.length || related.payments.length" class="flex flex-wrap gap-1.5">
-            <button v-for="o in related.orders" :key="o" @click="openDoc('orders', o)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="receipt" :size="11" color="#a33a22" />{{ o }}</button>
+            <button v-for="o in related.orders" :key="o" @click="openDoc('orders', o)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="receipt" :size="11" color="#0b5c4f" />{{ o }}</button>
             <button v-for="dn in related.deliveries" :key="dn" @click="openDoc('challans', dn)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="truck" :size="11" color="#c2410c" />{{ dn }}</button>
             <button v-for="pe in related.payments" :key="pe" @click="openDoc('payments', pe)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="11" color="#047857" />{{ pe }}</button>
           </div>
@@ -84,7 +84,7 @@
 
     <!-- Posted journal -->
     <div class="bg-white rounded-card border border-line overflow-hidden">
-      <div class="px-4 py-3 border-b border-line flex items-center gap-2"><Icon name="ledger" :size="15" color="#a33a22" /><span class="text-[13px] font-bold">{{ L("Posted journal","القيد المُرحَّل","Écriture passée") }}</span></div>
+      <div class="px-4 py-3 border-b border-line flex items-center gap-2"><Icon name="ledger" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("Posted journal","القيد المُرحَّل","Écriture passée") }}</span></div>
       <table class="w-full text-[12px]">
         <tbody>
           <tr v-for="(j, i) in journal" :key="i" class="border-b border-line-hair">

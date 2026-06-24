@@ -9,8 +9,9 @@ export default {
         arabic: ['"Alexandria"', "system-ui", "-apple-system", "sans-serif"],
       },
       colors: {
-        // action accent — terracotta
-        accent: { DEFAULT: "#c4492a", dark: "#a33a22", soft: "#fbf2ee" },
+        // Atlas palette — deep teal primary (trust / numbers), terracotta brand.
+        accent: { DEFAULT: "#0f766e", dark: "#0b5c4f", soft: "#e7f4f1" },
+        brand: { DEFAULT: "#c2562f", dark: "#9a3d1e", soft: "#fbf2ee" },
         ink: { DEFAULT: "#1c1917", 2: "#57534e", 3: "#78716c", muted: "#a8a29e" },
         // app surfaces / borders
         app: { bg: "#f3f1ef", warm: "#faf6f4", warm2: "#fafaf9" },
@@ -25,7 +26,8 @@ export default {
       boxShadow: {
         card: "0 1px 2px rgba(28,25,23,.04)",
         cardHover: "0 4px 10px rgba(28,25,23,.05),0 18px 40px -16px rgba(28,25,23,.20)",
-        prim: "0 2px 8px rgba(196,73,42,.28),0 1px 2px rgba(196,73,42,.18)",
+        prim: "0 2px 8px rgba(15,118,110,.26),0 1px 2px rgba(15,118,110,.18)",
+        brand: "0 2px 8px rgba(194,86,47,.28),0 1px 2px rgba(194,86,47,.18)",
         modal: "0 24px 64px -16px rgba(28,25,23,.4)",
       },
       keyframes: {

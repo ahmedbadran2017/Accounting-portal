@@ -4,7 +4,7 @@
       <div class="flex items-center justify-center gap-3 mb-7 mt-1">
         <img :src="LOGO_URL" alt="Justyol" class="h-[26px] w-auto" />
         <span class="w-px h-7 bg-line-2"></span>
-        <span class="text-[24px] font-bold tracking-tight text-accent-dark">Books</span>
+        <span class="text-[24px] font-bold tracking-tight text-brand-dark">Books</span>
       </div>
 
       <form @submit.prevent="onSubmit" class="space-y-4">
@@ -22,7 +22,7 @@
         <p v-if="error" class="text-[12.5px] text-sale">{{ error }}</p>
 
         <button type="submit" :disabled="busy"
-                class="w-full rounded-chip bg-accent hover:bg-accent-dark text-white text-[13px] font-semibold py-2.5 shadow-prim disabled:opacity-60 flex items-center justify-center gap-2">
+                class="w-full rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-brand disabled:opacity-60 flex items-center justify-center gap-2">
           <SpinnerIcon v-if="busy" :size="16" />
           {{ busy ? t("auth.signing_in") : t("auth.sign_in") }}
         </button>

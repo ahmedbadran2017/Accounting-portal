@@ -99,7 +99,7 @@
     <div v-if="editing" class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:p-8 overflow-y-auto" style="background:rgba(28,25,23,.45)" @click.self="editing = false">
       <div class="bg-white rounded-[18px] shadow-cardHover w-full max-w-md my-6 overflow-hidden">
         <div class="flex items-center gap-2.5 px-5 py-4 border-b border-line">
-          <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#faf6f4"><Icon name="gear" :size="15" color="#a33a22" /></span>
+          <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#faf6f4"><Icon name="gear" :size="15" color="#0b5c4f" /></span>
           <div class="flex-1 text-[14px] font-bold">{{ L("Edit customer","تعديل العميل","Modifier le client") }}</div>
           <button class="text-ink-3 hover:text-ink" @click="editing = false"><Icon name="close" :size="18" /></button>
         </div>
@@ -116,7 +116,7 @@
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="editing = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim disabled:opacity-50" :disabled="saving" @click="saveEdit">
+          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="saving" @click="saveEdit">
             {{ saving ? L("Saving…","جارٍ…","…") : L("Save","حفظ","Enregistrer") }}
           </button>
         </div>

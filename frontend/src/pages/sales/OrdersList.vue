@@ -44,7 +44,7 @@
         <Icon name="user" :size="12" />{{ customerFilter }}
         <button class="opacity-70 hover:opacity-100" @click="clearCustomer"><Icon name="close" :size="12" /></button>
       </span>
-      <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim ms-auto" @click="$emit('new')">
+      <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand ms-auto" @click="$emit('new')">
         <Icon name="plus" :size="14" />{{ t("module.new") }}
       </button>
     </div>
@@ -61,7 +61,7 @@
                   :class="c.align === 'e' ? 'text-end' : 'text-start'"
                   @click="tt.toggleSort(c.key)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
-                  <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#a33a22" /></span>
+                  <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
               </th>
             </tr>
           </thead>

@@ -16,7 +16,7 @@
           <div class="text-[12px] text-ink-3 mt-[5px]">{{ b.carrier }} · {{ b.date }} · {{ b.lineCount }} {{ L("orders","طلب","commandes") }} · {{ L("Ref","مرجع","Réf") }} {{ b.ref }}</div>
         </div>
         <div class="flex gap-2">
-          <button v-if="state === 'draft'" class="h-[38px] px-[17px] rounded-[11px] text-white text-[13px] font-bold inline-flex items-center gap-1.5" style="background:linear-gradient(135deg,#c4492a,#a33a22)" @click="match">
+          <button v-if="state === 'draft'" class="h-[38px] px-[17px] rounded-[11px] text-white text-[13px] font-bold inline-flex items-center gap-1.5" style="background:linear-gradient(135deg,#0f766e,#0b5c4f)" @click="match">
             <Icon name="check" :size="15" />{{ L("Match batch","طابِق الدفعة","Rapprocher") }}
           </button>
           <button v-if="state === 'matched'" class="h-[38px] px-[17px] rounded-[11px] text-white text-[13px] font-bold inline-flex items-center gap-1.5" style="background:linear-gradient(135deg,#047857,#065f46)" @click="post">

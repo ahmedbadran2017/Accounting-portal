@@ -3,7 +3,7 @@
     <div class="absolute inset-0 bg-ink/30 backdrop-blur-[2px]"></div>
     <div class="relative w-full max-w-md bg-white rounded-card shadow-modal border border-line-2 overflow-hidden animate-modalIn">
       <div class="px-5 py-4 border-b border-line flex items-start gap-3">
-        <span class="w-9 h-9 rounded-[9px] grid place-items-center flex-shrink-0" style="background:#fbf2ee"><Icon :name="cfg.icon" :size="17" color="#a33a22" /></span>
+        <span class="w-9 h-9 rounded-[9px] grid place-items-center flex-shrink-0" style="background:#e7f4f1"><Icon :name="cfg.icon" :size="17" color="#0b5c4f" /></span>
         <div class="min-w-0">
           <div class="text-[14px] font-bold">{{ cfg.title }}</div>
           <div class="text-[11px] text-ink-muted">{{ cfg.sub }}</div>
@@ -25,7 +25,7 @@
         </div>
 
         <div class="flex items-center gap-2 pt-1">
-          <button type="submit" class="flex-1 inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold text-white bg-accent hover:bg-accent-dark py-2.5 rounded-chip shadow-prim">
+          <button type="submit" class="flex-1 inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark py-2.5 rounded-chip shadow-brand">
             <Icon name="check" :size="15" />{{ cfg.cta }}
           </button>
           <button type="button" class="text-[12.5px] font-medium text-ink-3 px-3 py-2.5 hover:text-ink" @click="$emit('close')">{{ L('Cancel','إلغاء','Annuler') }}</button>

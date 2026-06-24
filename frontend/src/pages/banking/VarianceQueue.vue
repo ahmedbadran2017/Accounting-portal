@@ -43,7 +43,7 @@
               <td class="px-4 py-2.5 text-end tnum font-bold">{{ fmtNum(r.unallocated_amount) }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ r.date }}</td>
               <td class="px-4 py-2.5 text-end">
-                <button class="h-[27px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-accent hover:bg-accent-dark">{{ L("Match","طابِق","Lettrer") }}</button>
+                <button class="h-[27px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark">{{ L("Match","طابِق","Lettrer") }}</button>
               </td>
             </tr>
           </tbody>

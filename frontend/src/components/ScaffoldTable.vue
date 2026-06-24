@@ -13,7 +13,7 @@
     <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
       <!-- Header -->
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
-        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon :name="cfg.icon" :size="14" color="#a33a22" /></span>
+        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon :name="cfg.icon" :size="14" color="#0b5c4f" /></span>
         <span class="text-[13px] font-bold">{{ title }}</span>
         <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
               :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? "Live" : "Sample" }}</span>
@@ -85,7 +85,7 @@
                   :class="c[1] === 'e' ? 'text-end' : 'text-start'" @click="toggleSort(i)">
                 <span class="inline-flex items-center gap-1" :class="c[1] === 'e' ? 'flex-row-reverse' : ''">
                   {{ c[0] }}
-                  <Icon v-if="sortCol === i" :name="sortDir === 1 ? 'chevDown' : 'chevDown'" :size="11" :class="sortDir === 1 ? '' : 'rotate-180'" color="#a33a22" />
+                  <Icon v-if="sortCol === i" :name="sortDir === 1 ? 'chevDown' : 'chevDown'" :size="11" :class="sortDir === 1 ? '' : 'rotate-180'" color="#0b5c4f" />
                 </span>
               </th>
               <th v-if="clickable" class="w-8"></th>
@@ -101,7 +101,7 @@
                 {{ cell }}
               </td>
               <td v-if="clickable" class="px-3 text-end">
-                <Icon v-if="row.open" name="arrow" :size="13" color="#c4492a" class="opacity-0 group-hover:opacity-100 transition-opacity rtl:rotate-180" />
+                <Icon v-if="row.open" name="arrow" :size="13" color="#0f766e" class="opacity-0 group-hover:opacity-100 transition-opacity rtl:rotate-180" />
               </td>
             </tr>
           </tbody>
@@ -124,7 +124,7 @@
 
   <div v-else class="bg-white rounded-card border border-line">
     <div class="flex flex-col items-center justify-center text-center py-20 px-6">
-      <div class="w-12 h-12 rounded-card grid place-items-center mb-4" style="background:#fbf2ee"><Icon name="spark" :size="22" color="#a33a22" /></div>
+      <div class="w-12 h-12 rounded-card grid place-items-center mb-4" style="background:#e7f4f1"><Icon name="spark" :size="22" color="#0b5c4f" /></div>
       <h3 class="text-[14px] font-bold">{{ title }} · {{ t("module.placeholder_title") }}</h3>
       <p class="text-[12px] text-ink-3 mt-1.5 max-w-md leading-relaxed">{{ t("module.placeholder_body") }}</p>
     </div>

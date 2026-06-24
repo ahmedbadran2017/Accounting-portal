@@ -71,7 +71,7 @@
 
       <!-- Capitalisation journal -->
       <div class="bg-white rounded-card border border-line overflow-hidden">
-        <div class="px-4 py-3 border-b border-line flex items-center gap-2"><Icon name="ledger" :size="15" color="#a33a22" /><span class="text-[13px] font-bold">{{ vm.journalTitle }}</span></div>
+        <div class="px-4 py-3 border-b border-line flex items-center gap-2"><Icon name="ledger" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ vm.journalTitle }}</span></div>
         <table class="w-full text-[12px]">
           <tbody>
             <tr v-for="(j, i) in vm.journal" :key="i" class="border-b border-line-hair">

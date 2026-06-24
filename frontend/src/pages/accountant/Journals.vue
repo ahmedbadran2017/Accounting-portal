@@ -7,7 +7,7 @@
         <div class="text-[13px] font-bold">{{ L("Maker-checker queue","طابور الصانع–المراجع","File maker-checker") }}</div>
         <div class="text-[11px] text-ink-muted">{{ L("Every manual journal needs a second sign-off before it posts","كل قيد يدوي يحتاج اعتماداً ثانياً قبل ترحيله","Chaque écriture manuelle exige une seconde validation") }}</div>
       </div>
-      <button class="inline-flex items-center gap-1.5 h-[33px] px-3 rounded-[9px] text-white text-[12px] font-bold" style="background:linear-gradient(135deg,#c4492a,#a33a22)" @click="showForm = true">
+      <button class="inline-flex items-center gap-1.5 h-[33px] px-3 rounded-[9px] text-white text-[12px] font-bold" style="background:linear-gradient(135deg,#0f766e,#0b5c4f)" @click="showForm = true">
         <Icon name="plus" :size="13" />{{ L("New JE","قيد جديد","Nouvelle écriture") }}
       </button>
     </div>

@@ -88,7 +88,7 @@
       <div v-if="preview" class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
         <span class="me-auto text-[11.5px] text-ink-3">{{ L("Will mark","سيُعلّم","Marquera") }} <b>{{ willMark }}</b> {{ L("orders Collected","طلب كمحصّل","encaissées") }}<span v-if="selectedVar.size" class="text-violet-600"> ({{ preview.totals.matched }} + {{ selectedVar.size }} {{ L("confirmed","مؤكّد","confirmées") }})</span></span>
         <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel","إلغاء","Annuler") }}</button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim disabled:opacity-50" :disabled="!willMark || applying" @click="apply">
+        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!willMark || applying" @click="apply">
           {{ applying ? L("Applying…","جارٍ…","…") : L("Mark Collected","تعليم كمحصّل","Marquer encaissées") }}
         </button>
       </div>
