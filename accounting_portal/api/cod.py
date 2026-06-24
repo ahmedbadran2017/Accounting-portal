@@ -70,18 +70,28 @@ _BASE = ("so.company=%(c)s AND so.docstatus=1 AND so.transaction_date>=%(fy)s "
 
 
 @frappe.whitelist()
-def cod_summary(company=None):
-    """Count + value per pipeline bucket for the current fiscal year."""
+def cod_summary(company=None, from_date=None, to_date=None):
+    """Count + value per pipeline bucket. Scoped to the current fiscal year, and
+    optionally to a transaction-date range so all four cards show the SAME cohort
+    (e.g. orders placed this month) — a coherent funnel rather than mixing a
+    filtered bucket with full-year totals."""
     assert_portal_access()
     target = _target(company)
     if not target:
         return {}
     params = {"c": target, "fy": _fy_start()}
+    date_cond = ""
+    if from_date:
+        date_cond += " AND so.transaction_date >= %(fd)s"
+        params["fd"] = from_date
+    if to_date:
+        date_cond += " AND so.transaction_date <= %(td)s"
+        params["td"] = to_date
     out = {}
     for b in BUCKETS:
         r = frappe.db.sql(
             f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so "
-            f"WHERE {_BASE} AND ({_COND[b]})", params, as_dict=True)[0]
+            f"WHERE {_BASE} AND ({_COND[b]}){date_cond}", params, as_dict=True)[0]
         out[b] = {"count": r.n or 0, "value": flt(r.val)}
     return out
 

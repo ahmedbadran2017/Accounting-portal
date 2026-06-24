@@ -13,7 +13,7 @@
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
               <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
-              <span v-if="bucket === b.key && scopeLabel" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ scopeLabel }}</span>
+              <span v-if="dateScope" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ dateScope }}</span>
             </div>
             <div class="text-[24px] font-extrabold tnum leading-tight tracking-tight transition-colors" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ cardCount(b.key).toLocaleString() }}</div>
           </div>
@@ -159,9 +159,17 @@ const scopeLabel = computed(() => {
   if (srch.value || Object.values(tt.facetActive.value).some(Boolean)) return L("filtered", "مفلتر", "filtré");
   return "";
 });
+// Date scope only (cards follow the date, not search) — shown on every card.
+const dateScope = computed(() => {
+  if (datePreset.value === "all") return "";
+  const p = DATE_PRESETS.find((x) => x.key === datePreset.value);
+  return p ? p.label() : "";
+});
+// Every card reads from the same date-scoped summary → consistent counts AND
+// shares (no mixing a filtered bucket with full-year totals).
 const totalCount = computed(() => Math.max(1, Object.values(sum.value).reduce((s, b) => s + ((b && b.count) || 0), 0)));
-function cardCount(k) { return k === bucket.value && isFiltered.value ? bucketCount.value : ((sum.value[k] && sum.value[k].count) || 0); }
-function cardValue(k) { return k === bucket.value && isFiltered.value ? bucketValue.value : ((sum.value[k] && sum.value[k].value) || 0); }
+function cardCount(k) { return (sum.value[k] && sum.value[k].count) || 0; }
+function cardValue(k) { return (sum.value[k] && sum.value[k].value) || 0; }
 function cardShare(k) { return Math.round(((sum.value[k] && sum.value[k].count) || 0) / totalCount.value * 100); }
 
 const bucketCount = ref(0);
@@ -180,8 +188,12 @@ function bounds(key) {
 }
 
 async function loadSummary() {
-  try { sum.value = await api.call("accounting_portal.api.cod.cod_summary", { company: currentCompany() }) || {}; }
-  catch { sum.value = { todeliver: { count: 481, value: 96000 }, delivered: { count: 44999, value: 9100000 }, collected: { count: 2626, value: 530000 }, returned: { count: 11652, value: 2300000 } }; }
+  // All four cards share the active date scope (a coherent cohort funnel).
+  const [fd, td] = bounds(datePreset.value);
+  try {
+    try { sum.value = await api.call("accounting_portal.api.cod.cod_summary", { company: currentCompany(), from_date: fd || undefined, to_date: td || undefined }) || {}; }
+    catch { sum.value = await api.call("accounting_portal.api.cod.cod_summary", { company: currentCompany() }) || {}; }  // old backend: FY totals
+  } catch { sum.value = { todeliver: { count: 481, value: 96000 }, delivered: { count: 44999, value: 9100000 }, collected: { count: 2626, value: 530000 }, returned: { count: 11652, value: 2300000 } }; }
 }
 async function loadRows() {
   loading.value = true;
@@ -205,10 +217,13 @@ async function loadRows() {
   finally { loading.value = false; }
 }
 
-function setPreset(k) { datePreset.value = k; if (k !== "range") loadRows(); }
+// A date change reloads BOTH the cards (cohort funnel) and the table; a search
+// change reloads only the table (cards stay the period funnel).
+function setPreset(k) { datePreset.value = k; if (k !== "range") { loadSummary(); loadRows(); } }
 let timer;
 watch([bucket, entityId], () => { tt.reset(); loadSummary(); loadRows(); }, { immediate: true });
-watch([srch, dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
+watch([dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(() => { loadSummary(); loadRows(); }, 300); });
+watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
 
 function goBucket(k) { router.push(`/accounting/sales/${k}`); }
 function open(name) { router.push({ path: "/accounting/sales/orders", query: { id: name } }); }
