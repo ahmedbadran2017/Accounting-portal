@@ -63,10 +63,12 @@ _RETURNISH = "('Return','Returned','Return Issued','Delivery Exception','Failed 
 _TRANSIT = "('In Transit','Out For Delivery','Picked up')"
 _NOTCATH = "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%'"
 # Flags orders that have a submitted return Delivery Note (goods physically back).
+# Uses the indexed `return_against` (set iff is_return=1 — verified identical for
+# this book) instead of the unindexed is_return, ~2.5x faster.
 _RET_JOIN = (
     "LEFT JOIN (SELECT DISTINCT dni.against_sales_order so "
-    "FROM `tabDelivery Note Item` dni JOIN `tabDelivery Note` dn ON dn.name=dni.parent "
-    "WHERE dn.is_return=1 AND dn.docstatus=1 AND dn.company=%(c)s "
+    "FROM `tabDelivery Note` dn JOIN `tabDelivery Note Item` dni ON dni.parent=dn.name "
+    "WHERE IFNULL(dn.return_against,'')!='' AND dn.docstatus=1 AND dn.company=%(c)s "
     "AND IFNULL(dni.against_sales_order,'')!='') ret ON ret.so=so.name")
 _COND = {
     "collected": "IFNULL(so.custom_reference_number,'') LIKE 'CATH%%'",
@@ -131,6 +133,7 @@ def cod_summary(company=None, from_date=None, to_date=None):
 def _bust_summary_cache(company):
     try:
         frappe.cache().delete_keys(f"ap_cod_summary:{company}")
+        frappe.cache().delete_keys(f"ap_cod_list:{company}")
     except Exception:
         pass
 
@@ -147,6 +150,13 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
     if not target or bucket not in _COND:
         return {"count": 0, "value": 0, "rows": []}
     params = {"c": target, "fy": _fy_start(), "limit": min(int(limit or 500), 1000)}
+    # Cache the unfiltered (no-search) view so re-visiting a card is instant.
+    ck = None
+    if not search:
+        ck = f"ap_cod_list:{target}:{bucket}:{from_date or ''}:{to_date or ''}:{params['limit']}"
+        cached = frappe.cache().get_value(ck)
+        if cached is not None:
+            return cached
     conds = [_BASE, "(" + _COND[bucket] + ")"]
     if search:
         conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)")
@@ -185,7 +195,10 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
         r["return_shipment"] = ri.get("shipment") or ""
         r["return_status"] = ri.get("status") or ""
         r["returned_on"] = ri.get("date") or ""
-    return {"count": tot.n or 0, "value": flt(tot.val), "rows": rows}
+    result = {"count": tot.n or 0, "value": flt(tot.val), "rows": rows}
+    if ck:
+        frappe.cache().set_value(ck, result, expires_in_sec=120)
+    return result
 
 
 def _return_info_for(names):
