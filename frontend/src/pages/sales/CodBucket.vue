@@ -2,16 +2,27 @@
   <div class="space-y-3.5">
     <!-- Pipeline strip -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <button v-for="b in PIPE" :key="b.key" class="relative bg-white border rounded-[14px] p-3.5 shadow-card text-start transition"
-              :class="bucket === b.key ? 'border-accent/50 ring-1 ring-accent/20' : 'border-line hover:border-line-2'"
+      <button v-for="(b, i) in PIPE" :key="b.key" class="group relative bg-white border rounded-[16px] p-4 text-start transition-all overflow-hidden"
+              :class="bucket === b.key ? 'shadow-cardHover -translate-y-0.5' : 'border-line shadow-card hover:-translate-y-0.5 hover:shadow-cardHover'"
+              :style="bucket === b.key ? { borderColor: b.color + '66', boxShadow: '0 10px 30px -12px ' + b.glow + '88' } : {}"
               @click="goBucket(b.key)">
-        <div class="absolute -top-8 -end-8 w-20 h-20 rounded-full blur-2xl pointer-events-none" :style="{ background: b.glow, opacity: .08 }"></div>
-        <div class="relative flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full" :style="{ background: b.color }"></span>
-          <span class="text-[10px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
+        <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: b.color, opacity: bucket === b.key ? 1 : .25 }"></span>
+        <div class="absolute -top-10 -end-10 w-28 h-28 rounded-full blur-2xl pointer-events-none transition-opacity" :style="{ background: b.glow, opacity: bucket === b.key ? .16 : .06 }"></div>
+        <div class="relative flex items-start gap-2.5">
+          <span class="w-9 h-9 rounded-[11px] grid place-items-center flex-shrink-0" :style="{ background: b.tint }"><Icon :name="b.icon" :size="17" :color="b.color" /></span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
+              <span v-if="bucket === b.key && isFiltered" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ L("filtered","مفلتر","filtré") }}</span>
+            </div>
+            <div class="text-[24px] font-extrabold tnum leading-tight tracking-tight transition-colors" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ cardCount(b.key).toLocaleString() }}</div>
+          </div>
+          <span class="text-[10px] font-bold tnum mt-0.5" :style="{ color: b.color, opacity: .8 }">{{ cardShare(b.key) }}%</span>
         </div>
-        <div class="relative text-[20px] font-extrabold tnum mt-1 tracking-tight" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ (sum[b.key] && sum[b.key].count || 0).toLocaleString() }}</div>
-        <div class="relative text-[10.5px] text-ink-3 mt-0.5">{{ fmt(sum[b.key] && sum[b.key].value) }} MAD</div>
+        <div class="relative mt-2 text-[11px] text-ink-3 font-semibold tnum">{{ fmt(cardValue(b.key)) }} <span class="text-ink-muted font-normal">MAD</span></div>
+        <div class="relative mt-2 h-1 rounded-full bg-app-warm overflow-hidden">
+          <div class="h-full rounded-full transition-all" :style="{ width: Math.max(3, cardShare(b.key)) + '%', background: b.color, opacity: bucket === b.key ? 1 : .45 }"></div>
+        </div>
       </button>
     </div>
 
@@ -122,6 +133,16 @@ async function loadRows() {
 }
 function load() { loadSummary(); loadRows(); }
 watch([bucket, entityId], load, { immediate: true });
+
+// The active bucket's card reflects the filters applied to the table below;
+// the others stay as the fiscal-year pipeline overview.
+const isFiltered = computed(() => !!tt.search.value || tt.datePreset.value !== "all" || Object.values(tt.facetActive.value).some(Boolean));
+const filteredCount = computed(() => tt.sorted.value.length);
+const filteredValue = computed(() => tt.sorted.value.reduce((s, r) => s + (Number(r.value) || 0), 0));
+const totalCount = computed(() => Math.max(1, Object.values(sum.value).reduce((s, b) => s + ((b && b.count) || 0), 0)));
+function cardCount(k) { return k === bucket.value && isFiltered.value ? filteredCount.value : ((sum.value[k] && sum.value[k].count) || 0); }
+function cardValue(k) { return k === bucket.value && isFiltered.value ? filteredValue.value : ((sum.value[k] && sum.value[k].value) || 0); }
+function cardShare(k) { return Math.round(((sum.value[k] && sum.value[k].count) || 0) / totalCount.value * 100); }
 
 function goBucket(k) { router.push(`/accounting/sales/${k}`); }
 function open(name) { router.push({ path: "/accounting/sales/orders", query: { id: name } }); }
