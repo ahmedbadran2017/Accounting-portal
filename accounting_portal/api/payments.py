@@ -24,6 +24,47 @@ def _target(company):
 
 
 @frappe.whitelist()
+def get_receipt(name=None, company=None):
+    """One COD receipt (Payment Entry) — header, what it's allocated against, the
+    customer's orders behind those invoices, and the resulting GL lines."""
+    assert_portal_access()
+    if not name or not frappe.db.exists("Payment Entry", name):
+        return None
+    pe = frappe.get_doc("Payment Entry", name)
+    refs = [{
+        "doctype": r.reference_doctype, "name": r.reference_name,
+        "allocated": flt(r.allocated_amount), "total": flt(r.total_amount),
+        "outstanding": flt(r.outstanding_amount),
+    } for r in pe.references]
+    # COD context: the orders behind the payment — paid Sales Orders directly,
+    # plus those behind any paid Sales Invoices.
+    orders = {r["name"] for r in refs if r["doctype"] == "Sales Order"}
+    inv_names = [r["name"] for r in refs if r["doctype"] == "Sales Invoice"]
+    if inv_names:
+        orders |= {o.so for o in frappe.db.sql(
+            "SELECT DISTINCT sii.sales_order so FROM `tabSales Invoice Item` sii "
+            "WHERE sii.parent IN %(n)s AND IFNULL(sii.sales_order,'')!=''",
+            {"n": tuple(inv_names)}, as_dict=True)}
+    orders = sorted(orders)
+    gl = frappe.db.sql(
+        """SELECT a.account_name AS name, ge.account, ROUND(ge.debit) dr, ROUND(ge.credit) cr
+           FROM `tabGL Entry` ge JOIN `tabAccount` a ON a.name=ge.account
+           WHERE ge.voucher_type='Payment Entry' AND ge.voucher_no=%s AND ge.is_cancelled=0
+           ORDER BY ge.debit DESC""", name, as_dict=True)
+    return {
+        "name": pe.name, "party": pe.party, "party_type": pe.party_type,
+        "date": str(pe.posting_date or ""), "amount": flt(pe.paid_amount),
+        "method": pe.mode_of_payment or "—", "reference_no": pe.reference_no or "",
+        "reference_date": str(pe.reference_date or ""),
+        "paid_to": pe.paid_to, "paid_from": pe.paid_from,
+        "currency": pe.paid_to_account_currency or "MAD",
+        "status": pe.status or (["Draft", "Submitted", "Cancelled"][pe.docstatus] if pe.docstatus < 3 else "—"),
+        "unallocated": flt(pe.unallocated_amount), "remarks": pe.remarks or "",
+        "references": refs, "orders": orders, "gl": gl, "company": pe.company,
+    }
+
+
+@frappe.whitelist()
 def deposit_accounts(company=None):
     """Bank/Cash accounts — the deposit (paid-to) picker for receipts."""
     assert_portal_access()

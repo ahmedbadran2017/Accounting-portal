@@ -36,7 +36,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in tt.pageRows.value" :key="p.name" class="border-t border-line-hair hover:bg-app-warm/70">
+            <tr v-for="p in tt.pageRows.value" :key="p.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(p.name)">
               <td v-show="!tt.hidden.value.has('name')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ p.name }}</td>
               <td v-show="!tt.hidden.value.has('customer')" class="px-4 py-2.5 truncate max-w-[200px]">{{ p.customer }}</td>
               <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ p.date }}</td>
@@ -60,6 +60,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import StatCard from "@/components/StatCard.vue";
@@ -70,7 +71,9 @@ import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
 
 const { locale } = useI18n();
+const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+function open(name) { router.push({ path: "/accounting/sales/payments", query: { id: name } }); }
 const money = (n) => { n = Number(n) || 0; return Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + "M" : Math.abs(n) >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
 const fmt2 = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function methodStyle(m) { return /cath/i.test(m) ? "background:#f5f3ff;color:#6d28d9" : "background:#eff6ff;color:#0369a1"; }

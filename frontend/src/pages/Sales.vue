@@ -30,6 +30,7 @@
     <InvoicesList v-else-if="activeSub === 'invoices'" />
     <CustomerDetail v-else-if="activeSub === 'customers' && route.query.id" />
     <CustomersList v-else-if="activeSub === 'customers'" />
+    <ReceiptDetail v-else-if="activeSub === 'payments' && route.query.id" />
     <PaymentsList v-else-if="activeSub === 'payments'" />
     <ScaffoldTable v-else />
   </div>
@@ -53,6 +54,7 @@ import InvoiceDetail from "@/pages/sales/InvoiceDetail.vue";
 import CustomersList from "@/pages/sales/CustomersList.vue";
 import CustomerDetail from "@/pages/sales/CustomerDetail.vue";
 import PaymentsList from "@/pages/sales/PaymentsList.vue";
+import ReceiptDetail from "@/pages/sales/ReceiptDetail.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
