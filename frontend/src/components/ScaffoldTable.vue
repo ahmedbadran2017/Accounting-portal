@@ -306,9 +306,9 @@ async function load() {
   const c = cfg.value;
   search.value = ""; insightCards.value = []; hidden.value = new Set();
   sortCol.value = -1; page.value = 1; facetActive.value = {};
+  if (!c) { rows.value = []; isLive.value = null; return; }
   // Date-bearing lists open focused on the current month.
   datePreset.value = (c.cols || []).some((col) => /date|posting|تاريخ/i.test(col[0])) ? "month" : "all";
-  if (!c) { rows.value = []; isLive.value = null; return; }
 
   if (c.live) {
     try {

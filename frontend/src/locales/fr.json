@@ -18,7 +18,7 @@
     "consolidation": "Consolidation"
   },
   "sub": {
-    "customers": "Clients", "orders": "Commandes", "challans": "Bons de livraison",
+    "customers": "Clients", "orders": "Commandes", "todeliver": "À livrer", "delivered": "Livrées", "collected": "Encaissées", "returned": "Retournées", "challans": "Bons de livraison",
     "invoices": "Factures", "receipts": "Reçus", "payments_in": "Paiements reçus", "credits": "Avoirs",
     "vendors": "Fournisseurs", "pos": "Bons de commande", "bills": "Factures", "expenses": "Dépenses",
     "recurring": "Récurrent", "payments_out": "Paiements émis", "vcredits": "Avoirs fourn.",

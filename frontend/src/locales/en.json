@@ -18,7 +18,7 @@
     "consolidation": "Consolidation"
   },
   "sub": {
-    "customers": "Customers", "orders": "Sales orders", "challans": "Delivery challans",
+    "customers": "Customers", "orders": "Sales orders", "todeliver": "To deliver", "delivered": "Delivered", "collected": "Collected", "returned": "Returned", "challans": "Delivery challans",
     "invoices": "Invoices", "receipts": "Sales receipts", "payments_in": "Payments received", "credits": "Credit notes",
     "vendors": "Vendors", "pos": "Purchase orders", "bills": "Bills", "expenses": "Expenses",
     "recurring": "Recurring", "payments_out": "Payments made", "vcredits": "Vendor credits",

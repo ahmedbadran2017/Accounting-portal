@@ -25,6 +25,7 @@
     <!-- Body -->
     <OrderDetail v-if="activeSub === 'orders' && route.query.id" />
     <OrdersList v-else-if="activeSub === 'orders'" @new="showOrder = true" />
+    <CodBucket v-else-if="['todeliver','delivered','collected','returned'].includes(activeSub)" />
     <InvoiceDetail v-else-if="activeSub === 'invoices' && route.query.id" />
     <InvoicesList v-else-if="activeSub === 'invoices'" />
     <CustomerDetail v-else-if="activeSub === 'customers' && route.query.id" />
@@ -42,6 +43,7 @@ import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import PaymentEntryForm from "@/components/PaymentEntryForm.vue";
 import SalesOrderForm from "@/components/SalesOrderForm.vue";
+import CodBucket from "@/pages/sales/CodBucket.vue";
 import { useToast } from "@/composables/useToast";
 import OrdersList from "@/pages/sales/OrdersList.vue";
 import OrderDetail from "@/pages/sales/OrderDetail.vue";
