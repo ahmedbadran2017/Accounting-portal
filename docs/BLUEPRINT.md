@@ -4,6 +4,23 @@
 > build · ⚪ optional · 💠 CFO rec · 🎨 UX rec · `↳` = an ERPNext doctype already
 > exists (wire, don't rebuild). Validated on `admin-dev` (Justyol Morocco).
 
+## Build log — 2026-06-24 (overnight)
+Shipped + committed + verified (build green, rendered in local preview, data
+validated vs admin-dev). **Deploy:** `git pull && bench build` (or symlink the
+pre-built `public/app.js|css`) `&& bench --site … clear-cache`.
+- ✅ **Sales Order detail** — Customer & shipping, Tracking (+track link),
+  Financial (net/VAT/gross/billed/delivered), clickable Related documents.
+- ✅ **Reports** — live P&L (with Stock-Adjustment anomaly flagged), balance
+  sheet, AR/AP aging (5 buckets), VAT cockpit (output/input/net). `api/reports.py`.
+- ✅ **AI Auditor** — `api/auditor.py` controls engine (6 anomaly rules over live
+  balances) + Copilot anomaly feed wired live with drill-to-fix.
+- ✅ **Payment Entry** — record COD receipts via the gateway (`api/payments.py` +
+  PaymentEntryForm). ⚠️ submit path needs one live verification on deploy.
+- ✅ **Settings → Activity & audit** — every portal write (Accounting Portal Action).
+- ✅ **Inventory health** card on Items — closes the auditor's #1 (685M COGS break).
+- ⏳ Next: reusable combobox + loading/empty/error rollout; multi-entity
+  consolidation P&L; Sales Invoice create; period-close.
+
 ## ✦ AI Auditor & assistant — the intelligent layer
 - **1 · Continuous audit (anomaly engine)** 🔨
   - Cash & collection: negative cash overdraft · unmatched COD aging (−2.85M) · revenue-recognition gap (delivered≠invoiced) · unallocated-advance growth
