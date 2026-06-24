@@ -16,7 +16,8 @@
               @click="goSub(s[0])">{{ t(s[1]) }}</button>
     </div>
 
-    <VendorsList v-if="activeSub === 'vendors'" />
+    <VendorDetail v-if="activeSub === 'vendors' && route.query.id" />
+    <VendorsList v-else-if="activeSub === 'vendors'" />
     <BillDetail v-else-if="activeSub === 'bills' && route.query.id" />
     <BillsList v-else-if="activeSub === 'bills'" />
     <ScaffoldTable v-else />
@@ -31,6 +32,7 @@ import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import VendorsList from "@/pages/purchases/VendorsList.vue";
+import VendorDetail from "@/pages/purchases/VendorDetail.vue";
 import BillsList from "@/pages/purchases/BillsList.vue";
 import BillDetail from "@/pages/purchases/BillDetail.vue";
 import { useUi } from "@/composables/useUi";
