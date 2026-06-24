@@ -54,6 +54,7 @@ const { createCustomer } = useCustomers();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
 const form = reactive({});
+const saving = ref(false);
 
 const CONFIG = computed(() => ({
   customer: {
@@ -110,16 +111,19 @@ async function save() {
     router.push("/accounting/sales/invoices");
     return;
   }
-  // Customer — create on ERPNext when reachable; otherwise fall back gracefully.
+  // Customer — create on ERPNext. Surface the real error so a failure is visible
+  // (don't fake success: that routed to a customer that didn't exist).
+  if (saving.value) return;
+  saving.value = true;
   try {
     const r = await createCustomer({ customer_name: form.name, phone: form.phone, city: form.city, email: form.email });
     toast.success(L(`Customer ${r.customer_name} created`, `أُنشئ العميل ${r.customer_name}`, `Client ${r.customer_name} créé`));
     emit("close");
     router.push({ path: "/accounting/sales/customers", query: { id: r.name } });
-  } catch {
-    toast.success(L(`Customer ${form.name || ""} added`, `أُضيف العميل ${form.name || ""}`, `Client ${form.name || ""} ajouté`));
-    emit("close");
-    router.push("/accounting/sales/customers");
+  } catch (e) {
+    toast.error((e && e.message) || L("Couldn't create the customer.", "تعذّر إنشاء العميل.", "Échec de la création."));
+  } finally {
+    saving.value = false;
   }
 }
 </script>

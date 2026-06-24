@@ -10,14 +10,23 @@ const live = ref(null); // null = unknown, true = live ERPNext, false = sample
 
 const L = (l, en, ar, fr) => (l === "ar" ? ar : l === "fr" ? fr : en);
 
+// Where a ledger voucher opens. Only types with a detail screen are clickable.
+function voucherRoute(type, doc) {
+  if (type === "Sales Invoice") return { path: "/accounting/sales/invoices", query: { id: doc } };
+  if (type === "Payment Entry") return { path: "/accounting/sales/payments", query: { id: doc } };
+  return null;
+}
+
 /** Map the live get_customer payload into the detail view-model the page renders. */
 function normalizeDetail(d, l) {
   const credit = d.store_credit ? "+" + Math.round(d.store_credit).toLocaleString() : "0";
   return {
+    id: d.name,
     name: d.customer_name || d.name,
     av: "accent",
     city: d.city || "—",
-    phone: d.mobile_no || "+212 6•• •• •• ••",
+    phone: d.mobile_no || "—",
+    email: d.email_id || "—",
     since: d.since || "—",
     credit,
     creditLabel: L(l, "Store credit", "رصيد المتجر", "Avoir client"),
@@ -29,19 +38,20 @@ function normalizeDetail(d, l) {
       { label: "RTO", value: d.stats.rto_rate + "%" },
     ],
     connections: [
-      { label: L(l, "Orders", "الطلبات", "Commandes"), value: String(d.connections.orders), go: { module: "sales", sub: "orders" } },
-      { label: L(l, "Invoices", "الفواتير", "Factures"), value: String(d.connections.invoices), go: { module: "sales", sub: "invoices" } },
-      { label: L(l, "Receipts", "السندات", "Reçus"), value: String(d.connections.receipts), go: { module: "sales", sub: "receipts" } },
-      { label: L(l, "Returns", "الإرجاع", "Retours"), value: String(d.connections.returns), go: { module: "sales", sub: "credits" } },
+      { label: L(l, "Orders", "الطلبات", "Commandes"), value: String(d.connections.orders), go: { module: "sales", sub: "orders", customer: d.name } },
+      { label: L(l, "Invoices", "الفواتير", "Factures"), value: String(d.connections.invoices), go: { module: "sales", sub: "invoices", customer: d.name } },
+      { label: L(l, "Receipts", "السندات", "Reçus"), value: String(d.connections.receipts), go: { module: "sales", sub: "payments", customer: d.name } },
+      { label: L(l, "Returns", "الإرجاع", "Retours"), value: String(d.connections.returns), go: { module: "sales", sub: "credits", customer: d.name } },
     ],
     contact: [
       { k: L(l, "Phone", "الهاتف", "Téléphone"), v: d.mobile_no || "—" },
       { k: L(l, "Email", "البريد", "E-mail"), v: d.email_id || "—" },
       { k: L(l, "City", "المدينة", "Ville"), v: d.city || "—" },
+      { k: L(l, "Customer group", "مجموعة العميل", "Groupe"), v: d.customer_group || "—" },
       { k: L(l, "Segment (RFM)", "الشريحة (RFM)", "Segment (RFM)"), v: d.segment + (d.segment_computed ? " ·~" : "") },
       { k: L(l, "Lifecycle", "دورة الحياة", "Cycle de vie"), v: d.lifecycle },
-      { k: L(l, "Loyalty tier", "مستوى الولاء", "Fidélité"), v: d.loyalty_tier || "—" },
     ],
+    raw: { name: d.name, customer_name: d.customer_name || d.name, phone: d.mobile_no || "", email: d.email_id || "", city: d.city && d.city !== "—" ? d.city : "" },
     // No dedicated activity feed server-side yet → derive it from the ledger.
     activity: (d.ledger || []).slice(0, 4).map((e) => ({
       icon: e.type === "Payment Entry" ? "coins" : "receipt",
@@ -53,7 +63,8 @@ function normalizeDetail(d, l) {
     ledger: (d.ledger || []).map((e) => ({
       date: e.date, doc: e.doc, type: e.type,
       dr: e.dr ? Number(e.dr).toFixed(2) : "", cr: e.cr ? Number(e.cr).toFixed(2) : "",
-      bal: "",
+      bal: e.balance != null ? Number(e.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+      go: voucherRoute(e.type, e.doc),
     })),
     contactTitle: L(l, "Contact & segment", "التواصل والشريحة", "Contact & segment"),
     activityTitle: L(l, "Recent activity", "النشاط الأخير", "Activité récente"),
@@ -83,9 +94,13 @@ export function useCustomers() {
       return customerDetail(findCustomer(name), locale);
     }
   }
-  /** Create on the server; throws on failure so the caller can fall back. */
+  /** Create on the server; throws on failure so the caller can surface it. */
   function createCustomer(form) {
     return api.call("accounting_portal.api.customers.create_customer", form);
   }
-  return { loadList, loadDetail, createCustomer, live };
+  /** Edit core customer data (name/phone/email/city); throws on failure. */
+  function updateCustomer(form) {
+    return api.call("accounting_portal.api.customers.update_customer", form);
+  }
+  return { loadList, loadDetail, createCustomer, updateCustomer, live };
 }

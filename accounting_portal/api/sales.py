@@ -75,10 +75,10 @@ def _order_state(row):
 
 
 @frappe.whitelist()
-def list_orders(company=None, state=None, search=None, limit=100):
+def list_orders(company=None, state=None, search=None, limit=100, customer=None):
     """COD sales orders for one company (newest first), excluding cancelled docs.
     Optional `state` filters by the mapped portal state; `search` matches the
-    order id or customer."""
+    order id or customer; `customer` restricts to one customer exactly."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
@@ -88,6 +88,9 @@ def list_orders(company=None, state=None, search=None, limit=100):
 
     conds = ["so.company = %(company)s", "so.docstatus < 2"]
     params = {"company": target, "limit": limit}
+    if customer:
+        conds.append("so.customer = %(customer)s")
+        params["customer"] = customer
     if search:
         conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)")
         params["s"] = f"%{search}%"

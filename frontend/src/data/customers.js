@@ -25,6 +25,7 @@ export function customerDetail(c, l) {
     ...c,
     phone,
     since: "2024",
+    raw: { name: c.name, customer_name: c.name, phone, email: "", city: c.city && c.city !== "—" ? c.city : "" },
     stats: [
       { label: "LTV", value: c.ltv + " MAD" },
       { label: pick(l, "Orders", "الطلبات", "Commandes"), value: String(c.orders) },

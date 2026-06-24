@@ -42,6 +42,10 @@
         {{ stateLabel(filterState, locale) }}
         <button class="opacity-70 hover:opacity-100" @click="filterState = null"><Icon name="close" :size="12" /></button>
       </span>
+      <span v-if="customerFilter" class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-chip" style="background:#eff6ff;color:#0369a1">
+        <Icon name="user" :size="12" />{{ customerFilter }}
+        <button class="opacity-70 hover:opacity-100" @click="clearCustomer"><Icon name="close" :size="12" /></button>
+      </span>
       <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim ms-auto">
         <Icon name="plus" :size="14" />{{ t("module.new") }}
       </button>
@@ -100,7 +104,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { ORDERS, STATE_META, stateLabel, MACHINE, machineCounts, AV, postingInfo } from "@/data/orders";
@@ -111,7 +115,10 @@ import api from "@/services/api";
 
 const { t, locale } = useI18n();
 const router = useRouter();
+const route = useRoute();
 const { createdOrders } = useCreated();
+const customerFilter = ref(route.query.customer || null);
+function clearCustomer() { customerFilter.value = null; router.replace({ path: "/accounting/sales/orders" }); }
 
 const search = ref("");
 const filterState = ref(null);
@@ -123,7 +130,7 @@ const isLive = ref(null);
 const summary = ref(null);
 onMounted(async () => {
   const res = await liveOrSample(
-    "accounting_portal.api.sales.list_orders", { company: currentCompany(), limit: 100 }, () => ORDERS,
+    "accounting_portal.api.sales.list_orders", { company: currentCompany(), limit: 100, customer: customerFilter.value || undefined }, () => ORDERS,
     (rows) => rows.map((r, i) => ({
       id: r.name, customer: r.customer, city: r.city || "—", carrier: r.carrier || "—",
       trackStatus: r.custom_track_shipment_status || "Pending", state: r.state,
