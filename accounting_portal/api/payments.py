@@ -60,12 +60,16 @@ def _pe_poster(action):
     amt = flt(p.get("amount"))
     party_acct = get_party_account(party_type, p["party"], action.company)
     bank = p["account"]
+    posting_date = p.get("posting_date") or nowdate()
+    # ERPNext requires a reference no/date when the bank/cash leg is a Bank
+    # account. Default it so a COD receipt never fails for a missing reference.
+    ref_no = p.get("reference_no") or f"COD-{(p.get('party') or '')[:24]}-{posting_date}"
 
     pe = frappe.get_doc({
         "doctype": "Payment Entry",
         "payment_type": "Receive" if is_receive else "Pay",
         "company": action.company,
-        "posting_date": p.get("posting_date") or nowdate(),
+        "posting_date": posting_date,
         "mode_of_payment": p.get("mode") or None,
         "party_type": party_type,
         "party": p["party"],
@@ -73,8 +77,8 @@ def _pe_poster(action):
         "received_amount": amt,
         "source_exchange_rate": 1,
         "target_exchange_rate": 1,
-        "reference_no": p.get("reference_no") or None,
-        "reference_date": p.get("posting_date") or nowdate(),
+        "reference_no": ref_no,
+        "reference_date": posting_date,
         "paid_from": party_acct if is_receive else bank,
         "paid_to": bank if is_receive else party_acct,
     })
