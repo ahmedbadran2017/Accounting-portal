@@ -1,13 +1,11 @@
 <template>
   <div class="min-h-screen grid place-items-center bg-app-bg p-4">
     <div class="w-full max-w-sm bg-white rounded-card shadow-card border border-line p-7">
-      <div class="flex items-center gap-3 mb-6">
-        <img :src="LOGO_URL" alt="Justyol" class="h-[20px] w-auto" />
-        <span class="w-px h-6 bg-line-2"></span>
-        <span class="text-[20px] font-bold tracking-tight text-accent-dark">Books</span>
+      <div class="flex items-center justify-center gap-3 mb-7 mt-1">
+        <img :src="LOGO_URL" alt="Justyol" class="h-[26px] w-auto" />
+        <span class="w-px h-7 bg-line-2"></span>
+        <span class="text-[24px] font-bold tracking-tight text-accent-dark">Books</span>
       </div>
-
-      <h1 class="text-[17px] font-bold mb-5 tracking-tight">{{ t("auth.login_title") }}</h1>
 
       <form @submit.prevent="onSubmit" class="space-y-4">
         <div>

@@ -181,9 +181,21 @@ async function loadSummary() {
 async function loadRows() {
   loading.value = true;
   const [fd, td] = bounds(datePreset.value);
+  const base = { company: currentCompany(), bucket: bucket.value, search: srch.value || undefined, limit: 500 };
   try {
-    const r = await api.call("accounting_portal.api.cod.list_bucket", { company: currentCompany(), bucket: bucket.value, search: srch.value || undefined, from_date: fd || undefined, to_date: td || undefined, limit: 500 });
-    rows.value = r.rows || []; bucketCount.value = r.count || 0; bucketValue.value = r.value || 0; live.value = true;
+    let r;
+    try { r = await api.call("accounting_portal.api.cod.list_bucket", { ...base, from_date: fd || undefined, to_date: td || undefined }); }
+    catch (e) { r = await api.call("accounting_portal.api.cod.list_bucket", base); }  // old backend: no date params
+    if (Array.isArray(r)) {
+      // Legacy shape (server Python not yet restarted): filter the returned window client-side.
+      let d = r;
+      if (fd) d = d.filter((x) => String(x.date) >= fd);
+      if (td) d = d.filter((x) => String(x.date) <= td);
+      rows.value = d; bucketCount.value = d.length; bucketValue.value = d.reduce((s, x) => s + (Number(x.value) || 0), 0);
+    } else {
+      rows.value = r.rows || []; bucketCount.value = r.count || 0; bucketValue.value = r.value || 0;
+    }
+    live.value = true;
   } catch { rows.value = []; bucketCount.value = 0; bucketValue.value = 0; live.value = false; }
   finally { loading.value = false; }
 }
