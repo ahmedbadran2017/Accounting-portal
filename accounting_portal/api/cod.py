@@ -168,9 +168,10 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
         conds.append("so.transaction_date <= %(td)s")
         params["td"] = to_date
     where = " AND ".join(conds)
-    # The return-DN join is only referenced by the toreturn/returned conditions —
-    # skip it for the other buckets so their queries stay light.
-    join = _RET_JOIN if bucket in ("toreturn", "returned") else ""
+    # Every bucket condition references ret.so (to keep returned orders in their
+    # own bucket) EXCEPT 'collected' (matched purely by the CATH reference), so
+    # only collected can skip the join.
+    join = "" if bucket == "collected" else _RET_JOIN
 
     tot = frappe.db.sql(
         f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so {join} WHERE {where}",
