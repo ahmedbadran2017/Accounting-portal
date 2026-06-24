@@ -28,7 +28,7 @@ from accounting_portal.api.permissions import assert_can_write, assert_portal_ac
 COLLECT_ACTION = "Collect COD"
 RETURN_TRACK = ("Return", "Returned", "Return Issued", "Delivery Exception", "Failed Attempt")
 TRANSIT_TRACK = ("In Transit", "Out For Delivery", "Picked up", "Pending")
-BUCKETS = ("to_deliver", "delivered", "collected", "returned")
+BUCKETS = ("todeliver", "delivered", "collected", "returned")
 
 
 def _fy_start():
@@ -51,7 +51,7 @@ def cod_bucket(ref, track):
         return "returned"
     if track == "Delivered":
         return "delivered"
-    return "to_deliver"
+    return "todeliver"
 
 
 _COND = {
@@ -60,7 +60,7 @@ _COND = {
                 "AND so.custom_track_shipment_status IN ('Return','Returned','Return Issued','Delivery Exception','Failed Attempt')",
     "delivered": "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' "
                  "AND so.custom_track_shipment_status='Delivered'",
-    "to_deliver": "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' "
+    "todeliver": "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' "
                   "AND so.custom_track_shipment_status NOT IN "
                   "('Delivered','Return','Returned','Return Issued','Delivery Exception','Failed Attempt') "
                   "AND (so.per_billed > 0 OR so.custom_track_shipment_status IN ('In Transit','Out For Delivery','Picked up'))",
