@@ -437,6 +437,9 @@ def _so_poster(action):
         for t in get_taxes_and_charges("Sales Taxes and Charges Template", tpl):
             so.append("taxes", t)
     so.insert(ignore_permissions=True)
+    # A Justyol hook updates the order right after insert (COD status fields), so
+    # reload to the latest timestamp before submit to avoid TimestampMismatchError.
+    so.reload()
     so.submit()
     return {"voucher_type": "Sales Order", "voucher_no": so.name, "result": "submitted"}
 

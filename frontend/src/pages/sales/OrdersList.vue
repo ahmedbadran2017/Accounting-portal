@@ -37,6 +37,10 @@
             :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">
         {{ isLive ? "Live" : "Sample" }}
       </span>
+      <div class="flex items-center gap-1 bg-app-warm/60 rounded-chip p-0.5" :title="lbl('Active = confirmed onward (the accounting cycle)','النشطة = من التأكيد فصاعدًا (الدورة المحاسبية)','Actives = à partir de la confirmation')">
+        <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="activeOnly = true">{{ lbl("Active","النشطة","Actives") }}</button>
+        <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="!activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="activeOnly = false">{{ lbl("All","الكل","Toutes") }}</button>
+      </div>
       <span v-if="filterState" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-chip"
             :style="{ background: STATE_META[filterState].bg, color: STATE_META[filterState].fg }">
         {{ stateLabel(filterState, locale) }}
@@ -174,10 +178,15 @@ const cols = [
   { key: "value", label: lbl("Value", "القيمة", "Valeur"), align: "e" },
 ];
 
-// State-funnel filter feeds the shared table tools (search · date · sort · page).
+// Accounting cares about orders from confirmation onward (they get invoiced /
+// delivered / collected / returned). "Placed" = pre-financial Shopify leads and
+// "cancelled" = noise, so the default view hides them; toggle to see All.
+const activeOnly = ref(true);
+const IGNORED = ["placed", "cancelled"];
 const baseRows = computed(() => {
   let r = [...createdOrders, ...loaded.value];
   if (filterState.value) r = r.filter((o) => o.state === filterState.value);
+  else if (activeOnly.value) r = r.filter((o) => !IGNORED.includes(o.state));
   return r;
 });
 const tt = useTableTools(baseRows, cols, {
