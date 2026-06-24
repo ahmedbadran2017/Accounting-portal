@@ -27,8 +27,12 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       input: path.resolve(__dirname, "src/main.js"),
       output: {
+        // Inline every lazy route chunk into one fixed-name app.js. On the
+        // no-node bench deploy the only cache key is app.js?v={mtime}; a separate
+        // hash-named chunk (Module-XXXX.js) would change name each build and a
+        // cached old app.js would 404 on it. One file = deterministic deploys.
+        inlineDynamicImports: true,
         entryFileNames: "app.js",
-        chunkFileNames: "assets/[name]-[hash].js",
         assetFileNames: (info) => {
           const name = info.name || "";
           if (name.endsWith(".css")) return "app.css";
