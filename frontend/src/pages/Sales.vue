@@ -3,7 +3,7 @@
     <!-- Header -->
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
-        <div class="flex items-center gap-2 ms-auto">
+        <div v-if="showNew" class="flex items-center gap-2 ms-auto">
           <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim" @click="onNew">
             <Icon name="plus" :size="14" />{{ newLabel }}
           </button>
@@ -63,8 +63,11 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 
 const showPayment = ref(false);
 const showOrder = ref(false);
-const canRecordPayment = computed(() => ["payments", "receipts"].includes(activeSub.value));
+const canRecordPayment = computed(() => activeSub.value === "payments");
 const canCreateOrder = computed(() => activeSub.value === "orders");
+// Only show "+New" where it actually does something — the COD bucket tabs use
+// "Reconcile" as their action, customers/invoices have their own create paths.
+const showNew = computed(() => canRecordPayment.value || canCreateOrder.value);
 const newLabel = computed(() => canRecordPayment.value
   ? L("Record receipt", "تسجيل دفعة", "Encaissement")
   : canCreateOrder.value ? L("New order", "أمر جديد", "Nouvelle commande") : t("module.new"));

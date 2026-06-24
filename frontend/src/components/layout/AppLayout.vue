@@ -125,7 +125,9 @@
       </header>
 
       <main class="flex-1 p-[22px] max-w-[1500px] w-full mx-auto">
-        <router-view />
+        <!-- Key by entity so switching company remounts the page and re-fetches
+             (pages that load only in onMounted would otherwise show stale data). -->
+        <router-view :key="entityId" />
       </main>
     </div>
 
