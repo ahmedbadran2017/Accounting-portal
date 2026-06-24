@@ -2,7 +2,7 @@
   <div class="space-y-3.5">
     <!-- Pipeline strip -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <button v-for="(b, i) in PIPE" :key="b.key" class="group relative bg-white border rounded-[16px] p-4 text-start transition-all overflow-hidden"
+      <button v-for="b in PIPE" :key="b.key" class="group relative bg-white border rounded-[16px] p-4 text-start transition-all overflow-hidden"
               :class="bucket === b.key ? 'shadow-cardHover -translate-y-0.5' : 'border-line shadow-card hover:-translate-y-0.5 hover:shadow-cardHover'"
               :style="bucket === b.key ? { borderColor: b.color + '66', boxShadow: '0 10px 30px -12px ' + b.glow + '88' } : {}"
               @click="goBucket(b.key)">
@@ -32,14 +32,27 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" :style="{ background: active.tint }"><Icon :name="active.icon" :size="14" :color="active.color" /></span>
         <span class="text-[13px] font-bold">{{ active.label() }}</span>
         <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? "Live" : "Sample" }}</span>
-        <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("orders · FY 2026","طلب · سنة 2026","commandes · 2026") }}</span>
+        <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("orders · FY 2026","طلب · سنة 2026","commandes · 2026") }}<span v-if="bucketCount > rows.length"> · {{ L("showing first","عرض أول","premiers") }} {{ rows.length }}</span></span>
         <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim" @click="showRecon = true">
           <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher fichier Cathedis") }}
         </button>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="tt.search.value" :placeholder="L('Search order / customer…','بحث…','Rechercher…')" class="w-40 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="srch" :placeholder="L('Search order / customer…','بحث…','Rechercher…')" class="w-40 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
+      </div>
+
+      <!-- Date filter (server-side — runs over the whole bucket) -->
+      <div class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair flex-wrap bg-app-warm/20">
+        <Icon name="clock" :size="13" color="#a8a29e" />
+        <button v-for="p in DATE_PRESETS" :key="p.key" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
+                :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'" @click="setPreset(p.key)">{{ p.label() }}</button>
+        <div v-if="datePreset === 'range'" class="flex items-center gap-1">
+          <input type="date" v-model="dateFrom" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+          <span class="text-ink-muted text-[11px]">→</span>
+          <input type="date" v-model="dateTo" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        </div>
+        <span v-if="loading" class="ms-2 text-[11px] text-ink-muted inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>{{ L("loading…","تحميل…","…") }}</span>
       </div>
 
       <TableToolbar :t="tt" :filename="bucket" />
@@ -69,7 +82,7 @@
           </tbody>
         </table>
       </div>
-      <div v-if="!tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No orders in this bucket.","لا طلبات في هذه المرحلة.","Aucune commande.") }}</div>
+      <div v-if="!tt.sorted.value.length && !loading" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No orders in this bucket.","لا طلبات في هذه المرحلة.","Aucune commande.") }}</div>
       <TablePager :t="tt" />
     </div>
 
@@ -106,6 +119,16 @@ const PIPE = [
 const bucket = computed(() => (PIPE.some((b) => b.key === route.params.sub) ? route.params.sub : "delivered"));
 const active = computed(() => PIPE.find((b) => b.key === bucket.value) || PIPE[1]);
 
+const DATE_PRESETS = [
+  { key: "all", label: () => L("All", "الكل", "Tout") },
+  { key: "today", label: () => L("Today", "اليوم", "Auj.") },
+  { key: "yesterday", label: () => L("Yesterday", "أمس", "Hier") },
+  { key: "7d", label: () => L("7 days", "7 أيام", "7 j") },
+  { key: "30d", label: () => L("30 days", "30 يوم", "30 j") },
+  { key: "month", label: () => L("This month", "هذا الشهر", "Ce mois") },
+  { key: "range", label: () => L("Range", "نطاق", "Plage") },
+];
+
 const cols = [
   { key: "name", label: L("Order", "الطلب", "Commande"), align: "s" },
   { key: "date", label: L("Date", "التاريخ", "Date"), align: "s" },
@@ -120,31 +143,57 @@ const cols = [
 const rows = ref([]);
 const sum = ref({});
 const live = ref(null);
+const loading = ref(false);
 const showRecon = ref(false);
-const tt = useTableTools(rows, cols, { dateKey: "date", defaultSort: "date", defaultDir: -1, defaultDate: "all", facets: [{ key: "carrier", label: L("carrier", "ناقل", "transp.") }, { key: "city", label: L("city", "مدينة", "ville") }] });
+const srch = ref("");
+const datePreset = ref("all");
+const dateFrom = ref("");
+const dateTo = ref("");
+// Date + search are server-side; carrier/city facets + sort/page are client-side
+// over the returned rows (no dateKey, so TableToolbar hides its own date row).
+const tt = useTableTools(rows, cols, { defaultSort: "date", defaultDir: -1, facets: [{ key: "carrier", label: L("carrier", "ناقل", "transp.") }, { key: "city", label: L("city", "مدينة", "ville") }] });
+
+const isFiltered = computed(() => datePreset.value !== "all" || !!srch.value || Object.values(tt.facetActive.value).some(Boolean));
+const totalCount = computed(() => Math.max(1, Object.values(sum.value).reduce((s, b) => s + ((b && b.count) || 0), 0)));
+function cardCount(k) { return k === bucket.value && isFiltered.value ? bucketCount.value : ((sum.value[k] && sum.value[k].count) || 0); }
+function cardValue(k) { return k === bucket.value && isFiltered.value ? bucketValue.value : ((sum.value[k] && sum.value[k].value) || 0); }
+function cardShare(k) { return Math.round(((sum.value[k] && sum.value[k].count) || 0) / totalCount.value * 100); }
+
+const bucketCount = ref(0);
+const bucketValue = ref(0);
+
+function bounds(key) {
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const now = new Date(); const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (key === "today") return [iso(t), iso(now)];
+  if (key === "yesterday") { const y = new Date(t); y.setDate(y.getDate() - 1); return [iso(y), iso(t)]; }
+  if (key === "7d") { const s = new Date(t); s.setDate(s.getDate() - 7); return [iso(s), iso(now)]; }
+  if (key === "30d") { const s = new Date(t); s.setDate(s.getDate() - 30); return [iso(s), iso(now)]; }
+  if (key === "month") return [iso(new Date(now.getFullYear(), now.getMonth(), 1)), iso(now)];
+  if (key === "range") return [dateFrom.value || null, dateTo.value || null];
+  return [null, null];
+}
 
 async function loadSummary() {
   try { sum.value = await api.call("accounting_portal.api.cod.cod_summary", { company: currentCompany() }) || {}; }
   catch { sum.value = { todeliver: { count: 481, value: 96000 }, delivered: { count: 44999, value: 9100000 }, collected: { count: 2626, value: 530000 }, returned: { count: 11652, value: 2300000 } }; }
 }
 async function loadRows() {
-  try { rows.value = await api.call("accounting_portal.api.cod.list_bucket", { company: currentCompany(), bucket: bucket.value, limit: 500 }) || []; live.value = true; }
-  catch { rows.value = []; live.value = false; }
+  loading.value = true;
+  const [fd, td] = bounds(datePreset.value);
+  try {
+    const r = await api.call("accounting_portal.api.cod.list_bucket", { company: currentCompany(), bucket: bucket.value, search: srch.value || undefined, from_date: fd || undefined, to_date: td || undefined, limit: 500 });
+    rows.value = r.rows || []; bucketCount.value = r.count || 0; bucketValue.value = r.value || 0; live.value = true;
+  } catch { rows.value = []; bucketCount.value = 0; bucketValue.value = 0; live.value = false; }
+  finally { loading.value = false; }
 }
-function load() { loadSummary(); loadRows(); }
-watch([bucket, entityId], load, { immediate: true });
 
-// The active bucket's card reflects the filters applied to the table below;
-// the others stay as the fiscal-year pipeline overview.
-const isFiltered = computed(() => !!tt.search.value || tt.datePreset.value !== "all" || Object.values(tt.facetActive.value).some(Boolean));
-const filteredCount = computed(() => tt.sorted.value.length);
-const filteredValue = computed(() => tt.sorted.value.reduce((s, r) => s + (Number(r.value) || 0), 0));
-const totalCount = computed(() => Math.max(1, Object.values(sum.value).reduce((s, b) => s + ((b && b.count) || 0), 0)));
-function cardCount(k) { return k === bucket.value && isFiltered.value ? filteredCount.value : ((sum.value[k] && sum.value[k].count) || 0); }
-function cardValue(k) { return k === bucket.value && isFiltered.value ? filteredValue.value : ((sum.value[k] && sum.value[k].value) || 0); }
-function cardShare(k) { return Math.round(((sum.value[k] && sum.value[k].count) || 0) / totalCount.value * 100); }
+function setPreset(k) { datePreset.value = k; if (k !== "range") loadRows(); }
+let timer;
+watch([bucket, entityId], () => { tt.reset(); loadSummary(); loadRows(); }, { immediate: true });
+watch([srch, dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
 
 function goBucket(k) { router.push(`/accounting/sales/${k}`); }
 function open(name) { router.push({ path: "/accounting/sales/orders", query: { id: name } }); }
-function onApplied() { showRecon.value = false; load(); }
+function onApplied() { showRecon.value = false; loadSummary(); loadRows(); }
 </script>

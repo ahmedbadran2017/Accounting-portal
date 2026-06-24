@@ -115,7 +115,7 @@ const tiles = computed(() => {
     { label: L("Lines", "سطور", "Lignes"), value: t.lines, style: "background:#fafaf9;border-color:#f0efed;color:#1c1917" },
     { label: L("Matched", "مطابق", "Rapprochées"), value: t.matched, style: "background:#ecfdf5;border-color:#a7f3d0;color:#047857" },
     { label: L("COD value", "قيمة COD", "Valeur"), value: fmt(t.matched_value), style: "background:#fafaf9;border-color:#f0efed;color:#1c1917" },
-    { label: L("Carrier fees", "عمولة الناقل", "Frais"), value: fmt(t.carrier_fees), style: "background:#fffbeb;border-color:#fde68a;color:#b45309" },
+    { label: L("To collect", "للتحصيل", "À encaisser"), value: t.matched + t.variance, style: "background:#f5f3ff;border-color:#ddd6fe;color:#7c3aed" },
   ];
 });
 const tieOk = computed(() => {

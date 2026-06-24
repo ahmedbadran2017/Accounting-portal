@@ -87,26 +87,39 @@ def cod_summary(company=None):
 
 
 @frappe.whitelist()
-def list_bucket(company=None, bucket="delivered", search=None, limit=500):
-    """Orders in one pipeline bucket (current fiscal year), newest first."""
+def list_bucket(company=None, bucket="delivered", search=None, from_date=None, to_date=None, limit=500):
+    """Orders in one pipeline bucket (current fiscal year), newest first.
+
+    Date range + search are applied SERVER-SIDE (the buckets hold tens of
+    thousands of rows, so client-side filtering of a 500-row window would be
+    wrong). Returns the true filtered count + value plus the first `limit` rows."""
     assert_portal_access()
     target = _target(company)
     if not target or bucket not in _COND:
-        return []
+        return {"count": 0, "value": 0, "rows": []}
     params = {"c": target, "fy": _fy_start(), "limit": min(int(limit or 500), 1000)}
-    extra = ""
+    conds = [_BASE, "(" + _COND[bucket] + ")"]
     if search:
-        extra = " AND (so.name LIKE %(s)s OR so.customer LIKE %(s)s)"
+        conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)")
         params["s"] = f"%{search}%"
+    if from_date:
+        conds.append("so.transaction_date >= %(fd)s")
+        params["fd"] = from_date
+    if to_date:
+        conds.append("so.transaction_date <= %(td)s")
+        params["td"] = to_date
+    where = " AND ".join(conds)
+
+    tot = frappe.db.sql(
+        f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so WHERE {where}",
+        params, as_dict=True)[0]
     rows = frappe.db.sql(
         f"""SELECT so.name, so.customer, so.grand_total AS value, so.transaction_date AS date,
                    so.custom_track_shipment_status AS track, so.custom_tracking_company AS carrier,
                    so.custom_shipping_city AS city, so.custom_reference_number AS reference
-            FROM `tabSales Order` so
-            WHERE {_BASE} AND ({_COND[bucket]}){extra}
+            FROM `tabSales Order` so WHERE {where}
             ORDER BY so.transaction_date DESC, so.creation DESC LIMIT %(limit)s""",
         params, as_dict=True)
-    # backfill city from the customer's Address when the order field is empty
     from accounting_portal.api.customers import _cities_for
     missing = list({r["customer"] for r in rows if not (r.get("city") or "").strip()})
     cities = _cities_for(missing) if missing else {}
@@ -115,7 +128,7 @@ def list_bucket(company=None, bucket="delivered", search=None, limit=500):
         r["bucket"] = bucket
         if not (r.get("city") or "").strip():
             r["city"] = cities.get(r["customer"]) or ""
-    return rows
+    return {"count": tot.n or 0, "value": flt(tot.val), "rows": rows}
 
 
 # ── Cathedis remittance parsing ──
