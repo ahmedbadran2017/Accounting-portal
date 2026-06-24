@@ -5,13 +5,14 @@
       <template #actions>
         <div class="flex items-center gap-2 ms-auto">
           <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim" @click="onNew">
-            <Icon name="plus" :size="14" />{{ canRecordPayment ? L("Record receipt","تسجيل دفعة","Encaissement") : t("module.new") }}
+            <Icon name="plus" :size="14" />{{ newLabel }}
           </button>
         </div>
       </template>
     </PageHeader>
 
     <PaymentEntryForm v-if="showPayment" @close="showPayment = false" @posted="onPaid" />
+    <SalesOrderForm v-if="showOrder" @close="showOrder = false" @posted="onOrdered" />
 
     <!-- Sub-tab pills -->
     <div class="flex flex-wrap gap-1 bg-white border border-line rounded-chip p-1 w-fit max-w-full overflow-x-auto">
@@ -23,7 +24,7 @@
 
     <!-- Body -->
     <OrderDetail v-if="activeSub === 'orders' && route.query.id" />
-    <OrdersList v-else-if="activeSub === 'orders'" />
+    <OrdersList v-else-if="activeSub === 'orders'" @new="showOrder = true" />
     <InvoiceDetail v-else-if="activeSub === 'invoices' && route.query.id" />
     <InvoicesList v-else-if="activeSub === 'invoices'" />
     <CustomerDetail v-else-if="activeSub === 'customers' && route.query.id" />
@@ -40,6 +41,7 @@ import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import PaymentEntryForm from "@/components/PaymentEntryForm.vue";
+import SalesOrderForm from "@/components/SalesOrderForm.vue";
 import { useToast } from "@/composables/useToast";
 import OrdersList from "@/pages/sales/OrdersList.vue";
 import OrderDetail from "@/pages/sales/OrderDetail.vue";
@@ -58,13 +60,29 @@ const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
 const showPayment = ref(false);
+const showOrder = ref(false);
 const canRecordPayment = computed(() => ["payments", "receipts"].includes(activeSub.value));
-function onNew() { if (canRecordPayment.value) showPayment.value = true; }
+const canCreateOrder = computed(() => activeSub.value === "orders");
+const newLabel = computed(() => canRecordPayment.value
+  ? L("Record receipt", "تسجيل دفعة", "Encaissement")
+  : canCreateOrder.value ? L("New order", "أمر جديد", "Nouvelle commande") : t("module.new"));
+function onNew() {
+  if (canRecordPayment.value) showPayment.value = true;
+  else if (canCreateOrder.value) showOrder.value = true;
+}
 function onPaid(res) {
   if (res && res.status === "Posted") {
     toast.success(L(`Receipt ${res.voucher_no || ""} recorded`, `سند ${res.voucher_no || ""} سُجّل`, `Encaissement ${res.voucher_no || ""} enregistré`));
   } else {
     toast.info(L("Receipt recorded — awaiting an approver", "الدفعة سُجّلت — بانتظار موافِق", "Encaissement enregistré — en attente"));
+  }
+}
+function onOrdered(res) {
+  if (res && res.status === "Posted") {
+    toast.success(L(`Order ${res.voucher_no || ""} created`, `الطلب ${res.voucher_no || ""} أُنشئ`, `Commande ${res.voucher_no || ""} créée`));
+    router.push({ path: "/accounting/sales/orders", query: { id: res.voucher_no } });
+  } else {
+    toast.info(L("Order recorded — awaiting an approver", "الطلب سُجّل — بانتظار موافِق", "Commande enregistrée — en attente"));
   }
 }
 

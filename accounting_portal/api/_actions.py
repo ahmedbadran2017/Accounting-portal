@@ -38,7 +38,9 @@ def register_poster(action_type, fn):
 def _ensure_posters():
     """Lazily import modules that register posters, so posting works even in a
     fresh request that never imported them (e.g. a standalone approve_action)."""
-    import accounting_portal.api.accountant  # noqa: F401 — registers the Journal Entry poster
+    import accounting_portal.api.accountant  # noqa: F401 — Journal Entry poster
+    import accounting_portal.api.payments     # noqa: F401 — Payment Entry poster
+    import accounting_portal.api.sales        # noqa: F401 — Sales Order poster
 
 
 def _existing(dedupe_key):

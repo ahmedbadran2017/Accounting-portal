@@ -46,7 +46,7 @@
         <Icon name="user" :size="12" />{{ customerFilter }}
         <button class="opacity-70 hover:opacity-100" @click="clearCustomer"><Icon name="close" :size="12" /></button>
       </span>
-      <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim ms-auto">
+      <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim ms-auto" @click="$emit('new')">
         <Icon name="plus" :size="14" />{{ t("module.new") }}
       </button>
     </div>
@@ -120,6 +120,7 @@ import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import { useTableTools } from "@/composables/useTableTools";
 
+defineEmits(["new"]);
 const { t, locale } = useI18n();
 const router = useRouter();
 const route = useRoute();

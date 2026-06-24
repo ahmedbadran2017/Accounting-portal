@@ -5,10 +5,15 @@ status / custom_track_shipment_status / custom_tracking_company /
 custom_shipping_city). Sales Invoice = revenue recognised on delivery (VAT 20%).
 Every list is scoped to one company and excludes cancelled documents.
 """
-import frappe
-from frappe.utils import flt, getdate, nowdate
+import json
 
-from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+import frappe
+from frappe.utils import add_days, flt, getdate, nowdate
+
+from accounting_portal.api import _actions
+from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
+
+SO_ACTION = "Create Sales Order"
 
 
 def _month_start():
@@ -343,3 +348,89 @@ def _voucher_journal(voucher_no):
         """,
         (voucher_no,), as_dict=True,
     )
+
+
+@frappe.whitelist()
+def item_options(company=None, search=None, limit=20):
+    """Items for the Sales Order create picker — code, name, image, last sell rate."""
+    assert_portal_access()
+    like = f"%{(search or '').strip()}%"
+    return frappe.db.sql(
+        """SELECT i.name AS item_code, i.item_name, i.image,
+                  (SELECT price_list_rate FROM `tabItem Price` ip
+                     WHERE ip.item_code=i.name AND ip.selling=1 ORDER BY ip.modified DESC LIMIT 1) AS rate
+           FROM `tabItem` i
+           WHERE i.disabled=0 AND (i.name LIKE %(s)s OR i.item_name LIKE %(s)s)
+           ORDER BY i.modified DESC LIMIT %(limit)s""",
+        {"s": like, "limit": min(int(limit or 20), 40)}, as_dict=True)
+
+
+def _so_poster(action):
+    """Create + submit a COD Sales Order from the action payload."""
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    company = action.company
+    dd = p.get("delivery_date") or add_days(nowdate(), 3)
+    wh = p.get("warehouse") or frappe.db.get_value(
+        "Warehouse", {"company": company, "is_group": 0, "disabled": 0}, "name")
+    so = frappe.get_doc({
+        "doctype": "Sales Order",
+        "company": company,
+        "customer": p["customer"],
+        "transaction_date": p.get("posting_date") or nowdate(),
+        "delivery_date": dd,
+        "order_type": "Sales",
+        "ignore_pricing_rule": 1,
+        "set_warehouse": wh,
+        "items": [{
+            "item_code": it["item_code"], "qty": flt(it.get("qty") or 1),
+            "rate": flt(it.get("rate")), "delivery_date": dd, "warehouse": wh,
+        } for it in (p.get("items") or [])],
+    })
+    # COD operational fields — only set the ones that exist on this site.
+    for fld, val in (("custom_shipping_city", p.get("city")), ("custom_customer_phone", p.get("phone")),
+                     ("custom_tracking_company", p.get("carrier")),
+                     ("custom_sales_status", "Pending"), ("custom_logistics_status", "Pending")):
+        if val and so.meta.has_field(fld):
+            so.set(fld, val)
+    # VAT 20% template rows.
+    tpl = p.get("tax_template")
+    if tpl and frappe.db.exists("Sales Taxes and Charges Template", tpl):
+        from erpnext.controllers.accounts_controller import get_taxes_and_charges
+        so.taxes_and_charges = tpl
+        so.set("taxes", [])
+        for t in get_taxes_and_charges("Sales Taxes and Charges Template", tpl):
+            so.append("taxes", t)
+    so.insert(ignore_permissions=True)
+    so.submit()
+    return {"voucher_type": "Sales Order", "voucher_no": so.name, "result": "submitted"}
+
+
+_actions.register_poster(SO_ACTION, _so_poster)
+
+
+@frappe.whitelist()
+def create_sales_order(company=None, customer=None, items=None, city=None, phone=None,
+                       carrier=None, delivery_date=None, dedupe_key=None):
+    """Create a COD Sales Order through the write gateway (audited; ≥ threshold
+    needs an approver). `items`: [{item_code, qty, rate}, …]."""
+    assert_can_write()
+    companies = resolve_companies(company)
+    if not companies:
+        frappe.throw("No company in scope")
+    target = company if (company and company in companies) else companies[0]
+    if not customer:
+        frappe.throw("Select a customer")
+    if isinstance(items, str):
+        items = json.loads(items)
+    items = [it for it in (items or []) if it.get("item_code") and flt(it.get("qty")) > 0]
+    if not items:
+        frappe.throw("Add at least one item")
+    net = sum(flt(it.get("qty")) * flt(it.get("rate")) for it in items)
+    gross = round(net * 1.2, 2)  # COD orders carry VAT 20%
+    tax_tpl = frappe.db.get_value(
+        "Sales Taxes and Charges Template", {"company": target, "is_default": 1}, "name")
+    key = dedupe_key or f"so:{target}:{customer}:{nowdate()}:{round(gross, 2)}"
+    payload = {"customer": customer, "items": items, "city": city, "phone": phone,
+               "carrier": carrier, "delivery_date": delivery_date, "tax_template": tax_tpl}
+    return _actions.execute(SO_ACTION, target, key, payload=payload, amount=gross,
+                            notes=f"Sales Order for {customer} ({gross:,.0f})")
