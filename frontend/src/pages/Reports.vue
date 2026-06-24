@@ -16,7 +16,8 @@
               @click="goSub(s[0])">{{ t(s[1]) }}</button>
     </div>
 
-    <Statements v-if="activeSub === 'statements'" />
+    <SalesCollections v-if="activeSub === 'salescol'" />
+    <Statements v-else-if="activeSub === 'statements'" />
     <TaxReports v-else-if="activeSub === 'taxreports'" />
     <VerifiedDD v-else-if="activeSub === 'dd'" />
     <ScaffoldTable v-else />
@@ -30,6 +31,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
+import SalesCollections from "@/pages/reports/SalesCollections.vue";
 import Statements from "@/pages/reports/Statements.vue";
 import TaxReports from "@/pages/reports/TaxReports.vue";
 import VerifiedDD from "@/pages/reports/VerifiedDD.vue";

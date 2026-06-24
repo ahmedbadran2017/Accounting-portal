@@ -208,3 +208,62 @@ def vat_summary(company=None, from_date=None, to_date=None):
         "output_total": output_total, "input_total": input_total,
         "net_payable": output_total - input_total,
     }
+
+
+@frappe.whitelist()
+def sales_collections_cohort(company=None, from_date=None, to_date=None):
+    """Sales (invoiced) and collections (reconciled COD cash) grouped by the
+    ORDER month — so revenue lines up with the month its ad spend was incurred,
+    not the (later) invoice month. Verified 1 invoice = 1 order for this book, so
+    each invoice is attributed whole to its order's transaction month."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    if not (from_date and to_date):
+        from_date, to_date = _year_bounds()
+    ck = f"ap_sales_cohort:{target}:{from_date}:{to_date}"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
+
+    params = {"c": target, "fd": from_date, "td": to_date}
+    so = frappe.db.sql(
+        """SELECT DATE_FORMAT(so.transaction_date,'%%Y-%%m') m,
+                  COUNT(*) orders,
+                  ROUND(SUM(so.grand_total)) order_value,
+                  ROUND(SUM(CASE WHEN IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' THEN so.grand_total ELSE 0 END)) collected,
+                  ROUND(SUM(CASE WHEN IFNULL(so.custom_reference_number,'') LIKE 'CATH%%'
+                                  OR so.custom_track_shipment_status='Delivered' THEN so.grand_total ELSE 0 END)) delivered
+           FROM `tabSales Order` so
+           WHERE so.company=%(c)s AND so.docstatus=1
+             AND so.transaction_date BETWEEN %(fd)s AND %(td)s
+             AND IFNULL(so.custom_sales_status,'') NOT IN ('Cancelled','Duplicated','')
+           GROUP BY m""", params, as_dict=True)
+    # 1 invoice = 1 order; collapse items to the invoice first to avoid multiplying
+    # the header net by the line count, then attribute to the order's month.
+    inv = frappe.db.sql(
+        """SELECT DATE_FORMAT(so.transaction_date,'%%Y-%%m') m, ROUND(SUM(x.net)) invoiced
+           FROM (SELECT si.name, si.base_net_total net, MIN(sii.sales_order) so_name
+                 FROM `tabSales Invoice` si JOIN `tabSales Invoice Item` sii ON sii.parent=si.name
+                 WHERE si.company=%(c)s AND si.docstatus=1 GROUP BY si.name) x
+           JOIN `tabSales Order` so ON so.name=x.so_name
+           WHERE so.transaction_date BETWEEN %(fd)s AND %(td)s
+           GROUP BY m""", params, as_dict=True)
+    inv_by = {r.m: flt(r.invoiced) for r in inv}
+
+    months = []
+    for r in so:
+        invoiced, collected, delivered = inv_by.get(r.m, 0.0), flt(r.collected), flt(r.delivered)
+        months.append({
+            "month": r.m, "orders": r.orders or 0, "order_value": flt(r.order_value),
+            "invoiced": invoiced, "delivered": delivered, "collected": collected,
+            "outstanding": round(delivered - collected),
+            "collection_rate": round(collected / delivered * 100, 1) if delivered else 0,
+        })
+    months.sort(key=lambda x: x["month"])
+    t = {k: round(sum(m[k] for m in months)) for k in ("orders", "invoiced", "delivered", "collected", "outstanding")}
+    t["collection_rate"] = round(t["collected"] / t["delivered"] * 100, 1) if t["delivered"] else 0
+    out = {"company": target, "from_date": from_date, "to_date": to_date, "months": months, "totals": t}
+    frappe.cache().set_value(ck, out, expires_in_sec=180)
+    return out
