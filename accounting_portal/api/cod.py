@@ -150,11 +150,15 @@ def _pdf_text(raw):
 
 # Moroccan number format: groups of 3 separated by a space, decimal comma.
 _AMT = r"(\d{1,3}(?: \d{3})*,\d{2})"
-# #ID  N°CMD  ...name/city + 1-2 dates...  Montant  Status  Frais  (1.5%)
-_ROW_RE = re.compile(
-    r"(\d{6,8})\s+(\d{4,8})\s.+?(?:\d{2}/\d{2}/\d{4}\s+){1,2}" + _AMT +
-    r"\s+(Livr\w+|Retourn\w+|Refus\w+|Annul\w+)\s+" + _AMT + r"\s+" + _AMT,
-    re.S)
+# Each delivery row ends with: Livré-le-date  Montant  Status  Frais  V.D.(1.5%).
+# Anchoring on that tail (after collapsing the wrapped name/city lines into one
+# space-separated string) is far more robust than the old prefix+date regex,
+# which dropped ~14% of rows and under-summed. The row's N° CMD is then the
+# first "<tracking> <cmd>" pair in the text between this tail and the previous.
+_TAIL_RE = re.compile(
+    r"\d{2}/\d{2}/\d{4}\s+" + _AMT +
+    r"\s+(Livr\w+|Retourn\w+|Refus\w+|Annul\w+)\s+" + _AMT + r"\s+" + _AMT)
+_CMD_RE = re.compile(r"(\d{6,8})\s+(\d{4,8})")
 
 
 def _num(s):
@@ -162,21 +166,26 @@ def _num(s):
 
 
 def parse_remittance_text(text):
-    text = text or ""
-    ref_m = re.search(r"CATH\d+", text)
+    flat = re.sub(r"\s+", " ", text or "")
+    ref_m = re.search(r"CATH\d+", flat)
     rows = []
-    for m in _ROW_RE.finditer(text):
+    prev = 0
+    for m in _TAIL_RE.finditer(flat):
+        head = flat[prev:m.start()]
+        prev = m.end()
+        c = _CMD_RE.search(head)
         rows.append({
-            "tracking": m.group(1), "cmd": m.group(2),
-            "amount": _num(m.group(3)), "status": m.group(4),
-            "fee": _num(m.group(5)), "commission": _num(m.group(6)),
+            "tracking": c.group(1) if c else None,
+            "cmd": c.group(2) if c else None,
+            "amount": _num(m.group(1)), "status": m.group(2),
+            "fee": _num(m.group(3)), "commission": _num(m.group(4)),
         })
 
     def _tot(label):
-        mt = re.search(label + r"\s*:?\s*(\d[\d ]*,\d{2})", text)
+        mt = re.search(label + r"\s*:?\s*(\d[\d ]*,\d{2})", flat)
         return _num(mt.group(1)) if mt else 0.0
-    printed = {"net": _tot("Net . rembourser"), "fees": _tot("Frais de port"),
-               "declared": _tot("Valeurs d.clar.es")}
+    printed = {"delivered": _tot("Total livr."), "net": _tot("Net . rembourser"),
+               "fees": _tot("Frais de port"), "declared": _tot("Valeurs d.clar.es")}
     return {"reference": ref_m.group(0) if ref_m else None, "rows": rows, "printed": printed}
 
 
@@ -225,7 +234,7 @@ def match_remittance(company=None, content_b64=None, filename=None):
     except Exception as e:
         frappe.throw(f"Couldn't read the PDF: {e}")
 
-    names = ["#" + r["cmd"] for r in parsed["rows"]]
+    names = ["#" + r["cmd"] for r in parsed["rows"] if r.get("cmd")]
     found = {}
     if names:
         for o in frappe.get_all(
@@ -237,8 +246,8 @@ def match_remittance(company=None, content_b64=None, filename=None):
 
     matched, variance, already, not_found = [], [], [], []
     for r in parsed["rows"]:
-        nm = "#" + r["cmd"]
-        o = found.get(nm)
+        nm = ("#" + r["cmd"]) if r.get("cmd") else None
+        o = found.get(nm) if nm else None
         if not o:
             not_found.append(r)
             continue
@@ -265,6 +274,9 @@ def match_remittance(company=None, content_b64=None, filename=None):
             "lines": len(parsed["rows"]),
             "matched": len(matched), "variance": len(variance),
             "already_collected": len(already), "not_found": len(not_found),
+            # Gross COD = sum of every line's Montant (no deduction) — this is what
+            # must tie to the file's printed "Total livré".
+            "gross_cod": round(sum(r["amount"] for r in parsed["rows"]), 2),
             "matched_value": round(sum(r["amount"] for r in matched), 2),
             "net_remitted": round(sum(r["amount"] - r["fee"] - r["commission"] for r in matched), 2),
             "carrier_fees": round(sum(r["fee"] + r["commission"] for r in matched), 2),

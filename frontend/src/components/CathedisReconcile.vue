@@ -42,6 +42,11 @@
             <span v-if="preview.totals.by_method.card" class="font-bold px-2 py-0.5 rounded-full" style="background:#f5f3ff;color:#7c3aed">{{ preview.totals.by_method.card }} {{ L("Card","كارت","Carte") }}</span>
             <span v-if="preview.totals.by_method.bank" class="font-bold px-2 py-0.5 rounded-full" style="background:#eff6ff;color:#0369a1">{{ preview.totals.by_method.bank }} {{ L("Bank","بنك","Banque") }}</span>
           </div>
+          <div v-if="grossTie" class="text-[11px] text-ink-3 flex items-center gap-1.5">
+            <Icon name="check" :size="13" :color="grossTie.ok ? '#16a34a' : '#d97706'" />
+            {{ L("File Total livré","Total livré بالملف","Total livré") }}: <b>{{ fmt(grossTie.printed) }}</b> · {{ L("parsed Montant","مجموع Montant","Montant lu") }}: <b>{{ fmt(grossTie.parsed) }}</b>
+            <span :style="{ color: grossTie.ok ? '#16a34a' : '#d97706' }">{{ grossTie.ok ? L("✓ ties out","✓ متطابق","✓ concorde") : L("⚠ lines missing","⚠ سطور ناقصة","⚠ lignes manquantes") }}</span>
+          </div>
           <div v-if="preview.totals.printed && preview.totals.printed.net" class="text-[11px] text-ink-3 flex items-center gap-1.5">
             <Icon name="check" :size="13" :color="tieOk ? '#16a34a' : '#d97706'" />
             {{ L("File net","صافي الملف","Net fichier") }}: <b>{{ fmt(preview.totals.printed.net) }}</b> · {{ L("matched net","صافي المطابق","Net rapproché") }}: <b>{{ fmt(preview.totals.net_remitted) }}</b>
@@ -128,9 +133,15 @@ const tiles = computed(() => {
   return [
     { label: L("Lines", "سطور", "Lignes"), value: t.lines, style: "background:#fafaf9;border-color:#f0efed;color:#1c1917" },
     { label: L("Matched", "مطابق", "Rapprochées"), value: t.matched, style: "background:#ecfdf5;border-color:#a7f3d0;color:#047857" },
-    { label: L("COD value", "قيمة COD", "Valeur"), value: fmt(t.matched_value), style: "background:#fafaf9;border-color:#f0efed;color:#1c1917" },
-    { label: L("To collect", "للتحصيل", "À encaisser"), value: t.matched + t.variance, style: "background:#f5f3ff;border-color:#ddd6fe;color:#7c3aed" },
+    { label: L("Gross COD", "إجمالي COD", "Total COD"), value: fmt(t.gross_cod), style: "background:#e1f5ee;border-color:#9fe1cb;color:#0f6e56" },
+    { label: L("To collect", "للتحصيل", "À encaisser"), value: fmt(t.matched_value), style: "background:#f5f3ff;border-color:#ddd6fe;color:#7c3aed" },
   ];
+});
+// Gross COD (sum of every Montant) must tie to the file's printed "Total livré".
+const grossTie = computed(() => {
+  const t = preview.value.totals, d = (t.printed || {}).delivered;
+  if (!d) return null;
+  return { printed: d, parsed: t.gross_cod, ok: Math.abs(d - t.gross_cod) < 1 };
 });
 const tieOk = computed(() => {
   const p = preview.value.totals.printed;
