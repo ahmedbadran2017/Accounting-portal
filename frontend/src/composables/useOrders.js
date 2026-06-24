@@ -70,7 +70,7 @@ function liveVM(d, l) {
       net: intFmt(d.net_total), vat: intFmt(d.total_taxes_and_charges), gross: intFmt(d.grand_total),
       advance: intFmt(d.advance_paid), billed: Math.round(d.per_billed || 0), delivered: Math.round(d.per_delivered || 0),
     },
-    related: { invoices: d.related_invoices || [], deliveries: d.related_deliveries || [] },
+    related: { invoices: d.related_invoices || [], deliveries: d.related_deliveries || [], payments: d.related_payments || [] },
     timeline, journal,
   };
 }
@@ -81,7 +81,7 @@ function sampleVM(ord, l) {
     shipping: { phone: "+212 6•• •• •• ••", city: ord.city || "—", governorate: "—" },
     tracking: { carrier: ord.carrier || "—", number: ord.trackStatus || "—", url: "", shipment: ord.trackStatus || "—", expected: "—" },
     financial: { net: ord.net || ord.value, vat: ord.vat || 0, gross: ord.value, advance: 0, billed: 0, delivered: ord.state === "delivered" || ord.state === "settled" ? 100 : 0 },
-    related: { invoices: [], deliveries: [] },
+    related: { invoices: [], deliveries: [], payments: [] },
   };
 }
 

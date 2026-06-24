@@ -247,6 +247,24 @@ def get_order(name):
         "SELECT DISTINCT parent AS name FROM `tabSales Invoice Item` WHERE sales_order=%s ORDER BY parent", (name,), as_dict=True)]
     so["related_deliveries"] = [r.name for r in frappe.db.sql(
         "SELECT DISTINCT parent AS name FROM `tabDelivery Note Item` WHERE against_sales_order=%s ORDER BY parent", (name,), as_dict=True)]
+    # Payments that settled this order's invoices.
+    if so["related_invoices"]:
+        so["related_payments"] = [r.name for r in frappe.db.sql(
+            """SELECT DISTINCT per.parent AS name FROM `tabPayment Entry Reference` per
+               JOIN `tabPayment Entry` pe ON pe.name = per.parent
+               WHERE per.reference_doctype='Sales Invoice' AND per.reference_name IN %(inv)s
+                 AND pe.docstatus=1 ORDER BY per.parent""",
+            {"inv": tuple(so["related_invoices"])}, as_dict=True)]
+    else:
+        so["related_payments"] = []
+    # Backfill city/phone from the customer's Address/Contact (the order's own
+    # custom fields are largely empty on live data).
+    from accounting_portal.api.customers import _customer_city, _customer_contact
+    if not (so.get("custom_shipping_city") or "").strip():
+        c = _customer_city(so["customer"])
+        so["custom_shipping_city"] = "" if c == "—" else c
+    if not (so.get("custom_customer_phone") or so.get("custom_shipping_phone") or "").strip():
+        so["custom_customer_phone"] = _customer_contact(so["customer"])["phone"] or ""
     so["journal"] = _voucher_journal(name)
     return so
 
