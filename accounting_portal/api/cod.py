@@ -92,6 +92,13 @@ def cod_summary(company=None, from_date=None, to_date=None):
     target = _target(company)
     if not target:
         return {}
+    # The classification join scans every return DN (~0.7s); the result is the
+    # same for all cards, so cache it briefly (busted on collect). Card switches
+    # don't re-request it (the frontend only reloads on date/entity change).
+    ck = f"ap_cod_summary:{target}:{from_date or ''}:{to_date or ''}"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
     params = {"c": target, "fy": _fy_start()}
     date_cond = ""
     if from_date:
@@ -117,7 +124,15 @@ def cod_summary(company=None, from_date=None, to_date=None):
     for r in rows:
         if r.bucket in out:
             out[r.bucket] = {"count": r.n or 0, "value": flt(r.val)}
+    frappe.cache().set_value(ck, out, expires_in_sec=120)
     return out
+
+
+def _bust_summary_cache(company):
+    try:
+        frappe.cache().delete_keys(f"ap_cod_summary:{company}")
+    except Exception:
+        pass
 
 
 @frappe.whitelist()
@@ -143,15 +158,18 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
         conds.append("so.transaction_date <= %(td)s")
         params["td"] = to_date
     where = " AND ".join(conds)
+    # The return-DN join is only referenced by the toreturn/returned conditions —
+    # skip it for the other buckets so their queries stay light.
+    join = _RET_JOIN if bucket in ("toreturn", "returned") else ""
 
     tot = frappe.db.sql(
-        f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so {_RET_JOIN} WHERE {where}",
+        f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so {join} WHERE {where}",
         params, as_dict=True)[0]
     rows = frappe.db.sql(
         f"""SELECT so.name, so.customer, so.grand_total AS value, so.transaction_date AS date,
                    so.custom_track_shipment_status AS track, so.custom_tracking_company AS carrier,
                    so.custom_shipping_city AS city, so.custom_reference_number AS reference
-            FROM `tabSales Order` so {_RET_JOIN} WHERE {where}
+            FROM `tabSales Order` so {join} WHERE {where}
             ORDER BY so.transaction_date DESC, so.creation DESC LIMIT %(limit)s""",
         params, as_dict=True)
     from accounting_portal.api.customers import _cities_for
@@ -412,7 +430,9 @@ def apply_remittance(company=None, reference=None, orders=None, amount=0, dedupe
     if not orders:
         frappe.throw("No orders to collect")
     key = dedupe_key or f"cod:{target}:{reference}"
-    return _actions.execute(
+    res = _actions.execute(
         COLLECT_ACTION, target, key,
         payload={"reference": reference, "orders": orders},
         amount=flt(amount), notes=f"Cathedis {reference}: {len(orders)} orders collected")
+    _bust_summary_cache(target)  # bucket counts changed
+    return res

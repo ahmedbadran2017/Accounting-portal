@@ -235,11 +235,13 @@ async function loadRows() {
   finally { loading.value = false; }
 }
 
-// A date change reloads BOTH the cards (cohort funnel) and the table; a search
-// change reloads only the table (cards stay the period funnel).
+// The summary (all 5 card counts) depends only on company + date scope — NOT on
+// which bucket is active — so switching cards must NOT re-run that ~1.2s query.
+// Bucket change reloads only the table; date/entity change reloads both.
 function setPreset(k) { datePreset.value = k; if (k !== "range") { loadSummary(); loadRows(); } }
 let timer;
-watch([bucket, entityId], () => { tt.reset(); loadSummary(); loadRows(); }, { immediate: true });
+watch(entityId, loadSummary, { immediate: true });
+watch([bucket, entityId], () => { tt.reset(); loadRows(); }, { immediate: true });
 watch([dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(() => { loadSummary(); loadRows(); }, 300); });
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
 
@@ -250,7 +252,8 @@ function onApplied() {
   // hide the orders we just collected. Jump to Collected · All to show the result.
   showRecon.value = false;
   datePreset.value = "all";
+  loadSummary();  // the bucket counts changed after collecting
   if (bucket.value !== "collected") router.push("/accounting/sales/collected");
-  else { loadSummary(); loadRows(); }
+  else loadRows();
 }
 </script>
