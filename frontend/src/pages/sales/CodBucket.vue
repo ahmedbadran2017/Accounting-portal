@@ -63,7 +63,7 @@
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
                   class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
-                <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
+                <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ colLabel(c) }}
                   <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
               </th>
             </tr>
@@ -76,7 +76,13 @@
               <td v-show="!tt.hidden.value.has('city')" class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.city || "—" }}</td>
               <td v-show="!tt.hidden.value.has('carrier')" class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.carrier || "—" }}</td>
               <td v-show="!tt.hidden.value.has('track')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.track || "—" }}</td>
-              <td v-show="!tt.hidden.value.has('reference')" class="px-4 py-2.5 font-mono text-[11px] text-ink-3 whitespace-nowrap">{{ o.reference || "—" }}</td>
+              <td v-show="!tt.hidden.value.has('reference')" class="px-4 py-2.5 whitespace-nowrap">
+                <span v-if="isReturnBucket && o.return_shipment" class="inline-flex items-center gap-1.5">
+                  <span class="font-mono text-[11px] text-ink-2">{{ o.return_shipment }}</span>
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="retStatusStyle(o.return_status)">{{ o.return_status || "—" }}</span>
+                </span>
+                <span v-else class="font-mono text-[11px] text-ink-3">{{ o.reference || "—" }}</span>
+              </td>
               <td v-show="!tt.hidden.value.has('value')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ fmt(o.value) }}</td>
             </tr>
           </tbody>
@@ -119,6 +125,14 @@ const PIPE = [
 ];
 const bucket = computed(() => (PIPE.some((b) => b.key === route.params.sub) ? route.params.sub : "delivered"));
 const active = computed(() => PIPE.find((b) => b.key === bucket.value) || PIPE[1]);
+const isReturnBucket = computed(() => ["toreturn", "returned"].includes(bucket.value));
+function colLabel(c) { return c.key === "reference" && isReturnBucket.value ? L("Return shipment", "شحنة الإرجاع", "Retour") : c.label; }
+function retStatusStyle(s) {
+  if (s === "Returned") return "background:#ecfdf5;color:#047857";
+  if (s === "Cancelled") return "background:#fef2f2;color:#b91c1c";
+  if (!s || s === "Draft") return "background:#f1efe8;color:#5f5e5a";
+  return "background:#fffbeb;color:#b45309"; // in progress — AWB/Item scanning, Ready for Return
+}
 
 const DATE_PRESETS = [
   { key: "all", label: () => L("All", "الكل", "Tout") },

@@ -157,12 +157,37 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
     from accounting_portal.api.customers import _cities_for
     missing = list({r["customer"] for r in rows if not (r.get("city") or "").strip()})
     cities = _cities_for(missing) if missing else {}
+    rinfo = _return_info_for([r["name"] for r in rows]) if bucket in ("toreturn", "returned") else {}
     for r in rows:
         r["value"] = flt(r["value"])
         r["bucket"] = bucket
         if not (r.get("city") or "").strip():
             r["city"] = cities.get(r["customer"]) or ""
+        ri = rinfo.get(r["name"]) or {}
+        r["return_shipment"] = ri.get("shipment") or ""
+        r["return_status"] = ri.get("status") or ""
+        r["returned_on"] = ri.get("date") or ""
     return {"count": tot.n or 0, "value": flt(tot.val), "rows": rows}
+
+
+def _return_info_for(names):
+    """Map each Sales Order to the Return Shipment batch (Codx warehouse module)
+    that processed it — joined via its outbound Delivery Note. Surfaces the
+    warehouse-side return record + its status next to the accounting bucket."""
+    if not names:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT odn.against_sales_order so,
+                  SUBSTRING_INDEX(GROUP_CONCAT(rsi.parent ORDER BY rs.posting_date DESC, rs.modified DESC), ',', 1) shipment,
+                  SUBSTRING_INDEX(GROUP_CONCAT(rs.status ORDER BY rs.posting_date DESC, rs.modified DESC), ',', 1) status,
+                  MAX(rs.posting_date) dt
+           FROM `tabReturn Shipment Item` rsi
+           JOIN `tabReturn Shipment` rs ON rs.name=rsi.parent
+           JOIN `tabDelivery Note Item` odn ON odn.parent=rsi.delivery_note
+           WHERE odn.against_sales_order IN %(names)s AND rs.docstatus < 2
+           GROUP BY odn.against_sales_order""",
+        {"names": tuple(names)}, as_dict=True)
+    return {r.so: {"shipment": r.shipment, "status": r.status, "date": str(r.dt or "")} for r in rows}
 
 
 # ── Cathedis remittance parsing ──
