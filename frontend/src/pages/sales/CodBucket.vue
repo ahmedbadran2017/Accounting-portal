@@ -77,8 +77,8 @@
               <td v-show="!tt.hidden.value.has('carrier')" class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.carrier || "—" }}</td>
               <td v-show="!tt.hidden.value.has('track')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.track || "—" }}</td>
               <td v-show="!tt.hidden.value.has('reference')" class="px-4 py-2.5 whitespace-nowrap">
-                <span v-if="isReturnBucket && o.return_shipment" class="inline-flex items-center gap-1.5">
-                  <span class="font-mono text-[11px] text-ink-2">{{ o.return_shipment }}</span>
+                <span v-if="isReturnBucket && o.return_shipment" class="inline-flex items-center gap-1.5 hover:underline" @click.stop="openRet = o.return_shipment">
+                  <span class="font-mono text-[11px] text-accent-dark font-semibold">{{ o.return_shipment }}</span>
                   <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="retStatusStyle(o.return_status)">{{ o.return_status || "—" }}</span>
                 </span>
                 <span v-else class="font-mono text-[11px] text-ink-3">{{ o.reference || "—" }}</span>
@@ -93,6 +93,7 @@
     </div>
 
     <CathedisReconcile v-if="showRecon" @close="showRecon = false" @applied="onApplied" />
+    <ReturnShipmentModal v-if="openRet" :name="openRet" @close="openRet = null" />
   </div>
 </template>
 
@@ -104,6 +105,7 @@ import Icon from "@/components/Icon.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import CathedisReconcile from "@/components/CathedisReconcile.vue";
+import ReturnShipmentModal from "@/components/ReturnShipmentModal.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
@@ -160,6 +162,7 @@ const sum = ref({});
 const live = ref(null);
 const loading = ref(false);
 const showRecon = ref(false);
+const openRet = ref(null);
 const srch = ref("");
 const datePreset = ref("month");
 const dateFrom = ref("");

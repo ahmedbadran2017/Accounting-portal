@@ -190,6 +190,38 @@ def _return_info_for(names):
     return {r.so: {"shipment": r.shipment, "status": r.status, "date": str(r.dt or "")} for r in rows}
 
 
+@frappe.whitelist()
+def get_return_shipment(name=None):
+    """One warehouse return batch: header stats + items scanned + the Sales Orders
+    it covers (via each item's outbound Delivery Note)."""
+    assert_portal_access()
+    if not name or not frappe.db.exists("Return Shipment", name):
+        return None
+    rs = frappe.get_doc("Return Shipment", name)
+    items = [{
+        "item_code": it.item_code, "sku": it.sku, "item_name": it.item_name,
+        "ordered_qty": it.ordered_qty, "actual_qty": it.actual_qty,
+        "missing_qty": flt(it.missing_qty), "is_complete": int(it.is_complete or 0),
+        "delivery_note": it.delivery_note, "awb": it.awb,
+    } for it in rs.items[:400]]
+    dns = list({it.delivery_note for it in rs.items if it.delivery_note})
+    orders = []
+    if dns:
+        orders = [o.so for o in frappe.db.sql(
+            "SELECT DISTINCT against_sales_order so FROM `tabDelivery Note Item` "
+            "WHERE parent IN %(dns)s AND IFNULL(against_sales_order,'')!='' ORDER BY so DESC",
+            {"dns": tuple(dns)}, as_dict=True)]
+    return {
+        "name": rs.name, "status": rs.status, "posting_date": str(rs.posting_date or ""),
+        "shipping_company": rs.shipping_company, "company": rs.company,
+        "total_orders": rs.total_orders or len(orders),
+        "total_ordered_qty": flt(rs.total_ordered_qty), "total_actual_qty": flt(rs.total_actual_qty),
+        "total_missing_qty": flt(rs.total_missing_qty), "return_percentage": flt(rs.return_percentage),
+        "missing_skus": rs.missing_skus or "", "items": items, "n_items": len(rs.items),
+        "orders": orders[:500], "sales_returns": rs.sales_returns_created or "",
+    }
+
+
 # ── Cathedis remittance parsing ──
 def _pdf_text(raw):
     import pypdf
