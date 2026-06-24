@@ -48,7 +48,8 @@
             </tr>
           </tbody>
         </table>
-        <div v-if="!tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No suppliers match.","لا موردين مطابقين.","Aucun fournisseur.") }}</div>
+        <TableLoading v-if="loading" />
+        <div v-else-if="!tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No suppliers match.","لا موردين مطابقين.","Aucun fournisseur.") }}</div>
         <TablePager :t="tt" />
       </div>
 
@@ -74,6 +75,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
+import TableLoading from "@/components/TableLoading.vue";
 import { VENDORS } from "@/data/purchases";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
@@ -95,16 +97,19 @@ const cols = [
 ];
 
 const SAMPLE = VENDORS.map((v) => ({ name: v.id, supplier_name: v.name, group: v.place, payable: Number(String(v.payable).replace(/,/g, "")) || 0, currency: v.ccy, n_bills: 0 }));
-const rows = ref(SAMPLE);
+const rows = ref([]);
 const isLive = ref(null);
+const loading = ref(true);
 const tt = useTableTools(rows, cols, { defaultSort: "payable", defaultDir: -1, facets: [{ key: "group", label: L("group", "مجموعة", "groupe") }] });
 
 onMounted(async () => {
-  const res = await liveOrSample(
-    "accounting_portal.api.purchases.list_vendors", { company: currentCompany(), limit: 200 }, () => SAMPLE,
-    (data) => data.map((r) => ({ name: r.name, supplier_name: r.supplier_name || r.name, group: r.supplier_group, payable: Number(r.payable) || 0, currency: r.currency || "MAD", n_bills: r.n_bills || 0 })),
-  );
-  rows.value = res.data; isLive.value = res.live;
+  try {
+    const res = await liveOrSample(
+      "accounting_portal.api.purchases.list_vendors", { company: currentCompany(), limit: 200 }, () => SAMPLE,
+      (data) => data.map((r) => ({ name: r.name, supplier_name: r.supplier_name || r.name, group: r.supplier_group, payable: Number(r.payable) || 0, currency: r.currency || "MAD", n_bills: r.n_bills || 0 })),
+    );
+    rows.value = res.data; isLive.value = res.live;
+  } finally { loading.value = false; }
 });
 
 function open(name) { router.push({ path: "/accounting/purchases/vendors", query: { id: name } }); }

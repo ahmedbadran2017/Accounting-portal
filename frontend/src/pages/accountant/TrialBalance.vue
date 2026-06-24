@@ -15,7 +15,15 @@
             <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody v-if="loading">
+          <tr v-for="n in 8" :key="'sk' + n" class="border-b border-line-hair animate-pulse" :style="{ opacity: Math.max(0.3, 1 - (n - 1) * 0.1) }">
+            <td class="px-4 py-3"><div class="h-3 rounded-full bg-app-warm" style="width:70px"></div></td>
+            <td class="px-4 py-3"><div class="h-3 rounded-full bg-app-warm" style="max-width:220px"></div></td>
+            <td class="px-4 py-3"><div class="h-3 rounded-full bg-app-warm ms-auto" style="width:80px"></div></td>
+            <td class="px-4 py-3"><div class="h-3 rounded-full bg-app-warm ms-auto" style="width:80px"></div></td>
+          </tr>
+        </tbody>
+        <tbody v-else>
           <tr v-for="(r, i) in rows" :key="i" class="border-b border-line-hair" :class="r.anomaly ? 'bg-rose-50/40' : 'hover:bg-app-warm/60'">
             <td class="px-4 py-2.5 font-mono text-ink-3 whitespace-nowrap">{{ r.code }}</td>
             <td class="px-4 py-2.5">
@@ -54,15 +62,18 @@ const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
 const fmt = (n) => (n ? Number(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "");
-const rows = ref(TRIAL);
+const rows = ref([]);
 const isLive = ref(null);
+const loading = ref(true);
 onMounted(async () => {
-  const res = await liveOrSample(
-    "accounting_portal.api.ledger.trial_balance", { company: currentCompany() }, () => TRIAL,
-    (data) => (data.rows || data).map((r) => ({ code: r.code, name: r.name, dr: fmt(r.dr), cr: fmt(r.cr), anomaly: r.anomaly })),
-  );
-  rows.value = res.data;
-  isLive.value = res.live;
+  try {
+    const res = await liveOrSample(
+      "accounting_portal.api.ledger.trial_balance", { company: currentCompany() }, () => TRIAL,
+      (data) => (data.rows || data).map((r) => ({ code: r.code, name: r.name, dr: fmt(r.dr), cr: fmt(r.cr), anomaly: r.anomaly })),
+    );
+    rows.value = res.data;
+    isLive.value = res.live;
+  } finally { loading.value = false; }
 });
 
 const sum = (k) => rows.value.reduce((s, r) => s + Number((r[k] || "0").replace(/,/g, "")), 0);

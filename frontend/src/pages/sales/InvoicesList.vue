@@ -51,7 +51,8 @@
           </tbody>
         </table>
       </div>
-      <div v-if="!tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No invoices match your filters.","لا توجد فواتير مطابقة.","Aucune facture.") }}</div>
+      <TableLoading v-if="loading" />
+      <div v-else-if="!tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No invoices match your filters.","لا توجد فواتير مطابقة.","Aucune facture.") }}</div>
       <TablePager :t="tt" />
     </div>
   </div>
@@ -65,6 +66,7 @@ import Icon from "@/components/Icon.vue";
 import StatCard from "@/components/StatCard.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
+import TableLoading from "@/components/TableLoading.vue";
 import { INVOICES, INV_STATUS, invStatusLabel, fmt2 } from "@/data/invoices";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
@@ -84,20 +86,23 @@ const cols = [
   { key: "status", label: L("Status", "الحالة", "Statut"), align: "s" },
 ];
 
-const rows = ref(INVOICES);
+const rows = ref([]);
 const isLive = ref(null);
+const loading = ref(true);
 const tt = useTableTools(rows, cols, {
   dateKey: "date", defaultSort: "date", defaultDir: -1,
   facets: [{ key: "status", label: L("status", "حالة", "statut"), format: (v) => invStatusLabel(v, locale.value) }],
 });
 
 onMounted(async () => {
-  const res = await liveOrSample(
-    "accounting_portal.api.sales.list_invoices", { company: currentCompany(), limit: 500 }, () => INVOICES,
-    (data) => data.map((r) => ({ id: r.name, date: String(r.date || ""), customer: r.customer, net: r.net, vat: r.vat, gross: r.gross, status: (r.status || "").toLowerCase().includes("paid") ? "paid" : "overdue" })),
-  );
-  rows.value = res.data;
-  isLive.value = res.live;
+  try {
+    const res = await liveOrSample(
+      "accounting_portal.api.sales.list_invoices", { company: currentCompany(), limit: 500 }, () => INVOICES,
+      (data) => data.map((r) => ({ id: r.name, date: String(r.date || ""), customer: r.customer, net: r.net, vat: r.vat, gross: r.gross, status: (r.status || "").toLowerCase().includes("paid") ? "paid" : "overdue" })),
+    );
+    rows.value = res.data;
+    isLive.value = res.live;
+  } finally { loading.value = false; }
 });
 
 // KPI cards computed from the current (filtered + sorted) view.

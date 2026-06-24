@@ -98,7 +98,8 @@
           </tbody>
         </table>
       </div>
-      <div v-if="!tt.sorted.value.length" class="py-14 text-center text-[12px] text-ink-muted">{{ lbl("No orders match your filters.", "لا توجد طلبات مطابقة.", "Aucune commande.") }}</div>
+      <TableLoading v-if="loading" />
+      <div v-else-if="!tt.sorted.value.length" class="py-14 text-center text-[12px] text-ink-muted">{{ lbl("No orders match your filters.", "لا توجد طلبات مطابقة.", "Aucune commande.") }}</div>
       <TablePager :t="tt" />
     </div>
   </div>
@@ -116,6 +117,7 @@ import { fmtMAD } from "@/composables/useReconciliation";
 import api from "@/services/api";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
+import TableLoading from "@/components/TableLoading.vue";
 import StatCard from "@/components/StatCard.vue";
 import { useTableTools } from "@/composables/useTableTools";
 
@@ -130,20 +132,23 @@ function clearCustomer() { customerFilter.value = null; router.replace({ path: "
 const filterState = ref(null);
 
 // Live ERPNext orders (fallback to the June sample); merged with in-session creations.
-const loaded = ref(ORDERS);
+const loaded = ref([]);
 const isLive = ref(null);
+const loading = ref(true);
 const summary = ref(null);
 onMounted(async () => {
-  const res = await liveOrSample(
-    "accounting_portal.api.sales.list_orders", { company: currentCompany(), limit: 500, customer: customerFilter.value || undefined }, () => ORDERS,
-    (rows) => rows.map((r, i) => ({
-      id: r.name, customer: r.customer, date: String(r.date || ""), city: r.city || "—", carrier: r.carrier || "—",
-      trackStatus: r.custom_track_shipment_status || "Pending", state: r.state,
-      value: r.value, initials: iniOf(r.customer), av: avFor(i),
-    })),
-  );
-  loaded.value = res.data;
-  isLive.value = res.live;
+  try {
+    const res = await liveOrSample(
+      "accounting_portal.api.sales.list_orders", { company: currentCompany(), limit: 500, customer: customerFilter.value || undefined }, () => ORDERS,
+      (rows) => rows.map((r, i) => ({
+        id: r.name, customer: r.customer, date: String(r.date || ""), city: r.city || "—", carrier: r.carrier || "—",
+        trackStatus: r.custom_track_shipment_status || "Pending", state: r.state,
+        value: r.value, initials: iniOf(r.customer), av: avFor(i),
+      })),
+    );
+    loaded.value = res.data;
+    isLive.value = res.live;
+  } finally { loading.value = false; }
   try { summary.value = await api.call("accounting_portal.api.sales.orders_summary", { company: currentCompany() }); } catch { /* sample */ }
 });
 
