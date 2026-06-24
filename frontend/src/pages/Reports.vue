@@ -20,6 +20,7 @@
     </div>
 
     <Statements v-if="activeSub === 'statements'" />
+    <TaxReports v-else-if="activeSub === 'taxreports'" />
     <VerifiedDD v-else-if="activeSub === 'dd'" />
     <ScaffoldTable v-else />
   </div>
@@ -33,6 +34,7 @@ import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import Statements from "@/pages/reports/Statements.vue";
+import TaxReports from "@/pages/reports/TaxReports.vue";
 import VerifiedDD from "@/pages/reports/VerifiedDD.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
