@@ -7,12 +7,14 @@
           <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm">
             <Icon name="filter" :size="14" />{{ t("module.filters") }}
           </button>
-          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim">
-            <Icon name="plus" :size="14" />{{ t("module.new") }}
+          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim" @click="onNew">
+            <Icon name="plus" :size="14" />{{ canRecordPayment ? L("Record receipt","تسجيل دفعة","Encaissement") : t("module.new") }}
           </button>
         </div>
       </template>
     </PageHeader>
+
+    <PaymentEntryForm v-if="showPayment" @close="showPayment = false" @posted="onPaid" />
 
     <!-- Sub-tab pills -->
     <div class="flex flex-wrap gap-1 bg-white border border-line rounded-chip p-1 w-fit max-w-full overflow-x-auto">
@@ -34,12 +36,14 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
+import PaymentEntryForm from "@/components/PaymentEntryForm.vue";
+import { useToast } from "@/composables/useToast";
 import OrdersList from "@/pages/sales/OrdersList.vue";
 import OrderDetail from "@/pages/sales/OrderDetail.vue";
 import InvoicesList from "@/pages/sales/InvoicesList.vue";
@@ -49,10 +53,23 @@ import CustomerDetail from "@/pages/sales/CustomerDetail.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { entityId, entities } = useUi();
+const toast = useToast();
+const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+
+const showPayment = ref(false);
+const canRecordPayment = computed(() => ["payments", "receipts"].includes(activeSub.value));
+function onNew() { if (canRecordPayment.value) showPayment.value = true; }
+function onPaid(res) {
+  if (res && res.status === "Posted") {
+    toast.success(L(`Receipt ${res.voucher_no || ""} recorded`, `سند ${res.voucher_no || ""} سُجّل`, `Encaissement ${res.voucher_no || ""} enregistré`));
+  } else {
+    toast.info(L("Receipt recorded — awaiting an approver", "الدفعة سُجّلت — بانتظار موافِق", "Encaissement enregistré — en attente"));
+  }
+}
 
 const subs = SUBTABS.sales;
 const activeSub = computed(() => route.params.sub || defaultSub("sales"));
