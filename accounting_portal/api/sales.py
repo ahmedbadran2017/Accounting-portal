@@ -107,9 +107,16 @@ def list_orders(company=None, state=None, search=None, limit=100, customer=None)
         """,
         params, as_dict=True,
     )
+    # The order's own custom_shipping_city is ~empty; backfill from the
+    # customer's most-recent Address (one bulk query) so the City column is real.
+    from accounting_portal.api.customers import _cities_for
+    missing = list({r["customer"] for r in rows if not (r.get("city") or "").strip()})
+    cities = _cities_for(missing) if missing else {}
     for r in rows:
         r["state"] = _order_state(r)
         r["value"] = flt(r["value"])
+        if not (r.get("city") or "").strip():
+            r["city"] = cities.get(r["customer"]) or ""
     if state:
         rows = [r for r in rows if r["state"] == state]
     return rows
