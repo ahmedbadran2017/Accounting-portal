@@ -13,6 +13,14 @@
       </div>
     </template>
 
+    <!-- Faceted filters (carrier / city / status …) -->
+    <select v-for="f in t.facets" :key="f.key" :value="t.facetActive.value[f.key] || ''" @change="t.setFacet(f.key, $event.target.value)"
+            class="h-[30px] border rounded-chip px-2 text-[11.5px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer max-w-[140px]"
+            :class="t.facetActive.value[f.key] ? 'border-accent/50 text-accent-dark font-semibold' : 'border-line-2 text-ink-3'">
+      <option value="">{{ L("All","الكل","Tous") }} {{ f.label }}</option>
+      <option v-for="opt in t.facetOptions.value[f.key]" :key="opt" :value="opt">{{ f.format ? f.format(opt) : opt }}</option>
+    </select>
+
     <div class="relative ms-auto" ref="menu">
       <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="open = !open">
         <Icon name="layers" :size="13" />{{ L("Columns","الأعمدة","Colonnes") }}

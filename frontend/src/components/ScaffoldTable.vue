@@ -40,6 +40,14 @@
           </div>
         </template>
 
+        <!-- Faceted filters (configured column indices) -->
+        <select v-for="fi in facetCols" :key="fi" :value="facetActive[fi] || ''" @change="setFacet(fi, $event.target.value)"
+                class="h-[30px] border rounded-chip px-2 text-[11.5px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer max-w-[150px]"
+                :class="facetActive[fi] ? 'border-accent/50 text-accent-dark font-semibold' : 'border-line-2 text-ink-3'">
+          <option value="">{{ L("All","الكل","Tous") }} {{ cfg.cols[fi][0] }}</option>
+          <option v-for="opt in facetOptions[fi]" :key="opt" :value="opt">{{ opt }}</option>
+        </select>
+
         <!-- Column visibility -->
         <div class="relative ms-auto" ref="colMenu">
           <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="colOpen = !colOpen">
@@ -156,6 +164,20 @@ const from = ref("");
 const to = ref("");
 const colOpen = ref(false);
 const colMenu = ref(null);
+const facetActive = ref({}); // { colIndex: value }
+
+// Facet column indices come from the scaffold config (cfg.facets = [idx,...]).
+const facetCols = computed(() => (cfg.value && cfg.value.facets) || []);
+const facetOptions = computed(() => {
+  const out = {};
+  for (const i of facetCols.value) {
+    const seen = new Set();
+    for (const r of rows.value) { const v = String(r.cells[i] ?? "").trim(); if (v && v !== "—") seen.add(v); }
+    out[i] = [...seen].sort((a, b) => a.localeCompare(b)).slice(0, 60);
+  }
+  return out;
+});
+function setFacet(i, v) { facetActive.value = { ...facetActive.value, [i]: v || undefined }; page.value = 1; }
 
 const clickable = computed(() => !!(cfg.value && cfg.value.live && cfg.value.live.open));
 
@@ -199,11 +221,16 @@ function presetBounds(key) {
   return [null, null];
 }
 
+const facetFiltered = computed(() => {
+  const active = Object.entries(facetActive.value).filter(([, v]) => v);
+  if (!active.length) return rows.value;
+  return rows.value.filter((r) => active.every(([i, v]) => String(r.cells[+i] ?? "").trim() === v));
+});
 const dateFiltered = computed(() => {
-  if (dateCol.value === -1 || datePreset.value === "all") return rows.value;
+  if (dateCol.value === -1 || datePreset.value === "all") return facetFiltered.value;
   const [lo, hi] = presetBounds(datePreset.value);
-  if (!lo && !hi) return rows.value;
-  return rows.value.filter((r) => {
+  if (!lo && !hi) return facetFiltered.value;
+  return facetFiltered.value.filter((r) => {
     const d = parseDate(r.cells[dateCol.value]);
     if (!d) return false;
     if (lo && d < lo) return false;
@@ -256,7 +283,7 @@ function pack(cells, raw) {
 async function load() {
   const c = cfg.value;
   search.value = ""; insightCards.value = []; hidden.value = new Set();
-  sortCol.value = -1; page.value = 1; datePreset.value = "all";
+  sortCol.value = -1; page.value = 1; datePreset.value = "all"; facetActive.value = {};
   if (!c) { rows.value = []; isLive.value = null; return; }
 
   if (c.live) {

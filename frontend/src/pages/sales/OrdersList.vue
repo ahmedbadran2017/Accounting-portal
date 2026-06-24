@@ -179,7 +179,14 @@ const baseRows = computed(() => {
   if (filterState.value) r = r.filter((o) => o.state === filterState.value);
   return r;
 });
-const tt = useTableTools(baseRows, cols, { dateKey: "date", defaultSort: "date", defaultDir: -1 });
+const tt = useTableTools(baseRows, cols, {
+  dateKey: "date", defaultSort: "date", defaultDir: -1,
+  facets: [
+    { key: "carrier", label: lbl("carrier", "ناقل", "transp.") },
+    { key: "city", label: lbl("city", "مدينة", "ville") },
+    { key: "state", label: lbl("state", "حالة", "état"), format: (v) => stateLabel(v, locale.value) },
+  ],
+});
 
 function open(id) { router.push({ path: "/accounting/sales/orders", query: { id } }); }
 </script>

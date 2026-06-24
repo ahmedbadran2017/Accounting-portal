@@ -85,7 +85,10 @@ const cols = [
 
 const rows = ref(INVOICES);
 const isLive = ref(null);
-const tt = useTableTools(rows, cols, { dateKey: "date", defaultSort: "date", defaultDir: -1 });
+const tt = useTableTools(rows, cols, {
+  dateKey: "date", defaultSort: "date", defaultDir: -1,
+  facets: [{ key: "status", label: L("status", "حالة", "statut"), format: (v) => invStatusLabel(v, locale.value) }],
+});
 
 onMounted(async () => {
   const res = await liveOrSample(

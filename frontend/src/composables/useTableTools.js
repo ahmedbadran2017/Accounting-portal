@@ -8,8 +8,10 @@ import { ref, computed, watch } from "vue";
 export function useTableTools(rowsRef, cols, opts = {}) {
   const accessor = opts.accessor || ((row, key) => row[key]);
   const dateKey = opts.dateKey || null; // column key holding a date string
+  const facetDefs = opts.facets || []; // [{key, label}] columns exposed as dropdowns
 
   const search = ref("");
+  const facetActive = ref({}); // { colKey: selectedValue }
   const datePreset = ref("all");
   const from = ref("");
   const to = ref("");
@@ -42,11 +44,31 @@ export function useTableTools(rowsRef, cols, opts = {}) {
     return [null, null];
   }
 
+  // Distinct, sorted values per facet column (for the dropdowns).
+  const facetOptions = computed(() => {
+    const out = {};
+    for (const f of facetDefs) {
+      const seen = new Set();
+      for (const r of rowsRef.value) {
+        const v = String(accessor(r, f.key) ?? "").trim();
+        if (v && v !== "—") seen.add(v);
+      }
+      out[f.key] = [...seen].sort((a, b) => a.localeCompare(b)).slice(0, 60);
+    }
+    return out;
+  });
+
+  const faceted = computed(() => {
+    const active = Object.entries(facetActive.value).filter(([, v]) => v);
+    if (!active.length) return rowsRef.value;
+    return rowsRef.value.filter((r) => active.every(([k, v]) => String(accessor(r, k) ?? "").trim() === v));
+  });
+
   const dated = computed(() => {
-    if (!dateKey || datePreset.value === "all") return rowsRef.value;
+    if (!dateKey || datePreset.value === "all") return faceted.value;
     const [lo, hi] = bounds(datePreset.value);
-    if (!lo && !hi) return rowsRef.value;
-    return rowsRef.value.filter((r) => {
+    if (!lo && !hi) return faceted.value;
+    return faceted.value.filter((r) => {
       const d = parseDate(accessor(r, dateKey));
       if (!d) return false;
       if (lo && d < lo) return false;
@@ -87,13 +109,15 @@ export function useTableTools(rowsRef, cols, opts = {}) {
   }
   function toggleCol(k) { const h = new Set(hidden.value); h.has(k) ? h.delete(k) : h.add(k); hidden.value = h; }
   function setPreset(k) { datePreset.value = k; page.value = 1; }
-  function reset() { search.value = ""; datePreset.value = "all"; sortKey.value = opts.defaultSort || null; hidden.value = new Set(); page.value = 1; }
+  function setFacet(k, v) { facetActive.value = { ...facetActive.value, [k]: v || undefined }; page.value = 1; }
+  function reset() { search.value = ""; datePreset.value = "all"; facetActive.value = {}; sortKey.value = opts.defaultSort || null; hidden.value = new Set(); page.value = 1; }
 
   watch([search, datePreset, from, to, pageSize, sorted], () => { if (page.value > totalPages.value) page.value = 1; });
 
   return {
     search, datePreset, from, to, sortKey, sortDir, hidden, page, pageSize,
     cols, visibleCols, sorted, pageRows, totalPages, rangeStart, rangeEnd,
-    hasDate: !!dateKey, toggleSort, toggleCol, setPreset, reset,
+    hasDate: !!dateKey, facets: facetDefs, facetOptions, facetActive, setFacet,
+    toggleSort, toggleCol, setPreset, reset,
   };
 }
