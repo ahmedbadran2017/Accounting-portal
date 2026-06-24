@@ -36,6 +36,12 @@
               <div class="text-[16px] font-extrabold tnum mt-0.5">{{ t.value }}</div>
             </div>
           </div>
+          <div v-if="preview.totals.by_method" class="flex items-center gap-1.5 flex-wrap text-[10.5px]">
+            <span class="text-ink-muted font-semibold uppercase tracking-wider me-1">{{ L("Matched by method","المطابق حسب الدفع","Par paiement") }}</span>
+            <span class="font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ preview.totals.by_method.cod }} COD</span>
+            <span v-if="preview.totals.by_method.card" class="font-bold px-2 py-0.5 rounded-full" style="background:#f5f3ff;color:#7c3aed">{{ preview.totals.by_method.card }} {{ L("Card","كارت","Carte") }}</span>
+            <span v-if="preview.totals.by_method.bank" class="font-bold px-2 py-0.5 rounded-full" style="background:#eff6ff;color:#0369a1">{{ preview.totals.by_method.bank }} {{ L("Bank","بنك","Banque") }}</span>
+          </div>
           <div v-if="preview.totals.printed && preview.totals.printed.net" class="text-[11px] text-ink-3 flex items-center gap-1.5">
             <Icon name="check" :size="13" :color="tieOk ? '#16a34a' : '#d97706'" />
             {{ L("File net","صافي الملف","Net fichier") }}: <b>{{ fmt(preview.totals.printed.net) }}</b> · {{ L("matched net","صافي المطابق","Net rapproché") }}: <b>{{ fmt(preview.totals.net_remitted) }}</b>
@@ -49,22 +55,30 @@
               {{ c.label() }} <span class="text-[10px] px-1.5 py-0.5 rounded-full" :style="c.badge">{{ (preview[c.key] || []).length }}</span>
             </button>
           </div>
+          <p v-if="cat === 'variance' && (preview.variance || []).length" class="text-[11px] text-ink-3 -mb-1">
+            {{ L("File cash ≠ expected. Usually card/bank paid (already settled) or partial — tick the ones you confirm to also collect.","الكاش في الملف ≠ المتوقّع. غالبًا مدفوع كارت/بنك أو جزئي — علّم اللي تأكّده عشان يتحصّل برضه.","Encaisse ≠ attendu. Cochez celles à encaisser.") }}
+          </p>
           <div class="border border-line rounded-[10px] overflow-hidden max-h-[280px] overflow-y-auto">
             <table class="w-full text-[12px]">
               <thead class="sticky top-0"><tr style="background:#fafaf9">
+                <th v-if="cat === 'variance'" class="px-2 py-2 w-9 text-center"><input type="checkbox" :checked="allVarSelected" @change="toggleAllVar" class="accent-accent" /></th>
                 <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Order","الطلب","Cmd") }}</th>
                 <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("File amt","مبلغ الملف","Montant") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Order amt","مبلغ الطلب","Cmde") }}</th>
+                <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Method","الدفع","Paiement") }}</th>
+                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Expected","المتوقّع","Attendu") }}</th>
+                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("File cash","كاش الملف","Encaisse") }}</th>
               </tr></thead>
               <tbody>
-                <tr v-for="(r, i) in (preview[cat] || []).slice(0, 300)" :key="i" class="border-t border-line-hair">
+                <tr v-for="(r, i) in (preview[cat] || []).slice(0, 300)" :key="i" class="border-t border-line-hair"
+                    :class="cat === 'variance' && selectedVar.has(r.order) ? 'bg-violet-50' : ''">
+                  <td v-if="cat === 'variance'" class="px-2 py-1.5 text-center"><input type="checkbox" :checked="selectedVar.has(r.order)" :disabled="!r.order" @change="toggleVar(r.order)" class="accent-accent" /></td>
                   <td class="px-3 py-1.5 font-mono font-semibold">{{ r.order || ("#" + r.cmd) }}</td>
-                  <td class="px-3 py-1.5 truncate max-w-[200px]">{{ r.customer || "—" }}</td>
-                  <td class="px-3 py-1.5 text-end tnum">{{ fmt(r.amount) }}</td>
-                  <td class="px-3 py-1.5 text-end tnum" :class="cat === 'variance' ? 'text-sale font-semibold' : 'text-ink-3'">{{ r.grand_total != null ? fmt(r.grand_total) : "—" }}</td>
+                  <td class="px-3 py-1.5 truncate max-w-[150px]">{{ r.customer || "—" }}</td>
+                  <td class="px-3 py-1.5"><span v-if="r.method" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" :style="methodStyle(r.method)">{{ r.method }}</span><span v-else class="text-ink-muted">—</span></td>
+                  <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ r.expected != null ? fmt(r.expected) : "—" }}</td>
+                  <td class="px-3 py-1.5 text-end tnum" :class="cat === 'variance' ? 'font-semibold' : ''">{{ fmt(r.amount) }}</td>
                 </tr>
-                <tr v-if="!(preview[cat] || []).length"><td colspan="4" class="px-3 py-6 text-center text-ink-muted text-[12px]">{{ L("None","لا شيء","Aucun") }}</td></tr>
+                <tr v-if="!(preview[cat] || []).length"><td :colspan="cat === 'variance' ? 6 : 5" class="px-3 py-6 text-center text-ink-muted text-[12px]">{{ L("None","لا شيء","Aucun") }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -72,9 +86,9 @@
       </div>
 
       <div v-if="preview" class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
-        <span class="me-auto text-[11.5px] text-ink-3">{{ L("Will mark","سيُعلّم","Marquera") }} <b>{{ preview.totals.matched }}</b> {{ L("orders Collected","طلب كمحصّل","encaissées") }}</span>
+        <span class="me-auto text-[11.5px] text-ink-3">{{ L("Will mark","سيُعلّم","Marquera") }} <b>{{ willMark }}</b> {{ L("orders Collected","طلب كمحصّل","encaissées") }}<span v-if="selectedVar.size" class="text-violet-600"> ({{ preview.totals.matched }} + {{ selectedVar.size }} {{ L("confirmed","مؤكّد","confirmées") }})</span></span>
         <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel","إلغاء","Annuler") }}</button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim disabled:opacity-50" :disabled="!preview.totals.matched || applying" @click="apply">
+        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim disabled:opacity-50" :disabled="!willMark || applying" @click="apply">
           {{ applying ? L("Applying…","جارٍ…","…") : L("Mark Collected","تعليم كمحصّل","Marquer encaissées") }}
         </button>
       </div>
@@ -123,7 +137,29 @@ const tieOk = computed(() => {
   return p && p.net && Math.abs(p.net - preview.value.totals.net_remitted) < 1;
 });
 
-function reset() { preview.value = null; error.value = ""; cat.value = "matched"; }
+const selectedVar = ref(new Set());
+const willMark = computed(() => (preview.value ? preview.value.totals.matched + selectedVar.value.size : 0));
+const allVarSelected = computed(() => {
+  const v = (preview.value && preview.value.variance || []).filter((r) => r.order);
+  return v.length > 0 && v.every((r) => selectedVar.value.has(r.order));
+});
+function methodStyle(m) {
+  if (m === "Card") return "background:#f5f3ff;color:#7c3aed";
+  if (m === "Bank") return "background:#eff6ff;color:#0369a1";
+  return "background:#ecfdf5;color:#047857"; // COD
+}
+function toggleVar(order) {
+  if (!order) return;
+  const s = new Set(selectedVar.value);
+  s.has(order) ? s.delete(order) : s.add(order);
+  selectedVar.value = s;
+}
+function toggleAllVar() {
+  const v = (preview.value && preview.value.variance || []).filter((r) => r.order);
+  selectedVar.value = allVarSelected.value ? new Set() : new Set(v.map((r) => r.order));
+}
+
+function reset() { preview.value = null; error.value = ""; cat.value = "matched"; selectedVar.value = new Set(); }
 function onFile(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -142,13 +178,15 @@ function onFile(e) {
 }
 
 async function apply() {
-  if (!preview.value || !preview.value.totals.matched) return;
+  if (!preview.value || !willMark.value) return;
   applying.value = true; error.value = "";
   try {
-    const orders = preview.value.matched.map((r) => r.order);
+    const confirmedVar = (preview.value.variance || []).filter((r) => selectedVar.value.has(r.order));
+    const orders = [...preview.value.matched.map((r) => r.order), ...confirmedVar.map((r) => r.order)];
+    const amount = preview.value.totals.matched_value + confirmedVar.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const res = await api.call("accounting_portal.api.cod.apply_remittance", {
       company: currentCompany(), reference: preview.value.reference,
-      orders, amount: preview.value.totals.matched_value,
+      orders, amount,
     });
     if (res && res.status === "Posted") toast.success(L(`${orders.length} orders marked Collected`, `${orders.length} طلب اتعلّم محصّل`, `${orders.length} encaissées`));
     else toast.info(L("Recorded — awaiting an approver", "سُجّل — بانتظار موافِق", "Enregistré — en attente"));

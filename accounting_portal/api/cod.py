@@ -170,11 +170,39 @@ def parse_remittance_text(text):
     return {"reference": ref_m.group(0) if ref_m else None, "rows": rows, "printed": printed}
 
 
+# Payment types that mean the customer paid AHEAD (online card / bank) — so the
+# cash Cathedis collects on delivery is the order total minus what's prepaid.
+# COD + "manual" are pure cash-on-delivery (manual = COD, per ops).
+_PREPAID_TYPES = {"Payzone Maroc", "Virement bancaire", "Bank Transfer"}
+
+
+def _pay_method(payment_type):
+    pt = (payment_type or "").strip()
+    if pt == "Payzone Maroc":
+        return "Card"
+    if pt in ("Virement bancaire", "Bank Transfer"):
+        return "Bank"
+    return "COD"  # COD, manual, or blank
+
+
+def _expected_cash(o):
+    """How much CASH Cathedis should collect on delivery = total − already paid.
+    advance_paid isn't reliably recorded for card/bank orders, so when the
+    payment type is prepaid we assume the whole order is settled ahead."""
+    total = flt(o.grand_total)
+    adv = flt(o.get("advance_paid"))
+    if (o.get("payment_type") or "").strip() in _PREPAID_TYPES:
+        return round(total - (adv if adv > 0 else total), 2)
+    return round(total - adv, 2)
+
+
 @frappe.whitelist()
 def match_remittance(company=None, content_b64=None, filename=None):
     """Parse an uploaded Cathedis remittance (base64 PDF) and match every line to
     its Sales Order. Returns matched / variance / already-collected / not-found —
-    a dry-run preview; nothing is written."""
+    a dry-run preview; nothing is written. The file's Montant is the CASH collected,
+    so each line is matched against the order's EXPECTED cash (total − prepaid),
+    which lets fully card/bank-paid orders (expected 0, file 0) match cleanly."""
     assert_portal_access()
     target = _target(company)
     if not target:
@@ -193,8 +221,8 @@ def match_remittance(company=None, content_b64=None, filename=None):
         for o in frappe.get_all(
             "Sales Order",
             filters={"name": ["in", names], "company": target},
-            fields=["name", "customer", "grand_total", "custom_reference_number",
-                    "custom_track_shipment_status"]):
+            fields=["name", "customer", "grand_total", "advance_paid", "payment_type",
+                    "custom_reference_number", "custom_track_shipment_status"]):
             found[o.name] = o
 
     matched, variance, already, not_found = [], [], [], []
@@ -207,10 +235,15 @@ def match_remittance(company=None, content_b64=None, filename=None):
         r["order"] = nm
         r["customer"] = o.customer
         r["grand_total"] = flt(o.grand_total)
+        r["advance"] = flt(o.get("advance_paid"))
+        r["method"] = _pay_method(o.get("payment_type"))
+        exp = _expected_cash(o)
+        r["expected"] = exp
+        r["gap"] = round(r["amount"] - exp, 2)
         if (o.custom_reference_number or "").upper().startswith("CATH"):
             r["existing_reference"] = o.custom_reference_number
             already.append(r)
-        elif abs(flt(o.grand_total) - r["amount"]) > 0.5:
+        elif abs(exp - r["amount"]) > 0.5:
             variance.append(r)
         else:
             matched.append(r)
@@ -225,6 +258,11 @@ def match_remittance(company=None, content_b64=None, filename=None):
             "matched_value": round(sum(r["amount"] for r in matched), 2),
             "net_remitted": round(sum(r["amount"] - r["fee"] - r["commission"] for r in matched), 2),
             "carrier_fees": round(sum(r["fee"] + r["commission"] for r in matched), 2),
+            "by_method": {
+                "cod": sum(1 for r in matched if r.get("method") == "COD"),
+                "card": sum(1 for r in matched if r.get("method") == "Card"),
+                "bank": sum(1 for r in matched if r.get("method") == "Bank"),
+            },
             "printed": parsed.get("printed") or {},
         },
         "matched": matched[:1000], "variance": variance[:200],
