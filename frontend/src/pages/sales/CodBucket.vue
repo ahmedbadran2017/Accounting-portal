@@ -13,7 +13,7 @@
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
               <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
-              <span v-if="bucket === b.key && isFiltered" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ L("filtered","مفلتر","filtré") }}</span>
+              <span v-if="bucket === b.key && scopeLabel" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ scopeLabel }}</span>
             </div>
             <div class="text-[24px] font-extrabold tnum leading-tight tracking-tight transition-colors" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ cardCount(b.key).toLocaleString() }}</div>
           </div>
@@ -32,7 +32,7 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" :style="{ background: active.tint }"><Icon :name="active.icon" :size="14" :color="active.color" /></span>
         <span class="text-[13px] font-bold">{{ active.label() }}</span>
         <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? "Live" : "Sample" }}</span>
-        <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("orders · FY 2026","طلب · سنة 2026","commandes · 2026") }}<span v-if="bucketCount > rows.length"> · {{ L("showing first","عرض أول","premiers") }} {{ rows.length }}</span></span>
+        <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("orders","طلب","commandes") }} · {{ scopeLabel || "FY 2026" }}<span v-if="bucketCount > rows.length"> · {{ L("showing first","عرض أول","premiers") }} {{ rows.length }}</span></span>
         <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-accent hover:bg-accent-dark px-3 py-1.5 rounded-chip shadow-prim" @click="showRecon = true">
           <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher fichier Cathedis") }}
         </button>
@@ -146,7 +146,7 @@ const live = ref(null);
 const loading = ref(false);
 const showRecon = ref(false);
 const srch = ref("");
-const datePreset = ref("all");
+const datePreset = ref("month");
 const dateFrom = ref("");
 const dateTo = ref("");
 // Date + search are server-side; carrier/city facets + sort/page are client-side
@@ -154,6 +154,11 @@ const dateTo = ref("");
 const tt = useTableTools(rows, cols, { defaultSort: "date", defaultDir: -1, facets: [{ key: "carrier", label: L("carrier", "ناقل", "transp.") }, { key: "city", label: L("city", "مدينة", "ville") }] });
 
 const isFiltered = computed(() => datePreset.value !== "all" || !!srch.value || Object.values(tt.facetActive.value).some(Boolean));
+const scopeLabel = computed(() => {
+  if (datePreset.value !== "all") { const p = DATE_PRESETS.find((x) => x.key === datePreset.value); return p ? p.label() : ""; }
+  if (srch.value || Object.values(tt.facetActive.value).some(Boolean)) return L("filtered", "مفلتر", "filtré");
+  return "";
+});
 const totalCount = computed(() => Math.max(1, Object.values(sum.value).reduce((s, b) => s + ((b && b.count) || 0), 0)));
 function cardCount(k) { return k === bucket.value && isFiltered.value ? bucketCount.value : ((sum.value[k] && sum.value[k].count) || 0); }
 function cardValue(k) { return k === bucket.value && isFiltered.value ? bucketValue.value : ((sum.value[k] && sum.value[k].value) || 0); }
