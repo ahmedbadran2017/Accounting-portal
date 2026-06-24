@@ -53,7 +53,7 @@
 
     <!-- Table -->
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
-      <TableToolbar :t="tt" />
+      <TableToolbar :t="tt" filename="sales-orders" />
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead>

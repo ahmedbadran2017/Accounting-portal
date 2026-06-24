@@ -48,8 +48,13 @@
           <option v-for="opt in facetOptions[fi]" :key="opt" :value="opt">{{ opt }}</option>
         </select>
 
+        <!-- Export current view -->
+        <button class="ms-auto inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="exportCSV" :title="L('Export current view to CSV','تصدير CSV','Exporter CSV')">
+          <Icon name="doc" :size="13" />{{ L("Export","تصدير","Exporter") }}
+        </button>
+
         <!-- Column visibility -->
-        <div class="relative ms-auto" ref="colMenu">
+        <div class="relative" ref="colMenu">
           <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="colOpen = !colOpen">
             <Icon name="layers" :size="13" />{{ L("Columns","الأعمدة","Colonnes") }}
           </button>
@@ -179,6 +184,19 @@ const facetOptions = computed(() => {
 });
 function setFacet(i, v) { facetActive.value = { ...facetActive.value, [i]: v || undefined }; page.value = 1; }
 
+function exportCSV() {
+  const vis = cfg.value.cols.map((c, i) => i).filter((i) => !hidden.value.has(i));
+  const esc = (v) => { const s = String(v ?? "").replace(/"/g, '""'); return /[",\n]/.test(s) ? `"${s}"` : s; };
+  const head = vis.map((i) => esc(cfg.value.cols[i][0])).join(",");
+  const body = sortedRows.value.map((r) => vis.map((i) => esc(r.cells[i])).join(",")).join("\n");
+  const blob = new Blob(["﻿" + head + "\n" + body], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = (sub.value || "export") + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
 const clickable = computed(() => !!(cfg.value && cfg.value.live && cfg.value.live.open));
 
 const DATE_PRESETS = [
@@ -204,6 +222,10 @@ function parseDate(v) {
   if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
   m = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
   if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  if (/^\d{1,2}\s+[A-Za-z]{3,}$/.test(s)) {
+    const dy = new Date(s + " " + new Date().getFullYear());
+    return isNaN(dy) ? null : dy;
+  }
   const d = new Date(s);
   return isNaN(d) ? null : d;
 }
@@ -283,7 +305,9 @@ function pack(cells, raw) {
 async function load() {
   const c = cfg.value;
   search.value = ""; insightCards.value = []; hidden.value = new Set();
-  sortCol.value = -1; page.value = 1; datePreset.value = "all"; facetActive.value = {};
+  sortCol.value = -1; page.value = 1; facetActive.value = {};
+  // Date-bearing lists open focused on the current month.
+  datePreset.value = (c.cols || []).some((col) => /date|posting|تاريخ/i.test(col[0])) ? "month" : "all";
   if (!c) { rows.value = []; isLive.value = null; return; }
 
   if (c.live) {

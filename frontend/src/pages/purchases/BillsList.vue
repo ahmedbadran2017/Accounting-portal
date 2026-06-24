@@ -13,7 +13,7 @@
       </div>
     </div>
 
-    <TableToolbar :t="tt" />
+    <TableToolbar :t="tt" filename="bills" />
 
     <div class="overflow-x-auto">
       <table class="w-full text-[12px]">

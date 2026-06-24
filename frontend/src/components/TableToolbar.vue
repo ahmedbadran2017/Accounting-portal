@@ -21,7 +21,10 @@
       <option v-for="opt in t.facetOptions.value[f.key]" :key="opt" :value="opt">{{ f.format ? f.format(opt) : opt }}</option>
     </select>
 
-    <div class="relative ms-auto" ref="menu">
+    <button class="ms-auto inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="t.exportCSV(filename)" :title="L('Export current view to CSV','تصدير العرض الحالي CSV','Exporter en CSV')">
+      <Icon name="doc" :size="13" />{{ L("Export","تصدير","Exporter") }}
+    </button>
+    <div class="relative" ref="menu">
       <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="open = !open">
         <Icon name="layers" :size="13" />{{ L("Columns","الأعمدة","Colonnes") }}
       </button>
@@ -47,7 +50,7 @@ import { ref, onMounted, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 
-const props = defineProps({ t: { type: Object, required: true } });
+const props = defineProps({ t: { type: Object, required: true }, filename: { type: String, default: "export" } });
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 

@@ -10,9 +10,12 @@ export function useTableTools(rowsRef, cols, opts = {}) {
   const dateKey = opts.dateKey || null; // column key holding a date string
   const facetDefs = opts.facets || []; // [{key, label}] columns exposed as dropdowns
 
+  // Lists with a date column open on "This month" by default (focused, not a
+  // 500-row dump); date-less lists open on "all".
+  const initialPreset = dateKey ? (opts.defaultDate || "month") : "all";
   const search = ref("");
   const facetActive = ref({}); // { colKey: selectedValue }
-  const datePreset = ref("all");
+  const datePreset = ref(initialPreset);
   const from = ref("");
   const to = ref("");
   const sortKey = ref(opts.defaultSort || null);
@@ -28,6 +31,11 @@ export function useTableTools(rowsRef, cols, opts = {}) {
     if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
     m = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
     if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+    // "22 Jun" without a year — JS would parse it as 2001, so handle first.
+    if (/^\d{1,2}\s+[A-Za-z]{3,}$/.test(s)) {
+      const dy = new Date(s + " " + new Date().getFullYear());
+      return isNaN(dy) ? null : dy;
+    }
     const d = new Date(s);
     return isNaN(d) ? null : d;
   }
@@ -110,7 +118,25 @@ export function useTableTools(rowsRef, cols, opts = {}) {
   function toggleCol(k) { const h = new Set(hidden.value); h.has(k) ? h.delete(k) : h.add(k); hidden.value = h; }
   function setPreset(k) { datePreset.value = k; page.value = 1; }
   function setFacet(k, v) { facetActive.value = { ...facetActive.value, [k]: v || undefined }; page.value = 1; }
-  function reset() { search.value = ""; datePreset.value = "all"; facetActive.value = {}; sortKey.value = opts.defaultSort || null; hidden.value = new Set(); page.value = 1; }
+  function reset() { search.value = ""; datePreset.value = initialPreset; facetActive.value = {}; sortKey.value = opts.defaultSort || null; hidden.value = new Set(); page.value = 1; }
+
+  // Export the current (filtered + sorted) view to CSV, visible columns only.
+  function exportCSV(filename) {
+    const vc = visibleCols.value;
+    const esc = (v) => {
+      const s = String(v ?? "").replace(/"/g, '""');
+      return /[",\n]/.test(s) ? `"${s}"` : s;
+    };
+    const head = vc.map((c) => esc(c.label)).join(",");
+    const body = sorted.value.map((r) => vc.map((c) => esc(accessor(r, c.key))).join(",")).join("\n");
+    const csv = "﻿" + head + "\n" + body; // BOM for Excel/Arabic
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = (filename || "export") + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   watch([search, datePreset, from, to, pageSize, sorted], () => { if (page.value > totalPages.value) page.value = 1; });
 
@@ -118,6 +144,6 @@ export function useTableTools(rowsRef, cols, opts = {}) {
     search, datePreset, from, to, sortKey, sortDir, hidden, page, pageSize,
     cols, visibleCols, sorted, pageRows, totalPages, rangeStart, rangeEnd,
     hasDate: !!dateKey, facets: facetDefs, facetOptions, facetActive, setFacet,
-    toggleSort, toggleCol, setPreset, reset,
+    toggleSort, toggleCol, setPreset, reset, exportCSV,
   };
 }
