@@ -233,6 +233,10 @@ def get_order(name):
            WHERE soi.parent = %s ORDER BY soi.idx""",
         (name,), as_dict=True,
     )
+    so["related_invoices"] = [r.name for r in frappe.db.sql(
+        "SELECT DISTINCT parent AS name FROM `tabSales Invoice Item` WHERE sales_order=%s ORDER BY parent", (name,), as_dict=True)]
+    so["related_deliveries"] = [r.name for r in frappe.db.sql(
+        "SELECT DISTINCT parent AS name FROM `tabDelivery Note Item` WHERE against_sales_order=%s ORDER BY parent", (name,), as_dict=True)]
     so["journal"] = _voucher_journal(name)
     return so
 

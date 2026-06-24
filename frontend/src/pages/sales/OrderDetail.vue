@@ -57,6 +57,48 @@
       </div>
     </div>
 
+    <!-- Operational + financial sections -->
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <!-- Customer & shipping -->
+      <div class="bg-white rounded-[14px] border border-line p-4 shadow-card">
+        <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#eff6ff"><Icon name="user" :size="13" color="#0369a1" /></span><span class="text-[12.5px] font-bold">{{ L("Customer & shipping","العميل والشحن","Client & livraison") }}</span></div>
+        <dl class="space-y-1.5 text-[12px]">
+          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Phone","الهاتف","Tél.") }}</dt><dd class="font-medium tnum">{{ shipping.phone }}</dd></div>
+          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("City","المدينة","Ville") }}</dt><dd class="font-medium">{{ shipping.city }}</dd></div>
+          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Governorate","المحافظة","Région") }}</dt><dd class="font-medium">{{ shipping.governorate }}</dd></div>
+        </dl>
+      </div>
+      <!-- Tracking -->
+      <div class="bg-white rounded-[14px] border border-line p-4 shadow-card">
+        <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#fff7ed"><Icon name="truck" :size="13" color="#c2410c" /></span><span class="text-[12.5px] font-bold">{{ L("Tracking","التتبّع","Suivi") }}</span></div>
+        <dl class="space-y-1.5 text-[12px]">
+          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Carrier","الناقل","Transporteur") }}</dt><dd class="font-medium">{{ tracking.carrier }}</dd></div>
+          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Tracking #","رقم التتبّع","N° suivi") }}</dt><dd class="font-medium font-mono">{{ tracking.number }}</dd></div>
+          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Status","الحالة","Statut") }}</dt><dd class="font-medium">{{ tracking.shipment }}</dd></div>
+        </dl>
+        <a v-if="tracking.url" :href="tracking.url" target="_blank" rel="noopener" class="mt-2.5 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-accent hover:text-accent-dark"><Icon name="arrow" :size="13" class="rtl:rotate-180" />{{ L("Track shipment","تتبّع الشحنة","Suivre") }}</a>
+      </div>
+      <!-- Financial -->
+      <div class="bg-white rounded-[14px] border border-line p-4 shadow-card">
+        <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#ecfdf5"><Icon name="coins" :size="13" color="#047857" /></span><span class="text-[12.5px] font-bold">{{ L("Financial","المالي","Financier") }}</span></div>
+        <dl class="space-y-1.5 text-[12px]">
+          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Net","الصافي","Net") }}</dt><dd class="font-medium tnum">{{ financial.net }}</dd></div>
+          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("VAT 20%","ض.ق.م","TVA") }}</dt><dd class="font-medium tnum">{{ financial.vat }}</dd></div>
+          <div class="flex justify-between gap-2 pt-1 border-t border-line-hair"><dt class="font-semibold">{{ L("Gross","الإجمالي","TTC") }}</dt><dd class="font-bold tnum">{{ financial.gross }}</dd></div>
+          <div class="flex items-center gap-2 pt-1"><dt class="text-ink-muted flex-1">{{ L("Billed / delivered","مفوتر / مُسلّم","Facturé / livré") }}</dt><dd class="font-medium tnum">{{ financial.billed }}% / {{ financial.delivered }}%</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Related documents -->
+    <div v-if="related.invoices.length || related.deliveries.length" class="bg-white rounded-[14px] border border-line p-4 shadow-card">
+      <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="link" :size="13" color="#7c3aed" /></span><span class="text-[12.5px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
+      <div class="flex flex-wrap gap-2">
+        <button v-for="inv in related.invoices" :key="inv" @click="openDoc('sales','invoices',inv)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="doc" :size="12" color="#a33a22" />{{ inv }}</button>
+        <button v-for="dn in related.deliveries" :key="dn" @click="openDoc('sales','challans',dn)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="truck" :size="12" color="#c2410c" />{{ dn }}</button>
+      </div>
+    </div>
+
     <div class="grid lg:grid-cols-[1fr_1.25fr] gap-3.5">
       <!-- Lifecycle timeline -->
       <div class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
@@ -138,8 +180,13 @@ watch(() => [route.query.id, locale.value], load, { immediate: true });
 const o = computed(() => vm.value?.o || null);
 const dims = computed(() => vm.value?.dims || []);
 const items = computed(() => vm.value?.items || []);
+const shipping = computed(() => vm.value?.shipping || {});
+const tracking = computed(() => vm.value?.tracking || {});
+const financial = computed(() => vm.value?.financial || {});
+const related = computed(() => vm.value?.related || { invoices: [], deliveries: [] });
 const timeline = computed(() => vm.value?.timeline || []);
 const journal = computed(() => vm.value?.journal || { noJournal: true, msg: "" });
+function openDoc(module, sub, id) { router.push({ path: `/accounting/${module}/${sub}`, query: { id } }); }
 const sm = computed(() => STATE_META[o.value?.state] || STATE_META.placed);
 const post = computed(() => postingInfo(o.value?.state, locale.value));
 

@@ -54,12 +54,35 @@ function liveVM(d, l) {
       { k: L(l, "VAT", "ض.ق.م", "TVA"), v: intFmt(d.total_taxes_and_charges) },
     ],
     items: (d.items || []).map((it) => ({ name: it.name, image: it.image, qty: it.qty, rate: fmt2(it.rate), amount: fmt2(it.amount) })),
+    shipping: {
+      phone: d.custom_customer_phone || d.custom_shipping_phone || "—",
+      city: d.custom_shipping_city || "—",
+      governorate: d.custom_shipping_governorate || "—",
+    },
+    tracking: {
+      carrier: d.custom_tracking_company || "—",
+      number: d.custom_tracking_number || d.custom_awb || "—",
+      url: d.custom_tracking_url || "",
+      shipment: d.custom_track_shipment_status || "—",
+      expected: d.custom_expected_ship_date ? String(d.custom_expected_ship_date) : "—",
+    },
+    financial: {
+      net: intFmt(d.net_total), vat: intFmt(d.total_taxes_and_charges), gross: intFmt(d.grand_total),
+      advance: intFmt(d.advance_paid), billed: Math.round(d.per_billed || 0), delivered: Math.round(d.per_delivered || 0),
+    },
+    related: { invoices: d.related_invoices || [], deliveries: d.related_deliveries || [] },
     timeline, journal,
   };
 }
 
 function sampleVM(ord, l) {
-  return { o: ord, dims: orderDims(ord, l), timeline: orderTimeline(ord, l), journal: orderStageJournals(ord, l), items: ord.items || [] };
+  return {
+    o: ord, dims: orderDims(ord, l), timeline: orderTimeline(ord, l), journal: orderStageJournals(ord, l), items: ord.items || [],
+    shipping: { phone: "+212 6•• •• •• ••", city: ord.city || "—", governorate: "—" },
+    tracking: { carrier: ord.carrier || "—", number: ord.trackStatus || "—", url: "", shipment: ord.trackStatus || "—", expected: "—" },
+    financial: { net: ord.net || ord.value, vat: ord.vat || 0, gross: ord.value, advance: 0, billed: 0, delivered: ord.state === "delivered" || ord.state === "settled" ? 100 : 0 },
+    related: { invoices: [], deliveries: [] },
+  };
 }
 
 export function useOrders() {
