@@ -10,6 +10,10 @@
         <div class="min-w-0">
           <div class="text-[17px] font-bold tracking-tight font-mono">{{ inv.id }}</div>
           <div class="text-[12.5px] text-ink-3">{{ L("Bill to","الفاتورة إلى","Facturé à") }}: {{ inv.customer }} · {{ inv.date }}</div>
+          <div v-if="inv.phone || inv.city" class="text-[11.5px] text-ink-muted mt-0.5 flex items-center gap-2.5">
+            <span v-if="inv.phone" class="inline-flex items-center gap-1"><Icon name="user" :size="11" />{{ inv.phone }}</span>
+            <span v-if="inv.city" class="inline-flex items-center gap-1"><Icon name="building" :size="11" />{{ inv.city }}</span>
+          </div>
         </div>
         <span class="ms-auto inline-block text-[11px] font-bold px-2.5 py-1 rounded-badge border h-fit"
               :style="{ background: st.bg, color: st.fg, borderColor: st.bd }">{{ invStatusLabel(inv.status, locale) }}</span>
@@ -64,6 +68,17 @@
             {{ paid ? `${L("via","عبر","via")} ${inv.track} · ${inv.pay}` : L("Delivered, cash not yet remitted","مُسلَّم، النقد لم يُحوَّل بعد","Livré, cash non encore versé") }}
           </div>
         </div>
+
+        <!-- Related documents -->
+        <div class="mt-3 pt-3 border-t border-line-hair">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted mb-2">{{ L("Related","مرتبط","Lié") }}</div>
+          <div v-if="related.orders.length || related.deliveries.length || related.payments.length" class="flex flex-wrap gap-1.5">
+            <button v-for="o in related.orders" :key="o" @click="openDoc('orders', o)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="receipt" :size="11" color="#a33a22" />{{ o }}</button>
+            <button v-for="dn in related.deliveries" :key="dn" @click="openDoc('challans', dn)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="truck" :size="11" color="#c2410c" />{{ dn }}</button>
+            <button v-for="pe in related.payments" :key="pe" @click="openDoc('payments', pe)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="11" color="#047857" />{{ pe }}</button>
+          </div>
+          <div v-else class="text-[11px] text-ink-muted">{{ L("No linked documents.","لا مستندات مرتبطة.","Aucun document lié.") }}</div>
+        </div>
       </div>
     </div>
 
@@ -106,5 +121,7 @@ const inv = computed(() => vm.value?.inv || null);
 const st = computed(() => INV_STATUS[inv.value?.status] || INV_STATUS.paid);
 const paid = computed(() => !!vm.value?.paid);
 const journal = computed(() => vm.value?.journal || []);
+const related = computed(() => vm.value?.related || { orders: [], deliveries: [], payments: [] });
+function openDoc(sub, id) { router.push({ path: `/accounting/sales/${sub}`, query: { id } }); }
 function back() { router.push({ path: "/accounting/sales/invoices" }); }
 </script>

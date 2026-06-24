@@ -318,6 +318,16 @@ def get_invoice(name):
         (name,), as_dict=True,
     )
     si["paid"] = flt(si.outstanding_amount) <= 0
+    si["related_orders"] = [r.name for r in frappe.db.sql(
+        "SELECT DISTINCT sales_order AS name FROM `tabSales Invoice Item` WHERE parent=%s AND IFNULL(sales_order,'')!=''", (name,), as_dict=True)]
+    si["related_deliveries"] = [r.name for r in frappe.db.sql(
+        "SELECT DISTINCT delivery_note AS name FROM `tabSales Invoice Item` WHERE parent=%s AND IFNULL(delivery_note,'')!=''", (name,), as_dict=True)]
+    si["related_payments"] = [r.name for r in frappe.db.sql(
+        """SELECT DISTINCT parent AS name FROM `tabPayment Entry Reference`
+           WHERE reference_doctype='Sales Invoice' AND reference_name=%s""", (name,), as_dict=True)]
+    from accounting_portal.api.customers import _customer_city, _customer_contact
+    si["city"] = _customer_city(si["customer"])
+    si["phone"] = _customer_contact(si["customer"])["phone"] or ""
     si["journal"] = _voucher_journal(name)
     return si
 

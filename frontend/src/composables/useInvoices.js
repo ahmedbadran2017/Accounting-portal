@@ -11,18 +11,20 @@ function liveVM(d) {
   return {
     inv: {
       id: d.name, customer: d.customer, date: String(d.posting_date || ""),
+      city: d.city && d.city !== "—" ? d.city : "", phone: d.phone || "",
       status: paid ? "paid" : "overdue",
       net: d.net_total, vat: d.total_taxes_and_charges, gross: d.grand_total,
       lines: (d.lines || []).map((l) => ({ name: l.name, image: l.image, qty: l.qty, rate: f2(l.rate), amount: f2(l.amount) })),
       track: "Cathadis", pay: "COD",
     },
     paid,
+    related: { orders: d.related_orders || [], deliveries: d.related_deliveries || [], payments: d.related_payments || [] },
     journal: (d.journal || []).map((j) => ({ acc: j.acc, dr: j.dr ? f2(j.dr) : "", cr: j.cr ? f2(j.cr) : "" })),
   };
 }
 
 function sampleVM(inv) {
-  return { inv, paid: inv?.status === "paid", journal: invoiceJournal(inv) };
+  return { inv, paid: inv?.status === "paid", related: { orders: [], deliveries: [], payments: [] }, journal: invoiceJournal(inv) };
 }
 
 export function useInvoices() {
