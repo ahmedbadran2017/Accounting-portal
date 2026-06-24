@@ -117,14 +117,43 @@ def list_orders(company=None, state=None, search=None, limit=100, customer=None)
     from accounting_portal.api.customers import _cities_for
     missing = list({r["customer"] for r in rows if not (r.get("city") or "").strip()})
     cities = _cities_for(missing) if missing else {}
+    # Carrier + track status from the linked Delivery Note when the order's own
+    # fields are empty (an order gets these on shipment; some only on the DN).
+    ship = _dn_shipment_for([r["name"] for r in rows])
     for r in rows:
         r["state"] = _order_state(r)
         r["value"] = flt(r["value"])
         if not (r.get("city") or "").strip():
             r["city"] = cities.get(r["customer"]) or ""
+        s = ship.get(r["name"])
+        if s:
+            if not (r.get("carrier") or "").strip():
+                r["carrier"] = s.get("carrier") or r.get("carrier")
+            if not (r.get("custom_track_shipment_status") or "").strip():
+                r["custom_track_shipment_status"] = s.get("track") or r.get("custom_track_shipment_status")
     if state:
         rows = [r for r in rows if r["state"] == state]
     return rows
+
+
+def _dn_shipment_for(order_names):
+    """Latest Delivery Note carrier/track per Sales Order (one bulk query)."""
+    names = [n for n in (order_names or []) if n]
+    if not names:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT dni.against_sales_order AS so,
+                  dn.custom_tracking_company AS carrier,
+                  dn.custom_track_shipment_status AS track, dn.name AS dn
+           FROM `tabDelivery Note Item` dni
+           JOIN `tabDelivery Note` dn ON dn.name = dni.parent
+           WHERE dni.against_sales_order IN %(names)s AND dn.docstatus = 1
+           ORDER BY dn.posting_date DESC, dn.creation DESC""",
+        {"names": tuple(names)}, as_dict=True)
+    out = {}
+    for d in rows:
+        out.setdefault(d.so, {"carrier": d.carrier, "track": d.track, "dn": d.dn})
+    return out
 
 
 @frappe.whitelist()
@@ -270,6 +299,13 @@ def get_order(name):
         so["custom_shipping_city"] = "" if c == "—" else c
     if not (so.get("custom_customer_phone") or so.get("custom_shipping_phone") or "").strip():
         so["custom_customer_phone"] = _customer_contact(so["customer"])["phone"] or ""
+    # Carrier / track status from the linked Delivery Note when the order is bare.
+    sh = _dn_shipment_for([name]).get(name)
+    if sh:
+        if not (so.get("custom_tracking_company") or "").strip():
+            so["custom_tracking_company"] = sh.get("carrier")
+        if not (so.get("custom_track_shipment_status") or "").strip():
+            so["custom_track_shipment_status"] = sh.get("track")
     so["journal"] = _voucher_journal(name)
     return so
 
