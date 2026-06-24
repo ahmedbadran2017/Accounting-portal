@@ -5,12 +5,13 @@
       <div class="px-4 pt-[15px] pb-3 border-b border-line-hair">
         <div class="flex items-center gap-2">
           <span class="text-[13.5px] font-bold">{{ L("Anomaly feed","تغذية الشذوذ","Flux d’anomalies") }}</span>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#fef2f2;color:#be123c;border:1px solid #fecaca">{{ ANOMALIES.length }}</span>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#fef2f2;color:#be123c;border:1px solid #fecaca">{{ feed.length }}</span>
+          <span v-if="live" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full text-success-dark bg-success-soft">{{ L("LIVE","مباشر","LIVE") }}</span>
         </div>
         <div class="text-[11px] text-ink-muted mt-0.5">{{ L("Everything the auditor wants a human to see","كل ما يريد المدقّق أن يراه إنسان","Tout ce que l’auditeur veut faire voir") }}</div>
       </div>
       <div class="flex-1 overflow-y-auto min-h-0 p-3 flex flex-col gap-2.5">
-        <div v-for="a in ANOMALIES" :key="a.id" class="border border-line rounded-[12px] p-3 bg-white shadow-card">
+        <div v-for="a in feed" :key="a.id" class="border border-line rounded-[12px] p-3 bg-white shadow-card">
           <div class="flex items-start gap-2.5">
             <span class="w-7 h-7 rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: sev(a).bg }"><Icon :name="a.icon" :size="14" :color="sev(a).fg" /></span>
             <div class="flex-1 min-w-0">
@@ -90,10 +91,13 @@ import { ref, reactive, nextTick, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { ANOMALIES, SEV_META, sevLabel, seedMessages, replyTo } from "@/data/copilot";
+import { SEV_META, sevLabel, seedMessages, replyTo } from "@/data/copilot";
+import { loadControls, feedFrom } from "@/composables/useAuditor";
+import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
 const router = useRouter();
+const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
 const messages = reactive(seedMessages(locale.value));
@@ -101,6 +105,14 @@ const draft = ref("");
 const typing = ref(false);
 const thread = ref(null);
 const sev = (a) => SEV_META[a.sev] || SEV_META.low;
+
+const feed = ref([]);
+const live = ref(false);
+async function loadFeed() {
+  const r = await loadControls();
+  live.value = r.live;
+  feed.value = feedFrom(r.data && r.data.findings);
+}
 
 const suggestions = [
   L("Draft the suspense fix", "جهّز تصفية التعليق", "Prépare la correction d’attente"),
@@ -123,5 +135,5 @@ function investigate(a) { draft.value = `${L("Investigate", "تحقّق من", "
 function queue(m) { m.proposal.queued = true; }
 function go(g) { if (g) router.push(g.sub ? `/accounting/${g.module}/${g.sub}` : `/accounting/${g.module}`); }
 
-onMounted(scrollEnd);
+onMounted(() => { scrollEnd(); loadFeed(); });
 </script>
