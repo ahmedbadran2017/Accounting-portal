@@ -15,8 +15,32 @@
             <span v-if="inv.city" class="inline-flex items-center gap-1"><Icon name="building" :size="11" />{{ inv.city }}</span>
           </div>
         </div>
-        <span class="ms-auto inline-block text-[11px] font-bold px-2.5 py-1 rounded-badge border h-fit"
-              :style="{ background: st.bg, color: st.fg, borderColor: st.bd }">{{ invStatusLabel(inv.status, locale) }}</span>
+        <div class="ms-auto flex items-center gap-2 h-fit">
+          <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-badge border"
+                :style="{ background: st.bg, color: st.fg, borderColor: st.bd }">{{ invStatusLabel(inv.status, locale) }}</span>
+          <button v-if="inv.gross > 0" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="showRefund = true">
+            <Icon name="refresh" :size="13" />{{ L("Refund","استرداد","Remboursement") }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Refund / credit note -->
+    <div v-if="showRefund" class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(28,25,23,.45)" @click.self="showRefund = false">
+      <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-md p-5">
+        <div class="flex items-center gap-2.5 mb-1.5">
+          <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#fef2f2"><Icon name="refresh" :size="16" color="#be123c" /></span>
+          <div class="text-[14px] font-bold">{{ L("Create credit note","إنشاء إشعار دائن","Note de crédit") }}</div>
+        </div>
+        <p class="text-[12px] text-ink-3 mb-3">{{ L("Reverses the invoice — credits the customer's debtor and reverses the revenue.","يعكس الفاتورة — يقفل مديونية العميل ويعكس الإيراد.","Annule la facture — crédite le débiteur.") }} <b class="font-mono">{{ inv.id }}</b></p>
+        <textarea v-model="reason" rows="2" :placeholder="L('Reason (optional)','السبب (اختياري)','Motif (facultatif)')" class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[12.5px] focus:outline-none focus:border-accent/40 mb-3"></textarea>
+        <div v-if="refundError" class="text-[11.5px] text-sale mb-2">{{ refundError }}</div>
+        <div class="flex justify-end gap-2">
+          <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="showRefund = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
+          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-sale hover:opacity-90 disabled:opacity-50" :disabled="busy" @click="createReturn">
+            {{ busy ? L("Creating…","جارٍ…","…") : L("Create credit note","إنشاء","Créer") }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -106,15 +130,35 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { INV_STATUS, invStatusLabel, fmt2 } from "@/data/invoices";
 import { useInvoices } from "@/composables/useInvoices";
+import api from "@/services/api";
+import { useToast } from "@/composables/useToast";
+import { currentCompany } from "@/composables/useLive";
 
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { loadDetail } = useInvoices();
+const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
 const vm = ref(null);
+const showRefund = ref(false);
+const reason = ref("");
+const busy = ref(false);
+const refundError = ref("");
 async function load() { vm.value = await loadDetail(route.query.id); }
+
+async function createReturn() {
+  busy.value = true; refundError.value = "";
+  try {
+    const res = await api.call("accounting_portal.api.sales.create_sales_return", { company: currentCompany(), invoice: inv.value.id, reason: reason.value || undefined });
+    showRefund.value = false; reason.value = "";
+    if (res && res.status === "Posted") toast.success(L(`Credit note ${res.voucher_no || ""} created`, `إشعار دائن ${res.voucher_no || ""} أُنشئ`, `Note de crédit ${res.voucher_no || ""} créée`));
+    else toast.info(L("Recorded — awaiting an approver", "سُجّل — بانتظار موافِق", "Enregistré — en attente"));
+    load();
+  } catch (e) { refundError.value = (e && e.message) || L("Failed to create credit note.", "فشل الإنشاء.", "Échec."); }
+  finally { busy.value = false; }
+}
 watch(() => route.query.id, load, { immediate: true });
 
 const inv = computed(() => vm.value?.inv || null);

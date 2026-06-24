@@ -473,3 +473,53 @@ def create_sales_order(company=None, customer=None, items=None, city=None, phone
                "carrier": carrier, "delivery_date": delivery_date, "tax_template": tax_tpl}
     return _actions.execute(SO_ACTION, target, key, payload=payload, amount=gross,
                             notes=f"Sales Order for {customer} ({gross:,.0f})")
+
+
+SR_ACTION = "Sales Return"
+
+
+def _sr_poster(action):
+    """Build + submit a credit note (return Sales Invoice) against the original —
+    reverses revenue and clears the customer's debtor balance."""
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    make = frappe.get_attr("erpnext.accounts.doctype.sales_invoice.sales_invoice.make_sales_return")
+    ret = make(p.get("invoice"))
+    if p.get("reason"):
+        ret.remarks = ("Refund: " + str(p["reason"]))[:500]
+    ret.flags.ignore_permissions = True
+    ret.insert()
+    ret.reload()
+    ret.submit()
+    return {"voucher_type": "Sales Invoice", "voucher_no": ret.name, "result": "credit_note"}
+
+
+_actions.register_poster(SR_ACTION, _sr_poster)
+
+
+@frappe.whitelist()
+def create_sales_return(company=None, invoice=None, reason=None, dedupe_key=None):
+    """Create a return Sales Invoice (credit note) against an original — the
+    financial reversal behind a refund. Through the write gateway (audited; a
+    large refund needs an approver)."""
+    assert_can_write()
+    companies = resolve_companies(company)
+    if not companies:
+        frappe.throw("No company in scope")
+    target = company if (company and company in companies) else companies[0]
+    if not invoice or not frappe.db.exists("Sales Invoice", invoice):
+        frappe.throw("Invoice not found")
+    si = frappe.db.get_value("Sales Invoice", invoice,
+                             ["company", "docstatus", "is_return", "grand_total"], as_dict=True)
+    if si.company != target:
+        frappe.throw("Invoice belongs to another company")
+    if si.docstatus != 1:
+        frappe.throw("Only a submitted invoice can be returned")
+    if si.is_return:
+        frappe.throw("This is already a credit note")
+    if frappe.db.exists("Sales Invoice", {"return_against": invoice, "docstatus": 1}):
+        frappe.throw("A credit note already exists for this invoice")
+    key = dedupe_key or f"sireturn:{target}:{invoice}"
+    return _actions.execute(
+        SR_ACTION, target, key, payload={"invoice": invoice, "reason": reason},
+        reference_doctype="Sales Invoice", reference_name=invoice, amount=flt(si.grand_total),
+        notes=f"Credit note for {invoice} ({flt(si.grand_total):,.0f})")
