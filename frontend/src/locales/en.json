@@ -29,7 +29,7 @@
     "assets": "Fixed assets", "fx": "Base currency adj.", "opening": "Opening balance", "close": "Period close",
     "statements": "Financial statements", "taxreports": "Tax & dimension", "dd": "Verified DD", "dataroom": "Data room",
     "orgs": "Organizations", "users": "Users & roles", "taxconf": "Taxes", "currencies": "Currencies",
-    "locations": "Locations", "tags": "Reporting tags", "custom": "Custom modules", "integrations": "Integrations", "anomrules": "Anomaly rules"
+    "locations": "Locations", "tags": "Reporting tags", "custom": "Custom modules", "integrations": "Integrations", "anomrules": "Anomaly rules", "activity": "Activity & audit"
   },
   "jonly": {
     "cod": "COD remittance", "carrier": "Carrier receivable", "margin": "True SKU margin",

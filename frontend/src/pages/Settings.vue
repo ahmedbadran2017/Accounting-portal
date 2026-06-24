@@ -8,8 +8,11 @@
               @click="goSub(s[0])">{{ t(s[1]) }}</button>
     </div>
 
+    <!-- Activity & audit trail -->
+    <ActivityLog v-if="activeSub === 'activity'" />
+
     <!-- Users & roles -->
-    <div v-if="activeSub === 'users'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+    <div v-else-if="activeSub === 'users'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair text-[13px] font-bold">{{ L("Users & roles","المستخدمون والأدوار","Utilisateurs & rôles") }}</div>
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
@@ -88,6 +91,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
+import ActivityLog from "@/pages/settings/ActivityLog.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { settingsUsers, settingsTaxes, settingsCurrencies } from "@/data/settings";

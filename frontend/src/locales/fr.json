@@ -29,7 +29,7 @@
     "assets": "Immobilisations", "fx": "Ajust. change", "opening": "Solde d’ouverture", "close": "Clôture",
     "statements": "États financiers", "taxreports": "Taxes & dimensions", "dd": "Indicateurs DD", "dataroom": "Data room",
     "orgs": "Organisations", "users": "Utilisateurs", "taxconf": "Taxes", "currencies": "Devises",
-    "locations": "Emplacements", "tags": "Étiquettes", "custom": "Modules perso.", "integrations": "Intégrations", "anomrules": "Règles d’anomalie"
+    "locations": "Emplacements", "tags": "Étiquettes", "custom": "Modules perso.", "integrations": "Intégrations", "anomrules": "Règles d’anomalie", "activity": "Activité & audit"
   },
   "jonly": {
     "cod": "Encaissement COD", "carrier": "Créances transporteur", "margin": "Marge réelle SKU",

@@ -31,7 +31,7 @@ export const SUBTABS = {
   ],
   reports: [["statements", "sub.statements"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"], ["dataroom", "sub.dataroom"]],
   settings: [
-    ["orgs", "sub.orgs"], ["users", "sub.users"], ["taxconf", "sub.taxconf"], ["currencies", "sub.currencies"],
+    ["orgs", "sub.orgs"], ["users", "sub.users"], ["activity", "sub.activity"], ["taxconf", "sub.taxconf"], ["currencies", "sub.currencies"],
     ["locations", "sub.locations"], ["tags", "sub.tags"], ["custom", "sub.custom"], ["integrations", "sub.integrations"], ["anomrules", "sub.anomrules"],
   ],
 };
