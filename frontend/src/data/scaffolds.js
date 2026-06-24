@@ -7,10 +7,10 @@ const _f2 = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigit
 
 export const SCAFFOLDS = {
   sales: {
-    challans: { icon: "truck", cols: [["Challan"], ["Customer"], ["Carrier"], ["Tracking"], ["Status"]],
+    challans: { icon: "truck", cols: [["Challan"], ["Customer"], ["Date"], ["Carrier"], ["Tracking"], ["Status"]],
       live: {
         method: "accounting_portal.api.sales.list_challans",
-        map: (r) => [r.name, r.customer, r.carrier, r.tracking, r.status],
+        map: (r) => [r.name, r.customer, String(r.date || "—"), r.carrier, r.tracking, r.status],
         open: (r) => r.tracking_url || null,
       },
       insights: {
@@ -24,16 +24,16 @@ export const SCAFFOLDS = {
         ],
       },
       rows: [
-        ["DN-167144", "زكرياء الرحماني", "Cathedis", "CTH019432", "Delivered"],
-        ["DN-167002", "Salsabil El Kati", "Cathedis", "CTH019410", "In transit"],
-        ["DN-166890", "Siham Elfilali", "Sendit", "SND08821", "Return Issued"],
+        ["DN-167144", "زكرياء الرحماني", "2026-06-22", "Cathedis", "CTH019432", "Delivered"],
+        ["DN-167002", "Salsabil El Kati", "2026-06-21", "Cathedis", "CTH019410", "In transit"],
+        ["DN-166890", "Siham Elfilali", "2026-06-20", "Sendit", "SND08821", "Return Issued"],
       ] },
-    receipts: { icon: "coins", cols: [["Receipt"], ["Customer"], ["Reference"], ["Method"], ["Collected", "e"]],
-      live: { method: "accounting_portal.api.sales.list_receipts", map: (r) => [r.name, r.customer, r.ref, r.method, _f2(r.collected)] },
+    receipts: { icon: "coins", cols: [["Receipt"], ["Customer"], ["Date"], ["Reference"], ["Method"], ["Collected", "e"]],
+      live: { method: "accounting_portal.api.sales.list_receipts", map: (r) => [r.name, r.customer, String(r.date || ""), r.ref, r.method, _f2(r.collected)] },
       rows: [
-        ["PAY-19042", "Siham Elfilali", "CATH…2385", "Cathadis Transactions", "298.00"],
-        ["PAY-19041", "Jihad Elouarti", "CATH…2542", "Cathadis Transactions", "546.00"],
-        ["PAY-19040", "مليكة بلالي", "CATH…2458", "Cathadis Transactions", "149.00"],
+        ["PAY-19042", "Siham Elfilali", "2026-06-20", "CATH…2385", "Cathadis Transactions", "298.00"],
+        ["PAY-19041", "Jihad Elouarti", "2026-06-19", "CATH…2542", "Cathadis Transactions", "546.00"],
+        ["PAY-19040", "مليكة بلالي", "2026-06-19", "CATH…2458", "Cathadis Transactions", "149.00"],
       ] },
     payments: { icon: "wallet", cols: [["Payment"], ["Customer"], ["Date"], ["Method"], ["Amount", "e"]],
       live: { method: "accounting_portal.api.sales.list_receipts", map: (r) => [r.name, r.customer, String(r.date || ""), r.method, _f2(r.collected)] },

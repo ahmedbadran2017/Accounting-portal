@@ -125,7 +125,7 @@ def list_challans(company=None, limit=100):
     target = company if (company and company in companies) else companies[0]
     return frappe.db.sql(
         """
-        SELECT name, customer,
+        SELECT name, customer, posting_date AS date,
                IFNULL(NULLIF(custom_tracking_company, ''), '—') AS carrier,
                IFNULL(NULLIF(custom_tracking_number, ''), '—') AS tracking,
                IFNULL(NULLIF(custom_track_shipment_status, ''), IFNULL(custom_logistics_status, status)) AS status,
@@ -134,7 +134,7 @@ def list_challans(company=None, limit=100):
         WHERE company=%s AND docstatus=1
         ORDER BY posting_date DESC, creation DESC LIMIT %s
         """,
-        (target, min(int(limit or 100), 300)), as_dict=True)
+        (target, min(int(limit or 100), 500)), as_dict=True)
 
 
 @frappe.whitelist()
@@ -180,7 +180,7 @@ def list_receipts(company=None, limit=100):
         WHERE company=%s AND docstatus=1 AND payment_type='Receive'
         ORDER BY posting_date DESC, creation DESC LIMIT %s
         """,
-        (target, min(int(limit or 100), 300)), as_dict=True)
+        (target, min(int(limit or 100), 500)), as_dict=True)
 
 
 @frappe.whitelist()
@@ -205,7 +205,7 @@ def list_credits(company=None, limit=100):
                OR custom_track_shipment_status IN ('Delivery Exception','Failed Attempt'))
         ORDER BY transaction_date DESC, creation DESC LIMIT %s
         """,
-        (target, min(int(limit or 100), 300)), as_dict=True)
+        (target, min(int(limit or 100), 500)), as_dict=True)
 
 
 @frappe.whitelist()
