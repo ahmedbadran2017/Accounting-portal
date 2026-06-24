@@ -3,6 +3,8 @@
   <Consolidated v-if="entityId === 'group'" />
 
   <div v-else class="space-y-3.5">
+    <DashboardSkeleton v-if="!loaded" />
+    <template v-else>
     <!-- Entity banner (non-Morocco) — shown first to set context -->
     <div v-if="vm.entityBanner" class="rounded-[14px] p-4 border" style="background:#fffbeb;border-color:#fde68a">
       <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -261,6 +263,7 @@
         </button>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
@@ -270,6 +273,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import Consolidated from "@/pages/Consolidated.vue";
+import DashboardSkeleton from "@/components/DashboardSkeleton.vue";
 import { useUi } from "@/composables/useUi";
 import { buildDashVM } from "@/data/dashboard";
 import { ANOMALIES, SEV_META, sevLabel } from "@/data/copilot";
@@ -284,7 +288,13 @@ const { loadCockpit } = useDashboard();
 // from real figures); reloads when the entity changes.
 const cockpit = ref(null);
 const isLive = ref(null);
-async function load() { cockpit.value = await loadCockpit(); isLive.value = !!(cockpit.value && cockpit.value.company); }
+const loaded = ref(false);
+// Show a skeleton until the live cockpit resolves — no flash of sample/fake data.
+async function load() {
+  loaded.value = false;
+  try { cockpit.value = await loadCockpit(); isLive.value = !!(cockpit.value && cockpit.value.company); }
+  finally { loaded.value = true; }
+}
 watch(entityId, load, { immediate: true });
 
 const vm = computed(() => overlayCockpit(buildDashVM(locale.value, entityId.value), cockpit.value, locale.value));
