@@ -484,6 +484,11 @@ def _sr_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     make = frappe.get_attr("erpnext.accounts.doctype.sales_invoice.sales_invoice.make_sales_return")
     ret = make(p.get("invoice"))
+    # This book's make_sales_return mis-sets amended_from to the source invoice,
+    # which blocks insert ("cannot be amended … not cancelled"). A return is not
+    # an amendment — clear it so the credit note gets its own name. (Verified by a
+    # reversible test on admin-dev: CN posts Dr Revenue+VAT / Cr Debtors.)
+    ret.amended_from = None
     if p.get("reason"):
         ret.remarks = ("Refund: " + str(p["reason"]))[:500]
     ret.flags.ignore_permissions = True
