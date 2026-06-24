@@ -28,7 +28,7 @@ from accounting_portal.api.permissions import assert_can_write, assert_portal_ac
 COLLECT_ACTION = "Collect COD"
 RETURN_TRACK = ("Return", "Returned", "Return Issued", "Delivery Exception", "Failed Attempt")
 TRANSIT_TRACK = ("In Transit", "Out For Delivery", "Picked up", "Pending")
-BUCKETS = ("todeliver", "delivered", "collected", "returned")
+BUCKETS = ("todeliver", "delivered", "collected", "toreturn", "returned")
 
 
 def _fy_start():
@@ -43,27 +43,40 @@ def _target(company):
 
 
 # ── bucket classifier (must agree with the SQL conditions below) ──
-def cod_bucket(ref, track):
+# To Return = carrier flagged it back (track) but the goods haven't physically
+# returned. Returned = a submitted return Delivery Note exists (goods back in the
+# warehouse, inventory restocked) — the authoritative physical-return signal.
+def cod_bucket(ref, track, has_return_dn=False):
     if (ref or "").upper().startswith("CATH"):
         return "collected"
+    if has_return_dn:
+        return "returned"
     track = (track or "").strip()
     if track in RETURN_TRACK:
-        return "returned"
+        return "toreturn"
     if track == "Delivered":
         return "delivered"
     return "todeliver"
 
 
+_RETURNISH = "('Return','Returned','Return Issued','Delivery Exception','Failed Attempt')"
+_TRANSIT = "('In Transit','Out For Delivery','Picked up')"
+_NOTCATH = "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%'"
+# Flags orders that have a submitted return Delivery Note (goods physically back).
+_RET_JOIN = (
+    "LEFT JOIN (SELECT DISTINCT dni.against_sales_order so "
+    "FROM `tabDelivery Note Item` dni JOIN `tabDelivery Note` dn ON dn.name=dni.parent "
+    "WHERE dn.is_return=1 AND dn.docstatus=1 AND dn.company=%(c)s "
+    "AND IFNULL(dni.against_sales_order,'')!='') ret ON ret.so=so.name")
 _COND = {
     "collected": "IFNULL(so.custom_reference_number,'') LIKE 'CATH%%'",
-    "returned": "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' "
-                "AND so.custom_track_shipment_status IN ('Return','Returned','Return Issued','Delivery Exception','Failed Attempt')",
-    "delivered": "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' "
-                 "AND so.custom_track_shipment_status='Delivered'",
-    "todeliver": "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' "
-                  "AND so.custom_track_shipment_status NOT IN "
-                  "('Delivered','Return','Returned','Return Issued','Delivery Exception','Failed Attempt') "
-                  "AND (so.per_billed > 0 OR so.custom_track_shipment_status IN ('In Transit','Out For Delivery','Picked up'))",
+    "returned": f"{_NOTCATH} AND ret.so IS NOT NULL",
+    "toreturn": f"{_NOTCATH} AND ret.so IS NULL AND so.custom_track_shipment_status IN {_RETURNISH}",
+    "delivered": f"{_NOTCATH} AND ret.so IS NULL AND so.custom_track_shipment_status='Delivered'",
+    "todeliver": f"{_NOTCATH} AND ret.so IS NULL "
+                 f"AND so.custom_track_shipment_status NOT IN {_RETURNISH} "
+                 f"AND so.custom_track_shipment_status!='Delivered' "
+                 f"AND (so.per_billed > 0 OR so.custom_track_shipment_status IN {_TRANSIT})",
 }
 _BASE = ("so.company=%(c)s AND so.docstatus=1 AND so.transaction_date>=%(fy)s "
          "AND IFNULL(so.custom_sales_status,'') NOT IN ('Cancelled','Duplicated','')")
@@ -87,12 +100,23 @@ def cod_summary(company=None, from_date=None, to_date=None):
     if to_date:
         date_cond += " AND so.transaction_date <= %(td)s"
         params["td"] = to_date
-    out = {}
-    for b in BUCKETS:
-        r = frappe.db.sql(
-            f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so "
-            f"WHERE {_BASE} AND ({_COND[b]}){date_cond}", params, as_dict=True)[0]
-        out[b] = {"count": r.n or 0, "value": flt(r.val)}
+    # One pass, classified by CASE (priority = collected → returned → toreturn →
+    # delivered → todeliver), so the return-DN join materialises once.
+    case = (
+        "CASE WHEN IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' THEN 'collected' "
+        "WHEN ret.so IS NOT NULL THEN 'returned' "
+        f"WHEN so.custom_track_shipment_status IN {_RETURNISH} THEN 'toreturn' "
+        "WHEN so.custom_track_shipment_status='Delivered' THEN 'delivered' "
+        f"WHEN (so.per_billed>0 OR so.custom_track_shipment_status IN {_TRANSIT}) THEN 'todeliver' "
+        "ELSE 'other' END")
+    rows = frappe.db.sql(
+        f"SELECT {case} bucket, COUNT(*) n, ROUND(SUM(so.grand_total)) val "
+        f"FROM `tabSales Order` so {_RET_JOIN} WHERE {_BASE}{date_cond} GROUP BY bucket",
+        params, as_dict=True)
+    out = {b: {"count": 0, "value": 0.0} for b in BUCKETS}
+    for r in rows:
+        if r.bucket in out:
+            out[r.bucket] = {"count": r.n or 0, "value": flt(r.val)}
     return out
 
 
@@ -121,13 +145,13 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
     where = " AND ".join(conds)
 
     tot = frappe.db.sql(
-        f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so WHERE {where}",
+        f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so {_RET_JOIN} WHERE {where}",
         params, as_dict=True)[0]
     rows = frappe.db.sql(
         f"""SELECT so.name, so.customer, so.grand_total AS value, so.transaction_date AS date,
                    so.custom_track_shipment_status AS track, so.custom_tracking_company AS carrier,
                    so.custom_shipping_city AS city, so.custom_reference_number AS reference
-            FROM `tabSales Order` so WHERE {where}
+            FROM `tabSales Order` so {_RET_JOIN} WHERE {where}
             ORDER BY so.transaction_date DESC, so.creation DESC LIMIT %(limit)s""",
         params, as_dict=True)
     from accounting_portal.api.customers import _cities_for

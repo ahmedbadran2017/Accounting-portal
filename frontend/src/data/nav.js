@@ -14,7 +14,7 @@ export const ENTITIES = [
 export const SUBTABS = {
   sales: [
     ["customers", "sub.customers"], ["orders", "sub.orders"],
-    ["todeliver", "sub.todeliver"], ["delivered", "sub.delivered"], ["collected", "sub.collected"], ["returned", "sub.returned"],
+    ["todeliver", "sub.todeliver"], ["delivered", "sub.delivered"], ["collected", "sub.collected"], ["toreturn", "sub.toreturn"], ["returned", "sub.returned"],
     ["invoices", "sub.invoices"], ["payments", "sub.payments_in"],
   ],
   purchases: [

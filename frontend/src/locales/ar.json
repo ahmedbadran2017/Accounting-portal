@@ -18,7 +18,7 @@
     "consolidation": "التوحيد"
   },
   "sub": {
-    "customers": "العملاء", "orders": "أوامر البيع", "todeliver": "للتسليم", "delivered": "مُسلّمة", "collected": "محصّلة", "returned": "مرتجعة", "challans": "سندات التسليم",
+    "customers": "العملاء", "orders": "أوامر البيع", "todeliver": "للتسليم", "delivered": "مُسلّمة", "collected": "محصّلة", "toreturn": "للإرجاع", "returned": "مرتجعة", "challans": "سندات التسليم",
     "invoices": "الفواتير", "receipts": "سندات القبض", "payments_in": "مدفوعات مستلمة", "credits": "إشعارات دائنة",
     "vendors": "الموردون", "pos": "أوامر شراء", "bills": "الفواتير", "expenses": "المصاريف",
     "recurring": "المتكرر", "payments_out": "مدفوعات صادرة", "vcredits": "إشعارات الموردين",

@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3.5">
     <!-- Pipeline strip -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
       <button v-for="b in PIPE" :key="b.key" class="group relative bg-white border rounded-[16px] p-4 text-start transition-all overflow-hidden"
               :class="bucket === b.key ? 'shadow-cardHover -translate-y-0.5' : 'border-line shadow-card hover:-translate-y-0.5 hover:shadow-cardHover'"
               :style="bucket === b.key ? { borderColor: b.color + '66', boxShadow: '0 10px 30px -12px ' + b.glow + '88' } : {}"
@@ -114,6 +114,7 @@ const PIPE = [
   { key: "todeliver", label: () => L("To deliver", "للتسليم", "À livrer"), color: "#0369a1", glow: "#38bdf8", icon: "truck", tint: "#eff6ff" },
   { key: "delivered", label: () => L("Delivered", "مُسلّمة", "Livrées"), color: "#047857", glow: "#34d399", icon: "check", tint: "#ecfdf5" },
   { key: "collected", label: () => L("Collected", "محصّلة", "Encaissées"), color: "#7c3aed", glow: "#a78bfa", icon: "coins", tint: "#f5f3ff" },
+  { key: "toreturn", label: () => L("To return", "للإرجاع", "À retourner"), color: "#b45309", glow: "#fbbf24", icon: "clock", tint: "#fffbeb" },
   { key: "returned", label: () => L("Returned", "مرتجعة", "Retournées"), color: "#be123c", glow: "#f87171", icon: "refresh", tint: "#fef2f2" },
 ];
 const bucket = computed(() => (PIPE.some((b) => b.key === route.params.sub) ? route.params.sub : "delivered"));
@@ -193,7 +194,7 @@ async function loadSummary() {
   try {
     try { sum.value = await api.call("accounting_portal.api.cod.cod_summary", { company: currentCompany(), from_date: fd || undefined, to_date: td || undefined }) || {}; }
     catch { sum.value = await api.call("accounting_portal.api.cod.cod_summary", { company: currentCompany() }) || {}; }  // old backend: FY totals
-  } catch { sum.value = { todeliver: { count: 481, value: 96000 }, delivered: { count: 44999, value: 9100000 }, collected: { count: 2626, value: 530000 }, returned: { count: 11652, value: 2300000 } }; }
+  } catch { sum.value = { todeliver: { count: 481, value: 96000 }, delivered: { count: 44911, value: 8980000 }, collected: { count: 2626, value: 475000 }, toreturn: { count: 2063, value: 419716 }, returned: { count: 9705, value: 1924827 } }; }
 }
 async function loadRows() {
   loading.value = true;

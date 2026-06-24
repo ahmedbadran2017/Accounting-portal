@@ -25,7 +25,7 @@
     <!-- Body -->
     <OrderDetail v-if="activeSub === 'orders' && route.query.id" />
     <OrdersList v-else-if="activeSub === 'orders'" @new="showOrder = true" />
-    <CodBucket v-else-if="['todeliver','delivered','collected','returned'].includes(activeSub)" />
+    <CodBucket v-else-if="['todeliver','delivered','collected','toreturn','returned'].includes(activeSub)" />
     <InvoiceDetail v-else-if="activeSub === 'invoices' && route.query.id" />
     <InvoicesList v-else-if="activeSub === 'invoices'" />
     <CustomerDetail v-else-if="activeSub === 'customers' && route.query.id" />
