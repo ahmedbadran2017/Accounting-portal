@@ -245,5 +245,12 @@ watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
 
 function goBucket(k) { router.push(`/accounting/sales/${k}`); }
 function open(name) { router.push({ path: "/accounting/sales/orders", query: { id: name } }); }
-function onApplied() { showRecon.value = false; loadSummary(); loadRows(); }
+function onApplied() {
+  // Remittance files cover PAST orders, so the default "This month" view would
+  // hide the orders we just collected. Jump to Collected · All to show the result.
+  showRecon.value = false;
+  datePreset.value = "all";
+  if (bucket.value !== "collected") router.push("/accounting/sales/collected");
+  else { loadSummary(); loadRows(); }
+}
 </script>
