@@ -26,6 +26,12 @@ APA = "Accounting Portal Action"
 # they post. Smaller actions post straight through (still fully audited).
 MATERIAL_THRESHOLD = 10000.0
 
+# Operational, non-GL actions that only tag/flip status (no journal posting) are
+# exempt from the approval gate regardless of magnitude — a daily Cathedis
+# remittance is large by nature but doesn't post to the ledger, so making the
+# accountant chase an approver for every batch is wrong. Still fully audited.
+_NO_GATE = {"Collect COD"}
+
 # action_type -> poster(action_doc) -> {"voucher_type", "voucher_no", "result"}
 _POSTERS = {}
 
@@ -98,7 +104,7 @@ def execute(action_type, company, dedupe_key, payload=None, amount=0,
         doc.insert(ignore_permissions=True)
         frappe.db.commit()
 
-    if flt(amount) >= MATERIAL_THRESHOLD and doc.status != "Approved":
+    if flt(amount) >= MATERIAL_THRESHOLD and action_type not in _NO_GATE and doc.status != "Approved":
         return doc.as_dict()  # awaits an approver
     return _post(doc).as_dict()
 
