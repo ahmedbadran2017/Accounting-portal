@@ -2,13 +2,7 @@
   <div class="space-y-3.5">
     <!-- CFO summary strip — GMV, AOV, realised value, backlog, RTO (month-to-date) -->
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      <div v-for="m in summaryCards" :key="m.label"
-           class="relative bg-white border border-line rounded-[14px] p-3.5 shadow-card overflow-hidden">
-        <div class="absolute -top-8 -end-8 w-20 h-20 rounded-full blur-2xl pointer-events-none" :style="{ background: m.glow, opacity: .07 }"></div>
-        <div class="relative text-[9.5px] text-ink-muted font-bold uppercase tracking-wider">{{ m.label }}</div>
-        <div class="relative text-[19px] font-extrabold tnum mt-1 tracking-tight" :style="{ color: m.color }">{{ m.value }}</div>
-        <div class="relative text-[10px] text-ink-3 mt-0.5">{{ m.sub }}</div>
-      </div>
+      <StatCard v-for="m in summaryCards" :key="m.label" :label="m.label" :value="m.value" :sub="m.sub" :icon="m.icon" :color="m.color" :glow="m.glow" :tint="m.tint" :value-color="m.color" />
     </div>
 
     <!-- State-machine strip (connected, click to filter) -->
@@ -122,6 +116,7 @@ import { fmtMAD } from "@/composables/useReconciliation";
 import api from "@/services/api";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
+import StatCard from "@/components/StatCard.vue";
 import { useTableTools } from "@/composables/useTableTools";
 
 defineEmits(["new"]);
@@ -157,11 +152,11 @@ const SUMMARY_SAMPLE = { gmv: 1525056, orders: 7553, aov: 202, delivered_value: 
 const summaryCards = computed(() => {
   const d = summary.value && summary.value.company ? summary.value : SUMMARY_SAMPLE;
   return [
-    { label: lbl("GMV (MTD)", "إجمالي المبيعات", "GMV (mois)"), value: fmtMAD(d.gmv), color: "#1c1917", glow: "#a8a29e", sub: `${(d.orders || 0).toLocaleString()} ${lbl("orders", "طلب", "commandes")}` },
-    { label: lbl("Avg order", "متوسط الطلب", "Panier moyen"), value: fmtMAD(d.aov), color: "#1c1917", glow: "#a8a29e", sub: "AOV · MAD" },
-    { label: lbl("Realised", "المُحقَّق", "Réalisé"), value: fmtMAD(d.delivered_value), color: "#047857", glow: "#34d399", sub: `${d.delivery_rate}% ${lbl("delivered", "مُسلّم", "livré")}` },
-    { label: lbl("Backlog", "المعلّق", "En attente"), value: (d.pending || 0).toLocaleString(), color: "#b45309", glow: "#f59e0b", sub: lbl("pending fulfilment", "بانتظار التنفيذ", "à exécuter") },
-    { label: "RTO", value: `${d.rto_rate}%`, color: "#be123c", glow: "#f87171", sub: `${d.exceptions} ${lbl("exceptions", "استثناء", "exceptions")}` },
+    { label: lbl("GMV (MTD)", "إجمالي المبيعات", "GMV (mois)"), value: fmtMAD(d.gmv), color: "#1c1917", glow: "#a8a29e", tint: "#fafaf9", icon: "cart", sub: `${(d.orders || 0).toLocaleString()} ${lbl("orders", "طلب", "commandes")}` },
+    { label: lbl("Avg order", "متوسط الطلب", "Panier moyen"), value: fmtMAD(d.aov), color: "#0369a1", glow: "#38bdf8", tint: "#eff6ff", icon: "scale", sub: "AOV · MAD" },
+    { label: lbl("Realised", "المُحقَّق", "Réalisé"), value: fmtMAD(d.delivered_value), color: "#047857", glow: "#34d399", tint: "#ecfdf5", icon: "check", sub: `${d.delivery_rate}% ${lbl("delivered", "مُسلّم", "livré")}` },
+    { label: lbl("Backlog", "المعلّق", "En attente"), value: (d.pending || 0).toLocaleString(), color: "#b45309", glow: "#f59e0b", tint: "#fffbeb", icon: "clock", sub: lbl("pending fulfilment", "بانتظار التنفيذ", "à exécuter") },
+    { label: "RTO", value: `${d.rto_rate}%`, color: "#be123c", glow: "#f87171", tint: "#fef2f2", icon: "refresh", sub: `${d.exceptions} ${lbl("exceptions", "استثناء", "exceptions")}` },
   ];
 });
 

@@ -1,11 +1,11 @@
 <template>
   <div class="space-y-3.5">
-    <!-- Tiles -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-      <div v-for="ti in tiles" :key="ti.label" class="bg-white rounded-card border border-line p-3">
-        <div class="text-[10px] text-ink-muted uppercase tracking-wide">{{ ti.label }}</div>
-        <div class="text-[18px] font-bold tnum mt-0.5" :style="{ color: ti.color }">{{ ti.value }}</div>
-      </div>
+    <!-- KPI cards (reflect the filtered view) -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <StatCard :label="L('Invoices','الفواتير','Factures')" :value="kpi.count.toLocaleString()" :sub="L('in view','في العرض','vues')" :tag="filterTag" icon="receipt" color="#1c1917" glow="#a8a29e" tint="#fafaf9" />
+      <StatCard :label="L('Net revenue','صافي الإيراد','Produits HT')" :value="money(kpi.net)" sub="MAD" :tag="filterTag" icon="trend" color="#047857" glow="#34d399" tint="#ecfdf5" valueColor="#047857" />
+      <StatCard :label="L('VAT output','ض.ق.م مخرجات','TVA collectée')" :value="money(kpi.vat)" sub="MAD" :tag="filterTag" icon="scale" color="#b45309" glow="#f59e0b" tint="#fffbeb" />
+      <StatCard :label="L('Overdue','متأخّرة','En retard')" :value="kpi.overdue.toLocaleString()" :sub="L('unpaid','غير مدفوعة','impayées')" :tag="filterTag" icon="alert" color="#be123c" glow="#f87171" tint="#fef2f2" :valueColor="kpi.overdue ? '#be123c' : undefined" />
     </div>
 
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
@@ -62,16 +62,17 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import StatCard from "@/components/StatCard.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
-import { INVOICES, INV_STATUS, invStatusLabel, invoiceTiles, fmt2 } from "@/data/invoices";
+import { INVOICES, INV_STATUS, invStatusLabel, fmt2 } from "@/data/invoices";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
 
 const { locale } = useI18n();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const tiles = computed(() => invoiceTiles(locale.value));
+const money = (n) => { n = Number(n) || 0; return Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + "M" : Math.abs(n) >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
 
 const cols = [
   { key: "id", label: L("Invoice", "الفاتورة", "Facture"), align: "s" },
@@ -98,6 +99,18 @@ onMounted(async () => {
   rows.value = res.data;
   isLive.value = res.live;
 });
+
+// KPI cards computed from the current (filtered + sorted) view.
+const kpi = computed(() => {
+  const rs = tt.sorted.value;
+  return {
+    count: rs.length,
+    net: rs.reduce((s, r) => s + (Number(r.net) || 0), 0),
+    vat: rs.reduce((s, r) => s + (Number(r.vat) || 0), 0),
+    overdue: rs.filter((r) => r.status === "overdue").length,
+  };
+});
+const filterTag = computed(() => (tt.search.value || tt.datePreset.value !== "month" || Object.values(tt.facetActive.value).some(Boolean)) ? L("filtered", "مفلتر", "filtré") : "");
 
 function open(id) { router.push({ path: "/accounting/sales/invoices", query: { id } }); }
 </script>
