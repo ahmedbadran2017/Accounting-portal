@@ -37,7 +37,7 @@
               <span class="w-[5px] h-[5px] rounded-full bg-emerald-400"></span>Live{{ asOf ? " · " + asOf : "" }}
             </span>
           </div>
-          <p class="text-[13px] mt-1.5 leading-relaxed max-w-2xl" style="color:#e9e3ff">{{ vm.digest }}</p>
+          <p class="text-[13px] mt-1.5 leading-relaxed max-w-2xl" style="color:#e9e3ff">{{ liveDigest }}</p>
         </div>
         <button class="h-9 px-4 rounded-[10px] bg-white text-[12.5px] font-bold inline-flex items-center gap-1.5"
                 style="color:#5b21b6;box-shadow:0 4px 14px -4px rgba(0,0,0,.4)" @click="goCopilot">
@@ -49,6 +49,47 @@
                 class="inline-flex items-center gap-2 px-[11px] py-[7px] rounded-[10px] text-[11.5px] font-semibold text-start"
                 style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)" @click="goChip(c)">
           <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ background: c.dot }"></span>{{ c.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- COD pipeline funnel -->
+    <div v-if="cod.pipeline" class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <button v-for="b in funnel" :key="b.key" @click="goBucket(b.key)"
+              class="relative bg-white rounded-[14px] border border-line p-3.5 shadow-card text-start overflow-hidden hover:-translate-y-0.5 hover:shadow-cardHover transition-all">
+        <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: b.color, opacity: .3 }"></span>
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-[10px] grid place-items-center flex-shrink-0" :style="{ background: b.tint }"><Icon :name="b.icon" :size="15" :color="b.color" /></span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted leading-tight">{{ b.label }}</span>
+        </div>
+        <div class="text-[22px] font-extrabold tnum mt-1.5 leading-none" :style="{ color: b.color }">{{ (b.count || 0).toLocaleString() }}</div>
+        <div class="text-[11px] text-ink-3 mt-1 tnum">{{ money(b.value) }} <span class="text-ink-muted">MAD</span></div>
+      </button>
+    </div>
+
+    <!-- Carrier float + reconciliation (the collection gap) -->
+    <div class="grid lg:grid-cols-[1fr_1fr] gap-3.5">
+      <div class="relative bg-white rounded-[16px] border border-line p-[17px] shadow-card overflow-hidden">
+        <div class="absolute -top-10 -end-10 w-28 h-28 rounded-full blur-2xl pointer-events-none" style="background:#be123c;opacity:.08"></div>
+        <div class="relative flex items-center gap-2">
+          <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fef2f2"><Icon name="truck" :size="14" color="#be123c" /></span>
+          <span class="text-[13px] font-bold">{{ L("Carrier float · uncollected","رصيد لدى الناقل · غير محصّل","Flottant transporteur") }}</span>
+        </div>
+        <div class="relative text-[28px] font-extrabold text-sale tnum mt-2.5 tracking-tight leading-none">{{ money(cod.carrier_float) }}<span class="text-[13px] text-ink-muted ms-1">MAD</span></div>
+        <div class="relative text-[11.5px] text-ink-3 mt-2 leading-snug">{{ L("Cash for delivered orders that hasn't been reconciled yet — it's with Cathedis.","كاش طلبات مُسلّمة لسه ماتطابقش — لسه مع كاتدييس.","Encaisse livrée non rapprochée — chez Cathedis.") }}</div>
+      </div>
+      <div class="bg-white rounded-[16px] border border-line p-[17px] shadow-card flex flex-col">
+        <div class="flex items-center gap-2">
+          <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#e1f5ee"><Icon name="check" :size="14" color="#0f766e" /></span>
+          <span class="text-[13px] font-bold">{{ L("Collection reconciled","نسبة التحصيل المطابَق","Encaissement rapproché") }}</span>
+          <span class="ms-auto text-[20px] font-extrabold tnum" style="color:#0f766e">{{ Math.round(cod.reconciled_pct || 0) }}%</span>
+        </div>
+        <div class="h-2.5 rounded-full bg-app-warm overflow-hidden mt-3">
+          <div class="h-full rounded-full transition-all" :style="{ width: Math.max(2, cod.reconciled_pct || 0) + '%', background: '#0f766e' }"></div>
+        </div>
+        <div class="text-[11.5px] text-ink-3 mt-2">{{ L("of delivered cash matched to remittances.","من كاش المُسلّم مطابق للتحويلات.","du livré rapproché.") }}</div>
+        <button class="mt-auto inline-flex items-center justify-center gap-1.5 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand mt-3" @click="goBucket('delivered')">
+          <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher Cathedis") }}
         </button>
       </div>
     </div>
@@ -142,6 +183,30 @@
       </div>
     </div>
 
+    <!-- Sales & collections by order month (cohort mini) -->
+    <div v-if="cod.cohort && cod.cohort.length" class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
+      <div class="flex items-baseline justify-between gap-2 flex-wrap">
+        <div>
+          <div class="text-[13.5px] font-bold">{{ L("Sales & collections by order month","المبيعات والتحصيلات بشهر الطلب","Ventes & encaissements") }}</div>
+          <div class="text-[11px] text-ink-muted">{{ L("revenue attributed to when the order was placed","الإيراد منسوب لوقت الطلب","produit par date de commande") }}</div>
+        </div>
+        <div class="flex items-center gap-3 text-[11px] text-ink-2">
+          <span class="inline-flex items-center gap-1.5"><span class="w-[9px] h-[9px] rounded-[3px]" style="background:#0f766e"></span>{{ L("Invoiced","مفوتر","Facturé") }}</span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-[9px] h-[9px] rounded-[3px]" style="background:#7c3aed"></span>{{ L("Collected","محصّل","Encaissé") }}</span>
+          <button class="text-[11px] font-semibold text-accent-dark hover:underline" @click="goReport">{{ L("Open report","افتح التقرير","Rapport") }} →</button>
+        </div>
+      </div>
+      <div class="flex items-end gap-3 h-24 mt-4">
+        <div v-for="m in cod.cohort" :key="m.month" class="flex-1 flex flex-col items-center gap-1">
+          <div class="w-full flex items-end justify-center gap-[3px] h-full">
+            <div class="w-1/2 rounded-t-[3px] animate-barGrow origin-bottom" :style="{ height: barH(m.invoiced) + '%', background: '#0f766e', minHeight: '2px' }" :title="'Invoiced ' + fmt(m.invoiced)"></div>
+            <div class="w-1/2 rounded-t-[3px] animate-barGrow origin-bottom" :style="{ height: barH(m.collected) + '%', background: '#7c3aed', minHeight: '2px' }" :title="'Collected ' + fmt(m.collected)"></div>
+          </div>
+          <span class="text-[10px] text-ink-muted font-semibold">{{ monthLabel(m.month) }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Working capital -->
     <div class="grid sm:grid-cols-2 gap-3.5">
       <div class="relative bg-white rounded-[16px] border border-line p-[17px] shadow-card overflow-hidden transition-all duration-200 hover:shadow-cardHover hover:-translate-y-[2px]">
@@ -224,6 +289,38 @@ watch(entityId, load, { immediate: true });
 
 const vm = computed(() => overlayCockpit(buildDashVM(locale.value, entityId.value), cockpit.value, locale.value));
 const asOf = computed(() => cockpit.value?.as_of || "");
+
+// COD control-tower sections read the live cockpit directly.
+const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const cod = computed(() => cockpit.value || {});
+const fmt = (n) => Number(n || 0).toLocaleString("en-US");
+const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
+const MON = { "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun", "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec" };
+const monthLabel = (m) => MON[String(m).split("-")[1]] || m;
+const FUNNEL = [
+  { key: "todeliver", color: "#0369a1", tint: "#eff6ff", icon: "truck", label: () => L("To deliver", "للتسليم", "À livrer") },
+  { key: "delivered", color: "#047857", tint: "#ecfdf5", icon: "check", label: () => L("Delivered", "مُسلّمة", "Livrées") },
+  { key: "collected", color: "#7c3aed", tint: "#f5f3ff", icon: "coins", label: () => L("Collected", "محصّلة", "Encaissées") },
+  { key: "toreturn", color: "#b45309", tint: "#fffbeb", icon: "clock", label: () => L("To return", "للإرجاع", "À retourner") },
+  { key: "returned", color: "#be123c", tint: "#fef2f2", icon: "refresh", label: () => L("Returned", "مرتجعة", "Retournées") },
+];
+const funnel = computed(() => FUNNEL.map((b) => ({ ...b, label: b.label(), count: (cod.value.pipeline?.[b.key] || {}).count || 0, value: (cod.value.pipeline?.[b.key] || {}).value || 0 })));
+const cohortMax = computed(() => Math.max(1, ...(cod.value.cohort || []).flatMap((m) => [m.invoiced, m.collected])));
+const barH = (v) => Math.round((Number(v) || 0) / cohortMax.value * 100);
+
+// Live auditor narration off the real pipeline (falls back to the static digest).
+const liveDigest = computed(() => {
+  const c = cod.value;
+  if (!c.pipeline) return vm.value.digest;
+  const f = (k) => funnel.value.find((b) => b.key === k) || { count: 0, value: 0 };
+  const dv = f("delivered"), tr = f("toreturn");
+  return L(
+    `${(dv.count || 0).toLocaleString()} delivered orders await collection — ${money(c.carrier_float)} MAD float with Cathedis, ${Math.round(c.reconciled_pct || 0)}% reconciled. ${(tr.count || 0).toLocaleString()} orders to return (${money(tr.value)} MAD) pending the warehouse.`,
+    `${(dv.count || 0).toLocaleString()} طلب مُسلّم مستني التحصيل — ${money(c.carrier_float)} درهم مع كاتدييس، ${Math.round(c.reconciled_pct || 0)}% اتطابق. و${(tr.count || 0).toLocaleString()} طلب للإرجاع (${money(tr.value)} درهم) مستني المخزن.`,
+    `${(dv.count || 0).toLocaleString()} livrées à encaisser — ${money(c.carrier_float)} MAD chez Cathedis, ${Math.round(c.reconciled_pct || 0)}% rapproché.`);
+});
+function goBucket(k) { router.push(`/accounting/sales/${k}`); }
+function goReport() { router.push("/accounting/reports/salescol"); }
 const anomalies = ANOMALIES.slice(0, 4);
 const sev = (a) => SEV_META[a.sev] || SEV_META.low;
 

@@ -271,6 +271,27 @@ def get_cod_cockpit(company=None):
     bank_balance = next((flt(r.bal) for r in cashb if r.t == "Bank"), 0.0)
     cash_balance = next((flt(r.bal) for r in cashb if r.t == "Cash"), 0.0)
 
+    # COD pipeline funnel + the collection gap (the heart of the control tower).
+    # Reuses the cached cod_summary / cohort so this stays cheap.
+    pipeline, carrier_float, reconciled_pct, returns_exposure, cohort = {}, 0.0, 0.0, 0.0, []
+    try:
+        from accounting_portal.api import cod as _cod
+        pipeline = _cod.cod_summary(target) or {}
+        coll_v = flt((pipeline.get("collected") or {}).get("value"))
+        deliv_v = flt((pipeline.get("delivered") or {}).get("value"))
+        carrier_float = deliv_v                                  # delivered, cash not yet reconciled
+        cash_due = coll_v + deliv_v
+        reconciled_pct = round(coll_v / cash_due * 100, 1) if cash_due else 0.0
+        returns_exposure = flt((pipeline.get("toreturn") or {}).get("value"))
+    except Exception:
+        pass
+    try:
+        from accounting_portal.api import reports as _rep
+        coh = _rep.sales_collections_cohort(target) or {}
+        cohort = (coh.get("months") or [])[-6:]
+    except Exception:
+        pass
+
     return {
         "company": target, "currency": currency,
         "as_of": nowdate(), "month_start": month_start,
@@ -280,6 +301,9 @@ def get_cod_cockpit(company=None):
         "net_cash": collected - paid_out,
         "receivable": receivable, "payable": payable,
         "channels": channels, "cash_flow": cash_flow,
+        "pipeline": pipeline, "carrier_float": carrier_float,
+        "reconciled_pct": reconciled_pct, "returns_exposure": returns_exposure,
+        "cohort": cohort,
     }
 
 
