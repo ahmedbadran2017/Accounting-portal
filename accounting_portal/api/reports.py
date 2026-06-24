@@ -135,6 +135,45 @@ def ap_aging(company=None):
 
 
 @frappe.whitelist()
+def inventory_health(company=None):
+    """Diagnose the stock/COGS break: stock-in-hand vs the Stock-Adjustment pile.
+
+    Healthy books relieve stock to COGS on delivery. Here stock-in-hand is
+    enormous while a Stock-Adjustment account absorbs the offset — so margin is
+    unmeasurable. Returns the figures and the magnitude of the distortion.
+    """
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    stock = flt(frappe.db.sql(
+        """SELECT ROUND(SUM(gle.debit - gle.credit)) FROM `tabGL Entry` gle
+           JOIN `tabAccount` a ON a.name=gle.account
+           WHERE gle.company=%s AND gle.is_cancelled=0 AND a.account_type='Stock'""",
+        (target,))[0][0] or 0)
+    adj = frappe.db.sql(
+        """SELECT a.name, ROUND(SUM(gle.debit - gle.credit)) AS bal FROM `tabGL Entry` gle
+           JOIN `tabAccount` a ON a.name=gle.account
+           WHERE gle.company=%s AND gle.is_cancelled=0 AND a.account_name LIKE '%%Stock Adjustment%%'
+           GROUP BY a.name ORDER BY ABS(SUM(gle.debit - gle.credit)) DESC LIMIT 1""",
+        (target,), as_dict=True)
+    adj_acct = adj[0].name if adj else None
+    adj_bal = flt(adj[0].bal) if adj else 0.0
+    revenue = flt(frappe.db.sql(
+        """SELECT ROUND(SUM(gle.credit - gle.debit)) FROM `tabGL Entry` gle
+           JOIN `tabAccount` a ON a.name=gle.account
+           WHERE gle.company=%s AND gle.is_cancelled=0 AND a.root_type='Income'
+             AND gle.posting_date BETWEEN %s AND %s""",
+        (target, *_year_bounds()))[0][0] or 0)
+    return {
+        "company": target, "stock_in_hand": stock, "adjustment_account": adj_acct,
+        "adjustment_balance": adj_bal, "revenue": revenue,
+        "distortion": abs(stock) + abs(adj_bal),
+        "healthy": abs(stock) < 50_000_000,
+    }
+
+
+@frappe.whitelist()
 def vat_summary(company=None, from_date=None, to_date=None):
     """VAT — output (collected) vs input (recoverable) vs net payable.
 
