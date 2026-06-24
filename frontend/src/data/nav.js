@@ -15,7 +15,7 @@ export const SUBTABS = {
   sales: [
     ["customers", "sub.customers"], ["orders", "sub.orders"],
     ["todeliver", "sub.todeliver"], ["delivered", "sub.delivered"], ["collected", "sub.collected"], ["returned", "sub.returned"],
-    ["challans", "sub.challans"], ["invoices", "sub.invoices"], ["receipts", "sub.receipts"], ["payments", "sub.payments_in"], ["credits", "sub.credits"],
+    ["invoices", "sub.invoices"], ["payments", "sub.payments_in"],
   ],
   purchases: [
     ["vendors", "sub.vendors"], ["pos", "sub.pos"], ["bills", "sub.bills"], ["expenses", "sub.expenses"],
