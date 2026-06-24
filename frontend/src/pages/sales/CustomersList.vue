@@ -64,6 +64,8 @@
           </tr>
         </tbody>
       </table>
+      <TableLoading v-if="loading" />
+      <div v-else-if="!filtered.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No customers match.","لا عملاء مطابقين.","Aucun client.") }}</div>
     </div>
   </div>
 </template>
@@ -73,6 +75,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import TableLoading from "@/components/TableLoading.vue";
 import { initials, deliveryColor, rtoColor } from "@/data/customers";
 import { AV } from "@/data/orders";
 import { useCustomers } from "@/composables/useCustomers";
@@ -83,6 +86,7 @@ const { loadList, live } = useCustomers();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const search = ref("");
 const rows = ref([]);
+const loading = ref(true);
 const activeTag = ref(null);
 const avKeys = ["rose", "sky", "amber", "emerald", "violet", "accent"];
 
@@ -98,7 +102,7 @@ const TAG_META = {
 const filtered = computed(() => (activeTag.value ? rows.value.filter((c) => (c.tags || []).includes(activeTag.value)) : rows.value));
 const tagCount = (key) => rows.value.filter((c) => (c.tags || []).includes(key)).length;
 
-async function reload() { rows.value = await loadList(search.value); }
+async function reload() { loading.value = true; try { rows.value = await loadList(search.value); } finally { loading.value = false; } }
 let timer;
 watch(search, () => { clearTimeout(timer); timer = setTimeout(reload, 300); });
 onMounted(reload);

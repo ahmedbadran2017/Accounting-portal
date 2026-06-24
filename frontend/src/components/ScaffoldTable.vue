@@ -108,7 +108,8 @@
         </table>
       </div>
 
-      <div v-if="!sortedRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ search || datePreset !== 'all' ? L("No records match your filters.","لا توجد سجلات مطابقة.","Aucun enregistrement.") : t("common.error_loading") }}</div>
+      <TableLoading v-if="loading" />
+      <div v-else-if="!sortedRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ search || datePreset !== 'all' ? L("No records match your filters.","لا توجد سجلات مطابقة.","Aucun enregistrement.") : t("common.error_loading") }}</div>
 
       <!-- Pagination footer -->
       <div v-if="sortedRows.length" class="flex items-center gap-3 px-4 py-2.5 border-t border-line-hair text-[11.5px] text-ink-3 flex-wrap">
@@ -136,6 +137,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import TableLoading from "@/components/TableLoading.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS } from "@/data/nav";
 import { scaffoldFor } from "@/data/scaffolds";
@@ -157,6 +159,7 @@ const title = computed(() => {
 
 const rows = ref([]);
 const isLive = ref(null);
+const loading = ref(true);
 const insightCards = ref([]);
 const search = ref("");
 const hidden = ref(new Set());
@@ -306,7 +309,8 @@ async function load() {
   const c = cfg.value;
   search.value = ""; insightCards.value = []; hidden.value = new Set();
   sortCol.value = -1; page.value = 1; facetActive.value = {};
-  if (!c) { rows.value = []; isLive.value = null; return; }
+  loading.value = true;
+  if (!c) { rows.value = []; isLive.value = null; loading.value = false; return; }
   // Date-bearing lists open focused on the current month.
   datePreset.value = (c.cols || []).some((col) => /date|posting|تاريخ/i.test(col[0])) ? "month" : "all";
 
@@ -324,6 +328,8 @@ async function load() {
     rows.value = c.rows.map((cells) => ({ cells, open: null }));
     isLive.value = null;
   }
+
+  loading.value = false;
 
   if (c.insights) {
     let s = c.insights.sample;
