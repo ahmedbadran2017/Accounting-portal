@@ -291,6 +291,13 @@ def get_cod_cockpit(company=None):
         cohort = (coh.get("months") or [])[-6:]
     except Exception:
         pass
+    # Procure-to-pay gaps (GRNI + AP) for the dashboard's purchases strip.
+    purchases = {}
+    try:
+        from accounting_portal.api import purchases as _pur
+        purchases = _pur.purchases_summary(target) or {}
+    except Exception:
+        pass
 
     return {
         "company": target, "currency": currency,
@@ -303,7 +310,7 @@ def get_cod_cockpit(company=None):
         "channels": channels, "cash_flow": cash_flow,
         "pipeline": pipeline, "carrier_float": carrier_float,
         "reconciled_pct": reconciled_pct, "returns_exposure": returns_exposure,
-        "cohort": cohort,
+        "cohort": cohort, "purchases": purchases,
     }
 
 

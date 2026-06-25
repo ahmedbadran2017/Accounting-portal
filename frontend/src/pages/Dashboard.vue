@@ -209,6 +209,20 @@
       </div>
     </div>
 
+    <!-- Procurement gaps (GRNI + AP) -->
+    <div v-if="cod.purchases && Object.keys(cod.purchases).length" class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      <button v-for="p in procStrip" :key="p.key" @click="goPurch(p.key)"
+              class="relative bg-white rounded-[16px] border border-line p-[17px] shadow-card text-start overflow-hidden hover:-translate-y-0.5 hover:shadow-cardHover transition-all">
+        <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: p.color, opacity: .3 }"></span>
+        <div class="flex items-center gap-2">
+          <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" :style="{ background: p.tint }"><Icon :name="p.icon" :size="14" :color="p.color" /></span>
+          <span class="text-[12px] font-bold text-ink-3">{{ p.label }}</span>
+        </div>
+        <div class="text-[24px] font-extrabold tnum mt-2 leading-none" :style="{ color: p.color }">{{ money(p.value) }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
+        <div class="text-[11px] text-ink-muted mt-1.5">{{ (p.count || 0).toLocaleString() }} {{ L("docs","مستند","docs") }}</div>
+      </button>
+    </div>
+
     <!-- Working capital -->
     <div class="grid sm:grid-cols-2 gap-3.5">
       <div class="relative bg-white rounded-[16px] border border-line p-[17px] shadow-card overflow-hidden transition-all duration-200 hover:shadow-cardHover hover:-translate-y-[2px]">
@@ -331,6 +345,13 @@ const liveDigest = computed(() => {
 });
 function goBucket(k) { router.push(`/accounting/sales/${k}`); }
 function goReport() { router.push("/accounting/reports/salescol"); }
+function goPurch(k) { router.push(`/accounting/purchases/${k}`); }
+const PROC = [
+  { key: "tobuy", color: "#0369a1", tint: "#eff6ff", icon: "cart", label: () => L("Open POs · to buy", "أوامر مفتوحة", "BC ouverts") },
+  { key: "received", color: "#b45309", tint: "#fffbeb", icon: "box", label: () => L("GRNI · received not billed", "مُستلم بلا فاتورة", "Reçu non facturé") },
+  { key: "topay", color: "#be123c", tint: "#fef2f2", icon: "wallet", label: () => L("To pay · due", "مستحق للدفع", "À payer") },
+];
+const procStrip = computed(() => PROC.map((p) => ({ ...p, label: p.label(), count: (cod.value.purchases?.[p.key] || {}).count || 0, value: (cod.value.purchases?.[p.key] || {}).value || 0 })));
 const anomalies = ANOMALIES.slice(0, 4);
 const sev = (a) => SEV_META[a.sev] || SEV_META.low;
 
