@@ -829,3 +829,51 @@ def apply_advance(company=None, payment=None, invoices=None, dedupe_key=None):
         notes=f"Apply advance {payment} to {len(names)} bill(s)")
     _bust_purch_cache()
     return res
+
+
+@frappe.whitelist()
+def create_supplier(supplier_name=None, supplier_group=None, supplier_type=None,
+                    tax_id=None, currency=None, country=None):
+    """Onboard a supplier from the portal."""
+    assert_can_write()
+    if not (supplier_name or "").strip():
+        frappe.throw("Supplier name is required")
+    group = supplier_group or frappe.db.get_value("Supplier Group", {"is_group": 0}, "name") or "All Supplier Groups"
+    doc = frappe.get_doc({
+        "doctype": "Supplier", "supplier_name": supplier_name.strip(),
+        "supplier_group": group, "supplier_type": supplier_type or "Company",
+        "tax_id": tax_id or None, "default_currency": currency or None, "country": country or None,
+    })
+    doc.flags.ignore_permissions = True
+    doc.insert()
+    return {"name": doc.name, "supplier_name": doc.supplier_name}
+
+
+@frappe.whitelist()
+def update_supplier(name=None, supplier_name=None, supplier_group=None,
+                    supplier_type=None, tax_id=None, currency=None):
+    """Edit a supplier's master fields from the portal."""
+    assert_can_write()
+    if not name or not frappe.db.exists("Supplier", name):
+        frappe.throw("Supplier not found")
+    doc = frappe.get_doc("Supplier", name)
+    doc.flags.ignore_permissions = True
+    if supplier_name:
+        doc.supplier_name = supplier_name.strip()
+    if supplier_group:
+        doc.supplier_group = supplier_group
+    if supplier_type:
+        doc.supplier_type = supplier_type
+    if tax_id is not None:
+        doc.tax_id = tax_id or None
+    if currency is not None:
+        doc.default_currency = currency or None
+    doc.save()
+    return {"name": doc.name, "supplier_name": doc.supplier_name}
+
+
+@frappe.whitelist()
+def supplier_groups():
+    assert_portal_access()
+    return [r.name for r in frappe.db.sql(
+        "SELECT name FROM `tabSupplier Group` WHERE is_group=0 ORDER BY name", as_dict=True)]

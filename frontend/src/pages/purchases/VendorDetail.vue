@@ -1,8 +1,13 @@
 <template>
   <div v-if="d" class="max-w-[1080px] mx-auto space-y-3.5">
-    <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-3 hover:text-ink" @click="back">
-      <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ L("Back to suppliers","العودة للموردين","Retour aux fournisseurs") }}
-    </button>
+    <div class="flex items-center gap-2">
+      <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-3 hover:text-ink" @click="back">
+        <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ L("Back to suppliers","العودة للموردين","Retour aux fournisseurs") }}
+      </button>
+      <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-3 py-1.5 rounded-chip hover:bg-app-warm" @click="openEdit">
+        <Icon name="gear" :size="14" />{{ L("Edit","تعديل","Modifier") }}
+      </button>
+    </div>
 
     <!-- Header -->
     <div class="bg-white rounded-[16px] border border-line px-5 py-[18px] shadow-card">
@@ -69,6 +74,24 @@
     </div>
 
     <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
+
+    <!-- Edit modal -->
+    <div v-if="editOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="editOpen = false">
+      <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
+        <div class="text-[14px] font-bold">{{ L("Edit supplier","تعديل المورّد","Modifier le fournisseur") }}</div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }}</label><input v-model.trim="ef.supplier_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Group","المجموعة","Groupe") }}</label>
+          <select v-model="ef.supplier_group" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40"><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="ef.tax_id" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="ef.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
+        </div>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
+          <button @click="saveEdit" :disabled="saving" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ saving ? L("Saving…","حفظ…","…") : L("Save","حفظ","Enregistrer") }}</button>
+        </div>
+      </div>
+    </div>
   </div>
   <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
 </template>
@@ -80,7 +103,9 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import DocHub from "@/components/DocHub.vue";
 import api from "@/services/api";
+import { useToast } from "@/composables/useToast";
 
+const toast = useToast();
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -128,4 +153,24 @@ const ledger = computed(() => (d.value?.ledger || []).map((e) => ({
 function go(sub) { router.push(`/accounting/purchases/${sub}`); }
 function openVoucher(l) { if (l.go) router.push(l.go); }
 function back() { router.push({ path: "/accounting/purchases/vendors" }); }
+
+// ── Edit ──
+const editOpen = ref(false);
+const saving = ref(false);
+const groups = ref([]);
+const ef = ref({ supplier_name: "", supplier_group: "", tax_id: "", currency: "" });
+async function openEdit() {
+  ef.value = { supplier_name: d.value.supplier_name, supplier_group: d.value.group || "", tax_id: d.value.tax_id || "", currency: d.value.currency === "—" ? "" : d.value.currency };
+  editOpen.value = true;
+  if (!groups.value.length) { try { groups.value = await api.call("accounting_portal.api.purchases.supplier_groups", {}); } catch { groups.value = []; } }
+  if (ef.value.supplier_group && !groups.value.includes(ef.value.supplier_group)) groups.value.unshift(ef.value.supplier_group);
+}
+async function saveEdit() {
+  saving.value = true;
+  try {
+    await api.call("accounting_portal.api.purchases.update_supplier", { name: d.value.name, supplier_name: ef.value.supplier_name, supplier_group: ef.value.supplier_group, tax_id: ef.value.tax_id, currency: ef.value.currency });
+    editOpen.value = false; toast.success(L("Saved", "تم الحفظ", "Enregistré")); load();
+  } catch (e) { toast.error(String((e && e.message) || L("Save failed", "فشل", "Échec")).slice(0, 140)); }
+  finally { saving.value = false; }
+}
 </script>

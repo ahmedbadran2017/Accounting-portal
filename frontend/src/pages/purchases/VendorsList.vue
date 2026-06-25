@@ -17,6 +17,7 @@
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="tt.search.value" :placeholder="L('Search supplier…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
+        <button @click="openNew" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand"><Icon name="plus" :size="14" color="#fff" />{{ L("New","جديد","Nouveau") }}</button>
       </div>
 
       <TableToolbar :t="tt" filename="suppliers" />
@@ -69,6 +70,24 @@
     </div>
 
     <BulkBar :t="tt" filename="vendors-selected" :actions="[]" />
+
+    <!-- New supplier modal -->
+    <div v-if="newOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="newOpen = false">
+      <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
+        <div class="text-[14px] font-bold">{{ L("New supplier","مورّد جديد","Nouveau fournisseur") }}</div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.supplier_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Group","المجموعة","Groupe") }}</label>
+          <select v-model="nf.supplier_group" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40"><option value="">{{ L("Default","افتراضي","Défaut") }}</option><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="nf.tax_id" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
+        </div>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="newOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
+          <button @click="createNew" :disabled="creating || !nf.supplier_name" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ creating ? L("Creating…","جارٍ…","…") : L("Create","إنشاء","Créer") }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -84,9 +103,12 @@ import { VENDORS } from "@/data/purchases";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
 import BulkBar from "@/components/BulkBar.vue";
+import api from "@/services/api";
+import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
 const router = useRouter();
+const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const ini = (n) => String(n || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -118,4 +140,24 @@ onMounted(async () => {
 });
 
 function open(name) { router.push({ path: "/accounting/purchases/vendors", query: { id: name } }); }
+
+// ── New supplier ──
+const newOpen = ref(false);
+const creating = ref(false);
+const groups = ref([]);
+const nf = ref({ supplier_name: "", supplier_group: "", tax_id: "", currency: "" });
+async function openNew() {
+  nf.value = { supplier_name: "", supplier_group: "", tax_id: "", currency: "" };
+  newOpen.value = true;
+  if (!groups.value.length) { try { groups.value = await api.call("accounting_portal.api.purchases.supplier_groups", {}); } catch { groups.value = []; } }
+}
+async function createNew() {
+  creating.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.purchases.create_supplier", { supplier_name: nf.value.supplier_name, supplier_group: nf.value.supplier_group || undefined, tax_id: nf.value.tax_id || undefined, currency: nf.value.currency || undefined });
+    newOpen.value = false; toast.success(L("Supplier created", "أُنشئ المورّد", "Fournisseur créé"));
+    router.push({ path: "/accounting/purchases/vendors", query: { id: r.name } });
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
+  finally { creating.value = false; }
+}
 </script>
