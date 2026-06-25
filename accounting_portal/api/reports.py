@@ -462,3 +462,57 @@ def period_close_status(company=None, month=None):
             "blocked": sum(1 for i in items if i["state"] == "blocked"),
             "pending": sum(1 for i in items if i["state"] == "pending"),
             "items": items}
+
+
+@frappe.whitelist()
+def party_statement(party_type=None, party=None, company=None, from_date=None, to_date=None):
+    """Full account statement (ledger) for one Customer/Supplier: opening balance,
+    every GL movement in the date range with a running balance, and the closing
+    balance — for a printable customer/supplier statement."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return {}
+    target = company if (company and company in companies) else companies[0]
+    if party_type not in ("Customer", "Supplier"):
+        frappe.throw("Bad party type")
+    if not party or not frappe.db.exists(party_type, party):
+        frappe.throw("Party not found")
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    # Customer: positive = owes us (debit−credit). Supplier: positive = we owe (credit−debit).
+    sign = 1 if party_type == "Customer" else -1
+
+    opening = 0.0
+    if from_date:
+        opening = sign * flt(frappe.db.sql(
+            """SELECT COALESCE(SUM(debit-credit),0) FROM `tabGL Entry`
+               WHERE company=%s AND party_type=%s AND party=%s AND is_cancelled=0
+                 AND posting_date < %s""", (target, party_type, party, from_date))[0][0])
+
+    conds = ["company=%(c)s", "party_type=%(pt)s", "party=%(p)s", "is_cancelled=0"]
+    params = {"c": target, "pt": party_type, "p": party}
+    if from_date:
+        conds.append("posting_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("posting_date <= %(td)s"); params["td"] = to_date
+    rows = frappe.db.sql(
+        f"""SELECT posting_date AS date, voucher_type AS type, voucher_no AS doc,
+                   debit, credit, remarks
+            FROM `tabGL Entry` WHERE {' AND '.join(conds)}
+            ORDER BY posting_date, creation""", params, as_dict=True)
+
+    bal = opening
+    dr_t = cr_t = 0.0
+    for r in rows:
+        bal += sign * (flt(r.debit) - flt(r.credit))
+        r["balance"] = round(bal, 2)
+        r["date"] = str(r.get("date") or "")
+        dr_t += flt(r.debit); cr_t += flt(r.credit)
+    name = frappe.db.get_value(
+        party_type, party, "customer_name" if party_type == "Customer" else "supplier_name") or party
+    return {
+        "party": party, "party_name": name, "party_type": party_type,
+        "company": target, "currency": ccy, "from_date": from_date, "to_date": to_date,
+        "opening": round(opening, 2), "closing": round(bal, 2),
+        "debit_total": round(dr_t, 2), "credit_total": round(cr_t, 2), "rows": rows,
+    }

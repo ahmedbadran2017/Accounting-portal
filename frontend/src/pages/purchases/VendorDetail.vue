@@ -4,10 +4,14 @@
       <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-3 hover:text-ink" @click="back">
         <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ L("Back to suppliers","العودة للموردين","Retour aux fournisseurs") }}
       </button>
-      <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-3 py-1.5 rounded-chip hover:bg-app-warm" @click="openEdit">
+      <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-3 py-1.5 rounded-chip hover:bg-app-warm" @click="showStatement = true">
+        <Icon name="ledger" :size="14" />{{ L("Statement","كشف حساب","Relevé") }}
+      </button>
+      <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-3 py-1.5 rounded-chip hover:bg-app-warm" @click="openEdit">
         <Icon name="gear" :size="14" />{{ L("Edit","تعديل","Modifier") }}
       </button>
     </div>
+    <PartyStatement :open="showStatement" party-type="Supplier" :party="d.name" :party-name="d.supplier_name" @close="showStatement = false" />
 
     <!-- Header -->
     <div class="bg-white rounded-[16px] border border-line px-5 py-[18px] shadow-card">
@@ -105,7 +109,9 @@ import DocHub from "@/components/DocHub.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
+import PartyStatement from "@/components/PartyStatement.vue";
 
+const showStatement = ref(false);
 const toast = useToast();
 const { t, locale } = useI18n();
 const route = useRoute();

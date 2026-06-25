@@ -12,9 +12,13 @@
           <div class="text-[18px] font-bold">{{ d.name }}</div>
           <div class="text-[12px] text-ink-3 mt-0.5">{{ d.city }} · {{ d.phone }} · {{ d.sinceLabel }} {{ d.since }}</div>
         </div>
+        <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-3 py-1.5 rounded-chip hover:bg-app-warm" @click="showStatement = true">
+          <Icon name="ledger" :size="14" />{{ L("Statement","كشف حساب","Relevé") }}
+        </button>
         <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-3 py-1.5 rounded-chip hover:bg-app-warm" @click="openEdit">
           <Icon name="gear" :size="14" />{{ L("Edit","تعديل","Modifier") }}
         </button>
+        <PartyStatement :open="showStatement" party-type="Customer" :party="(d.raw && d.raw.name) || d.name" :party-name="d.name" @close="showStatement = false" />
         <div class="text-end">
           <div class="text-[10.5px] text-ink-muted font-semibold">{{ d.creditLabel }}</div>
           <div class="text-[20px] font-bold tnum" style="color:#7c3aed">{{ d.credit }} <span class="text-[11px] text-ink-muted">MAD</span></div>
@@ -138,6 +142,7 @@ import { initials } from "@/data/customers";
 import { AV } from "@/data/orders";
 import { useCustomers } from "@/composables/useCustomers";
 import { useToast } from "@/composables/useToast";
+import PartyStatement from "@/components/PartyStatement.vue";
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -149,6 +154,7 @@ const DOCTYPE = "Customer";
 
 const d = ref(null);
 const loading = ref(true);
+const showStatement = ref(false);
 async function load() {
   loading.value = true;
   d.value = route.query.id ? await loadDetail(route.query.id, locale.value) : null;
