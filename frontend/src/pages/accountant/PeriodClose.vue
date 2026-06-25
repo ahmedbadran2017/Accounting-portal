@@ -4,7 +4,7 @@
     <div class="bg-white border border-line rounded-[14px] p-4 shadow-card">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[13px] font-bold">{{ L("Period-close checklist", "قائمة إقفال الفترة", "Liste de clôture") }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? "Live" : "Sample" }}</span>
+        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
         <span class="ms-auto text-[11px] font-bold px-2 py-0.5 rounded-full" :style="ready ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ ready ? L("Ready to lock", "جاهز للإقفال", "Prêt") : (data.blocked + data.pending) + " " + L("open", "متبقّي", "ouverts") }}</span>
       </div>
       <div class="text-[11px] text-ink-muted mb-3 mt-0.5">{{ monthLabel }} · {{ L("everything must tie before locking", "كل شيء يجب أن يتطابق قبل الإقفال", "tout doit concorder avant verrouillage") }}</div>

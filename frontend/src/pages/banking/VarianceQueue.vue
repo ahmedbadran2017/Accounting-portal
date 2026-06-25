@@ -4,7 +4,7 @@
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("COD cash reconciliation","تسوية كاش COD","Rapprochement COD") }}</span>
       <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
-            :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? "Live" : "Sample" }}</span>
+            :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
       <span class="text-[11px] text-ink-muted flex-1">{{ L("Unallocated COD receipts vs open invoices — clear the debtor balance","سندات COD غير مخصّصة مقابل فواتير مفتوحة — صفِّ رصيد المدينون","Encaissements COD non lettrés vs factures ouvertes") }}</span>
     </div>
 

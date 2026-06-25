@@ -31,7 +31,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" :style="{ background: active.tint }"><Icon :name="active.icon" :size="14" :color="active.color" /></span>
         <span class="text-[13px] font-bold">{{ active.label() }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? "Live" : "Sample" }}</span>
+        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("orders","طلب","commandes") }} · {{ scopeLabel || "FY 2026" }}<span v-if="bucketCount > rows.length"> · {{ L("showing first","عرض أول","premiers") }} {{ rows.length }}</span></span>
         <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showRecon = true">
           <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher fichier Cathedis") }}

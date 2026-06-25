@@ -29,7 +29,7 @@
       </div>
       <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
             :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">
-        {{ isLive ? "Live" : "Sample" }}
+        {{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}
       </span>
       <div class="flex items-center gap-1 bg-app-warm/60 rounded-chip p-0.5" :title="lbl('Active = confirmed onward (the accounting cycle)','النشطة = من التأكيد فصاعدًا (الدورة المحاسبية)','Actives = à partir de la confirmation')">
         <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="activeOnly = true">{{ lbl("Active","النشطة","Actives") }}</button>

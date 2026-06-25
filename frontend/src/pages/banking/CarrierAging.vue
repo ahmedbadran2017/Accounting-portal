@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="clock" :size="14" color="#b45309" /></span>
       <span class="text-[13px] font-bold">{{ L("Carrier receivable aging", "تقادم ذمم الناقلين", "Ancienneté créances transporteurs") }}</span>
-      <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? "Live" : "Sample" }}</span>
+      <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("Cash held by carriers, by age", "النقد لدى الناقلين، حسب العمر", "Cash détenu, par âge") }}</span>
     </div>
     <div v-if="loading" class="px-1"><TableLoading :rows="4" /></div>
