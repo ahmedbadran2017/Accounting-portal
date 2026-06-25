@@ -12,23 +12,7 @@
     <ActivityLog v-if="activeSub === 'activity'" />
 
     <!-- Users & roles -->
-    <div v-else-if="activeSub === 'users'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="px-4 py-3 border-b border-line-hair text-[13px] font-bold">{{ L("Users & roles","المستخدمون والأدوار","Utilisateurs & rôles") }}</div>
-      <table class="w-full text-[12px]">
-        <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("User","المستخدم","Utilisateur") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Role","الدور","Rôle") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Access","الصلاحية","Accès") }}</th>
-        </tr></thead>
-        <tbody>
-          <tr v-for="u in users" :key="u.name" class="border-t border-line-hair">
-            <td class="px-4 py-2.5"><span class="flex items-center gap-2.5"><span class="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold" :style="{ background: AV[u.av] }">{{ ini(u.name) }}</span><span class="font-semibold">{{ u.name }}</span></span></td>
-            <td class="px-4 py-2.5 text-ink-2">{{ u.role }}</td>
-            <td class="px-4 py-2.5 text-ink-3">{{ u.access }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <PortalUsers v-else-if="activeSub === 'users'" />
 
     <!-- Taxes -->
     <div v-else-if="activeSub === 'taxconf'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
@@ -92,6 +76,7 @@ import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import ActivityLog from "@/pages/settings/ActivityLog.vue";
+import PortalUsers from "@/pages/settings/Users.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { settingsUsers, settingsTaxes, settingsCurrencies } from "@/data/settings";
