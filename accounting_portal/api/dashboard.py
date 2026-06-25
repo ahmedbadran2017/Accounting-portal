@@ -192,6 +192,12 @@ def get_cod_cockpit(company=None):
     if not companies:
         return {}
     target = company if (company and company in companies) else companies[0]
+    # Heavy aggregate (≈8s uncached) — serve from a short-lived cache so the
+    # dashboard is instant. Busted on any portal write via _bust_cockpit_cache.
+    ck = f"ap_cockpit:{target}"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
     currency = frappe.db.get_value("Company", target, "default_currency")
     month_start = _month_start()
 
@@ -321,7 +327,7 @@ def get_cod_cockpit(company=None):
     except Exception:
         pass
 
-    return {
+    result = {
         "company": target, "currency": currency,
         "as_of": nowdate(), "month_start": month_start,
         "cash_on_hand": bank_balance + cash_balance,
@@ -334,6 +340,23 @@ def get_cod_cockpit(company=None):
         "reconciled_pct": reconciled_pct, "returns_exposure": returns_exposure,
         "cohort": cohort, "purchases": purchases, "arap": arap, "cheques": cheques,
     }
+    frappe.cache().set_value(ck, result, expires_in_sec=180)
+    return result
+
+
+@frappe.whitelist()
+def refresh_cockpit(company=None):
+    """Force-refresh the dashboard cache (the UI's 'refresh' affordance)."""
+    assert_portal_access()
+    for cs in _resolve_companies(company):
+        _bust_cockpit_cache(cs)
+    return get_cod_cockpit(company)
+
+
+def _bust_cockpit_cache(company):
+    """Drop the cached cockpit + command-center for a company (call after writes)."""
+    frappe.cache().delete_value(f"ap_cockpit:{company}")
+    frappe.cache().delete_value(f"ap_command:{company}")
 
 
 def _build_alerts(target, ccy):
@@ -408,6 +431,10 @@ def command_center(company=None):
     if not cs:
         return {}
     target = cs[0]
+    ck = f"ap_command:{target}"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
     ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
     today = nowdate()
     collected_today = flt(frappe.db.sql(
@@ -418,7 +445,7 @@ def command_center(company=None):
     if frappe.db.exists("DocType", "Accounting Portal Action"):
         approvals = frappe.db.count("Accounting Portal Action", {"company": target, "status": "Proposed"})
     from accounting_portal.api.reports import _aging
-    return {
+    result = {
         "company": target, "currency": ccy,
         "collected_today": collected_today,
         "approvals_pending": approvals,
@@ -426,6 +453,8 @@ def command_center(company=None):
         "ap_aging": _aging("Purchase Invoice", target),
         "alerts": _build_alerts(target, ccy),
     }
+    frappe.cache().set_value(ck, result, expires_in_sec=180)
+    return result
 
 
 def _fiscal_year_start():

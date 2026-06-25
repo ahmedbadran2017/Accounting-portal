@@ -379,10 +379,11 @@ const loaded = ref(false);
 const cc = ref(null);
 async function load() {
   loaded.value = false;
+  // Fire both heavy aggregates concurrently (don't serialize 8s + 1s).
+  const ccP = api.call("accounting_portal.api.dashboard.command_center", { company: currentCompany() }).catch(() => null);
   try {
     cockpit.value = await loadCockpit(); isLive.value = !!(cockpit.value && cockpit.value.company);
-    try { cc.value = await api.call("accounting_portal.api.dashboard.command_center", { company: currentCompany() }); }
-    catch { cc.value = null; }
+    cc.value = await ccP;
   }
   finally { loaded.value = true; }
 }
