@@ -228,14 +228,21 @@ def sales_collections_cohort(company=None, from_date=None, to_date=None):
         return cached
 
     params = {"c": target, "fd": from_date, "td": to_date}
+    # Collected = the Cathedis ref is on the order OR its invoice (the book's
+    # matching stamps the invoice), so join the CATH-stamped invoices.
     so = frappe.db.sql(
         """SELECT DATE_FORMAT(so.transaction_date,'%%Y-%%m') m,
                   COUNT(*) orders,
                   ROUND(SUM(so.grand_total)) order_value,
-                  ROUND(SUM(CASE WHEN IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' THEN so.grand_total ELSE 0 END)) collected,
-                  ROUND(SUM(CASE WHEN IFNULL(so.custom_reference_number,'') LIKE 'CATH%%'
+                  ROUND(SUM(CASE WHEN IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' OR inv.so IS NOT NULL THEN so.grand_total ELSE 0 END)) collected,
+                  ROUND(SUM(CASE WHEN IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' OR inv.so IS NOT NULL
                                   OR so.custom_track_shipment_status='Delivered' THEN so.grand_total ELSE 0 END)) delivered
            FROM `tabSales Order` so
+           LEFT JOIN (SELECT DISTINCT sii.sales_order so FROM `tabSales Invoice Item` sii
+                      JOIN `tabSales Invoice` si ON si.name=sii.parent
+                      WHERE si.company=%(c)s AND si.docstatus=1
+                        AND IFNULL(si.custom_reference_number,'') LIKE 'CATH%%'
+                        AND IFNULL(sii.sales_order,'')!='') inv ON inv.so=so.name
            WHERE so.company=%(c)s AND so.docstatus=1
              AND so.transaction_date BETWEEN %(fd)s AND %(td)s
              AND IFNULL(so.custom_sales_status,'') NOT IN ('Cancelled','Duplicated','')

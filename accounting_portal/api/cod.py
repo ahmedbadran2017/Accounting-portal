@@ -61,7 +61,17 @@ def cod_bucket(ref, track, has_return_dn=False):
 
 _RETURNISH = "('Return','Returned','Return Issued','Delivery Exception','Failed Attempt')"
 _TRANSIT = "('In Transit','Out For Delivery','Picked up')"
-_NOTCATH = "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%'"
+# Collected = the Cathedis remittance reference is present on EITHER the Sales
+# Order OR its Sales Invoice. The book's matching process stamps the invoice
+# (~47.5k), the portal's reconcile stamps the order — both count.
+_INV_JOIN = (
+    "LEFT JOIN (SELECT DISTINCT sii.sales_order so "
+    "FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` si ON si.name=sii.parent "
+    "WHERE si.company=%(c)s AND si.docstatus=1 "
+    "AND IFNULL(si.custom_reference_number,'') LIKE 'CATH%%' "
+    "AND IFNULL(sii.sales_order,'')!='') inv ON inv.so=so.name")
+_COLLECTED = "(IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' OR inv.so IS NOT NULL)"
+_NOTCOLL = "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' AND inv.so IS NULL"
 # Flags orders that have a submitted return Delivery Note (goods physically back).
 # Uses the indexed `return_against` (set iff is_return=1 — verified identical for
 # this book) instead of the unindexed is_return, ~2.5x faster.
@@ -71,11 +81,11 @@ _RET_JOIN = (
     "WHERE IFNULL(dn.return_against,'')!='' AND dn.docstatus=1 AND dn.company=%(c)s "
     "AND IFNULL(dni.against_sales_order,'')!='') ret ON ret.so=so.name")
 _COND = {
-    "collected": "IFNULL(so.custom_reference_number,'') LIKE 'CATH%%'",
-    "returned": f"{_NOTCATH} AND ret.so IS NOT NULL",
-    "toreturn": f"{_NOTCATH} AND ret.so IS NULL AND so.custom_track_shipment_status IN {_RETURNISH}",
-    "delivered": f"{_NOTCATH} AND ret.so IS NULL AND so.custom_track_shipment_status='Delivered'",
-    "todeliver": f"{_NOTCATH} AND ret.so IS NULL "
+    "collected": _COLLECTED,
+    "returned": f"{_NOTCOLL} AND ret.so IS NOT NULL",
+    "toreturn": f"{_NOTCOLL} AND ret.so IS NULL AND so.custom_track_shipment_status IN {_RETURNISH}",
+    "delivered": f"{_NOTCOLL} AND ret.so IS NULL AND so.custom_track_shipment_status='Delivered'",
+    "todeliver": f"{_NOTCOLL} AND ret.so IS NULL "
                  f"AND so.custom_track_shipment_status NOT IN {_RETURNISH} "
                  f"AND so.custom_track_shipment_status!='Delivered' "
                  f"AND (so.per_billed > 0 OR so.custom_track_shipment_status IN {_TRANSIT})",
@@ -112,7 +122,7 @@ def cod_summary(company=None, from_date=None, to_date=None):
     # One pass, classified by CASE (priority = collected → returned → toreturn →
     # delivered → todeliver), so the return-DN join materialises once.
     case = (
-        "CASE WHEN IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' THEN 'collected' "
+        f"CASE WHEN {_COLLECTED} THEN 'collected' "
         "WHEN ret.so IS NOT NULL THEN 'returned' "
         f"WHEN so.custom_track_shipment_status IN {_RETURNISH} THEN 'toreturn' "
         "WHEN so.custom_track_shipment_status='Delivered' THEN 'delivered' "
@@ -120,7 +130,7 @@ def cod_summary(company=None, from_date=None, to_date=None):
         "ELSE 'other' END")
     rows = frappe.db.sql(
         f"SELECT {case} bucket, COUNT(*) n, ROUND(SUM(so.grand_total)) val "
-        f"FROM `tabSales Order` so {_RET_JOIN} WHERE {_BASE}{date_cond} GROUP BY bucket",
+        f"FROM `tabSales Order` so {_RET_JOIN} {_INV_JOIN} WHERE {_BASE}{date_cond} GROUP BY bucket",
         params, as_dict=True)
     out = {b: {"count": 0, "value": 0.0} for b in BUCKETS}
     for r in rows:
@@ -168,10 +178,9 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
         conds.append("so.transaction_date <= %(td)s")
         params["td"] = to_date
     where = " AND ".join(conds)
-    # Every bucket condition references ret.so (to keep returned orders in their
-    # own bucket) EXCEPT 'collected' (matched purely by the CATH reference), so
-    # only collected can skip the join.
-    join = "" if bucket == "collected" else _RET_JOIN
+    # Every bucket references the invoice-CATH flag (collected = SO or SI ref);
+    # the return-DN join is needed by all except 'collected'.
+    join = _INV_JOIN + ("" if bucket == "collected" else _RET_JOIN)
 
     tot = frappe.db.sql(
         f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so {join} WHERE {where}",
