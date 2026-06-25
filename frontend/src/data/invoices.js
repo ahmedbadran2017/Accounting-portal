@@ -5,10 +5,31 @@
 const pick = (l, en, ar, fr) => (l === "ar" ? ar : l === "fr" ? fr : en);
 
 export const INV_STATUS = {
-  paid:    { bg: "#ecfdf5", fg: "#047857", bd: "#a7f3d0", en: "Paid", ar: "مدفوعة", fr: "Payée" },
-  overdue: { bg: "#fef2f2", fg: "#be123c", bd: "#fecaca", en: "Overdue", ar: "متأخرة", fr: "En retard" },
+  paid:      { bg: "#ecfdf5", fg: "#047857", bd: "#a7f3d0", en: "Paid", ar: "مدفوعة", fr: "Payée" },
+  unpaid:    { bg: "#fffbeb", fg: "#b45309", bd: "#fde68a", en: "Unpaid", ar: "غير مدفوعة", fr: "Impayée" },
+  overdue:   { bg: "#fef2f2", fg: "#be123c", bd: "#fecaca", en: "Overdue", ar: "متأخرة", fr: "En retard" },
+  partial:   { bg: "#eff6ff", fg: "#0369a1", bd: "#bae6fd", en: "Partly paid", ar: "مدفوعة جزئياً", fr: "Partielle" },
+  draft:     { bg: "#f5f5f4", fg: "#57534e", bd: "#e7e5e4", en: "Draft", ar: "مسودة", fr: "Brouillon" },
+  return:    { bg: "#faf5ff", fg: "#7c3aed", bd: "#e9d5ff", en: "Credit note", ar: "إشعار دائن", fr: "Avoir" },
+  cancelled: { bg: "#f5f5f4", fg: "#9ca3af", bd: "#e7e5e4", en: "Cancelled", ar: "ملغاة", fr: "Annulée" },
 };
 export const invStatusLabel = (s, l) => { const x = INV_STATUS[s] || INV_STATUS.paid; return x[l] || x.en; };
+
+// Normalise a live Sales Invoice row/doc to a status key. Honours docstatus,
+// is_return, outstanding vs gross, and the due date (real overdue).
+export function invStatusFromRow(d) {
+  const ds = Number(d.docstatus);
+  if (ds === 2) return "cancelled";
+  if (ds === 0) return "draft";
+  if (d.is_return || /return|credit note/i.test(d.status || "")) return "return";
+  const out = Number(d.outstanding_amount) || 0;
+  const gross = Number(d.gross ?? d.grand_total) || 0;
+  if (out <= 0) return "paid";
+  const today = new Date().toISOString().slice(0, 10);
+  if (d.due_date && String(d.due_date).slice(0, 10) < today) return "overdue";
+  if (gross && out < gross) return "partial";
+  return "unpaid";
+}
 
 const f2 = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

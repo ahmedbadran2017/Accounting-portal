@@ -340,7 +340,8 @@ def list_invoices(company=None, search=None, limit=100):
         f"""
         SELECT si.name, si.customer, si.net_total AS net,
                si.total_taxes_and_charges AS vat, si.grand_total AS gross,
-               si.status, si.posting_date AS date, si.outstanding_amount
+               si.status, si.posting_date AS date, si.due_date, si.outstanding_amount,
+               si.is_return, si.currency, si.docstatus
         FROM `tabSales Invoice` si
         WHERE {' AND '.join(conds)}
         ORDER BY si.posting_date DESC, si.creation DESC

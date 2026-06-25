@@ -1,5 +1,5 @@
 import api from "@/services/api";
-import { findInvoice, invoiceJournal } from "@/data/invoices";
+import { findInvoice, invoiceJournal, invStatusFromRow } from "@/data/invoices";
 
 // Invoice detail: live ERPNext (get_invoice — lines, totals, payment, posted
 // journal) with sample fallback. Returns { inv, paid, journal }.
@@ -12,7 +12,7 @@ function liveVM(d) {
     inv: {
       id: d.name, customer: d.customer, date: String(d.posting_date || ""),
       city: d.city && d.city !== "—" ? d.city : "", phone: d.phone || "",
-      status: paid ? "paid" : "overdue",
+      status: invStatusFromRow(d), is_return: !!d.is_return, outstanding: Number(d.outstanding_amount) || 0,
       net: d.net_total, vat: d.total_taxes_and_charges, gross: d.grand_total,
       lines: (d.lines || []).map((l) => ({ name: l.name, image: l.image, qty: l.qty, rate: f2(l.rate), amount: f2(l.amount) })),
       track: "Cathadis", pay: "COD",

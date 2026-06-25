@@ -18,7 +18,7 @@
         <div class="ms-auto flex items-center gap-2 h-fit">
           <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-badge border"
                 :style="{ background: st.bg, color: st.fg, borderColor: st.bd }">{{ invStatusLabel(inv.status, locale) }}</span>
-          <button v-if="inv.gross > 0" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="showRefund = true">
+          <button v-if="canRefund" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="showRefund = true">
             <Icon name="refresh" :size="13" />{{ L("Refund","استرداد","Remboursement") }}
           </button>
         </div>
@@ -167,6 +167,11 @@ watch(() => route.query.id, load, { immediate: true });
 
 const inv = computed(() => vm.value?.inv || null);
 const st = computed(() => INV_STATUS[inv.value?.status] || INV_STATUS.paid);
+// Only a posted, non-return, non-draft invoice can be credited.
+const canRefund = computed(() => {
+  const i = inv.value;
+  return !!i && Number(i.gross) > 0 && !i.is_return && !["draft", "cancelled", "return"].includes(i.status);
+});
 const paid = computed(() => !!vm.value?.paid);
 const journal = computed(() => vm.value?.journal || []);
 const related = computed(() => vm.value?.related || { orders: [], deliveries: [], payments: [] });

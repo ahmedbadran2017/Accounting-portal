@@ -71,7 +71,7 @@ import StatCard from "@/components/StatCard.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
-import { INVOICES, INV_STATUS, invStatusLabel, fmt2 } from "@/data/invoices";
+import { INVOICES, INV_STATUS, invStatusLabel, invStatusFromRow, fmt2 } from "@/data/invoices";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
 import BulkBar from "@/components/BulkBar.vue";
@@ -105,7 +105,7 @@ async function load() {
   try {
     const res = await liveOrSample(
       "accounting_portal.api.sales.list_invoices", { company: currentCompany(), limit: 500 }, () => INVOICES,
-      (data) => data.map((r) => ({ id: r.name, date: String(r.date || ""), customer: r.customer, net: r.net, vat: r.vat, gross: r.gross, status: (r.status || "").toLowerCase().includes("paid") ? "paid" : "overdue" })),
+      (data) => data.map((r) => ({ id: r.name, date: String(r.date || ""), customer: r.customer, net: r.net, vat: r.vat, gross: r.gross, outstanding: r.outstanding_amount, status: invStatusFromRow(r) })),
     );
     rows.value = res.data;
     isLive.value = res.live;
