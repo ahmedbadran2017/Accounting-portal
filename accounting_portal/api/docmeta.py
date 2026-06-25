@@ -125,3 +125,82 @@ def remove_attachment(file=None):
     _check(info.attached_to_doctype, info.attached_to_name)
     frappe.delete_doc("File", file, ignore_permissions=True)
     return {"ok": True}
+
+
+# ── Tags ──
+@frappe.whitelist()
+def get_tags(doctype=None, name=None):
+    assert_portal_access()
+    _check(doctype, name)
+    tags = frappe.db.get_value(doctype, name, "_user_tags") or ""
+    return [t for t in tags.split(",") if t]
+
+
+@frappe.whitelist()
+def add_tag(doctype=None, name=None, tag=None):
+    assert_can_write()
+    _check(doctype, name)
+    if not (tag or "").strip():
+        frappe.throw("Empty tag")
+    frappe.get_doc(doctype, name).add_tag(tag.strip())
+    return {"tags": get_tags(doctype, name)}
+
+
+@frappe.whitelist()
+def remove_tag(doctype=None, name=None, tag=None):
+    assert_can_write()
+    _check(doctype, name)
+    frappe.get_doc(doctype, name).remove_tag(tag)
+    return {"tags": get_tags(doctype, name)}
+
+
+# ── Edit a small allow-list of safe fields, from the portal ──
+_EDITABLE = {
+    "Sales Invoice": ["due_date", "remarks", "po_no"],
+    "Purchase Invoice": ["due_date", "remarks", "bill_no", "bill_date"],
+    "Sales Order": ["po_no"],
+    "Purchase Order": ["schedule_date"],
+    "Payment Entry": ["reference_no", "reference_date", "remarks"],
+    "Journal Entry": ["user_remark", "cheque_no", "cheque_date"],
+    "Customer": ["customer_name", "email_id", "mobile_no"],
+    "Supplier": ["supplier_name", "email_id", "mobile_no"],
+}
+
+
+@frappe.whitelist()
+def editable_fields(doctype=None, name=None):
+    """Which fields the portal may edit on this doctype + their current values."""
+    assert_portal_access()
+    _check(doctype, name)
+    flds = [f for f in _EDITABLE.get(doctype, []) if frappe.get_meta(doctype).has_field(f)]
+    if not flds:
+        return {"fields": []}
+    cur = frappe.db.get_value(doctype, name, flds, as_dict=True) or {}
+    meta = frappe.get_meta(doctype)
+    out = []
+    for f in flds:
+        df = meta.get_field(f)
+        out.append({"field": f, "label": df.label if df else f, "type": (df.fieldtype if df else "Data"),
+                    "value": (str(cur.get(f)) if cur.get(f) is not None else "")})
+    return {"fields": out}
+
+
+@frappe.whitelist()
+def update_doc_fields(doctype=None, name=None, fields=None):
+    """Save edits to the allow-listed fields. For submitted docs only fields that
+    are editable-after-submit will save; the rest are rejected by ERPNext."""
+    assert_can_write()
+    _check(doctype, name)
+    allowed = set(_EDITABLE.get(doctype, []))
+    data = fields if isinstance(fields, dict) else json.loads(fields or "{}")
+    bad = [k for k in data if k not in allowed]
+    if bad:
+        frappe.throw(f"Not editable: {', '.join(bad)}")
+    if not data:
+        frappe.throw("Nothing to update")
+    doc = frappe.get_doc(doctype, name)
+    doc.flags.ignore_permissions = True
+    for k, v in data.items():
+        doc.set(k, v or None)
+    doc.save()
+    return {"ok": True}

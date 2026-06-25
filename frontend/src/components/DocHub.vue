@@ -1,5 +1,16 @@
 <template>
   <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+    <!-- Toolbar: tags + print + edit -->
+    <div class="flex items-center gap-2 px-3 py-2.5 border-b border-line-hair flex-wrap">
+      <Icon name="filter" :size="13" color="#a8a29e" />
+      <span v-for="tg in tags" :key="tg" class="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-accent-soft text-accent-dark">{{ tg }}<button @click="removeTag(tg)" class="hover:text-sale"><Icon name="x" :size="10" /></button></span>
+      <input v-model.trim="newTag" @keyup.enter="addTag" :placeholder="L('+ tag', '+ وسم', '+ tag')" class="w-20 h-6 text-[11px] bg-transparent border-b border-dashed border-line-2 focus:outline-none focus:border-accent/40" />
+      <div class="ms-auto flex items-center gap-1.5">
+        <button @click="openEdit" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="gear" :size="12" />{{ L("Edit", "تعديل", "Modifier") }}</button>
+        <a :href="printUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-ink hover:opacity-90"><Icon name="doc" :size="12" color="#fff" />{{ L("Print / PDF", "طباعة", "PDF") }}</a>
+      </div>
+    </div>
+
     <!-- Tabs -->
     <div class="flex items-center gap-1 px-3 pt-2.5 border-b border-line-hair">
       <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
@@ -65,6 +76,22 @@
         <div v-for="(e, i) in notes" :key="i" class="bg-app-warm/50 rounded-[9px] px-2.5 py-2">
           <div class="text-[12px] text-ink-2 whitespace-pre-wrap">{{ e.content }}</div>
           <div class="text-[10.5px] text-ink-muted mt-0.5">{{ shortUser(e.by) }} · {{ fmtDate(e.on) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit modal -->
+    <div v-if="editOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="editOpen = false">
+      <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
+        <div class="text-[14px] font-bold">{{ L("Edit document", "تعديل المستند", "Modifier") }}</div>
+        <div v-if="!editFields.length" class="text-[12px] text-ink-muted py-4 text-center">{{ L("No editable fields here.", "لا حقول قابلة للتعديل.", "Aucun champ modifiable.") }}</div>
+        <div v-for="f in editFields" :key="f.field">
+          <label class="text-[11px] font-bold text-ink-3">{{ f.label }}</label>
+          <input v-model="f.value" :type="f.type === 'Date' ? 'date' : 'text'" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+        </div>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
+          <button v-if="editFields.length" @click="saveEdit" :disabled="savingEdit" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-accent disabled:opacity-50">{{ savingEdit ? L("Saving…", "حفظ…", "…") : L("Save", "حفظ", "Enregistrer") }}</button>
         </div>
       </div>
     </div>
@@ -148,5 +175,44 @@ async function postNote() {
   finally { posting.value = false; }
 }
 
-watch(() => [props.doctype, props.name], () => { if (props.name) { loadActivity(); loadFiles(); } }, { immediate: true });
+// ── Tags ──
+const tags = ref([]);
+const newTag = ref("");
+async function loadTags() {
+  try { tags.value = await api.call("accounting_portal.api.docmeta.get_tags", { doctype: props.doctype, name: props.name }) || []; }
+  catch { tags.value = []; }
+}
+async function addTag() {
+  if (!newTag.value.trim()) return;
+  try { tags.value = (await api.call("accounting_portal.api.docmeta.add_tag", { doctype: props.doctype, name: props.name, tag: newTag.value })).tags || tags.value; newTag.value = ""; }
+  catch (e) { toast.error(L("Failed", "فشل", "Échec")); }
+}
+async function removeTag(tg) {
+  try { tags.value = (await api.call("accounting_portal.api.docmeta.remove_tag", { doctype: props.doctype, name: props.name, tag: tg })).tags || []; }
+  catch (e) { toast.error(L("Failed", "فشل", "Échec")); }
+}
+
+// ── Print / PDF (Frappe's native renderer) ──
+const printUrl = computed(() => `/api/method/frappe.utils.print_format.download_pdf?doctype=${encodeURIComponent(props.doctype)}&name=${encodeURIComponent(props.name)}&no_letterhead=0`);
+
+// ── Edit fields ──
+const editOpen = ref(false);
+const editFields = ref([]);
+const savingEdit = ref(false);
+async function openEdit() {
+  editOpen.value = true; editFields.value = [];
+  try { editFields.value = (await api.call("accounting_portal.api.docmeta.editable_fields", { doctype: props.doctype, name: props.name })).fields || []; }
+  catch { editFields.value = []; }
+}
+async function saveEdit() {
+  savingEdit.value = true;
+  try {
+    const fields = {}; editFields.value.forEach((f) => { fields[f.field] = f.value; });
+    await api.call("accounting_portal.api.docmeta.update_doc_fields", { doctype: props.doctype, name: props.name, fields });
+    editOpen.value = false; toast.success(L("Saved", "تم الحفظ", "Enregistré")); loadActivity();
+  } catch (e) { toast.error(String((e && e.message) || L("Save failed", "فشل الحفظ", "Échec")).slice(0, 140)); }
+  finally { savingEdit.value = false; }
+}
+
+watch(() => [props.doctype, props.name], () => { if (props.name) { loadActivity(); loadFiles(); loadTags(); } }, { immediate: true });
 </script>
