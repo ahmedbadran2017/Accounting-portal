@@ -60,6 +60,7 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
+              <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
                   class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
@@ -69,7 +70,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.name)">
+            <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(o) ? 'bg-accent/5' : ''" @click="open(o.name)">
+              <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(o)" @change="tt.toggleRow(o)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
               <td v-show="!tt.hidden.value.has('name')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}</td>
               <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
               <td v-show="!tt.hidden.value.has('customer')" class="px-4 py-2.5 truncate max-w-[180px]">{{ o.customer }}</td>
@@ -92,6 +94,8 @@
       <TablePager :t="tt" />
     </div>
 
+    <BulkBar :t="tt" :filename="`${bucket}-selected`" :note="bulkNote" :actions="[]" />
+
     <CathedisReconcile v-if="showRecon" @close="showRecon = false" @applied="onApplied" />
     <ReturnShipmentModal v-if="openRet" :name="openRet" @close="openRet = null" />
   </div>
@@ -110,6 +114,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useTableTools } from "@/composables/useTableTools";
+import BulkBar from "@/components/BulkBar.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -172,6 +177,7 @@ const dateTo = ref("");
 const tt = useTableTools(rows, cols, { defaultSort: "date", defaultDir: -1, facets: [{ key: "carrier", label: L("carrier", "ناقل", "transp.") }, { key: "city", label: L("city", "مدينة", "ville") }] });
 
 const isFiltered = computed(() => datePreset.value !== "all" || !!srch.value || Object.values(tt.facetActive.value).some(Boolean));
+const bulkNote = computed(() => { const tot = tt.selectedRows.value.reduce((a, r) => a + (Number(r.value) || 0), 0); return tot ? fmt(tot) + " MAD" : ""; });
 const scopeLabel = computed(() => {
   if (datePreset.value !== "all") { const p = DATE_PRESETS.find((x) => x.key === datePreset.value); return p ? p.label() : ""; }
   if (srch.value || Object.values(tt.facetActive.value).some(Boolean)) return L("filtered", "مفلتر", "filtré");
@@ -241,7 +247,7 @@ async function loadRows() {
 function setPreset(k) { datePreset.value = k; if (k !== "range") { loadSummary(); loadRows(); } }
 let timer;
 watch(entityId, loadSummary, { immediate: true });
-watch([bucket, entityId], () => { tt.reset(); loadRows(); }, { immediate: true });
+watch([bucket, entityId], () => { tt.reset(); tt.clearSelection(); loadRows(); }, { immediate: true });
 watch([dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(() => { loadSummary(); loadRows(); }, 300); });
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
 

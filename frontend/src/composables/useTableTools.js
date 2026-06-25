@@ -23,6 +23,8 @@ export function useTableTools(rowsRef, cols, opts = {}) {
   const hidden = ref(new Set());
   const page = ref(1);
   const pageSize = ref(opts.pageSize || 50);
+  const keyField = opts.keyField || "name";
+  const selected = ref(new Set()); // row keys selected for bulk actions
 
   function parseDate(v) {
     if (!v) return null;
@@ -140,10 +142,38 @@ export function useTableTools(rowsRef, cols, opts = {}) {
 
   watch([search, datePreset, from, to, pageSize, sorted], () => { if (page.value > totalPages.value) page.value = 1; });
 
+  // ── Selection (bulk actions) ──
+  const keyOf = (r) => r[keyField];
+  const selectedRows = computed(() => sorted.value.filter((r) => selected.value.has(keyOf(r))));
+  const allFilteredSelected = computed(() => sorted.value.length > 0 && sorted.value.every((r) => selected.value.has(keyOf(r))));
+  function toggleRow(r) { const s = new Set(selected.value); const k = keyOf(r); s.has(k) ? s.delete(k) : s.add(k); selected.value = s; }
+  function isSelected(r) { return selected.value.has(keyOf(r)); }
+  function toggleAllFiltered() {
+    const s = new Set(selected.value);
+    const all = allFilteredSelected.value;
+    sorted.value.forEach((r) => (all ? s.delete(keyOf(r)) : s.add(keyOf(r))));
+    selected.value = s;
+  }
+  function clearSelection() { selected.value = new Set(); }
+  function exportSelectedCSV(filename) {
+    const vc = visibleCols.value;
+    const esc = (v) => { const s = String(v ?? "").replace(/"/g, '""'); return /[",\n]/.test(s) ? `"${s}"` : s; };
+    const head = vc.map((c) => esc(c.label)).join(",");
+    const body = selectedRows.value.map((r) => vc.map((c) => esc(accessor(r, c.key))).join(",")).join("\n");
+    const blob = new Blob(["﻿" + head + "\n" + body], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = (filename || "selection") + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return {
     search, datePreset, from, to, sortKey, sortDir, hidden, page, pageSize,
     cols, visibleCols, sorted, pageRows, totalPages, rangeStart, rangeEnd,
     hasDate: !!dateKey, facets: facetDefs, facetOptions, facetActive, setFacet,
     toggleSort, toggleCol, setPreset, reset, exportCSV,
+    selected, selectedRows, allFilteredSelected, isSelected, toggleRow,
+    toggleAllFiltered, clearSelection, exportSelectedCSV, keyField,
   };
 }
