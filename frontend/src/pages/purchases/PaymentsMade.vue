@@ -11,6 +11,12 @@
       </div>
     </div>
 
+    <div v-if="adv.count" class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair flex-wrap" style="background:#fffbeb66">
+      <span class="w-1.5 h-1.5 rounded-full bg-brand"></span>
+      <span class="text-[11.5px] text-ink-2"><b>{{ adv.count }}</b> {{ L("advances", "دفعة مقدّمة", "avances") }} · <b class="text-sale tnum">{{ fmt(adv.total) }} MAD</b> {{ L("paid but not matched to any bill", "مدفوعة بلا مطابقة لفواتير", "non affecté à une facture") }}</span>
+      <button @click="toggleAdvances" class="ms-auto text-[11px] font-bold px-2.5 py-1 rounded-full border transition" :class="advancesOnly ? 'bg-brand text-white border-brand' : 'bg-white text-brand border-brand/40 hover:bg-brand/5'">{{ advancesOnly ? L("Showing advances", "عرض المقدّمات", "Avances") : L("Show advances only", "اعرض المقدّمات فقط", "Voir les avances") }}</button>
+    </div>
+
     <div class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair flex-wrap bg-app-warm/20">
       <Icon name="clock" :size="13" color="#a8a29e" />
       <button v-for="p in DATE_PRESETS" :key="p.key" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
@@ -39,7 +45,8 @@
             <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
             <td v-show="!tt.hidden.value.has('method')" class="px-4 py-2.5 whitespace-nowrap">
               <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="methodStyle(o.method)">{{ o.method }}</span>
-              <span v-if="o.n_bills > 1" class="ms-1.5 text-[10px] text-ink-muted">· {{ o.n_bills }} {{ L("bills", "فاتورة", "factures") }}</span>
+              <span v-if="o.unallocated > 0" class="ms-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("advance", "مقدّم", "avance") }} {{ fmt(o.unallocated) }}</span>
+              <span v-else-if="o.n_bills > 1" class="ms-1.5 text-[10px] text-ink-muted">· {{ o.n_bills }} {{ L("bills", "فاتورة", "factures") }}</span>
             </td>
             <td v-show="!tt.hidden.value.has('amount')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ o.currency }} {{ fmt(o.amount) }}</td>
           </tr>
@@ -96,6 +103,8 @@ const live = ref(null);
 const loading = ref(false);
 const srch = ref("");
 const datePreset = ref("month");
+const advancesOnly = ref(false);
+const adv = ref({ count: 0, total: 0 });
 const tt = useTableTools(rows, cols, { defaultSort: "date", defaultDir: -1 });
 
 function bounds() {
@@ -114,15 +123,20 @@ async function load() {
   loading.value = true;
   const [fd, td] = bounds();
   try {
-    rows.value = await api.call("accounting_portal.api.payments.list_payments_made", { company: currentCompany(), search: srch.value || undefined, from_date: fd || undefined, to_date: td || undefined, limit: 300 }) || [];
+    rows.value = await api.call("accounting_portal.api.payments.list_payments_made", { company: currentCompany(), search: srch.value || undefined, from_date: fd || undefined, to_date: td || undefined, advances_only: advancesOnly.value ? 1 : undefined, limit: 300 }) || [];
     live.value = true;
   } catch { rows.value = SAMPLE; live.value = false; }
   finally { loading.value = false; }
 }
+async function loadAdv() {
+  try { adv.value = await api.call("accounting_portal.api.payments.payments_advances_summary", { company: currentCompany() }) || { count: 0, total: 0 }; }
+  catch { adv.value = { count: 2, total: 3775135 }; }
+}
 function setPreset(k) { datePreset.value = k; load(); }
+function toggleAdvances() { advancesOnly.value = !advancesOnly.value; if (advancesOnly.value) datePreset.value = "all"; load(); }
 function open(name) { router.push({ path: "/accounting/purchases/payments", query: { id: name } }); }
 
 let timer;
-watch(entityId, load, { immediate: true });
+watch(entityId, () => { advancesOnly.value = false; loadAdv(); load(); }, { immediate: true });
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(load, 300); });
 </script>

@@ -171,15 +171,19 @@ def create_payment_entry(company=None, party=None, amount=None, account=None,
 
 
 @frappe.whitelist()
-def list_payments_made(company=None, search=None, from_date=None, to_date=None, limit=200):
+def list_payments_made(company=None, search=None, from_date=None, to_date=None,
+                       advances_only=0, limit=200):
     """Supplier (Pay) Payment Entries for one company — powers the clickable
-    'Payments made' list. Amount is in the paying account's currency."""
+    'Payments made' list. Amount is in the paying account's currency.
+    advances_only=1 keeps only payments with money still unallocated to bills."""
     assert_portal_access()
     target = _target(company)
     if not target:
         return []
     conds = ["pe.company=%(c)s", "pe.docstatus=1", "pe.payment_type='Pay'", "pe.party_type='Supplier'"]
     params = {"c": target, "limit": min(int(limit or 200), 500)}
+    if int(advances_only or 0):
+        conds.append("pe.unallocated_amount > 0")
     if from_date:
         conds.append("pe.posting_date >= %(fd)s"); params["fd"] = from_date
     if to_date:
@@ -192,6 +196,7 @@ def list_payments_made(company=None, search=None, from_date=None, to_date=None, 
                    pe.posting_date AS date, IFNULL(pe.mode_of_payment,'—') AS method,
                    pe.paid_amount AS amount, pe.paid_from_account_currency AS currency,
                    IFNULL(pe.reference_no,'') AS reference_no,
+                   ROUND(pe.unallocated_amount, 2) AS unallocated,
                    (SELECT COUNT(*) FROM `tabPayment Entry Reference` per
                       WHERE per.parent=pe.name AND per.reference_doctype='Purchase Invoice') AS n_bills
             FROM `tabPayment Entry` pe
@@ -201,5 +206,22 @@ def list_payments_made(company=None, search=None, from_date=None, to_date=None, 
         params, as_dict=True)
     for r in rows:
         r["amount"] = flt(r["amount"])
+        r["unallocated"] = flt(r["unallocated"])
         r["date"] = str(r.get("date") or "")
     return rows
+
+
+@frappe.whitelist()
+def payments_advances_summary(company=None):
+    """How much we've paid suppliers that is still sitting on-account (unallocated
+    to any bill) — the AP-side mirror of unmatched COD collections."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"count": 0, "total": 0}
+    r = frappe.db.sql(
+        """SELECT COUNT(*) n, ROUND(SUM(unallocated_amount), 2) total
+           FROM `tabPayment Entry`
+           WHERE company=%s AND docstatus=1 AND payment_type='Pay'
+             AND party_type='Supplier' AND unallocated_amount > 0""", target, as_dict=True)[0]
+    return {"count": r.n or 0, "total": flt(r.total)}
