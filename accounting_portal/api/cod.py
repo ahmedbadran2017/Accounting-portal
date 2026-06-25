@@ -471,3 +471,33 @@ def apply_remittance(company=None, reference=None, orders=None, amount=0, dedupe
         amount=flt(amount), notes=f"Cathedis {reference}: {len(orders)} orders collected")
     _bust_summary_cache(target)  # bucket counts changed
     return res
+
+
+@frappe.whitelist()
+def carrier_aging(company=None):
+    """COD cash held by carriers — delivered-but-not-collected order value, by
+    carrier, bucketed by age (days since the order). The carrier float, aged."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"carriers": []}
+    rows = frappe.db.sql(
+        f"""SELECT IFNULL(NULLIF(so.custom_tracking_company,''),'—') AS carrier,
+                   ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(),so.transaction_date)<=3 THEN so.grand_total ELSE 0 END)) AS d0_3,
+                   ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(),so.transaction_date) BETWEEN 4 AND 7 THEN so.grand_total ELSE 0 END)) AS d4_7,
+                   ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(),so.transaction_date) BETWEEN 8 AND 14 THEN so.grand_total ELSE 0 END)) AS d8_14,
+                   ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(),so.transaction_date)>14 THEN so.grand_total ELSE 0 END)) AS d15p,
+                   ROUND(SUM(so.grand_total)) AS total, COUNT(*) AS n,
+                   ROUND(AVG(DATEDIFF(CURDATE(),so.transaction_date)),1) AS avg_days
+            FROM `tabSales Order` so {_INV_JOIN}
+            WHERE so.company=%(c)s AND so.docstatus=1
+              AND so.custom_track_shipment_status='Delivered' AND {_NOTCOLL}
+            GROUP BY carrier HAVING total>0 ORDER BY total DESC LIMIT 20""",
+        {"c": target}, as_dict=True)
+    for r in rows:
+        for k in ("d0_3", "d4_7", "d8_14", "d15p", "total"):
+            r[k] = flt(r[k])
+        r["avg_days"] = flt(r["avg_days"])
+        r["alert"] = (flt(r["d8_14"]) + flt(r["d15p"])) > 0.2 * max(1, flt(r["total"]))
+    return {"carriers": rows, "total": sum(r["total"] for r in rows),
+            "aged": sum(flt(r["d8_14"]) + flt(r["d15p"]) for r in rows)}
