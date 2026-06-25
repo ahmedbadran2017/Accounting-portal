@@ -65,11 +65,11 @@ _TRANSIT = "('In Transit','Out For Delivery','Picked up')"
 # Order OR its Sales Invoice. The book's matching process stamps the invoice
 # (~47.5k), the portal's reconcile stamps the order — both count.
 _INV_JOIN = (
-    "LEFT JOIN (SELECT DISTINCT sii.sales_order so "
+    "LEFT JOIN (SELECT sii.sales_order so, MAX(si.custom_reference_number) ref "
     "FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` si ON si.name=sii.parent "
     "WHERE si.company=%(c)s AND si.docstatus=1 "
     "AND IFNULL(si.custom_reference_number,'') LIKE 'CATH%%' "
-    "AND IFNULL(sii.sales_order,'')!='') inv ON inv.so=so.name")
+    "AND IFNULL(sii.sales_order,'')!='' GROUP BY sii.sales_order) inv ON inv.so=so.name")
 _COLLECTED = "(IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' OR inv.so IS NOT NULL)"
 _NOTCOLL = "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' AND inv.so IS NULL"
 # Flags orders that have a submitted return Delivery Note (goods physically back).
@@ -188,7 +188,8 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
     rows = frappe.db.sql(
         f"""SELECT so.name, so.customer, so.grand_total AS value, so.transaction_date AS date,
                    so.custom_track_shipment_status AS track, so.custom_tracking_company AS carrier,
-                   so.custom_shipping_city AS city, so.custom_reference_number AS reference
+                   so.custom_shipping_city AS city,
+                   COALESCE(NULLIF(so.custom_reference_number,''), inv.ref) AS reference
             FROM `tabSales Order` so {join} WHERE {where}
             ORDER BY so.transaction_date DESC, so.creation DESC LIMIT %(limit)s""",
         params, as_dict=True)
