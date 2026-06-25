@@ -136,7 +136,7 @@ def cod_summary(company=None, from_date=None, to_date=None):
     for r in rows:
         if r.bucket in out:
             out[r.bucket] = {"count": r.n or 0, "value": flt(r.val)}
-    frappe.cache().set_value(ck, out, expires_in_sec=120)
+    frappe.cache().set_value(ck, out, expires_in_sec=300)
     return out
 
 
@@ -188,17 +188,22 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
     # the return-DN join is needed by all except 'collected'.
     join = _INV_JOIN + ("" if bucket == "collected" else " " + _RET_JOIN)
 
-    tot = frappe.db.sql(
-        f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so {join} WHERE {where}",
-        params, as_dict=True)[0]
+    # One pass: window functions give the full count + value alongside the page
+    # of rows, so the heavy join materialises once instead of twice.
     rows = frappe.db.sql(
         f"""SELECT so.name, so.customer, so.grand_total AS value, so.transaction_date AS date,
                    so.custom_track_shipment_status AS track, so.custom_tracking_company AS carrier,
                    so.custom_shipping_city AS city,
-                   COALESCE(NULLIF(so.custom_reference_number,''), inv.ref) AS reference
+                   COALESCE(NULLIF(so.custom_reference_number,''), inv.ref) AS reference,
+                   COUNT(*) OVER() AS _cnt, ROUND(SUM(so.grand_total) OVER()) AS _val
             FROM `tabSales Order` so {join} WHERE {where}
             ORDER BY so.transaction_date DESC, so.creation DESC LIMIT %(limit)s""",
         params, as_dict=True)
+    tot_n = rows[0]["_cnt"] if rows else 0
+    tot_val = rows[0]["_val"] if rows else 0
+    for r in rows:
+        r.pop("_cnt", None)
+        r.pop("_val", None)
     from accounting_portal.api.customers import _cities_for
     missing = list({r["customer"] for r in rows if not (r.get("city") or "").strip()})
     cities = _cities_for(missing) if missing else {}
@@ -212,9 +217,9 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
         r["return_shipment"] = ri.get("shipment") or ""
         r["return_status"] = ri.get("status") or ""
         r["returned_on"] = ri.get("date") or ""
-    result = {"count": tot.n or 0, "value": flt(tot.val), "rows": rows}
+    result = {"count": tot_n or 0, "value": flt(tot_val), "rows": rows}
     if ck:
-        frappe.cache().set_value(ck, result, expires_in_sec=120)
+        frappe.cache().set_value(ck, result, expires_in_sec=300)
     return result
 
 
