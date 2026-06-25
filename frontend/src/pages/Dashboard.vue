@@ -5,6 +5,19 @@
   <div v-else class="space-y-3.5">
     <DashboardSkeleton v-if="!loaded" />
     <template v-else>
+    <!-- Period filter (scopes the flow metrics; balances stay current) -->
+    <div class="flex items-center gap-1.5 flex-wrap">
+      <Icon name="clock" :size="14" color="#a8a29e" />
+      <button v-for="p in DATE_PRESETS" :key="p.key" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
+              :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'" @click="setPreset(p.key)">{{ p.label() }}</button>
+      <div v-if="datePreset === 'range'" class="flex items-center gap-1">
+        <input type="date" v-model="customFrom" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        <span class="text-ink-muted text-[11px]">→</span>
+        <input type="date" v-model="customTo" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+      </div>
+      <span class="text-[11px] text-ink-muted ms-1 tnum">{{ periodLabel }}</span>
+    </div>
+
     <!-- Entity banner (non-Morocco) — shown first to set context -->
     <div v-if="vm.entityBanner" class="rounded-[14px] p-4 border" style="background:#fffbeb;border-color:#fde68a">
       <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -376,24 +389,52 @@ const cockpit = ref(null);
 const isLive = ref(null);
 const loaded = ref(false);
 // Show a skeleton until the live cockpit resolves — no flash of sample/fake data.
+// Period filter — scopes the flow metrics; default = current month.
+const datePreset = ref("month");
+const customFrom = ref("");
+const customTo = ref("");
+const pad = (n) => String(n).padStart(2, "0");
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const currentRange = computed(() => {
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  switch (datePreset.value) {
+    case "month": return { from: iso(new Date(y, m, 1)), to: iso(now) };
+    case "lastmonth": return { from: iso(new Date(y, m - 1, 1)), to: iso(new Date(y, m, 0)) };
+    case "quarter": return { from: iso(new Date(y, Math.floor(m / 3) * 3, 1)), to: iso(now) };
+    case "year": return { from: `${y}-01-01`, to: iso(now) };
+    case "range": return { from: customFrom.value, to: customTo.value };
+    default: return {};
+  }
+});
+
 const cc = ref(null);
 async function load() {
   loaded.value = false;
   // Fire both heavy aggregates concurrently (don't serialize 8s + 1s).
   const ccP = api.call("accounting_portal.api.dashboard.command_center", { company: currentCompany() }).catch(() => null);
   try {
-    cockpit.value = await loadCockpit(); isLive.value = !!(cockpit.value && cockpit.value.company);
+    cockpit.value = await loadCockpit(currentRange.value); isLive.value = !!(cockpit.value && cockpit.value.company);
     cc.value = await ccP;
   }
   finally { loaded.value = true; }
 }
 watch(entityId, load, { immediate: true });
+function setPreset(k) { datePreset.value = k; if (k !== "range") load(); }
+function applyRange() { if (customFrom.value && customTo.value) load(); }
 
 const vm = computed(() => overlayCockpit(buildDashVM(locale.value, entityId.value), cockpit.value, locale.value));
 const asOf = computed(() => cockpit.value?.as_of || "");
 
 // COD control-tower sections read the live cockpit directly.
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const DATE_PRESETS = [
+  { key: "month", label: () => L("This month", "هذا الشهر", "Ce mois") },
+  { key: "lastmonth", label: () => L("Last month", "الشهر الماضي", "Mois dernier") },
+  { key: "quarter", label: () => L("This quarter", "هذا الربع", "Ce trimestre") },
+  { key: "year", label: () => L("This year", "هذه السنة", "Cette année") },
+  { key: "range", label: () => L("Range", "نطاق", "Plage") },
+];
+const periodLabel = computed(() => { const r = currentRange.value; return r.from ? `${r.from} → ${r.to}` : ""; });
 const cod = computed(() => cockpit.value || {});
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };

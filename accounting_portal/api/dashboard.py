@@ -169,8 +169,12 @@ def get_recent_entries(limit=20, company=None):
 
 
 @frappe.whitelist()
-def get_cod_cockpit(company=None):
+def get_cod_cockpit(company=None, from_date=None, to_date=None):
     """Entity-scoped COD financial cockpit (the Dashboard hero) — all live.
+
+    from_date/to_date scope the FLOW metrics (collections, channels, cash-flow,
+    pipeline funnel, procurement); default is the current month. Point-in-time
+    balances (cash on hand, receivable, payable, carrier float) stay as-of-now.
 
     Defaults to the first allowed company (Justyol Morocco for the team). Every
     figure is month-to-date off Bank/Cash GL movement, scoped to one company,
@@ -192,14 +196,16 @@ def get_cod_cockpit(company=None):
     if not companies:
         return {}
     target = company if (company and company in companies) else companies[0]
+    period_start = from_date or _month_start()
+    period_end = to_date or nowdate()
     # Heavy aggregate (≈8s uncached) — serve from a short-lived cache so the
     # dashboard is instant. Busted on any portal write via _bust_cockpit_cache.
-    ck = f"ap_cockpit:{target}"
+    ck = f"ap_cockpit:{target}:{period_start}:{period_end}"
     cached = frappe.cache().get_value(ck)
     if cached is not None:
         return cached
     currency = frappe.db.get_value("Company", target, "default_currency")
-    month_start = _month_start()
+    month_start = period_start
 
     # Month-to-date Bank/Cash movement, per account → channels + totals.
     chan = frappe.db.sql(
@@ -210,11 +216,11 @@ def get_cod_cockpit(company=None):
         JOIN `tabAccount` acc ON acc.name = gl.account
         WHERE gl.is_cancelled = 0 AND gl.company = %s
           AND acc.account_type IN ('Bank', 'Cash')
-          AND gl.posting_date >= %s
+          AND gl.posting_date >= %s AND gl.posting_date <= %s
         GROUP BY gl.account
         ORDER BY cash_in DESC
         """,
-        (target, month_start),
+        (target, period_start, period_end),
         as_dict=True,
     )
     collected = sum(flt(r.cash_in) for r in chan)
@@ -240,10 +246,10 @@ def get_cod_cockpit(company=None):
         JOIN `tabAccount` acc ON acc.name = gl.account
         WHERE gl.is_cancelled = 0 AND gl.company = %s
           AND acc.account_type IN ('Bank', 'Cash')
-          AND gl.posting_date >= %s
+          AND gl.posting_date >= %s AND gl.posting_date <= %s
         GROUP BY day ORDER BY day
         """,
-        (target, month_start),
+        (target, period_start, period_end),
         as_dict=True,
     )
     cash_flow = [{"day": r.day, "in": flt(r.cin), "out": flt(r.cout)} for r in flow]
@@ -282,7 +288,7 @@ def get_cod_cockpit(company=None):
     pipeline, carrier_float, reconciled_pct, returns_exposure, cohort = {}, 0.0, 0.0, 0.0, []
     try:
         from accounting_portal.api import cod as _cod
-        pipeline = _cod.cod_summary(target) or {}
+        pipeline = _cod.cod_summary(target, period_start, period_end) or {}
         coll_v = flt((pipeline.get("collected") or {}).get("value"))
         deliv_v = flt((pipeline.get("delivered") or {}).get("value"))
         carrier_float = deliv_v                                  # delivered, cash not yet reconciled
@@ -301,7 +307,7 @@ def get_cod_cockpit(company=None):
     purchases = {}
     try:
         from accounting_portal.api import purchases as _pur
-        purchases = _pur.purchases_summary(target) or {}
+        purchases = _pur.purchases_summary(target, period_start, period_end) or {}
     except Exception:
         pass
     # Cheques due — supplier cheques clearing within 7 days (cash-out heads-up).
@@ -330,6 +336,7 @@ def get_cod_cockpit(company=None):
     result = {
         "company": target, "currency": currency,
         "as_of": nowdate(), "month_start": month_start,
+        "period_start": period_start, "period_end": period_end,
         "cash_on_hand": bank_balance + cash_balance,
         "bank_balance": bank_balance, "cash_balance": cash_balance,
         "cash_collected_mtd": collected, "paid_out_mtd": paid_out,

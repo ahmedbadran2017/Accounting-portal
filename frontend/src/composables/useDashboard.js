@@ -128,9 +128,12 @@ export function overlayCockpit(base, d, l = "en") {
 }
 
 export function useDashboard() {
-  async function loadCockpit() {
+  async function loadCockpit(range) {
     try {
-      const d = await api.call("accounting_portal.api.dashboard.get_cod_cockpit", { company: currentCompany() });
+      const args = { company: currentCompany() };
+      if (range && range.from) args.from_date = range.from;
+      if (range && range.to) args.to_date = range.to;
+      const d = await api.call("accounting_portal.api.dashboard.get_cod_cockpit", args);
       return d && d.company ? d : null;
     } catch {
       return null;
