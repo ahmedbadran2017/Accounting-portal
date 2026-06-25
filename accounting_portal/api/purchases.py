@@ -41,7 +41,8 @@ def list_bills(company=None, search=None, limit=100):
         params["s"] = f"%{search}%"
     rows = frappe.db.sql(
         f"""
-        SELECT pi.name, pi.supplier, pi.grand_total, pi.is_return, pi.status,
+        SELECT pi.name, pi.supplier, pi.grand_total, pi.base_grand_total,
+               pi.currency AS doc_currency, pi.is_return, pi.status,
                pi.posting_date AS date, pi.bill_no,
                (SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name) AS n_items,
                (SELECT COUNT(*) FROM `tabPurchase Invoice Item` it
@@ -54,11 +55,16 @@ def list_bills(company=None, search=None, limit=100):
         params, as_dict=True,
     )
     for r in rows:
-        r["currency"] = currency
+        # Each bill shows its OWN transaction currency (USD/TRY suppliers), not the
+        # company default — otherwise a USD bill reads as "MAD <usd amount>".
+        r["currency"] = r.get("doc_currency") or currency
+        r["base_currency"] = currency
         r["status_norm"] = _bill_status(r)
         # 3-way matched when every line ties back to a PO; else a match exception.
         r["match"] = "ok" if (r["n_items"] and r["n_po"] == r["n_items"]) else "exc"
         r["amount"] = flt(r["grand_total"]) * (-1 if r["is_return"] else 1)
+        # Base-currency amount (company currency) for any cross-bill totals.
+        r["base_amount"] = flt(r["base_grand_total"]) * (-1 if r["is_return"] else 1)
     return rows
 
 
@@ -199,12 +205,15 @@ def _fy_start():
 
 
 # bucket -> (doctype, condition, date field, due field, value expr, has_return)
+# Value exprs are in COMPANY (base) currency so cross-document sums are valid for
+# USD/TRY suppliers: base_grand_total for PO/PR/paid; outstanding_amount is already
+# stored in company currency.
 _PURCH = {
-    "tobuy":    ("Purchase Order",   "per_received < 100",                                          "transaction_date", "schedule_date", "grand_total",       False),
-    "received": ("Purchase Receipt", "per_billed < 100",                                            "posting_date",     "NULL",          "grand_total",       True),
+    "tobuy":    ("Purchase Order",   "per_received < 100",                                          "transaction_date", "schedule_date", "base_grand_total",   False),
+    "received": ("Purchase Receipt", "per_billed < 100",                                            "posting_date",     "NULL",          "base_grand_total",   True),
     "billed":   ("Purchase Invoice", "outstanding_amount > 0 AND due_date > CURDATE()",             "posting_date",     "due_date",      "outstanding_amount", True),
     "topay":    ("Purchase Invoice", "outstanding_amount > 0 AND (due_date <= CURDATE() OR due_date IS NULL)", "posting_date", "due_date", "outstanding_amount", True),
-    "paid":     ("Purchase Invoice", "outstanding_amount <= 0",                                     "posting_date",     "due_date",      "grand_total",       True),
+    "paid":     ("Purchase Invoice", "outstanding_amount <= 0",                                     "posting_date",     "due_date",      "base_grand_total",   True),
 }
 PURCH_BUCKETS = ("tobuy", "received", "billed", "topay", "paid")
 
@@ -241,6 +250,7 @@ def purchases_summary(company=None, from_date=None, to_date=None):
         r = frappe.db.sql(f"SELECT COUNT(*) n, ROUND(SUM({val})) val FROM `tab{dt}` WHERE {where}",
                           params, as_dict=True)[0]
         out[b] = {"count": r.n or 0, "value": flt(r.val)}
+    out["currency"] = frappe.db.get_value("Company", target, "default_currency") or "MAD"
     frappe.cache().set_value(ck, out, expires_in_sec=300)
     return out
 
@@ -264,7 +274,7 @@ def list_purchase_bucket(company=None, bucket="topay", search=None, from_date=No
     order_by = "due ASC" if bucket in ("billed", "topay") else f"{date_f} DESC"
     rows = frappe.db.sql(
         f"""SELECT name, supplier, IFNULL(supplier_name, supplier) AS supplier_name,
-                   {date_f} AS date, {due_f} AS due, grand_total AS value,
+                   {date_f} AS date, {due_f} AS due, {val} AS value,
                    {prog} AS progress, status,
                    COUNT(*) OVER() AS _cnt, ROUND(SUM({val}) OVER()) AS _val
             FROM `tab{dt}` WHERE {where}
@@ -280,7 +290,8 @@ def list_purchase_bucket(company=None, bucket="topay", search=None, from_date=No
         r["due"] = str(r.get("due") or "") if r.get("due") else ""
         r["bucket"] = bucket
         r["method"] = methods.get(r["name"], "")
-    return {"count": cnt or 0, "value": flt(total), "rows": rows}
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    return {"count": cnt or 0, "value": flt(total), "currency": ccy, "rows": rows}
 
 
 def _pi_methods(names):

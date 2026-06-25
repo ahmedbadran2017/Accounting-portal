@@ -16,7 +16,7 @@
             <div class="text-[24px] font-extrabold tnum leading-tight tracking-tight" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ cardCount(b.key).toLocaleString() }}</div>
           </div>
         </div>
-        <div class="relative mt-2 text-[11px] text-ink-3 font-semibold tnum">{{ money(cardValue(b.key)) }} <span class="text-ink-muted font-normal">MAD</span></div>
+        <div class="relative mt-2 text-[11px] text-ink-3 font-semibold tnum">{{ money(cardValue(b.key)) }} <span class="text-ink-muted font-normal">{{ ccy }}</span></div>
         <div class="relative mt-1 text-[10px] text-ink-muted">{{ b.hint() }}</div>
       </button>
     </div>
@@ -97,7 +97,7 @@
       <div v-if="selected.size" class="fixed bottom-5 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
         <div class="pointer-events-auto bg-ink text-white rounded-[14px] shadow-xl flex items-center gap-3 ps-4 pe-2 py-2 max-w-full">
           <span class="text-[12.5px] font-bold">{{ selected.size }} {{ L("selected","محدد","sél.") }}</span>
-          <span class="text-[12px] text-white/70 tnum">{{ fmt(selTotal) }} MAD</span>
+          <span class="text-[12px] text-white/70 tnum">{{ fmt(selTotal) }} {{ ccy }}</span>
           <span v-if="selSupplier" class="text-[11px] text-white/60 truncate max-w-[160px]">· {{ selSupplier }}</span>
           <span v-if="!sameSupplier" class="text-[11px] font-semibold text-amber-300">{{ L("mixed suppliers — pick one","موردون مختلفون","fournisseurs mixtes") }}</span>
           <button @click="clearSel" class="text-[11px] text-white/60 hover:text-white px-1.5">{{ L("clear","مسح","effacer") }}</button>
@@ -115,7 +115,7 @@
           <span class="w-8 h-8 rounded-[9px] grid place-items-center" :style="{ background: groupMode === 'bill' ? '#ecfeff' : '#ecfdf5' }"><Icon :name="groupMode === 'bill' ? 'doc' : 'wallet'" :size="16" :color="groupMode === 'bill' ? '#0891b2' : '#047857'" /></span>
           <div>
             <div class="text-[14px] font-bold">{{ groupMode === "bill" ? L("Bill together","افوترهم معًا","Facturer ensemble") : L("Pay together","ادفعهم معًا","Payer ensemble") }}</div>
-            <div class="text-[11px] text-ink-muted">{{ selected.size }} {{ groupMode === "bill" ? L("receipts","إيصال","réceptions") : L("bills","فاتورة","factures") }} · {{ selSupplier }} · {{ fmt(selTotal) }} MAD</div>
+            <div class="text-[11px] text-ink-muted">{{ selected.size }} {{ groupMode === "bill" ? L("receipts","إيصال","réceptions") : L("bills","فاتورة","factures") }} · {{ selSupplier }} · {{ fmt(selTotal) }} {{ ccy }}</div>
           </div>
         </div>
         <template v-if="groupMode === 'pay'">
@@ -228,6 +228,7 @@ const tt = useTableTools(rows, cols, { defaultSort: "value", defaultDir: -1, acc
 const dateScope = computed(() => { if (datePreset.value === "all") return ""; const p = DATE_PRESETS.find((x) => x.key === datePreset.value); return p ? p.label() : ""; });
 function cardCount(k) { return (sum.value[k] && sum.value[k].count) || 0; }
 function cardValue(k) { return (sum.value[k] && sum.value[k].value) || 0; }
+const ccy = computed(() => sum.value.currency || "MAD");
 
 function bounds(key) {
   const iso = (d) => d.toISOString().slice(0, 10);
