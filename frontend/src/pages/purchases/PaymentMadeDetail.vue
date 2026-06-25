@@ -30,6 +30,9 @@
           <span class="text-ink-muted">{{ L("Paid from", "مدفوع من", "Payé depuis") }}</span>
           <span class="font-semibold text-ink-2">{{ d.paid_from }}</span>
           <span v-if="d.unallocated > 0" class="ms-2 text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unallocated", "غير مخصص", "non affecté") }} {{ fmt(d.unallocated) }}</span>
+          <button v-if="d.unallocated > 0" @click="openMatch" class="ms-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim">
+            <Icon name="scale" :size="12" color="#fff" />{{ L("Match to bills", "طابق بالفواتير", "Affecter") }}
+          </button>
         </div>
       </div>
 
@@ -71,26 +74,87 @@
         </div>
       </div>
     </template>
+
+    <!-- Advance matching modal -->
+    <div v-if="matchOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="matchOpen = false">
+      <div class="bg-white rounded-card shadow-xl w-full max-w-lg p-5 space-y-3.5 max-h-[85vh] flex flex-col">
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span class="w-8 h-8 rounded-[9px] grid place-items-center" style="background:#ecfdf5"><Icon name="scale" :size="16" color="#0b5c4f" /></span>
+          <div>
+            <div class="text-[14px] font-bold">{{ L("Match advance to bills", "طابق المقدّم بالفواتير", "Affecter l'avance") }}</div>
+            <div class="text-[11px] text-ink-muted">{{ match.party_name }} · {{ L("available", "متاح", "dispo") }} <b class="text-accent-dark">{{ fmt(remaining) }} {{ match.currency }}</b></div>
+          </div>
+        </div>
+        <div v-if="matchLoading" class="py-6"><TableLoading :rows="4" /></div>
+        <div v-else-if="!match.bills.length" class="py-8 text-center text-[12px] text-ink-muted">{{ L("No open bills for this supplier.", "لا فواتير مفتوحة لهذا المورّد.", "Aucune facture ouverte.") }}</div>
+        <div v-else class="overflow-y-auto -mx-1 px-1 flex-1">
+          <div v-for="b in match.bills" :key="b.name" class="flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] border mb-1.5 cursor-pointer" :class="picked.has(b.name) ? 'border-accent/40 bg-accent/5' : 'border-line-2 hover:bg-app-warm/50'" @click="togglePick(b)">
+            <input type="checkbox" :checked="picked.has(b.name)" class="accent-accent w-3.5 h-3.5" @click.stop="togglePick(b)" />
+            <div class="flex-1 min-w-0">
+              <div class="text-[12px] font-mono font-semibold">{{ b.name }}</div>
+              <div class="text-[10.5px] text-ink-muted">{{ b.date }}<span v-if="b.due_date"> · {{ L("due", "استحقاق", "éch.") }} {{ b.due_date }}</span></div>
+            </div>
+            <span class="tnum font-bold text-[12px] text-sale">{{ fmt(b.outstanding) }}</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-1 border-t border-line-hair flex-shrink-0">
+          <div class="text-[11px]"><span class="text-ink-muted">{{ L("Selected", "محدد", "Sél.") }}</span> <b class="tnum">{{ fmt(pickedTotal) }}</b> / {{ fmt(match.unallocated) }} {{ match.currency }}</div>
+          <div class="flex gap-2">
+            <button @click="matchOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
+            <button @click="confirmMatch" :disabled="posting || !picked.size" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50 bg-accent">{{ posting ? L("Applying…", "جارٍ…", "…") : L("Apply", "طبّق", "Affecter") }}</button>
+          </div>
+        </div>
+        <p class="text-[10px] text-ink-muted flex-shrink-0">{{ L("Allocates oldest-due first; over-selection is fine (only the available amount is applied).", "يُخصّص للأقدم استحقاقًا أولًا.", "Affecte au plus ancien d'abord.") }}</p>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { useToast } from "@/composables/useToast";
 
 const route = useRoute();
 const router = useRouter();
 const { locale } = useI18n();
+const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const d = ref(null);
 const loading = ref(true);
+
+// ── Advance matching ──
+const matchOpen = ref(false);
+const matchLoading = ref(false);
+const posting = ref(false);
+const match = ref({ party_name: "", unallocated: 0, currency: "MAD", bills: [] });
+const picked = ref(new Set());
+const pickedTotal = computed(() => match.value.bills.filter((b) => picked.value.has(b.name)).reduce((a, b) => a + Number(b.outstanding || 0), 0));
+const remaining = computed(() => Math.max(0, Number(match.value.unallocated || 0) - pickedTotal.value));
+function togglePick(b) { const s = new Set(picked.value); s.has(b.name) ? s.delete(b.name) : s.add(b.name); picked.value = s; }
+async function openMatch() {
+  matchOpen.value = true; matchLoading.value = true; picked.value = new Set();
+  try { match.value = await api.call("accounting_portal.api.purchases.advance_match_options", { company: currentCompany(), payment: d.value.name }); }
+  catch { match.value = { party_name: "", unallocated: 0, currency: "MAD", bills: [] }; }
+  finally { matchLoading.value = false; }
+}
+async function confirmMatch() {
+  posting.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.purchases.apply_advance", { company: currentCompany(), payment: d.value.name, invoices: [...picked.value] });
+    matchOpen.value = false;
+    if (res && res.status === "Proposed") toast.info(L("Sent for approval", "أُرسل للموافقة", "Envoyé pour approbation"));
+    else { toast.success(L("Advance applied", "تم تطبيق المقدّم", "Avance affectée")); load(); }
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
+  finally { posting.value = false; }
+}
 
 function back() { router.push("/accounting/purchases/payments"); }
 function openBill(r) {

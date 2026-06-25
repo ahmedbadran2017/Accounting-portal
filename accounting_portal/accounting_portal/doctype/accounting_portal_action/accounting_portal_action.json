@@ -32,7 +32,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Action Type",
-   "options": "Record Payment\nCreate Sales Order\nSales Return\nCollect COD\nMake Receipt\nMake Invoice\nPay Bill\nGroup Pay\nGroup Bill\nBulk Submit\nBulk Cancel\nClear Cheque\nMatch Remittance\nReconcile COD\nPost Correction\nClear GRNI\nReclassify\nAdjust Inventory\nOther",
+   "options": "Record Payment\nCreate Sales Order\nSales Return\nCollect COD\nMake Receipt\nMake Invoice\nPay Bill\nGroup Pay\nGroup Bill\nBulk Submit\nBulk Cancel\nClear Cheque\nMatch Advance\nMatch Remittance\nReconcile COD\nPost Correction\nClear GRNI\nReclassify\nAdjust Inventory\nOther",
    "reqd": 1
   },
   {

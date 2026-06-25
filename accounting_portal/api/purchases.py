@@ -746,3 +746,86 @@ def mark_cheques_cleared(company=None, names=None, clearance_date=None):
                            notes=f"Cleared {len(names)} cheque(s) on {date}")
     _bust_purch_cache()
     return res
+
+
+# ── Advance matching: apply an unallocated supplier payment to open bills ──
+MATCH_ADV_ACTION = "Match Advance"
+
+
+def _match_advance_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    pe = frappe.get_doc("Payment Entry", p["payment"])
+    inv_names = set(p["invoices"])
+    pr = frappe.get_doc({"doctype": "Payment Reconciliation", "company": pe.company,
+                         "party_type": "Supplier", "party": pe.party,
+                         "receivable_payable_account": pe.paid_to})
+    pr.get_unreconciled_entries()
+    invs = [x.as_dict() for x in pr.invoices if x.invoice_number in inv_names]
+    pays = [x.as_dict() for x in pr.payments if x.reference_name == p["payment"]]
+    if not invs or not pays:
+        frappe.throw("Nothing left to reconcile (already applied?)")
+    pr.allocate_entries({"invoices": invs, "payments": pays})
+    pr.reconcile()
+    return {"voucher_type": "Payment Entry", "voucher_no": p["payment"],
+            "result": {"payment": p["payment"], "invoices": sorted(inv_names), "n": len(inv_names)}}
+
+
+_actions.register_poster(MATCH_ADV_ACTION, _match_advance_poster)
+
+
+@frappe.whitelist()
+def advance_match_options(company=None, payment=None):
+    """An unallocated supplier advance + the supplier's open bills to apply it to."""
+    assert_portal_access()
+    target = _target(company)
+    pe = frappe.db.get_value("Payment Entry", payment,
+                             ["party", "party_name", "paid_to", "unallocated_amount", "company",
+                              "payment_type", "party_type", "paid_from_account_currency"], as_dict=True)
+    if not pe or pe.company != target or pe.payment_type != "Pay" or pe.party_type != "Supplier":
+        frappe.throw("Not a supplier advance for this company")
+    bills = frappe.db.sql(
+        """SELECT name, posting_date AS date, due_date, ROUND(outstanding_amount,2) AS outstanding,
+                  ROUND(grand_total,2) AS total
+           FROM `tabPurchase Invoice`
+           WHERE company=%s AND supplier=%s AND docstatus=1 AND IFNULL(is_return,0)=0 AND outstanding_amount>0
+           ORDER BY due_date ASC, posting_date ASC LIMIT 100""", (target, pe.party), as_dict=True)
+    for b in bills:
+        b["outstanding"] = flt(b["outstanding"]); b["total"] = flt(b["total"])
+        b["date"] = str(b.get("date") or ""); b["due_date"] = str(b.get("due_date") or "")
+    return {"payment": payment, "party": pe.party, "party_name": pe.party_name or pe.party,
+            "unallocated": flt(pe.unallocated_amount), "currency": pe.paid_from_account_currency or "MAD",
+            "bills": bills}
+
+
+@frappe.whitelist()
+def apply_advance(company=None, payment=None, invoices=None, dedupe_key=None):
+    """Reconcile an unallocated supplier payment against selected open bills
+    (ERPNext Payment Reconciliation), through the gated/audited engine."""
+    assert_can_write()
+    target = _target(company)
+    names = invoices if isinstance(invoices, list) else json.loads(invoices or "[]")
+    names = [n for n in names if n]
+    pe = frappe.db.get_value("Payment Entry", payment,
+                             ["party", "company", "unallocated_amount", "payment_type", "party_type"], as_dict=True)
+    if not pe or pe.company != target:
+        frappe.throw("Payment not found")
+    if pe.payment_type != "Pay" or pe.party_type != "Supplier":
+        frappe.throw("Not a supplier payment")
+    if flt(pe.unallocated_amount) <= 0:
+        frappe.throw("This payment has nothing left to allocate")
+    if not names:
+        frappe.throw("Select at least one bill")
+    rows = frappe.db.sql("SELECT name, supplier, company FROM `tabPurchase Invoice` WHERE name IN %(n)s",
+                         {"n": tuple(names)}, as_dict=True)
+    if len(rows) != len(names):
+        frappe.throw("Some bills were not found")
+    for r in rows:
+        if r.company != target or r.supplier != pe.party:
+            frappe.throw(f"{r.name} is not an open bill for this supplier")
+    key = dedupe_key or "matchadv:" + frappe.generate_hash(payment + "".join(sorted(names)), 16)
+    res = _actions.execute(
+        MATCH_ADV_ACTION, target, key, payload={"payment": payment, "invoices": sorted(names)},
+        amount=flt(pe.unallocated_amount), reference_doctype="Payment Entry", reference_name=payment,
+        notes=f"Apply advance {payment} to {len(names)} bill(s)")
+    _bust_purch_cache()
+    return res
