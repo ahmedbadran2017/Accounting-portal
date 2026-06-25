@@ -60,7 +60,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70">
+            <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.name)">
               <td v-show="!tt.hidden.value.has('name')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}</td>
               <td v-show="!tt.hidden.value.has('supplier_name')" class="px-4 py-2.5 truncate max-w-[200px]">{{ o.supplier_name }}</td>
               <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
@@ -206,4 +206,5 @@ watch([dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(() => 
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
 
 function goBucket(k) { router.push(`/accounting/purchases/${k}`); }
+function open(name) { router.push({ path: `/accounting/purchases/${bucket.value}`, query: { id: name } }); }
 </script>

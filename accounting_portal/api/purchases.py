@@ -290,3 +290,51 @@ def _pi_methods(names):
            GROUP BY per.reference_name""",
         {"n": tuple(names)}, as_dict=True)
     return {r.inv: r.method for r in rows}
+
+
+def _linked(child_dt, field, value):
+    return [r.parent for r in frappe.db.sql(
+        f"SELECT DISTINCT parent FROM `tab{child_dt}` WHERE {field}=%s AND IFNULL(parent,'')!=''",
+        value, as_dict=True)]
+
+
+@frappe.whitelist()
+def get_purchase_doc(name=None, doctype=None):
+    """One procure-to-pay document (PO / PR / Invoice) — header, lines, the docs
+    it links to up- and down-stream, and its GL lines."""
+    assert_portal_access()
+    dt = doctype if doctype in ("Purchase Order", "Purchase Receipt", "Purchase Invoice") else None
+    if not dt or not name or not frappe.db.exists(dt, name):
+        return None
+    doc = frappe.get_doc(dt, name)
+    items = [{"item_code": it.item_code, "item_name": it.get("item_name") or it.item_code,
+              "qty": flt(it.qty), "rate": flt(it.rate), "amount": flt(it.amount)} for it in doc.items[:200]]
+    header = {
+        "name": doc.name, "doctype": dt, "supplier": doc.supplier,
+        "supplier_name": doc.get("supplier_name") or doc.supplier,
+        "date": str(doc.get("posting_date") or doc.get("transaction_date") or ""),
+        "due": str(doc.get("due_date") or doc.get("schedule_date") or ""),
+        "status": doc.get("status") or "", "net": flt(doc.get("net_total")),
+        "tax": flt(doc.get("total_taxes_and_charges")), "grand": flt(doc.grand_total),
+        "outstanding": flt(doc.get("outstanding_amount")),
+        "per_received": flt(doc.get("per_received")), "per_billed": flt(doc.get("per_billed")),
+        "currency": doc.get("currency") or "MAD",
+    }
+    conn = {"orders": [], "receipts": [], "invoices": [], "payments": []}
+    if dt == "Purchase Order":
+        conn["receipts"] = _linked("Purchase Receipt Item", "purchase_order", name)
+        conn["invoices"] = _linked("Purchase Invoice Item", "purchase_order", name)
+    elif dt == "Purchase Receipt":
+        conn["orders"] = sorted({it.get("purchase_order") for it in doc.items if it.get("purchase_order")})
+        conn["invoices"] = _linked("Purchase Invoice Item", "purchase_receipt", name)
+    elif dt == "Purchase Invoice":
+        conn["orders"] = sorted({it.get("purchase_order") for it in doc.items if it.get("purchase_order")})
+        conn["receipts"] = sorted({it.get("purchase_receipt") for it in doc.items if it.get("purchase_receipt")})
+        conn["payments"] = [r.parent for r in frappe.db.sql(
+            "SELECT DISTINCT parent FROM `tabPayment Entry Reference` "
+            "WHERE reference_doctype='Purchase Invoice' AND reference_name=%s", name, as_dict=True)]
+    gl = frappe.db.sql(
+        "SELECT a.account_name AS name, ge.account, ROUND(ge.debit) dr, ROUND(ge.credit) cr "
+        "FROM `tabGL Entry` ge JOIN `tabAccount` a ON a.name=ge.account "
+        "WHERE ge.voucher_no=%s AND ge.is_cancelled=0 ORDER BY ge.debit DESC", name, as_dict=True)
+    return {"header": header, "items": items, "connections": conn, "gl": gl}
