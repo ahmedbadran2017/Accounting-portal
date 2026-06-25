@@ -18,7 +18,7 @@
     "consolidation": "Consolidation"
   },
   "sub": {
-    "customers": "Clients", "orders": "Commandes", "todeliver": "À livrer", "delivered": "Livrées", "collected": "Encaissées", "toreturn": "À retourner", "returned": "Retournées", "challans": "Bons de livraison",
+    "customers": "Clients", "orders": "Commandes", "todeliver": "À livrer", "delivered": "Livrées", "collected": "Encaissées", "toreturn": "À retourner", "returned": "Retournées", "challans": "Bons de livraison", "tobill": "À facturer",
     "invoices": "Factures", "receipts": "Reçus", "payments_in": "Paiements reçus", "credits": "Avoirs",
     "vendors": "Fournisseurs", "tobuy": "À acheter", "received": "Reçu", "billed": "Facturé", "topay": "À payer", "paid": "Payé", "pos": "Bons de commande", "bills": "Factures", "expenses": "Dépenses",
     "recurring": "Récurrent", "payments_out": "Paiements émis", "cheques": "Chèques", "vcredits": "Avoirs fourn.",

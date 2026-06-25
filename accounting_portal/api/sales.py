@@ -388,6 +388,46 @@ def get_invoice(name):
 
 
 @frappe.whitelist()
+def to_bill_queue(company=None, search=None, limit=300):
+    """Delivered-but-not-invoiced delivery notes — the revenue-recognition gap.
+    Returns the queue + total exposure + aging by days since delivery."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return {"rows": [], "summary": {}}
+    target = company if (company and company in companies) else companies[0]
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    base = "company=%(c)s AND docstatus=1 AND status='To Bill'"
+    params = {"c": target, "limit": min(int(limit or 300), 1000)}
+    where = base
+    if search:
+        where += " AND (name LIKE %(s)s OR customer LIKE %(s)s)"
+        params["s"] = f"%{search}%"
+    rows = frappe.db.sql(
+        f"""SELECT name, customer, posting_date AS date, ROUND(base_grand_total) AS value,
+                   DATEDIFF(CURDATE(), posting_date) AS age,
+                   IFNULL(NULLIF(custom_tracking_company,''),'—') AS carrier
+            FROM `tabDelivery Note` WHERE {where}
+            ORDER BY posting_date ASC LIMIT %(limit)s""", params, as_dict=True)
+    s = frappe.db.sql(
+        f"""SELECT COUNT(*) AS n, ROUND(SUM(base_grand_total)) AS val,
+                   SUM(DATEDIFF(CURDATE(),posting_date)<=7) AS w1,
+                   SUM(DATEDIFF(CURDATE(),posting_date) BETWEEN 8 AND 30) AS w2,
+                   SUM(DATEDIFF(CURDATE(),posting_date) BETWEEN 31 AND 60) AS w3,
+                   SUM(DATEDIFF(CURDATE(),posting_date)>60) AS w4,
+                   ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(),posting_date)>60 THEN base_grand_total ELSE 0 END)) AS val_w4
+            FROM `tabDelivery Note` WHERE {base}""", {"c": target}, as_dict=True)[0]
+    return {
+        "rows": rows,
+        "summary": {
+            "company": target, "currency": ccy, "count": s.n or 0, "value": flt(s.val),
+            "aging": {"w1": s.w1 or 0, "w2": s.w2 or 0, "w3": s.w3 or 0, "w4": s.w4 or 0},
+            "value_over_60": flt(s.val_w4),
+        },
+    }
+
+
+@frappe.whitelist()
 def get_challan(name):
     """One Delivery Note: header, carrier/tracking, line items, linked SO/SI."""
     assert_portal_access()
