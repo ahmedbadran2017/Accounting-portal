@@ -185,13 +185,18 @@ function open(targetSub, id) { router.push({ path: `/accounting/purchases/${targ
 
 async function load() {
   const id = route.query.id;
-  if (!id) return;
+  if (!id) { loading.value = false; return; }
   loading.value = true; d.value = null;
   try { d.value = await api.call("accounting_portal.api.purchases.get_purchase_doc", { name: id, doctype: doctype.value, company: currentCompany() }); }
   catch { d.value = null; }
   finally { loading.value = false; }
+  // Stale / wrong-doctype id (e.g. switched buckets while a detail was open):
+  // fall back to the bucket list instead of sticking on the skeleton.
+  if (!d.value) router.replace({ path: `/accounting/purchases/${sub.value}`, query: {} });
 }
-watch(() => route.query.id, load, { immediate: true });
+// Watch the sub too: switching buckets keeps the same ?id but changes the
+// doctype, so we must re-evaluate (and self-heal) rather than show a stuck page.
+watch([() => route.query.id, () => route.params.sub], load, { immediate: true });
 
 // ── Pipeline actions ──
 const posting = ref(false);
