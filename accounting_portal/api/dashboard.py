@@ -298,6 +298,21 @@ def get_cod_cockpit(company=None):
         purchases = _pur.purchases_summary(target) or {}
     except Exception:
         pass
+    # AR/AP reconciliation headline for the dashboard's books card.
+    arap = {}
+    try:
+        from accounting_portal.api import reports as _rep
+        rec = _rep.ar_ap_reconciliation(target) or {}
+        arap = {
+            "ar_operational": (rec.get("ar") or {}).get("operational", 0),
+            "ar_gl": (rec.get("ar") or {}).get("gl_debtors", 0),
+            "ar_broken": (rec.get("ar") or {}).get("wrong_sign", False),
+            "ap_net": (rec.get("ap") or {}).get("net_invoice", 0),
+            "ap_reconciled": (rec.get("ap") or {}).get("reconciled", False),
+            "working_capital": rec.get("working_capital", 0),
+        }
+    except Exception:
+        pass
 
     return {
         "company": target, "currency": currency,
@@ -310,7 +325,7 @@ def get_cod_cockpit(company=None):
         "channels": channels, "cash_flow": cash_flow,
         "pipeline": pipeline, "carrier_float": carrier_float,
         "reconciled_pct": reconciled_pct, "returns_exposure": returns_exposure,
-        "cohort": cohort, "purchases": purchases,
+        "cohort": cohort, "purchases": purchases, "arap": arap,
     }
 
 

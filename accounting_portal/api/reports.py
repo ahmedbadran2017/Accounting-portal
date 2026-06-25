@@ -323,14 +323,36 @@ def ar_ap_reconciliation(company=None):
         "SELECT SUM(grand_total) FROM `tabPurchase Receipt` "
         "WHERE company=%s AND docstatus=1 AND IFNULL(is_return,0)=0 AND per_billed<100", target)[0][0])
 
+    # Follow-up lists: who we owe most, and where prepaid cash sits unmatched.
+    top_creditors = frappe.db.sql(
+        """SELECT COALESCE(s.supplier_name, g.party) AS name, g.party AS party,
+                  ROUND(SUM(g.credit - g.debit)) AS owed
+           FROM `tabGL Entry` g LEFT JOIN `tabSupplier` s ON s.name = g.party
+           WHERE g.party_type='Supplier' AND g.company=%s AND g.is_cancelled=0
+           GROUP BY g.party HAVING owed > 0 ORDER BY owed DESC LIMIT 6""", target, as_dict=True)
+    top_advances = frappe.db.sql(
+        """SELECT COALESCE(s.supplier_name, pe.party) AS name, pe.party AS party,
+                  COUNT(*) AS n, ROUND(SUM(pe.unallocated_amount)) AS adv
+           FROM `tabPayment Entry` pe LEFT JOIN `tabSupplier` s ON s.name = pe.party
+           WHERE pe.company=%s AND pe.docstatus=1 AND pe.payment_type='Pay'
+             AND pe.party_type='Supplier' AND pe.unallocated_amount>0
+           GROUP BY pe.party ORDER BY adv DESC LIMIT 6""", target, as_dict=True)
+    for r in top_creditors:
+        r["owed"] = flt(r["owed"])
+    for r in top_advances:
+        r["adv"] = flt(r["adv"])
+
     net_invoice = pi_unpaid - advances
     creditors_owed = -gl_creditors  # payable sits as a credit balance
     grni_owed = -gl_grni
+    op_ar = carrier_float + si_outstanding
     out = {
         "company": target,
+        "working_capital": round(op_ar - net_invoice),  # net AR − net AP
         "ar": {
             "carrier_float": carrier_float,        # operational receivable (delivered, not collected)
             "si_outstanding": si_outstanding,      # invoiced & unpaid
+            "operational": op_ar,
             "gl_debtors": gl_debtors,              # book AR
             "wrong_sign": gl_debtors < 0,          # credit balance in a receivable = broken
             "reconciled": False,                   # COD collections unapplied → never ties as-is
@@ -341,6 +363,7 @@ def ar_ap_reconciliation(company=None):
             "grni": grni, "gl_grni": grni_owed, "grni_gap": round(grni - grni_owed),
             "reconciled": abs(net_invoice - creditors_owed) < 0.05 * max(1, abs(creditors_owed)),
         },
+        "top_creditors": top_creditors, "top_advances": top_advances,
         "ar_aging": _aging("Sales Invoice", target),
         "ap_aging": _aging("Purchase Invoice", target),
     }

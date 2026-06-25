@@ -223,6 +223,34 @@
       </button>
     </div>
 
+    <!-- Receivables & Payables reconciliation -->
+    <button v-if="arap && arap.working_capital !== undefined" @click="goArap"
+            class="w-full bg-white rounded-[16px] border border-line p-[17px] shadow-card text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="scale" :size="14" color="#0b5c4f" /></span>
+        <span class="text-[12px] font-bold">{{ L("Receivables & Payables","الذمم المدينة والدائنة","Créances & Dettes") }}</span>
+        <span class="text-[10px] text-ink-muted">{{ L("operational vs book","تشغيلي مقابل دفتري","op. vs comptable") }}</span>
+        <Icon name="arrow" :size="13" color="#a8a29e" class="ms-auto rtl:rotate-180" />
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Receivables","مدينة","Créances") }}</div>
+          <div class="text-[19px] font-extrabold tnum mt-0.5" style="color:#0369a1">{{ money(arap.ar_operational) }}</div>
+          <div v-if="arap.ar_broken" class="text-[9.5px] font-bold text-sale mt-0.5 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-sale"></span>{{ L("GL broken","الـ GL مكسور","GL cassé") }}</div>
+        </div>
+        <div>
+          <div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Payables","دائنة","Dettes") }}</div>
+          <div class="text-[19px] font-extrabold tnum mt-0.5" style="color:#be123c">{{ money(arap.ap_net) }}</div>
+          <div class="text-[9.5px] font-bold mt-0.5 inline-flex items-center gap-1" :style="arap.ap_reconciled ? 'color:#047857' : 'color:#b45309'"><span class="w-1.5 h-1.5 rounded-full" :style="arap.ap_reconciled ? 'background:#047857' : 'background:#b45309'"></span>{{ arap.ap_reconciled ? L("ties to GL","مطابق","concorde") : L("small gap","فرق بسيط","léger écart") }}</div>
+        </div>
+        <div>
+          <div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Working capital","رأس المال العامل","BFR") }}</div>
+          <div class="text-[19px] font-extrabold tnum mt-0.5" :style="{ color: (arap.working_capital || 0) >= 0 ? '#047857' : '#be123c' }">{{ money(arap.working_capital) }}</div>
+          <div class="text-[9.5px] text-ink-muted mt-0.5">{{ L("AR − AP","مدينة − دائنة","AR − AP") }}</div>
+        </div>
+      </div>
+    </button>
+
     <!-- Working capital -->
     <div class="grid sm:grid-cols-2 gap-3.5">
       <div class="relative bg-white rounded-[16px] border border-line p-[17px] shadow-card overflow-hidden transition-all duration-200 hover:shadow-cardHover hover:-translate-y-[2px]">
@@ -346,6 +374,8 @@ const liveDigest = computed(() => {
 function goBucket(k) { router.push(`/accounting/sales/${k}`); }
 function goReport() { router.push("/accounting/reports/salescol"); }
 function goPurch(k) { router.push(`/accounting/purchases/${k}`); }
+function goArap() { router.push("/accounting/reports/arap"); }
+const arap = computed(() => cod.value.arap || {});
 const PROC = [
   { key: "tobuy", color: "#0369a1", tint: "#eff6ff", icon: "cart", label: () => L("Open POs · to buy", "أوامر مفتوحة", "BC ouverts") },
   { key: "received", color: "#b45309", tint: "#fffbeb", icon: "box", label: () => L("GRNI · received not billed", "مُستلم بلا فاتورة", "Reçu non facturé") },
