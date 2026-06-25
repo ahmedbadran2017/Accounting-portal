@@ -93,7 +93,7 @@
       </div>
     </div>
   </div>
-  <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
+  <div v-else-if="loading" class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.loading") }}</div>
 </template>
 
 <script setup>
@@ -117,11 +117,15 @@ const ini = (n) => String(n || "?").trim().split(/\s+/).map((w) => w[0]).slice(0
 const badge = "linear-gradient(135deg,#b45309,#7c2d12)";
 
 const d = ref(null);
+const loading = ref(true);
 async function load() {
   const id = route.query.id;
-  if (!id) { d.value = null; return; }
-  try { d.value = await api.call("accounting_portal.api.purchases.get_supplier", { name: id }); }
-  catch { d.value = { supplier_name: id, group: "—", currency: "MAD", since: "—", payable: 0, stats: { billed: 0, n_bills: 0, outstanding: 0, payable: 0 }, connections: { bills: 0, pos: 0, receipts: 0, payments: 0 }, ledger: [] }; }
+  if (!id) { d.value = null; loading.value = false; return; }
+  loading.value = true;
+  try { d.value = await api.call("accounting_portal.api.purchases.get_supplier", { name: id, company: currentCompany() }); }
+  catch { d.value = null; }
+  finally { loading.value = false; }
+  if (id && !d.value) router.replace("/accounting/purchases/vendors");
 }
 watch(() => [route.query.id, locale.value], load, { immediate: true });
 

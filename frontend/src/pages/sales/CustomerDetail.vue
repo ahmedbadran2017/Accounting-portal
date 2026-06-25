@@ -125,7 +125,7 @@
       </div>
     </div>
   </div>
-  <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
+  <div v-else-if="loading" class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.loading") }}</div>
 </template>
 
 <script setup>
@@ -148,7 +148,13 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const DOCTYPE = "Customer";
 
 const d = ref(null);
-async function load() { d.value = route.query.id ? await loadDetail(route.query.id, locale.value) : null; }
+const loading = ref(true);
+async function load() {
+  loading.value = true;
+  d.value = route.query.id ? await loadDetail(route.query.id, locale.value) : null;
+  loading.value = false;
+  if (route.query.id && !d.value) router.replace("/accounting/sales/customers");
+}
 watch(() => [route.query.id, locale.value], load, { immediate: true });
 
 function go(g) {

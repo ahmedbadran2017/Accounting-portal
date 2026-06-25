@@ -122,7 +122,7 @@
 
     <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
   </div>
-  <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
+  <div v-else-if="loading" class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.loading") }}</div>
 </template>
 
 <script setup>
@@ -150,7 +150,13 @@ const showRefund = ref(false);
 const reason = ref("");
 const busy = ref(false);
 const refundError = ref("");
-async function load() { vm.value = await loadDetail(route.query.id); }
+const loading = ref(true);
+async function load() {
+  loading.value = true;
+  vm.value = await loadDetail(route.query.id);
+  loading.value = false;
+  if (route.query.id && !vm.value) router.replace("/accounting/sales/invoices");
+}
 
 async function createReturn() {
   busy.value = true; refundError.value = "";

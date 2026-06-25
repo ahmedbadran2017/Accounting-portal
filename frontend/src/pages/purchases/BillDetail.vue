@@ -65,7 +65,7 @@
 
     <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
   </div>
-  <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
+  <div v-else-if="loading" class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.loading") }}</div>
 </template>
 
 <script setup>
@@ -86,7 +86,13 @@ const DOCTYPE = "Purchase Invoice";
 
 // Live get_bill (real 3-way match + posted journal) with sample fallback.
 const vm = ref(null);
-async function load() { vm.value = await loadDetail(route.query.id, locale.value); }
+const loading = ref(true);
+async function load() {
+  loading.value = true;
+  vm.value = await loadDetail(route.query.id, locale.value);
+  loading.value = false;
+  if (route.query.id && !vm.value) router.replace("/accounting/purchases/bills");
+}
 watch(() => [route.query.id, locale.value], load, { immediate: true });
 
 const b = computed(() => vm.value?.b || null);
