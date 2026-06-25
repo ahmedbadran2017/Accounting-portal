@@ -94,3 +94,36 @@ def create_journal_entry(company=None, posting_date=None, lines=None, remark=Non
     key = dedupe_key or f"je:{target}:{posting_date}:{round(dr, 2)}:{(remark or '')[:40]}"
     payload = {"posting_date": posting_date, "lines": lines, "remark": remark}
     return _actions.execute(JE_ACTION, target, key, payload=payload, amount=dr, notes=remark)
+
+
+@frappe.whitelist()
+def list_journals(company=None, search=None, from_date=None, to_date=None, limit=200):
+    """Journal Entries for one company — powers the live Journals table (with
+    bulk Submit/Cancel). Includes drafts (docstatus 0) so they can be submitted."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    conds = ["je.company=%(c)s", "je.docstatus<2"]
+    params = {"c": target, "limit": min(int(limit or 200), 500)}
+    if from_date:
+        conds.append("je.posting_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("je.posting_date <= %(td)s"); params["td"] = to_date
+    if search:
+        conds.append("(je.name LIKE %(s)s OR IFNULL(je.user_remark,'') LIKE %(s)s OR IFNULL(je.cheque_no,'') LIKE %(s)s OR je.voucher_type LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    rows = frappe.db.sql(
+        f"""SELECT je.name, je.posting_date AS date, je.voucher_type AS type,
+                   ROUND(je.total_debit, 2) AS amount, IFNULL(je.user_remark,'') AS remark,
+                   je.docstatus, IFNULL(je.cheque_no,'') AS reference
+            FROM `tabJournal Entry` je
+            WHERE {' AND '.join(conds)}
+            ORDER BY je.posting_date DESC, je.creation DESC LIMIT %(limit)s""",
+        params, as_dict=True)
+    for r in rows:
+        r["amount"] = flt(r["amount"])
+        r["date"] = str(r.get("date") or "")
+        r["status"] = ["draft", "submitted", "cancelled"][r["docstatus"]] if r["docstatus"] < 3 else "—"
+    return rows
