@@ -4,10 +4,13 @@ Purchase Invoice = bills (3-way match vs PO + Goods Receipt). Lists are scoped
 to one company and exclude cancelled docs. The 3-way match flag is derived from
 whether every line is linked to a Purchase Order (and a receipt).
 """
-import frappe
-from frappe.utils import flt
+import json
 
-from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+import frappe
+from frappe.utils import flt, nowdate
+
+from accounting_portal.api import _actions
+from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
 from accounting_portal.api.sales import _voucher_journal
 
 
@@ -338,3 +341,149 @@ def get_purchase_doc(name=None, doctype=None):
         "FROM `tabGL Entry` ge JOIN `tabAccount` a ON a.name=ge.account "
         "WHERE ge.voucher_no=%s AND ge.is_cancelled=0 ORDER BY ge.debit DESC", name, as_dict=True)
     return {"header": header, "items": items, "connections": conn, "gl": gl}
+
+
+# ── Pipeline actions: move a doc down the procure-to-pay chain (gated writes) ──
+PR_ACTION = "Make Receipt"
+PI_ACTION = "Make Invoice"
+PAY_ACTION = "Pay Bill"
+
+
+def _bust_purch_cache():
+    try:
+        frappe.cache().delete_keys("ap_purch_summary")
+    except Exception:
+        pass
+
+
+def _make_receipt_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    pr = frappe.get_attr("erpnext.buying.doctype.purchase_order.purchase_order.make_purchase_receipt")(p["source"])
+    pr.flags.ignore_permissions = True
+    pr.insert()
+    pr.reload()
+    pr.submit()
+    return {"voucher_type": "Purchase Receipt", "voucher_no": pr.name,
+            "result": {"from_po": p["source"], "grand_total": flt(pr.grand_total)}}
+
+
+def _make_invoice_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    pi = frappe.get_attr("erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_purchase_invoice")(p["source"])
+    pi.flags.ignore_permissions = True
+    pi.insert()
+    pi.reload()
+    pi.submit()
+    return {"voucher_type": "Purchase Invoice", "voucher_no": pi.name,
+            "result": {"from_pr": p["source"], "grand_total": flt(pi.grand_total)}}
+
+
+def _pay_bill_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    pe = frappe.get_attr("erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry")(
+        "Purchase Invoice", p["invoice"])
+    if p.get("paid_from"):
+        pe.paid_from = p["paid_from"]
+    if p.get("mode"):
+        pe.mode_of_payment = p["mode"]
+    if p.get("reference_no"):
+        pe.reference_no = p["reference_no"]
+        pe.reference_date = p.get("reference_date") or nowdate()
+    pe.flags.ignore_permissions = True
+    pe.insert()
+    pe.reload()
+    pe.submit()
+    return {"voucher_type": "Payment Entry", "voucher_no": pe.name,
+            "result": {"invoice": p["invoice"], "paid": flt(pe.paid_amount), "mode": pe.get("mode_of_payment")}}
+
+
+_actions.register_poster(PR_ACTION, _make_receipt_poster)
+_actions.register_poster(PI_ACTION, _make_invoice_poster)
+_actions.register_poster(PAY_ACTION, _pay_bill_poster)
+
+
+@frappe.whitelist()
+def make_receipt(company=None, purchase_order=None, dedupe_key=None):
+    """Create + submit a Purchase Receipt from a PO (To Buy → Received)."""
+    assert_can_write()
+    target = _target(company)
+    if not target or not purchase_order or not frappe.db.exists("Purchase Order", purchase_order):
+        frappe.throw("Purchase Order not found")
+    po = frappe.db.get_value("Purchase Order", purchase_order,
+                             ["company", "docstatus", "per_received", "grand_total"], as_dict=True)
+    if po.company != target:
+        frappe.throw("Purchase Order belongs to another company")
+    if po.docstatus != 1:
+        frappe.throw("Purchase Order is not submitted")
+    if flt(po.per_received) >= 100:
+        frappe.throw("Already fully received")
+    res = _actions.execute(PR_ACTION, target, dedupe_key or f"pr:{purchase_order}",
+                           payload={"source": purchase_order}, amount=flt(po.grand_total),
+                           reference_doctype="Purchase Order", reference_name=purchase_order,
+                           notes=f"Receipt for {purchase_order}")
+    _bust_purch_cache()
+    return res
+
+
+@frappe.whitelist()
+def make_invoice_from_receipt(company=None, purchase_receipt=None, dedupe_key=None):
+    """Create + submit a Purchase Invoice from a Receipt (Received → Billed/To Pay)."""
+    assert_can_write()
+    target = _target(company)
+    if not target or not purchase_receipt or not frappe.db.exists("Purchase Receipt", purchase_receipt):
+        frappe.throw("Purchase Receipt not found")
+    pr = frappe.db.get_value("Purchase Receipt", purchase_receipt,
+                             ["company", "docstatus", "per_billed", "grand_total"], as_dict=True)
+    if pr.company != target:
+        frappe.throw("Purchase Receipt belongs to another company")
+    if pr.docstatus != 1:
+        frappe.throw("Purchase Receipt is not submitted")
+    if flt(pr.per_billed) >= 100:
+        frappe.throw("Already fully billed")
+    res = _actions.execute(PI_ACTION, target, dedupe_key or f"pi:{purchase_receipt}",
+                           payload={"source": purchase_receipt}, amount=flt(pr.grand_total),
+                           reference_doctype="Purchase Receipt", reference_name=purchase_receipt,
+                           notes=f"Invoice for {purchase_receipt}")
+    _bust_purch_cache()
+    return res
+
+
+@frappe.whitelist()
+def pay_bill(company=None, invoice=None, paid_from=None, mode=None, reference_no=None,
+             reference_date=None, dedupe_key=None):
+    """Create + submit a Payment Entry settling a Purchase Invoice (To Pay → Paid)."""
+    assert_can_write()
+    target = _target(company)
+    if not target or not invoice or not frappe.db.exists("Purchase Invoice", invoice):
+        frappe.throw("Invoice not found")
+    pi = frappe.db.get_value("Purchase Invoice", invoice,
+                             ["company", "docstatus", "outstanding_amount"], as_dict=True)
+    if pi.company != target:
+        frappe.throw("Invoice belongs to another company")
+    if pi.docstatus != 1:
+        frappe.throw("Invoice is not submitted")
+    if flt(pi.outstanding_amount) <= 0:
+        frappe.throw("Invoice already settled")
+    res = _actions.execute(
+        PAY_ACTION, target, dedupe_key or f"pay:{invoice}",
+        payload={"invoice": invoice, "paid_from": paid_from, "mode": mode,
+                 "reference_no": reference_no, "reference_date": reference_date},
+        amount=flt(pi.outstanding_amount), reference_doctype="Purchase Invoice",
+        reference_name=invoice, notes=f"Payment for {invoice}")
+    _bust_purch_cache()
+    return res
+
+
+@frappe.whitelist()
+def payment_modes(company=None):
+    """Mode-of-payment options + their default bank/cash account for this company,
+    for the Pay Bill dialog."""
+    assert_portal_access()
+    target = _target(company)
+    rows = frappe.db.sql(
+        """SELECT mop.name AS mode, mopa.default_account AS account
+           FROM `tabMode of Payment` mop
+           LEFT JOIN `tabMode of Payment Account` mopa
+             ON mopa.parent=mop.name AND mopa.company=%s
+           WHERE mop.enabled=1 ORDER BY mop.name""", target, as_dict=True)
+    return rows

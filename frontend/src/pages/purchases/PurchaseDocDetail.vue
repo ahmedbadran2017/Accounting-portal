@@ -28,6 +28,16 @@
             <div v-else-if="h.doctype === 'Purchase Receipt'" class="text-[11px] text-ink-muted mt-0.5">{{ Math.round(h.per_billed) }}% {{ L("billed","متفوتر","facturé") }}</div>
           </div>
         </div>
+        <!-- action -->
+        <div v-if="canAct" class="flex items-center gap-2.5 flex-wrap mt-4 pt-3 border-t border-line-hair">
+          <button @click="primaryAction" :disabled="posting"
+                  class="inline-flex items-center gap-2 h-9 px-4 rounded-[10px] text-[12.5px] font-bold text-white shadow-card disabled:opacity-50 hover:brightness-110 transition"
+                  :style="{ background: actionMeta.color }">
+            <Icon :name="actionMeta.icon" :size="15" color="#fff" />{{ posting ? L("Working…", "جارٍ…", "…") : actionMeta.label }}
+          </button>
+          <span class="text-[11px] text-ink-muted">{{ actionMeta.hint }}</span>
+        </div>
+
         <!-- connections -->
         <div v-if="hasConn" class="flex items-center gap-1.5 flex-wrap mt-4 pt-3 border-t border-line-hair">
           <span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted me-1">{{ L("Connections","الروابط","Liens") }}</span>
@@ -84,6 +94,41 @@
         </div>
       </div>
     </template>
+
+    <!-- Pay dialog -->
+    <div v-if="payOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="payOpen = false">
+      <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3.5">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-[9px] grid place-items-center" style="background:#ecfdf5"><Icon name="wallet" :size="16" color="#047857" /></span>
+          <div>
+            <div class="text-[14px] font-bold">{{ L("Record payment", "تسجيل دفعة", "Enregistrer paiement") }}</div>
+            <div class="text-[11px] text-ink-muted">{{ h.name }} · {{ fmt(h.outstanding) }} {{ h.currency }}</div>
+          </div>
+        </div>
+        <div>
+          <label class="text-[11px] font-bold text-ink-3">{{ L("Method", "الطريقة", "Méthode") }}</label>
+          <select v-model="payMode" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
+            <option value="">{{ L("Select…", "اختر…", "Choisir…") }}</option>
+            <option v-for="m in modes" :key="m.mode" :value="m.mode">{{ m.mode }}</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[11px] font-bold text-ink-3">{{ L("Reference No", "رقم المرجع", "Référence") }}</label>
+            <input v-model.trim="payRef" :placeholder="L('Cheque / txn no', 'شيك / معاملة', 'Chèque / réf')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+          </div>
+          <div>
+            <label class="text-[11px] font-bold text-ink-3">{{ L("Date", "التاريخ", "Date") }}</label>
+            <input type="date" v-model="payDate" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+          </div>
+        </div>
+        <p class="text-[10.5px] text-ink-muted">{{ L("Bank / cheque methods require a reference.", "طرق البنك/الشيك تتطلب مرجعًا.", "Les méthodes banque/chèque exigent une référence.") }}</p>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="payOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
+          <button @click="confirmPay" :disabled="posting || !payMode" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50" style="background:#047857">{{ posting ? L("Paying…", "جارٍ…", "…") : L("Pay", "دفع", "Payer") }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -95,6 +140,9 @@ import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { useToast } from "@/composables/useToast";
+
+const toast = useToast();
 
 const route = useRoute();
 const router = useRouter();
@@ -124,11 +172,74 @@ const hasConn = computed(() => { const c = d.value?.connections; return c && (c.
 function back() { router.push(`/accounting/purchases/${sub.value}`); }
 function open(targetSub, id) { router.push({ path: `/accounting/purchases/${targetSub}`, query: { id } }); }
 
-watch(() => route.query.id, async (id) => {
+async function load() {
+  const id = route.query.id;
   if (!id) return;
   loading.value = true; d.value = null;
   try { d.value = await api.call("accounting_portal.api.purchases.get_purchase_doc", { name: id, doctype: doctype.value, company: currentCompany() }); }
   catch { d.value = null; }
   finally { loading.value = false; }
-}, { immediate: true });
+}
+watch(() => route.query.id, load, { immediate: true });
+
+// ── Pipeline actions ──
+const posting = ref(false);
+const payOpen = ref(false);
+const payMode = ref("");
+const payRef = ref("");
+const payDate = ref(new Date().toISOString().slice(0, 10));
+const modes = ref([]);
+
+const canAct = computed(() => {
+  if (!d.value) return false;
+  const dt = h.value.doctype;
+  if (dt === "Purchase Order") return h.value.per_received < 100;
+  if (dt === "Purchase Receipt") return h.value.per_billed < 100;
+  if (dt === "Purchase Invoice") return h.value.outstanding > 0;
+  return false;
+});
+const actionMeta = computed(() => {
+  const dt = h.value.doctype;
+  if (dt === "Purchase Order") return { label: L("Make receipt", "إنشاء استلام", "Créer réception"), icon: "box", color: "#b45309", hint: L("Dr Stock · Cr GRNI", "مدين مخزون · دائن GRNI", "Dr Stock · Cr GRNI") };
+  if (dt === "Purchase Receipt") return { label: L("Make invoice", "إنشاء فاتورة", "Créer facture"), icon: "doc", color: "#0891b2", hint: L("clears GRNI → Creditors", "يقفل GRNI", "solde GRNI → Fournisseurs") };
+  return { label: L("Record payment", "تسجيل دفعة", "Enregistrer paiement"), icon: "wallet", color: "#047857", hint: L("Dr Creditors · Cr Bank", "مدين موردين · دائن بنك", "Dr Fournisseurs · Cr Banque") };
+});
+
+function errMsg(e) { return (e && (e.message || e._server_messages || e.exc)) ? String(e.message || e).slice(0, 160) : L("Action failed", "فشل الإجراء", "Échec"); }
+function handleRes(res) {
+  if (res && res.status === "Proposed") toast.info(L("Sent for approval (material amount)", "أُرسل للموافقة (مبلغ كبير)", "Envoyé pour approbation"));
+  else { toast.success(L("Done", "تم", "Fait") + (res && res.voucher_no ? " · " + res.voucher_no : "")); load(); }
+}
+
+async function primaryAction() {
+  const dt = h.value.doctype;
+  if (dt === "Purchase Invoice") { await openPay(); return; }
+  posting.value = true;
+  try {
+    const fn = dt === "Purchase Order" ? "make_receipt" : "make_invoice_from_receipt";
+    const arg = dt === "Purchase Order" ? { purchase_order: h.value.name } : { purchase_receipt: h.value.name };
+    handleRes(await api.call(`accounting_portal.api.purchases.${fn}`, { company: currentCompany(), ...arg }));
+  } catch (e) { toast.error(errMsg(e)); } finally { posting.value = false; }
+}
+
+async function openPay() {
+  payRef.value = ""; payMode.value = "";
+  payDate.value = new Date().toISOString().slice(0, 10);
+  payOpen.value = true;
+  if (!modes.value.length) {
+    try { modes.value = await api.call("accounting_portal.api.purchases.payment_modes", { company: currentCompany() }); }
+    catch { modes.value = []; }
+  }
+}
+async function confirmPay() {
+  posting.value = true;
+  try {
+    const m = modes.value.find((x) => x.mode === payMode.value);
+    const res = await api.call("accounting_portal.api.purchases.pay_bill", {
+      company: currentCompany(), invoice: h.value.name, mode: payMode.value,
+      paid_from: (m && m.account) || undefined, reference_no: payRef.value || undefined, reference_date: payDate.value || undefined,
+    });
+    payOpen.value = false; handleRes(res);
+  } catch (e) { toast.error(errMsg(e)); } finally { posting.value = false; }
+}
 </script>
