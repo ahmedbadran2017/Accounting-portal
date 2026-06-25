@@ -180,7 +180,7 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
     where = " AND ".join(conds)
     # Every bucket references the invoice-CATH flag (collected = SO or SI ref);
     # the return-DN join is needed by all except 'collected'.
-    join = _INV_JOIN + ("" if bucket == "collected" else _RET_JOIN)
+    join = _INV_JOIN + ("" if bucket == "collected" else " " + _RET_JOIN)
 
     tot = frappe.db.sql(
         f"SELECT COUNT(*) n, ROUND(SUM(so.grand_total)) val FROM `tabSales Order` so {join} WHERE {where}",
