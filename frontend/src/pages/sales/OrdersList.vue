@@ -163,8 +163,11 @@ onMounted(load);
 
 // CFO month-to-date metrics (live; sample headline until the endpoint lands).
 const SUMMARY_SAMPLE = { gmv: 1525056, orders: 7553, aov: 202, delivered_value: 547566, delivery_rate: 36.8, pending: 4092, exceptions: 92, rto_rate: 1.2 };
+const SUMMARY_ZERO = { gmv: 0, orders: 0, aov: 0, delivered_value: 0, delivery_rate: 0, pending: 0, exceptions: 0, rto_rate: 0 };
 const summaryCards = computed(() => {
-  const d = summary.value && summary.value.company ? summary.value : SUMMARY_SAMPLE;
+  // Live summary when we have it; sample only when the table itself is sample.
+  // Live rows + a failed summary call must NOT show fabricated constants.
+  const d = summary.value && summary.value.company ? summary.value : (isLive.value ? SUMMARY_ZERO : SUMMARY_SAMPLE);
   return [
     { label: lbl("GMV (MTD)", "إجمالي المبيعات", "GMV (mois)"), value: fmtMAD(d.gmv), color: "#1c1917", glow: "#a8a29e", tint: "#fafaf9", icon: "cart", sub: `${(d.orders || 0).toLocaleString()} ${lbl("orders", "طلب", "commandes")}` },
     { label: lbl("Avg order", "متوسط الطلب", "Panier moyen"), value: fmtMAD(d.aov), color: "#0369a1", glow: "#38bdf8", tint: "#eff6ff", icon: "scale", sub: "AOV · MAD" },
