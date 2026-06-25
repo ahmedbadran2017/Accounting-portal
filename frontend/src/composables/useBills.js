@@ -22,9 +22,11 @@ function liveVM(d, l) {
     b: {
       id: d.name, vendor: d.supplier, date: String(d.posting_date || ""), bill_no: d.bill_no || "",
       amount: sign + Math.round(Math.abs(Number(d.grand_total) || 0)).toLocaleString("en-US"),
+      currency: d.currency || "MAD",
       status: d.status_norm || "overdue", match: matched ? "ok" : "exc",
     },
     matched,
+    items: (d.items || []).map((it) => ({ name: it.name, code: it.item_code, sku: it.sku, image: it.image, qty: it.qty, rate: f2(it.rate), amount: f2(it.amount), po: it.po, pr: it.pr })),
     legs: legsFor(matched, l),
     related: { orders: d.related_orders || [], receipts: d.related_receipts || [], payments: d.related_payments || [] },
     journal: (d.journal || []).map((j) => ({ acc: j.acc, dr: j.dr ? f2(j.dr) : "", cr: j.cr ? f2(j.cr) : "" })),

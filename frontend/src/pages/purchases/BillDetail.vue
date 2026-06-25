@@ -38,6 +38,35 @@
       </div>
     </div>
 
+    <!-- Line items -->
+    <div v-if="items.length" class="bg-white rounded-card border border-line overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="box" :size="14" color="#b45309" /><span class="text-[12.5px] font-bold">{{ L("Items","الأصناف","Articles") }}</span><span class="text-[10px] text-ink-muted">{{ items.length }}</span></div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[12px]">
+          <thead><tr style="background:#fafaf9">
+            <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","الكمية","Qté") }}</th>
+            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Prix") }}</th>
+            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="(it, i) in items" :key="i" class="border-t border-line-hair">
+              <td class="px-4 py-2.5">
+                <span class="flex items-center gap-2.5">
+                  <img v-if="it.image" :src="it.image" class="w-8 h-8 rounded-[7px] object-cover flex-shrink-0 border border-line-hair" />
+                  <span v-else class="w-8 h-8 rounded-[7px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="13" color="#a8a29e" /></span>
+                  <span class="min-w-0"><span class="block font-medium truncate max-w-[300px]">{{ it.name }}</span><span v-if="it.sku || it.code" class="block text-[10px] text-ink-muted font-mono">{{ it.sku || it.code }}</span></span>
+                </span>
+              </td>
+              <td class="px-4 py-2.5 text-end tnum">{{ it.qty }}</td>
+              <td class="px-4 py-2.5 text-end tnum">{{ it.rate }}</td>
+              <td class="px-4 py-2.5 text-end tnum font-semibold">{{ it.amount }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Related documents -->
     <div class="bg-white rounded-card border border-line p-4">
       <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="layers" :size="13" color="#7c3aed" /></span><span class="text-[12.5px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
@@ -98,6 +127,7 @@ watch(() => [route.query.id, locale.value], load, { immediate: true });
 const b = computed(() => vm.value?.b || null);
 const matched = computed(() => !!vm.value?.matched);
 const legs = computed(() => vm.value?.legs || []);
+const items = computed(() => vm.value?.items || []);
 const journal = computed(() => vm.value?.journal || []);
 const related = computed(() => vm.value?.related || { orders: [], receipts: [], payments: [] });
 function openDoc(sub, id) { router.push({ path: `/accounting/purchases/${sub}`, query: { id } }); }

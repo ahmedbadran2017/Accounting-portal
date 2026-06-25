@@ -74,17 +74,20 @@ def get_bill(name):
     assert_portal_access()
     pi = frappe.db.get_value(
         "Purchase Invoice", name,
-        ["name", "supplier", "company", "grand_total", "is_return", "status",
-         "posting_date", "bill_no"], as_dict=True,
+        ["name", "supplier", "company", "grand_total", "base_grand_total", "currency",
+         "outstanding_amount", "is_return", "status", "posting_date", "due_date", "bill_no"], as_dict=True,
     )
     if not pi:
         frappe.throw("Bill not found")
     if pi.company not in resolve_companies():
         frappe.throw("Not permitted", frappe.PermissionError)
     items = frappe.db.sql(
-        """SELECT item_name AS name, qty, rate, amount,
-                  IFNULL(purchase_order, '') AS po, IFNULL(purchase_receipt, '') AS pr
-           FROM `tabPurchase Invoice Item` WHERE parent = %s ORDER BY idx""",
+        """SELECT pii.item_name AS name, pii.item_code, pii.custom_sku AS sku, i.image,
+                  pii.qty, pii.rate, pii.amount,
+                  IFNULL(pii.purchase_order, '') AS po, IFNULL(pii.purchase_receipt, '') AS pr
+           FROM `tabPurchase Invoice Item` pii
+           LEFT JOIN `tabItem` i ON i.name = pii.item_code
+           WHERE pii.parent = %s ORDER BY pii.idx""",
         (name,), as_dict=True,
     )
     n = len(items)
