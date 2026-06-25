@@ -877,3 +877,29 @@ def supplier_groups():
     assert_portal_access()
     return [r.name for r in frappe.db.sql(
         "SELECT name FROM `tabSupplier Group` WHERE is_group=0 ORDER BY name", as_dict=True)]
+
+
+@frappe.whitelist()
+def bulk_create_suppliers(rows=None):
+    """Create many suppliers from a pasted/imported list. Each row: supplier_name
+    (required), group, tax_id, currency. Skips duplicates by name; never throws on
+    a bad row — returns a per-row result."""
+    assert_can_write()
+    data = rows if isinstance(rows, list) else json.loads(rows or "[]")
+    out = []
+    for r in data[:500]:
+        nm = (r.get("supplier_name") or r.get("name") or "").strip()
+        if not nm:
+            out.append({"name": "", "status": "skipped", "error": "no name"}); continue
+        try:
+            if frappe.db.exists("Supplier", {"supplier_name": nm}):
+                out.append({"name": nm, "status": "exists"}); continue
+            res = create_supplier(supplier_name=nm, supplier_group=(r.get("group") or None),
+                                  tax_id=(r.get("tax_id") or None), currency=(r.get("currency") or None))
+            out.append({"name": res["name"], "status": "created"})
+        except Exception as e:
+            out.append({"name": nm, "status": "error", "error": str(e)[:120]})
+    return {"results": out,
+            "created": sum(1 for x in out if x["status"] == "created"),
+            "exists": sum(1 for x in out if x["status"] == "exists"),
+            "failed": sum(1 for x in out if x["status"] in ("error", "skipped"))}

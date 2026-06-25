@@ -17,6 +17,7 @@
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="tt.search.value" :placeholder="L('Search supplier…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
+        <button @click="importOpen = true" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="layers" :size="14" />{{ L("Import","استيراد","Importer") }}</button>
         <button @click="openNew" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand"><Icon name="plus" :size="14" color="#fff" />{{ L("New","جديد","Nouveau") }}</button>
       </div>
 
@@ -88,11 +89,30 @@
         </div>
       </div>
     </div>
+
+    <!-- Bulk import modal -->
+    <div v-if="importOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="importOpen = false">
+      <div class="bg-white rounded-card shadow-xl w-full max-w-md p-5 space-y-3">
+        <div class="text-[14px] font-bold">{{ L("Import suppliers","استيراد موردين","Importer des fournisseurs") }}</div>
+        <p class="text-[11px] text-ink-muted">{{ L("One per line: name, group, tax id, currency (only name required).","سطر لكل مورّد: الاسم، المجموعة، الرقم الضريبي، العملة (الاسم فقط مطلوب).","Une ligne par fournisseur : nom, groupe, ID fiscal, devise.") }}</p>
+        <textarea v-model="importText" rows="6" :placeholder="L('ACME SARL, Morocco Local Suppliers, 123456, MAD\nOther Vendor', 'مورّد، مجموعة، رقم ضريبي', 'Fournisseur, groupe, ID')" class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[12px] font-mono focus:outline-none focus:border-accent/40 resize-y"></textarea>
+        <div v-if="importResult" class="text-[11.5px] bg-app-warm/50 rounded-[9px] px-3 py-2">
+          <b class="text-success-dark">{{ importResult.created }}</b> {{ L("created","أُنشئ","créés") }} · {{ importResult.exists }} {{ L("existed","موجود","existants") }}<span v-if="importResult.failed"> · <b class="text-sale">{{ importResult.failed }}</b> {{ L("failed","فشل","échecs") }}</span>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-[11px] text-ink-muted">{{ parsedCount }} {{ L("rows","سطر","lignes") }}</span>
+          <div class="flex gap-2">
+            <button @click="importOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Close","إغلاق","Fermer") }}</button>
+            <button @click="runImport" :disabled="importing || !parsedCount" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ importing ? L("Importing…","جارٍ…","…") : L("Import","استيراد","Importer") }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -129,7 +149,8 @@ const isLive = ref(null);
 const loading = ref(true);
 const tt = useTableTools(rows, cols, { keyField: "name", defaultSort: "payable", defaultDir: -1, facets: [{ key: "group", label: L("group", "مجموعة", "groupe") }] });
 
-onMounted(async () => {
+async function load() {
+  loading.value = true;
   try {
     const res = await liveOrSample(
       "accounting_portal.api.purchases.list_vendors", { company: currentCompany(), limit: 200 }, () => SAMPLE,
@@ -137,7 +158,8 @@ onMounted(async () => {
     );
     rows.value = res.data; isLive.value = res.live;
   } finally { loading.value = false; tt.clearSelection(); }
-});
+}
+onMounted(load);
 
 function open(name) { router.push({ path: "/accounting/purchases/vendors", query: { id: name } }); }
 
@@ -151,6 +173,26 @@ async function openNew() {
   newOpen.value = true;
   if (!groups.value.length) { try { groups.value = await api.call("accounting_portal.api.purchases.supplier_groups", {}); } catch { groups.value = []; } }
 }
+// ── Bulk import ──
+const importOpen = ref(false);
+const importText = ref("");
+const importing = ref(false);
+const importResult = ref(null);
+const parsedRows = computed(() => importText.value.split(/\n+/).map((line) => {
+  const p = line.split(",").map((x) => x.trim());
+  return p[0] ? { supplier_name: p[0], group: p[1] || "", tax_id: p[2] || "", currency: p[3] || "" } : null;
+}).filter(Boolean));
+const parsedCount = computed(() => parsedRows.value.length);
+async function runImport() {
+  importing.value = true; importResult.value = null;
+  try {
+    importResult.value = await api.call("accounting_portal.api.purchases.bulk_create_suppliers", { rows: parsedRows.value });
+    toast.success(L(`${importResult.value.created} created`, `${importResult.value.created} أُنشئ`, `${importResult.value.created} créés`));
+    load();
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
+  finally { importing.value = false; }
+}
+
 async function createNew() {
   creating.value = true;
   try {
