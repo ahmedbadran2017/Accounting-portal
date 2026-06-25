@@ -631,3 +631,118 @@ def make_invoice_group(company=None, receipts=None, dedupe_key=None):
         notes=f"Group bill · {len(names)} receipts · {next(iter(suppliers))}")
     _bust_purch_cache()
     return res
+
+
+# ── Cheque register (supplier cheques — track issued → cleared) ──
+_CHQ_COND = "(IFNULL(pe.reference_no,'') LIKE 'CHQ%%' OR pe.mode_of_payment IN ('Cheque','Bank Draft'))"
+CLEAR_CHQ_ACTION = "Clear Cheque"
+
+
+def _chq_status(due, cleared):
+    from frappe.utils import getdate, nowdate
+    if cleared:
+        return "cleared"
+    if due and getdate(due) > getdate(nowdate()):
+        return "postdated"
+    return "outstanding"
+
+
+@frappe.whitelist()
+def cheques_summary(company=None):
+    """Counts + values per cheque state — outstanding / due ≤7d / post-dated / cleared."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    r = frappe.db.sql(
+        f"""SELECT
+              ROUND(SUM(CASE WHEN pe.clearance_date IS NULL THEN pe.paid_amount ELSE 0 END)) outstanding,
+              SUM(CASE WHEN pe.clearance_date IS NULL THEN 1 ELSE 0 END) outstanding_n,
+              ROUND(SUM(CASE WHEN pe.clearance_date IS NULL AND pe.reference_date<=DATE_ADD(CURDATE(),INTERVAL 7 DAY) THEN pe.paid_amount ELSE 0 END)) due_week,
+              SUM(CASE WHEN pe.clearance_date IS NULL AND pe.reference_date<=DATE_ADD(CURDATE(),INTERVAL 7 DAY) THEN 1 ELSE 0 END) due_week_n,
+              ROUND(SUM(CASE WHEN pe.clearance_date IS NULL AND pe.reference_date>CURDATE() THEN pe.paid_amount ELSE 0 END)) postdated,
+              SUM(CASE WHEN pe.clearance_date IS NULL AND pe.reference_date>CURDATE() THEN 1 ELSE 0 END) postdated_n,
+              ROUND(SUM(CASE WHEN pe.clearance_date IS NOT NULL THEN pe.paid_amount ELSE 0 END)) cleared,
+              SUM(CASE WHEN pe.clearance_date IS NOT NULL THEN 1 ELSE 0 END) cleared_n
+            FROM `tabPayment Entry` pe
+            WHERE pe.company=%s AND pe.docstatus=1 AND pe.payment_type='Pay' AND {_CHQ_COND}""",
+        target, as_dict=True)[0]
+    return {k: flt(v) for k, v in r.items()}
+
+
+@frappe.whitelist()
+def list_cheques(company=None, search=None, status=None, from_date=None, to_date=None, limit=300):
+    """Supplier cheques with their state — cheque no, supplier, due (cheque) date,
+    bank, amount, cleared. Ordered by due date so the soonest-to-clear are first."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return []
+    conds = ["pe.company=%(c)s", "pe.docstatus=1", "pe.payment_type='Pay'", _CHQ_COND]
+    params = {"c": target, "limit": min(int(limit or 300), 1000)}
+    if from_date:
+        conds.append("pe.reference_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("pe.reference_date <= %(td)s"); params["td"] = to_date
+    if search:
+        conds.append("(pe.name LIKE %(s)s OR IFNULL(pe.reference_no,'') LIKE %(s)s OR pe.party LIKE %(s)s OR IFNULL(pe.party_name,'') LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    rows = frappe.db.sql(
+        f"""SELECT pe.name, pe.party, IFNULL(s.supplier_name, pe.party) AS supplier_name,
+                   IFNULL(pe.reference_no,'') AS cheque_no, pe.reference_date AS due,
+                   pe.clearance_date AS cleared_on, pe.paid_amount AS amount,
+                   pe.paid_from_account_currency AS currency, IFNULL(pe.mode_of_payment,'') AS bank
+            FROM `tabPayment Entry` pe LEFT JOIN `tabSupplier` s ON s.name=pe.party
+            WHERE {' AND '.join(conds)}
+            ORDER BY pe.clearance_date IS NOT NULL, pe.reference_date ASC LIMIT %(limit)s""",
+        params, as_dict=True)
+    out = []
+    for r in rows:
+        st = _chq_status(r.get("due"), r.get("cleared_on"))
+        if status and status != st:
+            continue
+        r["amount"] = flt(r["amount"])
+        r["due"] = str(r.get("due") or "")
+        r["cleared_on"] = str(r.get("cleared_on") or "")
+        r["status"] = st
+        out.append(r)
+    return out
+
+
+def _clear_cheque_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    names, date = p["names"], p.get("date") or nowdate()
+    for n in names:
+        frappe.db.set_value("Payment Entry", n, "clearance_date", date)
+    frappe.db.commit()
+    return {"voucher_type": "Payment Entry", "voucher_no": (names[0] if names else None),
+            "result": {"cleared": names, "date": date, "n": len(names)}}
+
+
+_actions.register_poster(CLEAR_CHQ_ACTION, _clear_cheque_poster)
+
+
+@frappe.whitelist()
+def mark_cheques_cleared(company=None, names=None, clearance_date=None):
+    """Stamp the bank clearance date on the selected cheques (a reconciliation
+    marker — no GL impact). Audited; one batch action."""
+    assert_can_write()
+    target = _target(company)
+    names = names if isinstance(names, list) else json.loads(names or "[]")
+    names = [n for n in names if n]
+    if not target or not names:
+        frappe.throw("No cheques selected")
+    rows = frappe.db.sql("SELECT name, company FROM `tabPayment Entry` WHERE name IN %(n)s",
+                         {"n": tuple(names)}, as_dict=True)
+    if len(rows) != len(names):
+        frappe.throw("Some cheques were not found")
+    for r in rows:
+        if r.company != target:
+            frappe.throw(f"{r.name} belongs to another company")
+    date = clearance_date or nowdate()
+    key = "clrchq:" + frappe.generate_hash("".join(sorted(names)) + date, 16)
+    res = _actions.execute(CLEAR_CHQ_ACTION, target, key,
+                           payload={"names": sorted(names), "date": date}, amount=0,
+                           notes=f"Cleared {len(names)} cheque(s) on {date}")
+    _bust_purch_cache()
+    return res

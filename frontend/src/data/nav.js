@@ -20,7 +20,7 @@ export const SUBTABS = {
   purchases: [
     ["vendors", "sub.vendors"],
     ["tobuy", "sub.tobuy"], ["received", "sub.received"], ["billed", "sub.billed"], ["topay", "sub.topay"], ["paid", "sub.paid"],
-    ["bills", "sub.bills"], ["payments", "sub.payments_out"],
+    ["bills", "sub.bills"], ["payments", "sub.payments_out"], ["cheques", "sub.cheques"],
   ],
   items: [["items", "sub.items"], ["pricelists", "sub.pricelists"], ["landed", "sub.landed"]],
   banking: [

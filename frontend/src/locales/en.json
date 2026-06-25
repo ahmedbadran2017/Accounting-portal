@@ -21,7 +21,7 @@
     "customers": "Customers", "orders": "Sales orders", "todeliver": "To deliver", "delivered": "Delivered", "collected": "Collected", "toreturn": "To return", "returned": "Returned", "challans": "Delivery challans",
     "invoices": "Invoices", "receipts": "Sales receipts", "payments_in": "Payments received", "credits": "Credit notes",
     "vendors": "Vendors", "tobuy": "To buy", "received": "Received", "billed": "Billed", "topay": "To pay", "paid": "Paid", "pos": "Purchase orders", "bills": "Bills", "expenses": "Expenses",
-    "recurring": "Recurring", "payments_out": "Payments made", "vcredits": "Vendor credits",
+    "recurring": "Recurring", "payments_out": "Payments made", "cheques": "Cheques", "vcredits": "Vendor credits",
     "items": "Items", "pricelists": "Price lists", "landed": "Landed cost",
     "accounts": "Bank accounts", "transactions": "Bank transactions", "rules": "Bank rules",
     "remittance": "COD remittance", "variance": "Variance queue", "aging": "Carrier aging", "bankrec": "Bank reconciliation",

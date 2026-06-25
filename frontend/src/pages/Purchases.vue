@@ -24,6 +24,7 @@
     <BillsList v-else-if="activeSub === 'bills'" />
     <PaymentMadeDetail v-else-if="activeSub === 'payments' && route.query.id" />
     <PaymentsMade v-else-if="activeSub === 'payments'" />
+    <Cheques v-else-if="activeSub === 'cheques'" />
     <ScaffoldTable v-else />
   </div>
 </template>
@@ -43,6 +44,7 @@ import BillsList from "@/pages/purchases/BillsList.vue";
 import BillDetail from "@/pages/purchases/BillDetail.vue";
 import PaymentsMade from "@/pages/purchases/PaymentsMade.vue";
 import PaymentMadeDetail from "@/pages/purchases/PaymentMadeDetail.vue";
+import Cheques from "@/pages/purchases/Cheques.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
