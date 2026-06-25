@@ -101,44 +101,46 @@
           <span v-if="selSupplier" class="text-[11px] text-white/60 truncate max-w-[160px]">· {{ selSupplier }}</span>
           <span v-if="!sameSupplier" class="text-[11px] font-semibold text-amber-300">{{ L("mixed suppliers — pick one","موردون مختلفون","fournisseurs mixtes") }}</span>
           <button @click="clearSel" class="text-[11px] text-white/60 hover:text-white px-1.5">{{ L("clear","مسح","effacer") }}</button>
-          <button @click="openGroupPay" :disabled="!sameSupplier" class="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-[10px] text-[12px] font-bold text-white disabled:opacity-40" style="background:#047857">
-            <Icon name="wallet" :size="14" color="#fff" />{{ L("Pay together","ادفعهم معًا","Payer ensemble") }}
+          <button @click="openGroup" :disabled="!sameSupplier" class="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-[10px] text-[12px] font-bold text-white disabled:opacity-40" :style="{ background: groupMode === 'bill' ? '#0891b2' : '#047857' }">
+            <Icon :name="groupMode === 'bill' ? 'doc' : 'wallet'" :size="14" color="#fff" />{{ groupMode === "bill" ? L("Bill together","افوترهم معًا","Facturer ensemble") : L("Pay together","ادفعهم معًا","Payer ensemble") }}
           </button>
         </div>
       </div>
     </transition>
 
-    <!-- Group pay dialog -->
+    <!-- Group action dialog -->
     <div v-if="payOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="payOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3.5">
         <div class="flex items-center gap-2">
-          <span class="w-8 h-8 rounded-[9px] grid place-items-center" style="background:#ecfdf5"><Icon name="wallet" :size="16" color="#047857" /></span>
+          <span class="w-8 h-8 rounded-[9px] grid place-items-center" :style="{ background: groupMode === 'bill' ? '#ecfeff' : '#ecfdf5' }"><Icon :name="groupMode === 'bill' ? 'doc' : 'wallet'" :size="16" :color="groupMode === 'bill' ? '#0891b2' : '#047857'" /></span>
           <div>
-            <div class="text-[14px] font-bold">{{ L("Pay together","ادفعهم معًا","Payer ensemble") }}</div>
-            <div class="text-[11px] text-ink-muted">{{ selected.size }} {{ L("bills","فاتورة","factures") }} · {{ selSupplier }} · {{ fmt(selTotal) }} MAD</div>
+            <div class="text-[14px] font-bold">{{ groupMode === "bill" ? L("Bill together","افوترهم معًا","Facturer ensemble") : L("Pay together","ادفعهم معًا","Payer ensemble") }}</div>
+            <div class="text-[11px] text-ink-muted">{{ selected.size }} {{ groupMode === "bill" ? L("receipts","إيصال","réceptions") : L("bills","فاتورة","factures") }} · {{ selSupplier }} · {{ fmt(selTotal) }} MAD</div>
           </div>
         </div>
-        <div>
-          <label class="text-[11px] font-bold text-ink-3">{{ L("Method","الطريقة","Méthode") }}</label>
-          <select v-model="payMode" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
-            <option value="">{{ L("Select…","اختر…","Choisir…") }}</option>
-            <option v-for="m in modes" :key="m.mode" :value="m.mode">{{ m.mode }}</option>
-          </select>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
+        <template v-if="groupMode === 'pay'">
           <div>
-            <label class="text-[11px] font-bold text-ink-3">{{ L("Reference No","رقم المرجع","Référence") }}</label>
-            <input v-model.trim="payRef" :placeholder="L('Cheque / txn no','شيك / معاملة','Chèque / réf')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+            <label class="text-[11px] font-bold text-ink-3">{{ L("Method","الطريقة","Méthode") }}</label>
+            <select v-model="payMode" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
+              <option value="">{{ L("Select…","اختر…","Choisir…") }}</option>
+              <option v-for="m in modes" :key="m.mode" :value="m.mode">{{ m.mode }}</option>
+            </select>
           </div>
-          <div>
-            <label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label>
-            <input type="date" v-model="payDate" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[11px] font-bold text-ink-3">{{ L("Reference No","رقم المرجع","Référence") }}</label>
+              <input v-model.trim="payRef" :placeholder="L('Cheque / txn no','شيك / معاملة','Chèque / réf')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+            </div>
+            <div>
+              <label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label>
+              <input type="date" v-model="payDate" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+            </div>
           </div>
-        </div>
-        <p class="text-[10.5px] text-ink-muted">{{ L("One Payment Entry settles all selected bills · bank/cheque needs a reference.","قيد دفع واحد يسوّي كل الفواتير المحددة.","Une seule écriture règle toutes les factures.") }}</p>
+        </template>
+        <p class="text-[10.5px] text-ink-muted">{{ groupMode === "bill" ? L("One Purchase Invoice with all selected receipts' lines · clears their GRNI.","فاتورة شراء واحدة بكل بنود الإيصالات المحددة.","Une seule facture avec toutes les lignes.") : L("One Payment Entry settles all selected bills · bank/cheque needs a reference.","قيد دفع واحد يسوّي كل الفواتير المحددة.","Une seule écriture règle toutes les factures.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="payOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button @click="confirmGroupPay" :disabled="posting || !payMode" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50" style="background:#047857">{{ posting ? L("Paying…","جارٍ…","…") : L("Pay","دفع","Payer") }}</button>
+          <button @click="confirmGroup" :disabled="posting || (groupMode === 'pay' && !payMode)" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50" :style="{ background: groupMode === 'bill' ? '#0891b2' : '#047857' }">{{ posting ? L("Working…","جارٍ…","…") : (groupMode === "bill" ? L("Create invoice","أنشئ الفاتورة","Créer facture") : L("Pay","دفع","Payer")) }}</button>
         </div>
       </div>
     </div>
@@ -265,7 +267,8 @@ function goBucket(k) { router.push(`/accounting/purchases/${k}`); }
 function open(name) { router.push({ path: `/accounting/purchases/${bucket.value}`, query: { id: name } }); }
 
 // ── Group payment (To Pay / Billed) ──
-const selectable = computed(() => bucket.value === "topay" || bucket.value === "billed");
+const selectable = computed(() => bucket.value === "topay" || bucket.value === "billed" || bucket.value === "received");
+const groupMode = computed(() => (bucket.value === "received" ? "bill" : "pay"));
 const selected = ref(new Set());
 const posting = ref(false);
 const payOpen = ref(false);
@@ -280,13 +283,14 @@ function toggleAllPage() { const s = new Set(selected.value); const p = tt.pageR
 function clearSel() { selected.value = new Set(); }
 
 const selRows = computed(() => rows.value.filter((r) => selected.value.has(r.name)));
-const selTotal = computed(() => selRows.value.reduce((a, r) => a + Number(r.progress || 0), 0));
+const selTotal = computed(() => selRows.value.reduce((a, r) => a + (Number(groupMode.value === "bill" ? r.value : r.progress) || 0), 0));
 const selSuppliers = computed(() => [...new Set(selRows.value.map((r) => r.supplier))]);
 const sameSupplier = computed(() => selSuppliers.value.length === 1);
 const selSupplier = computed(() => (selRows.value[0] ? selRows.value[0].supplier_name : ""));
 
-async function openGroupPay() {
+async function openGroup() {
   if (!sameSupplier.value) return;
+  if (groupMode.value === "bill") { payOpen.value = true; return; }
   payRef.value = ""; payMode.value = "";
   payDate.value = new Date().toISOString().slice(0, 10);
   payOpen.value = true;
@@ -294,6 +298,20 @@ async function openGroupPay() {
     try { modes.value = await api.call("accounting_portal.api.purchases.payment_modes", { company: currentCompany() }); }
     catch { modes.value = []; }
   }
+}
+function confirmGroup() { return groupMode.value === "bill" ? confirmGroupBill() : confirmGroupPay(); }
+
+async function confirmGroupBill() {
+  posting.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.purchases.make_invoice_group", {
+      company: currentCompany(), receipts: [...selected.value],
+    });
+    payOpen.value = false;
+    if (res && res.status === "Proposed") toast.info(L("Sent for approval (material amount)", "أُرسل للموافقة (مبلغ كبير)", "Envoyé pour approbation"));
+    else { toast.success(L("Invoice created", "أُنشئت الفاتورة", "Facture créée") + (res && res.voucher_no ? " · " + res.voucher_no : "")); clearSel(); loadSummary(); loadRows(); }
+  } catch (e) { toast.error((e && e.message ? String(e.message) : L("Billing failed", "فشلت الفوترة", "Échec")).slice(0, 160)); }
+  finally { posting.value = false; }
 }
 async function confirmGroupPay() {
   posting.value = true;

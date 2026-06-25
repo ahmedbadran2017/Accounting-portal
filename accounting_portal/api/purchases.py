@@ -564,3 +564,61 @@ def pay_bills_group(company=None, invoices=None, mode=None, paid_from=None,
         notes=f"Group payment · {len(names)} bills · {next(iter(suppliers))}")
     _bust_purch_cache()
     return res
+
+
+# ── Group billing: consolidate many receipts of ONE supplier into one invoice ──
+GRP_BILL_ACTION = "Group Bill"
+
+
+def _group_bill_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    receipts = p["receipts"]
+    mk = frappe.get_attr("erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_purchase_invoice")
+    target = None
+    for r in receipts:
+        target = mk(r, target_doc=target)
+    target.flags.ignore_permissions = True
+    target.insert()
+    target.reload()
+    target.submit()
+    return {"voucher_type": "Purchase Invoice", "voucher_no": target.name,
+            "result": {"receipts": receipts, "count": len(receipts), "grand": flt(target.grand_total)}}
+
+
+_actions.register_poster(GRP_BILL_ACTION, _group_bill_poster)
+
+
+@frappe.whitelist()
+def make_invoice_group(company=None, receipts=None, dedupe_key=None):
+    """Consolidate several Purchase Receipts of ONE supplier into a single
+    Purchase Invoice (merged line items). All must be same company + supplier +
+    not yet fully billed."""
+    assert_can_write()
+    target = _target(company)
+    names = receipts if isinstance(receipts, list) else json.loads(receipts or "[]")
+    names = [n for n in names if n]
+    if not target or len(names) < 1:
+        frappe.throw("No receipts given")
+    rows = frappe.db.sql(
+        """SELECT name, supplier, company, docstatus, per_billed, is_return, grand_total
+           FROM `tabPurchase Receipt` WHERE name IN %(n)s""", {"n": tuple(names)}, as_dict=True)
+    if len(rows) != len(names):
+        frappe.throw("Some receipts were not found")
+    suppliers = {r.supplier for r in rows}
+    if len(suppliers) != 1:
+        frappe.throw("All receipts must belong to the same supplier to bill together")
+    for r in rows:
+        if r.company != target:
+            frappe.throw(f"{r.name} belongs to another company")
+        if r.docstatus != 1 or r.is_return:
+            frappe.throw(f"{r.name} is not a submitted receipt")
+        if flt(r.per_billed) >= 100:
+            frappe.throw(f"{r.name} is already billed")
+    total = sum(flt(r.grand_total) for r in rows)
+    key = dedupe_key or "billgrp:" + frappe.generate_hash("".join(sorted(names)), 16)
+    res = _actions.execute(
+        GRP_BILL_ACTION, target, key, payload={"receipts": sorted(names)},
+        amount=total, reference_doctype="Purchase Receipt", reference_name=sorted(names)[0],
+        notes=f"Group bill · {len(names)} receipts · {next(iter(suppliers))}")
+    _bust_purch_cache()
+    return res
