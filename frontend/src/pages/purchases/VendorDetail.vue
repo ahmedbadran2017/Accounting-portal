@@ -103,6 +103,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import DocHub from "@/components/DocHub.vue";
 import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
 
 const toast = useToast();

@@ -129,10 +129,11 @@ def list_vendors(company=None, limit=60):
 
 
 @frappe.whitelist()
-def get_supplier(name):
+def get_supplier(name, company=None):
     """Full supplier detail: header, computed stats, contact, connections, and
     the supplier ledger (GL party entries) — the purchase-cycle counterpart of
-    get_customer."""
+    get_customer. Everything is scoped to the selected company so the figures
+    tie with list_vendors in the multi-company group."""
     assert_portal_access()
     s = frappe.db.get_value(
         "Supplier", name,
@@ -140,29 +141,32 @@ def get_supplier(name):
          "country", "default_currency", "tax_id", "creation"], as_dict=True)
     if not s:
         frappe.throw("Supplier not found")
-    company = resolve_companies()[0] if resolve_companies() else None
-    ccy = s.default_currency or frappe.db.get_value("Company", company, "default_currency") or "MAD"
+    target = _target(company)
+    if not target:
+        frappe.throw("Not permitted", frappe.PermissionError)
+    ccy = s.default_currency or frappe.db.get_value("Company", target, "default_currency") or "MAD"
 
-    # GL party balance (credit−debit > 0 ⇒ we owe the supplier).
+    # GL party balance for THIS company (credit−debit > 0 ⇒ we owe the supplier).
     payable = flt(frappe.db.sql(
         """SELECT COALESCE(SUM(credit - debit), 0) FROM `tabGL Entry`
-           WHERE party_type='Supplier' AND party=%s AND is_cancelled=0""", (name,))[0][0])
+           WHERE party_type='Supplier' AND party=%s AND company=%s AND is_cancelled=0""",
+        (name, target))[0][0])
 
     bills = frappe.db.sql(
         """SELECT COUNT(*) AS n, ROUND(SUM(grand_total)) AS billed,
                   ROUND(SUM(outstanding_amount)) AS outstanding
-           FROM `tabPurchase Invoice` WHERE supplier=%s AND docstatus=1""",
-        (name,), as_dict=True)[0]
-    n_pos = frappe.db.count("Purchase Order", {"supplier": name, "docstatus": 1})
-    n_pe = frappe.db.count("Payment Entry", {"party_type": "Supplier", "party": name, "docstatus": 1})
-    n_grn = frappe.db.count("Purchase Receipt", {"supplier": name, "docstatus": 1})
+           FROM `tabPurchase Invoice` WHERE supplier=%s AND company=%s AND docstatus=1""",
+        (name, target), as_dict=True)[0]
+    n_pos = frappe.db.count("Purchase Order", {"supplier": name, "company": target, "docstatus": 1})
+    n_pe = frappe.db.count("Payment Entry", {"party_type": "Supplier", "party": name, "company": target, "docstatus": 1})
+    n_grn = frappe.db.count("Purchase Receipt", {"supplier": name, "company": target, "docstatus": 1})
 
     ledger = frappe.db.sql(
         """SELECT posting_date AS date, voucher_no AS doc, voucher_type AS type,
                   debit AS dr, credit AS cr
            FROM `tabGL Entry`
-           WHERE party_type='Supplier' AND party=%s AND is_cancelled=0
-           ORDER BY posting_date DESC, creation DESC LIMIT 10""", (name,), as_dict=True)
+           WHERE party_type='Supplier' AND party=%s AND company=%s AND is_cancelled=0
+           ORDER BY posting_date DESC, creation DESC LIMIT 10""", (name, target), as_dict=True)
     running = payable
     for e in ledger:
         e["balance"] = round(running, 2)
@@ -171,7 +175,7 @@ def get_supplier(name):
     return {
         "name": s.name, "supplier_name": s.supplier_name or s.name,
         "group": s.supplier_group, "type": s.supplier_type, "country": s.country,
-        "tax_id": s.tax_id, "currency": ccy,
+        "tax_id": s.tax_id, "currency": ccy, "company": target,
         "since": str(s.creation)[:4] if s.creation else "—",
         "payable": payable,
         "stats": {"billed": flt(bills.billed), "n_bills": bills.n or 0,
