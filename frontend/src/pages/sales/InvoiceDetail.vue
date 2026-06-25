@@ -18,6 +18,9 @@
         <div class="ms-auto flex items-center gap-2 h-fit">
           <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-badge border"
                 :style="{ background: st.bg, color: st.fg, borderColor: st.bd }">{{ invStatusLabel(inv.status, locale) }}</span>
+          <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand px-2.5 py-1 rounded-chip" @click="openPay">
+            <Icon name="coins" :size="13" color="#fff" />{{ L("Record payment","تسجيل دفعة","Encaisser") }}
+          </button>
           <button v-if="canRefund" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="showRefund = true">
             <Icon name="refresh" :size="13" />{{ L("Refund","استرداد","Remboursement") }}
           </button>
@@ -39,6 +42,35 @@
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="showRefund = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
           <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-sale hover:opacity-90 disabled:opacity-50" :disabled="busy" @click="createReturn">
             {{ busy ? L("Creating…","جارٍ…","…") : L("Create credit note","إنشاء","Créer") }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Record payment -->
+    <div v-if="showPay" class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(28,25,23,.45)" @click.self="showPay = false">
+      <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-md p-5">
+        <div class="flex items-center gap-2.5 mb-1.5">
+          <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#ecfdf5"><Icon name="coins" :size="16" color="#047857" /></span>
+          <div class="text-[14px] font-bold">{{ L("Record payment","تسجيل دفعة","Encaisser") }}</div>
+        </div>
+        <p class="text-[12px] text-ink-3 mb-3">{{ L("Collect against","تحصيل مقابل","Encaisser pour") }} <b class="font-mono">{{ inv.id }}</b> · {{ L("outstanding","المتبقّي","restant") }} <b class="tnum">{{ fmt2(inv.outstanding) }}</b></p>
+        <div class="space-y-2.5">
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Amount","المبلغ","Montant") }}</label><input v-model.number="pay.amount" type="number" min="0" :max="inv.outstanding" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Deposit to","الإيداع في","Déposer sur") }}</label>
+            <select v-model="pay.account" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
+              <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.account_name }} ({{ a.account_type }})</option>
+            </select></div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Reference","المرجع","Référence") }}</label><input v-model.trim="pay.reference_no" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" :placeholder="L('e.g. COD batch','مثال: تحصيل','réf')" /></div>
+            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label><input v-model="pay.posting_date" type="date" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+          </div>
+        </div>
+        <div v-if="payError" class="text-[11.5px] text-sale mt-2">{{ payError }}</div>
+        <div class="flex justify-end gap-2 mt-4">
+          <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="showPay = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
+          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !pay.amount || !pay.account" @click="submitPay">
+            {{ busy ? L("Recording…","جارٍ…","…") : L("Record payment","تسجيل","Encaisser") }}
           </button>
         </div>
       </div>
@@ -183,4 +215,41 @@ const journal = computed(() => vm.value?.journal || []);
 const related = computed(() => vm.value?.related || { orders: [], deliveries: [], payments: [] });
 function openDoc(sub, id) { router.push({ path: `/accounting/sales/${sub}`, query: { id } }); }
 function back() { router.push({ path: "/accounting/sales/invoices" }); }
+
+// ── Record payment (collect against this invoice; partial allowed) ──
+const canPay = computed(() => {
+  const i = inv.value;
+  return !!i && !i.is_return && Number(i.outstanding) > 0 && !["draft", "cancelled", "return"].includes(i.status);
+});
+const showPay = ref(false);
+const payError = ref("");
+const accounts = ref([]);
+const pay = ref({ amount: 0, account: "", reference_no: "", posting_date: "" });
+async function openPay() {
+  payError.value = "";
+  pay.value = { amount: Number(inv.value.outstanding) || 0, account: "", reference_no: "", posting_date: new Date().toISOString().slice(0, 10) };
+  showPay.value = true;
+  if (!accounts.value.length) {
+    try { accounts.value = await api.call("accounting_portal.api.payments.deposit_accounts", { company: currentCompany() }); } catch { accounts.value = []; }
+  }
+  if (accounts.value.length && !pay.value.account) pay.value.account = accounts.value[0].name;
+}
+async function submitPay() {
+  payError.value = "";
+  const amt = Number(pay.value.amount) || 0;
+  if (amt <= 0 || amt > Number(inv.value.outstanding) + 0.01) { payError.value = L("Amount must be between 0 and the outstanding balance.", "المبلغ يجب أن يكون بين 0 والمتبقّي.", "Montant invalide."); return; }
+  busy.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.payments.create_payment_entry", {
+      company: currentCompany(), party: inv.value.customer, amount: amt, account: pay.value.account,
+      reference_no: pay.value.reference_no || undefined, posting_date: pay.value.posting_date || undefined,
+      payment_type: "Receive", references: JSON.stringify([{ name: inv.value.id, amount: amt }]),
+    });
+    showPay.value = false;
+    if (res && res.status === "Posted") toast.success(L(`Payment ${res.voucher_no || ""} recorded`, `سُجّلت الدفعة ${res.voucher_no || ""}`, `Paiement ${res.voucher_no || ""} enregistré`));
+    else toast.info(L("Recorded — awaiting an approver", "سُجّل — بانتظار موافِق", "Enregistré — en attente"));
+    load();
+  } catch (e) { payError.value = String((e && e.message) || L("Failed to record payment.", "فشل التسجيل.", "Échec.")).slice(0, 160); }
+  finally { busy.value = false; }
+}
 </script>
