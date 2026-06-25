@@ -44,7 +44,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="o in tt.pageRows.value" :key="o.voucher" class="border-t border-line-hair hover:bg-app-warm/70" :class="tt.isSelected(o) ? 'bg-accent/5' : ''">
+            <tr v-for="o in tt.pageRows.value" :key="o.voucher" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(o) ? 'bg-accent/5' : ''" @click="open(o)">
               <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(o)" @change="tt.toggleRow(o)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
               <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
               <td v-show="!tt.hidden.value.has('voucher')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.voucher }}</td>
@@ -66,6 +66,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
@@ -81,6 +82,11 @@ import { useTableTools } from "@/composables/useTableTools";
 const { locale } = useI18n();
 const { entityId } = useUi();
 const toast = useToast();
+const router = useRouter();
+function open(o) {
+  if (o.doctype === "Payment Entry") router.push({ path: "/accounting/purchases/payments", query: { id: o.voucher } });
+  else router.push({ path: "/accounting/accountant/journals", query: { id: o.voucher } });
+}
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };

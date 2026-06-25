@@ -16,7 +16,8 @@
               @click="goSub(s[0])">{{ t(s[1]) }}</button>
     </div>
 
-    <Journals v-if="activeSub === 'journals'" />
+    <JournalDetail v-if="activeSub === 'journals' && route.query.id" />
+    <Journals v-else-if="activeSub === 'journals'" />
     <ChartOfAccounts v-else-if="activeSub === 'coa'" />
     <GeneralLedger v-else-if="activeSub === 'gl'" />
     <TrialBalance v-else-if="activeSub === 'trial'" />
@@ -34,6 +35,7 @@ import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import Journals from "@/pages/accountant/Journals.vue";
+import JournalDetail from "@/pages/accountant/JournalDetail.vue";
 import ChartOfAccounts from "@/pages/accountant/ChartOfAccounts.vue";
 import GeneralLedger from "@/pages/accountant/GeneralLedger.vue";
 import TrialBalance from "@/pages/accountant/TrialBalance.vue";

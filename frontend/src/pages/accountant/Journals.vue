@@ -31,7 +31,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="j in tt.pageRows.value" :key="j.name" class="border-t border-line-hair hover:bg-app-warm/70" :class="tt.isSelected(j) ? 'bg-accent/5' : ''">
+          <tr v-for="j in tt.pageRows.value" :key="j.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(j) ? 'bg-accent/5' : ''" @click="open(j.name)">
             <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(j)" @change="tt.toggleRow(j)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
             <td v-show="!tt.hidden.value.has('name')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ j.name }}</td>
             <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ j.date }}</td>
@@ -56,6 +56,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
@@ -69,7 +70,9 @@ import { useTableTools } from "@/composables/useTableTools";
 import { useBulkDocActions } from "@/composables/useBulkActions";
 
 const { locale } = useI18n();
+const router = useRouter();
 const toast = useToast();
+function open(name) { router.push({ path: "/accounting/accountant/journals", query: { id: name } }); }
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const STATUS = {

@@ -127,3 +127,31 @@ def list_journals(company=None, search=None, from_date=None, to_date=None, limit
         r["date"] = str(r.get("date") or "")
         r["status"] = ["draft", "submitted", "cancelled"][r["docstatus"]] if r["docstatus"] < 3 else "—"
     return rows
+
+
+@frappe.whitelist()
+def get_journal(name=None):
+    """One Journal Entry — header + its account lines (Dr/Cr, party, references)."""
+    assert_portal_access()
+    je = frappe.db.get_value(
+        "Journal Entry", name,
+        ["name", "company", "posting_date", "voucher_type", "user_remark", "total_debit",
+         "total_credit", "docstatus", "cheque_no", "cheque_date", "clearance_date"], as_dict=True)
+    if not je:
+        frappe.throw("Journal not found")
+    if je.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+    accounts = frappe.db.sql(
+        """SELECT jea.account, IFNULL(a.account_name, jea.account) AS account_name,
+                  jea.party_type, jea.party, ROUND(jea.debit, 2) AS debit, ROUND(jea.credit, 2) AS credit,
+                  jea.reference_type, jea.reference_name
+           FROM `tabJournal Entry Account` jea LEFT JOIN `tabAccount` a ON a.name=jea.account
+           WHERE jea.parent=%s ORDER BY jea.idx""", name, as_dict=True)
+    for r in accounts:
+        r["debit"] = flt(r["debit"]); r["credit"] = flt(r["credit"])
+    je["accounts"] = accounts
+    je["total_debit"] = flt(je.total_debit)
+    je["status"] = ["Draft", "Submitted", "Cancelled"][je.docstatus] if je.docstatus < 3 else "—"
+    je["posting_date"] = str(je.posting_date or "")
+    je["clearance_date"] = str(je.clearance_date or "")
+    return je
