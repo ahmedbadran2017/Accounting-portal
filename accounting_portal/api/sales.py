@@ -262,7 +262,8 @@ def get_order(name):
          "custom_shipping_city", "custom_shipping_governorate",
          "custom_shipping_phone", "custom_customer_phone",
          "custom_tracking_number", "custom_awb", "custom_tracking_url",
-         "custom_channel", "advance_paid", "per_billed", "per_delivered"],
+         "custom_channel", "advance_paid", "per_billed", "per_delivered",
+         "custom_reference_number"],
         as_dict=True,
     )
     if not so:
@@ -291,6 +292,17 @@ def get_order(name):
             {"inv": tuple(so["related_invoices"])}, as_dict=True)]
     else:
         so["related_payments"] = []
+    # Cathedis remittance ref — on the Sales Order, else on a matched invoice
+    # (the book's reconciliation stamps custom_reference_number on either).
+    ref = (so.get("custom_reference_number") or "").strip()
+    if not ref.upper().startswith("CATH") and so["related_invoices"]:
+        hit = frappe.db.sql(
+            """SELECT MAX(custom_reference_number) FROM `tabSales Invoice`
+               WHERE name IN %(inv)s AND IFNULL(custom_reference_number,'') LIKE 'CATH%%'""",
+            {"inv": tuple(so["related_invoices"])})
+        if hit and hit[0][0]:
+            ref = hit[0][0]
+    so["remittance_ref"] = ref if ref.upper().startswith("CATH") else ""
     # Backfill city/phone from the customer's Address/Contact (the order's own
     # custom fields are largely empty on live data).
     from accounting_portal.api.customers import _customer_city, _customer_contact

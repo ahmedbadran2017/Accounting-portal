@@ -29,8 +29,8 @@
       </div>
       <!-- Dimensions -->
       <div class="flex gap-2 flex-wrap mt-3.5 pt-3.5 border-t border-line-hair">
-        <span v-for="d in dims" :key="d.k" class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-[5px] rounded-[8px] bg-app-warm2 border border-line text-ink-2">
-          <span class="font-semibold text-ink-muted">{{ d.k }}</span>{{ d.v || "—" }}
+        <span v-for="d in dims" :key="d.k" class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-[5px] rounded-[8px] border" :class="d.mono ? 'bg-accent-soft border-accent/30 text-accent-dark' : 'bg-app-warm2 border-line text-ink-2'">
+          <span class="font-semibold" :class="d.mono ? 'text-accent-dark/70' : 'text-ink-muted'">{{ d.k }}</span><span :class="d.mono ? 'font-mono font-semibold' : ''">{{ d.v || "—" }}</span>
         </span>
       </div>
     </div>
@@ -75,6 +75,7 @@
           <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Carrier","الناقل","Transporteur") }}</dt><dd class="font-medium">{{ tracking.carrier }}</dd></div>
           <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Tracking #","رقم التتبّع","N° suivi") }}</dt><dd class="font-medium font-mono">{{ tracking.number }}</dd></div>
           <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Status","الحالة","Statut") }}</dt><dd class="font-medium">{{ tracking.shipment }}</dd></div>
+          <div v-if="tracking.remittance" class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Remittance ref","مرجع التحصيل","Réf. remise") }}</dt><dd class="font-semibold font-mono text-accent-dark">{{ tracking.remittance }}</dd></div>
         </dl>
         <a v-if="tracking.url" :href="tracking.url" target="_blank" rel="noopener" class="mt-2.5 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-accent hover:text-accent-dark"><Icon name="arrow" :size="13" class="rtl:rotate-180" />{{ L("Track shipment","تتبّع الشحنة","Suivre") }}</a>
       </div>

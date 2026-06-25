@@ -52,6 +52,7 @@ function liveVM(d, l) {
       { k: L(l, "Billed", "مفوتر", "Facturé"), v: `${Math.round(d.per_billed || 0)}%` },
       { k: L(l, "Net", "الصافي", "Net"), v: intFmt(d.net_total) },
       { k: L(l, "VAT", "ض.ق.م", "TVA"), v: intFmt(d.total_taxes_and_charges) },
+      ...(d.remittance_ref ? [{ k: L(l, "Remittance", "التحصيل", "Remise"), v: d.remittance_ref, mono: true }] : []),
     ],
     items: (d.items || []).map((it) => ({ name: it.name, image: it.image, qty: it.qty, rate: fmt2(it.rate), amount: fmt2(it.amount) })),
     shipping: {
@@ -65,6 +66,7 @@ function liveVM(d, l) {
       url: d.custom_tracking_url || "",
       shipment: d.custom_track_shipment_status || "—",
       expected: d.custom_expected_ship_date ? String(d.custom_expected_ship_date) : "—",
+      remittance: d.remittance_ref || "",
     },
     financial: {
       net: intFmt(d.net_total), vat: intFmt(d.total_taxes_and_charges), gross: intFmt(d.grand_total),
