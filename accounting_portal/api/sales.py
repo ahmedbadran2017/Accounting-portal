@@ -357,7 +357,8 @@ def get_invoice(name):
     si = frappe.db.get_value(
         "Sales Invoice", name,
         ["name", "customer", "company", "net_total", "total_taxes_and_charges",
-         "grand_total", "status", "posting_date", "outstanding_amount"], as_dict=True,
+         "grand_total", "status", "posting_date", "due_date", "outstanding_amount",
+         "is_return", "currency", "docstatus"], as_dict=True,
     )
     if not si:
         frappe.throw("Invoice not found")
@@ -383,6 +384,39 @@ def get_invoice(name):
     si["phone"] = _customer_contact(si["customer"])["phone"] or ""
     si["journal"] = _voucher_journal(name)
     return si
+
+
+@frappe.whitelist()
+def get_challan(name):
+    """One Delivery Note: header, carrier/tracking, line items, linked SO/SI."""
+    assert_portal_access()
+    dn = frappe.db.get_value(
+        "Delivery Note", name,
+        ["name", "customer", "company", "posting_date", "grand_total", "status",
+         "custom_tracking_company", "custom_tracking_number", "custom_tracking_url",
+         "custom_track_shipment_status", "custom_logistics_status"], as_dict=True)
+    if not dn:
+        frappe.throw("Delivery note not found")
+    if dn.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+    dn["carrier"] = dn.get("custom_tracking_company") or "—"
+    dn["tracking"] = dn.get("custom_tracking_number") or "—"
+    dn["tracking_url"] = dn.get("custom_tracking_url") or ""
+    dn["ship_status"] = dn.get("custom_track_shipment_status") or dn.get("custom_logistics_status") or dn.get("status")
+    dn["lines"] = frappe.db.sql(
+        """SELECT dni.item_name AS name, dni.item_code, dni.qty, dni.rate, dni.amount,
+                  dni.custom_sku AS sku, i.image
+           FROM `tabDelivery Note Item` dni
+           LEFT JOIN `tabItem` i ON i.name = dni.item_code
+           WHERE dni.parent = %s ORDER BY dni.idx""", (name,), as_dict=True)
+    dn["related_orders"] = [r.name for r in frappe.db.sql(
+        "SELECT DISTINCT against_sales_order AS name FROM `tabDelivery Note Item` WHERE parent=%s AND IFNULL(against_sales_order,'')!=''", (name,), as_dict=True)]
+    dn["related_invoices"] = [r.name for r in frappe.db.sql(
+        "SELECT DISTINCT against_sales_invoice AS name FROM `tabDelivery Note Item` WHERE parent=%s AND IFNULL(against_sales_invoice,'')!=''", (name,), as_dict=True)]
+    from accounting_portal.api.customers import _customer_city, _customer_contact
+    dn["city"] = _customer_city(dn["customer"])
+    dn["phone"] = _customer_contact(dn["customer"])["phone"] or ""
+    return dn
 
 
 def _voucher_journal(voucher_no):

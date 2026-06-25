@@ -26,6 +26,9 @@
     <OrderDetail v-if="activeSub === 'orders' && route.query.id" />
     <OrdersList v-else-if="activeSub === 'orders'" @new="showOrder = true" />
     <CodBucket v-else-if="['todeliver','delivered','collected','toreturn','returned'].includes(activeSub)" />
+    <ChallanDetail v-else-if="activeSub === 'challans' && route.query.id" />
+    <ChallansList v-else-if="activeSub === 'challans'" />
+    <CreditsList v-else-if="activeSub === 'credits'" />
     <InvoiceDetail v-else-if="activeSub === 'invoices' && route.query.id" />
     <InvoicesList v-else-if="activeSub === 'invoices'" />
     <CustomerDetail v-else-if="activeSub === 'customers' && route.query.id" />
@@ -55,6 +58,9 @@ import CustomersList from "@/pages/sales/CustomersList.vue";
 import CustomerDetail from "@/pages/sales/CustomerDetail.vue";
 import PaymentsList from "@/pages/sales/PaymentsList.vue";
 import ReceiptDetail from "@/pages/sales/ReceiptDetail.vue";
+import ChallansList from "@/pages/sales/ChallansList.vue";
+import ChallanDetail from "@/pages/sales/ChallanDetail.vue";
+import CreditsList from "@/pages/sales/CreditsList.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
