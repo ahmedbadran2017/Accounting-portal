@@ -168,3 +168,38 @@ def create_payment_entry(company=None, party=None, amount=None, account=None,
     }
     return _actions.execute(PE_ACTION, target, key, payload=payload, amount=amt,
                             notes=f"{payment_type} {amt:,.0f} from {party}")
+
+
+@frappe.whitelist()
+def list_payments_made(company=None, search=None, from_date=None, to_date=None, limit=200):
+    """Supplier (Pay) Payment Entries for one company — powers the clickable
+    'Payments made' list. Amount is in the paying account's currency."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return []
+    conds = ["pe.company=%(c)s", "pe.docstatus=1", "pe.payment_type='Pay'", "pe.party_type='Supplier'"]
+    params = {"c": target, "limit": min(int(limit or 200), 500)}
+    if from_date:
+        conds.append("pe.posting_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("pe.posting_date <= %(td)s"); params["td"] = to_date
+    if search:
+        conds.append("(pe.name LIKE %(s)s OR pe.party LIKE %(s)s OR IFNULL(pe.party_name,'') LIKE %(s)s OR IFNULL(pe.reference_no,'') LIKE %(s)s OR IFNULL(pe.mode_of_payment,'') LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    rows = frappe.db.sql(
+        f"""SELECT pe.name, pe.party, IFNULL(s.supplier_name, pe.party) AS party_name,
+                   pe.posting_date AS date, IFNULL(pe.mode_of_payment,'—') AS method,
+                   pe.paid_amount AS amount, pe.paid_from_account_currency AS currency,
+                   IFNULL(pe.reference_no,'') AS reference_no,
+                   (SELECT COUNT(*) FROM `tabPayment Entry Reference` per
+                      WHERE per.parent=pe.name AND per.reference_doctype='Purchase Invoice') AS n_bills
+            FROM `tabPayment Entry` pe
+            LEFT JOIN `tabSupplier` s ON s.name=pe.party
+            WHERE {' AND '.join(conds)}
+            ORDER BY pe.posting_date DESC, pe.creation DESC LIMIT %(limit)s""",
+        params, as_dict=True)
+    for r in rows:
+        r["amount"] = flt(r["amount"])
+        r["date"] = str(r.get("date") or "")
+    return rows

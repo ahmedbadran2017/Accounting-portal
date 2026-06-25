@@ -22,6 +22,8 @@
     <PurchaseBucket v-else-if="['tobuy','received','billed','topay','paid'].includes(activeSub)" />
     <BillDetail v-else-if="activeSub === 'bills' && route.query.id" />
     <BillsList v-else-if="activeSub === 'bills'" />
+    <PaymentMadeDetail v-else-if="activeSub === 'payments' && route.query.id" />
+    <PaymentsMade v-else-if="activeSub === 'payments'" />
     <ScaffoldTable v-else />
   </div>
 </template>
@@ -39,6 +41,8 @@ import PurchaseBucket from "@/pages/purchases/PurchaseBucket.vue";
 import PurchaseDocDetail from "@/pages/purchases/PurchaseDocDetail.vue";
 import BillsList from "@/pages/purchases/BillsList.vue";
 import BillDetail from "@/pages/purchases/BillDetail.vue";
+import PaymentsMade from "@/pages/purchases/PaymentsMade.vue";
+import PaymentMadeDetail from "@/pages/purchases/PaymentMadeDetail.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
