@@ -56,6 +56,7 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
+              <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
                   class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none cursor-pointer hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'"
@@ -68,7 +69,9 @@
           <tbody>
             <tr v-for="o in tt.pageRows.value" :key="o.id"
                 class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer"
+                :class="tt.isSelected(o) ? 'bg-accent/5' : ''"
                 @click="open(o.id)">
+              <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(o)" @change="tt.toggleRow(o)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
               <td v-show="!tt.hidden.value.has('id')" class="px-4 py-2.5 font-mono font-semibold text-ink whitespace-nowrap">{{ o.id }}</td>
               <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date || "—" }}</td>
               <td v-show="!tt.hidden.value.has('customer')" class="px-4 py-2.5">
@@ -102,6 +105,8 @@
       <div v-else-if="!tt.sorted.value.length" class="py-14 text-center text-[12px] text-ink-muted">{{ lbl("No orders match your filters.", "لا توجد طلبات مطابقة.", "Aucune commande.") }}</div>
       <TablePager :t="tt" />
     </div>
+
+    <BulkBar :t="tt" filename="orders-selected" :actions="bulkActions" />
   </div>
 </template>
 
@@ -120,6 +125,8 @@ import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import StatCard from "@/components/StatCard.vue";
 import { useTableTools } from "@/composables/useTableTools";
+import BulkBar from "@/components/BulkBar.vue";
+import { useBulkDocActions } from "@/composables/useBulkActions";
 
 defineEmits(["new"]);
 const { t, locale } = useI18n();
@@ -136,7 +143,8 @@ const loaded = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
 const summary = ref(null);
-onMounted(async () => {
+async function load() {
+  loading.value = true;
   try {
     const res = await liveOrSample(
       "accounting_portal.api.sales.list_orders", { company: currentCompany(), limit: 500, customer: customerFilter.value || undefined }, () => ORDERS,
@@ -150,7 +158,8 @@ onMounted(async () => {
     isLive.value = res.live;
   } finally { loading.value = false; }
   try { summary.value = await api.call("accounting_portal.api.sales.orders_summary", { company: currentCompany() }); } catch { /* sample */ }
-});
+}
+onMounted(load);
 
 // CFO month-to-date metrics (live; sample headline until the endpoint lands).
 const SUMMARY_SAMPLE = { gmv: 1525056, orders: 7553, aov: 202, delivered_value: 547566, delivery_rate: 36.8, pending: 4092, exceptions: 92, rto_rate: 1.2 };
@@ -190,13 +199,14 @@ const baseRows = computed(() => {
   return r;
 });
 const tt = useTableTools(baseRows, cols, {
-  dateKey: "date", defaultSort: "date", defaultDir: -1,
+  keyField: "id", dateKey: "date", defaultSort: "date", defaultDir: -1,
   facets: [
     { key: "carrier", label: lbl("carrier", "ناقل", "transp.") },
     { key: "city", label: lbl("city", "مدينة", "ville") },
     { key: "state", label: lbl("state", "حالة", "état"), format: (v) => stateLabel(v, locale.value) },
   ],
 });
+const bulkActions = useBulkDocActions("Sales Order", { keyField: "id", onDone: () => { tt.clearSelection(); load(); }, L: lbl });
 
 function open(id) { router.push({ path: "/accounting/sales/orders", query: { id } }); }
 </script>

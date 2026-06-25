@@ -35,6 +35,7 @@
       <table class="w-full text-[12px]">
         <thead>
           <tr style="background:#fafaf9">
+            <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
             <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
                 class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                 :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
@@ -44,7 +45,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(c, i) in tt.pageRows.value" :key="c.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(c.name)">
+          <tr v-for="(c, i) in tt.pageRows.value" :key="c.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(c) ? 'bg-accent/5' : ''" @click="open(c.name)">
+            <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(c)" @change="tt.toggleRow(c)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
             <td v-show="!tt.hidden.value.has('customer_name')" class="px-4 py-2.5">
               <span class="flex items-center gap-2.5">
                 <span class="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold flex-shrink-0" :style="{ background: AV[c.av] || AV[avKeys[i % avKeys.length]] }">{{ initials(c.customer_name || c.name) }}</span>
@@ -70,6 +72,7 @@
       <div v-else-if="!tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No customers match.","لا عملاء مطابقين.","Aucun client.") }}</div>
     </div>
     <TablePager :t="tt" />
+    <BulkBar :t="tt" filename="customers-selected" :actions="[]" />
   </div>
 </template>
 
@@ -85,6 +88,7 @@ import { initials, deliveryColor, rtoColor } from "@/data/customers";
 import { AV } from "@/data/orders";
 import { useCustomers } from "@/composables/useCustomers";
 import { useTableTools } from "@/composables/useTableTools";
+import BulkBar from "@/components/BulkBar.vue";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -126,9 +130,9 @@ function accessor(r, k) {
   if (k === "ltv" || k === "credit" || k === "orders") return Number(String(r[k]).replace(/,/g, "")) || 0;
   return r[k];
 }
-const tt = useTableTools(tagged, cols, { defaultSort: "ltv", defaultDir: -1, accessor });
+const tt = useTableTools(tagged, cols, { keyField: "name", defaultSort: "ltv", defaultDir: -1, accessor });
 
-async function reload() { loading.value = true; try { rows.value = await loadList(search.value); } finally { loading.value = false; } }
+async function reload() { loading.value = true; try { rows.value = await loadList(search.value); } finally { loading.value = false; tt.clearSelection(); } }
 let timer;
 watch(search, () => { clearTimeout(timer); timer = setTimeout(reload, 300); });
 onMounted(reload);

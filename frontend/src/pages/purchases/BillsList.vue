@@ -19,6 +19,7 @@
       <table class="w-full text-[12px]">
         <thead>
           <tr style="background:#fafaf9">
+            <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
             <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
                 class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                 :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
@@ -28,7 +29,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="b in tt.pageRows.value" :key="b.id" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(b.id)">
+          <tr v-for="b in tt.pageRows.value" :key="b.id" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(b) ? 'bg-accent/5' : ''" @click="open(b.id)">
+            <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(b)" @change="tt.toggleRow(b)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
             <td v-show="!tt.hidden.value.has('id')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ b.id }}</td>
             <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ b.date || "—" }}</td>
             <td v-show="!tt.hidden.value.has('vendor')" class="px-4 py-2.5 truncate max-w-[200px]">{{ b.vendor }}</td>
@@ -51,6 +53,8 @@
     </div>
     <div v-if="!tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No bills match your filters.","لا توجد فواتير مطابقة.","Aucune facture.") }}</div>
     <TablePager :t="tt" />
+
+    <BulkBar :t="tt" filename="bills-selected" :actions="bulkActions" />
   </div>
 </template>
 
@@ -64,6 +68,8 @@ import TablePager from "@/components/TablePager.vue";
 import { BILLS, MATCH_META, BILL_STATUS, matchLabel, billStatusLabel } from "@/data/purchases";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
+import BulkBar from "@/components/BulkBar.vue";
+import { useBulkDocActions } from "@/composables/useBulkActions";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -82,7 +88,7 @@ const cols = [
 const rows = ref(normalizeSample(BILLS));
 const isLive = ref(null);
 const tt = useTableTools(rows, cols, {
-  dateKey: "date", defaultSort: "date", defaultDir: -1,
+  keyField: "id", dateKey: "date", defaultSort: "date", defaultDir: -1,
   facets: [
     { key: "status", label: L("status", "حالة", "statut"), format: (v) => billStatusLabel(v, locale.value) },
     { key: "match", label: L("match", "مطابقة", "rappr."), format: (v) => matchLabel(v, locale.value) },
@@ -98,7 +104,7 @@ function normalizeSample(list) {
   });
 }
 
-onMounted(async () => {
+async function load() {
   const res = await liveOrSample(
     "accounting_portal.api.purchases.list_bills", { company: currentCompany(), limit: 500 }, () => normalizeSample(BILLS),
     (data) => data.map((r) => ({
@@ -108,7 +114,9 @@ onMounted(async () => {
   );
   rows.value = res.data;
   isLive.value = res.live;
-});
+}
+onMounted(load);
+const bulkActions = useBulkDocActions("Purchase Invoice", { keyField: "id", onDone: () => { tt.clearSelection(); load(); }, L });
 
 function open(id) { router.push({ path: "/accounting/purchases/bills", query: { id } }); }
 </script>

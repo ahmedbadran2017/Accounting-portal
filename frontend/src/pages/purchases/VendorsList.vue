@@ -26,6 +26,7 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
+              <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
                   class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
@@ -35,7 +36,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(v, i) in tt.pageRows.value" :key="v.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(v.name)">
+            <tr v-for="(v, i) in tt.pageRows.value" :key="v.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(v) ? 'bg-accent/5' : ''" @click="open(v.name)">
+              <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(v)" @change="tt.toggleRow(v)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
               <td v-show="!tt.hidden.value.has('supplier_name')" class="px-4 py-2.5">
                 <span class="flex items-center gap-2.5">
                   <span class="w-7 h-7 rounded-[8px] grid place-items-center text-white text-[9px] font-bold flex-shrink-0" :style="{ background: badge(i) }">{{ ini(v.supplier_name) }}</span>
@@ -65,6 +67,8 @@
         </button>
       </div>
     </div>
+
+    <BulkBar :t="tt" filename="vendors-selected" :actions="[]" />
   </div>
 </template>
 
@@ -79,6 +83,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import { VENDORS } from "@/data/purchases";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
+import BulkBar from "@/components/BulkBar.vue";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -100,7 +105,7 @@ const SAMPLE = VENDORS.map((v) => ({ name: v.id, supplier_name: v.name, group: v
 const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const tt = useTableTools(rows, cols, { defaultSort: "payable", defaultDir: -1, facets: [{ key: "group", label: L("group", "مجموعة", "groupe") }] });
+const tt = useTableTools(rows, cols, { keyField: "name", defaultSort: "payable", defaultDir: -1, facets: [{ key: "group", label: L("group", "مجموعة", "groupe") }] });
 
 onMounted(async () => {
   try {
@@ -109,7 +114,7 @@ onMounted(async () => {
       (data) => data.map((r) => ({ name: r.name, supplier_name: r.supplier_name || r.name, group: r.supplier_group, payable: Number(r.payable) || 0, currency: r.currency || "MAD", n_bills: r.n_bills || 0 })),
     );
     rows.value = res.data; isLive.value = res.live;
-  } finally { loading.value = false; }
+  } finally { loading.value = false; tt.clearSelection(); }
 });
 
 function open(name) { router.push({ path: "/accounting/purchases/vendors", query: { id: name } }); }

@@ -49,6 +49,7 @@ def _ensure_posters():
     import accounting_portal.api.sales        # noqa: F401 — Sales Order poster
     import accounting_portal.api.cod          # noqa: F401 — Collect COD poster
     import accounting_portal.api.purchases    # noqa: F401 — Receipt/Invoice/Pay posters
+    import accounting_portal.api.bulk         # noqa: F401 — Bulk Submit/Cancel posters
 
 
 def _existing(dedupe_key):
