@@ -33,9 +33,12 @@
             <tr class="border-b border-line-hair"><td class="px-4 py-2.5 text-ink-3">{{ L("Book balance — GL Debtors", "الرصيد الدفتري — مدينون", "Solde GL Débiteurs") }}</td><td class="px-4 py-2.5 text-end tnum font-bold" :class="ar.gl_debtors < 0 ? 'text-sale' : ''">{{ fmt(ar.gl_debtors) }}</td></tr>
           </tbody>
         </table>
-        <div class="px-4 py-2.5 bg-sale/5 border-t border-line-hair text-[11px] text-sale flex items-start gap-1.5">
+        <div class="px-4 py-2.5 bg-sale/5 border-t border-line-hair text-[11px] text-sale flex items-start gap-2 flex-wrap">
           <Icon name="alert" :size="13" class="mt-0.5 flex-shrink-0" />
-          <span>{{ L("GL Debtors is a credit balance (wrong sign) — COD collections aren't applied to invoices. Run the Cathedis reconciliation to clear it.", "مدينون برصيد دائن (إشارة عكسية) — تحصيلات الـ COD غير مطبّقة على الفواتير. شغّل مطابقة كاتدييس.", "Débiteurs créditeur — encaissements COD non affectés.") }}</span>
+          <span class="flex-1 min-w-[200px]">{{ L("GL Debtors is a credit balance (wrong sign) — COD collections aren't applied to invoices. Run the Cathedis reconciliation to clear it.", "مدينون برصيد دائن (إشارة عكسية) — تحصيلات الـ COD غير مطبّقة على الفواتير. شغّل مطابقة كاتدييس.", "Débiteurs créditeur — encaissements COD non affectés.") }}</span>
+          <button @click="goReconcile" class="inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand flex-shrink-0">
+            <Icon name="trend" :size="12" color="#fff" />{{ L("Reconcile now", "صالِح الآن", "Réconcilier") }}<Icon name="arrow" :size="11" color="#fff" class="rtl:rotate-180" />
+          </button>
         </div>
         <AgingBar :a="r.ar_aging" :L="L" :fmt="fmt" />
       </div>
@@ -65,6 +68,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { h } from "vue";
 import Icon from "@/components/Icon.vue";
@@ -74,7 +78,9 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
+const router = useRouter();
 const { entityId } = useUi();
+function goReconcile() { router.push("/accounting/sales/collected?recon=1"); }
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };

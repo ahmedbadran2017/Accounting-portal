@@ -250,6 +250,9 @@ watch(entityId, loadSummary, { immediate: true });
 watch([bucket, entityId], () => { tt.reset(); tt.clearSelection(); loadRows(); }, { immediate: true });
 watch([dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(() => { loadSummary(); loadRows(); }, 300); });
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
+// Deep-link: /accounting/sales/collected?recon=1 opens the Cathedis workbench
+// directly (e.g. from the Receivables & Payables report's "Reconcile now").
+watch(() => route.query.recon, (v) => { if (v) showRecon.value = true; }, { immediate: true });
 
 function goBucket(k) { router.push(`/accounting/sales/${k}`); }
 function open(name) { router.push({ path: "/accounting/sales/orders", query: { id: name } }); }
