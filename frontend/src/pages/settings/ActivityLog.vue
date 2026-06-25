@@ -5,7 +5,17 @@
             :class="live ? 'text-success-dark bg-success-soft' : 'text-amber-700 bg-amber-50'">
         <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échantillon") }}
       </span>
-      <span class="text-[11px] text-ink-muted">{{ L("Every write the team makes from the portal — who, what, when, and the posted voucher.","كل عملية كتابة يقوم بها الفريق من البورتال — من، وماذا، ومتى، والمستند المُرحّل.","Chaque écriture passée depuis le portail — qui, quoi, quand.") }}</span>
+      <span class="text-[11px] text-ink-muted">{{ L("Every write the team makes from the portal — who, what, when, and the posted voucher.","كل عملية كتابة يقوم بها الفريق من البورتال — من، وماذا، ومتى، والمستند المُرحّل.","Chaque écriture passée depuis le portail.") }}</span>
+    </div>
+
+    <div v-if="pending" class="flex items-center gap-2.5 px-4 py-2.5 rounded-card border" style="background:#fffbeb;border-color:#fde68a">
+      <Icon name="bell" :size="15" color="#b45309" />
+      <span class="text-[12px] font-bold text-ink-2">{{ pending }} {{ L("action(s) awaiting your approval", "إجراء بانتظار موافقتك", "action(s) à approuver") }}</span>
+      <button @click="filter = 'Proposed'" class="ms-auto text-[11px] font-bold px-2.5 py-1 rounded-full bg-brand text-white">{{ L("Review", "راجع", "Examiner") }}</button>
+    </div>
+
+    <div class="flex items-center gap-2 flex-wrap">
+      <button v-for="f in FILTERS" :key="f" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="filter === f ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'" @click="filter = f">{{ f || L('All', 'الكل', 'Tout') }}</button>
     </div>
 
     <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
@@ -17,17 +27,24 @@
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher","المستند","Pièce") }}</th>
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("By","بواسطة","Par") }}</th>
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("When","متى","Quand") }}</th>
+          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted"></th>
         </tr></thead>
         <tbody>
-          <tr v-for="a in rows" :key="a.name" class="border-t border-line-hair hover:bg-app-warm/40">
+          <tr v-for="a in filtered" :key="a.name" class="border-t border-line-hair hover:bg-app-warm/40">
             <td class="px-4 py-2.5"><div class="font-semibold">{{ a.action_type }}</div><div v-if="a.notes" class="text-[10.5px] text-ink-muted truncate max-w-[220px]">{{ a.notes }}</div></td>
             <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-badge border" :style="badge(a.status)">{{ a.status }}</span></td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ a.amount ? money0(a.amount) : "—" }}</td>
             <td class="px-4 py-2.5 font-mono text-[11px] text-ink-2">{{ a.voucher_no || "—" }}</td>
             <td class="px-4 py-2.5 text-ink-3">{{ shortUser(a.proposed_by) }}<span v-if="a.approved_by" class="text-ink-muted"> → {{ shortUser(a.approved_by) }}</span></td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ when(a.posted_on || a.creation) }}</td>
+            <td class="px-4 py-2.5 text-end whitespace-nowrap">
+              <span v-if="a.status === 'Proposed'" class="inline-flex gap-1.5">
+                <button @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
+                <button @click="reject(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm">{{ L("Reject", "رفض", "Rejeter") }}</button>
+              </span>
+            </td>
           </tr>
-          <tr v-if="!rows.length"><td colspan="6" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ L("No portal actions yet.","لا توجد إجراءات بعد.","Aucune action pour l'instant.") }}</td></tr>
+          <tr v-if="!filtered.length"><td colspan="7" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ L("No portal actions here.","لا توجد إجراءات.","Aucune action.") }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -35,15 +52,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import Icon from "@/components/Icon.vue";
+import api from "@/services/api";
 import { useUi } from "@/composables/useUi";
+import { useToast } from "@/composables/useToast";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { money0 } from "@/composables/useReports";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const FILTERS = ["", "Proposed", "Posted", "Rejected"];
+const filter = ref("");
+const busy = ref(false);
 
 const SAMPLE = [
   { name: "a1", action_type: "Post Correction", status: "Posted", amount: 4200, voucher_no: "ACC-JV-2026-04920", proposed_by: "demo@justyol.com", approved_by: null, posted_on: "2026-06-23 14:12:00", notes: "June accrual reclass" },
@@ -61,6 +85,22 @@ async function load() {
 }
 onMounted(load);
 watch(entityId, load);
+
+const filtered = computed(() => (filter.value ? rows.value.filter((r) => r.status === filter.value) : rows.value));
+const pending = computed(() => rows.value.filter((r) => r.status === "Proposed").length);
+async function approve(a) {
+  busy.value = true;
+  try { await api.call("accounting_portal.api._actions.approve_action", { name: a.name }); toast.success(L("Approved & posted", "تم الاعتماد والترحيل", "Approuvé & passé")); load(); }
+  catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
+  finally { busy.value = false; }
+}
+async function reject(a) {
+  const reason = window.prompt(L("Reason for rejection?", "سبب الرفض؟", "Motif du rejet ?")) || "";
+  busy.value = true;
+  try { await api.call("accounting_portal.api._actions.reject_action", { name: a.name, reason }); toast.info(L("Rejected", "تم الرفض", "Rejeté")); load(); }
+  catch (e) { toast.error(L("Failed", "فشل", "Échec")); }
+  finally { busy.value = false; }
+}
 
 const PALETTE = {
   Posted: "background:#ecfdf5;color:#047857;border-color:#a7f3d0",
