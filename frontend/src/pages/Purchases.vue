@@ -18,6 +18,7 @@
 
     <VendorDetail v-if="activeSub === 'vendors' && route.query.id" />
     <VendorsList v-else-if="activeSub === 'vendors'" />
+    <PurchaseBucket v-else-if="['tobuy','received','billed','topay','paid'].includes(activeSub)" />
     <BillDetail v-else-if="activeSub === 'bills' && route.query.id" />
     <BillsList v-else-if="activeSub === 'bills'" />
     <ScaffoldTable v-else />
@@ -33,6 +34,7 @@ import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import VendorsList from "@/pages/purchases/VendorsList.vue";
 import VendorDetail from "@/pages/purchases/VendorDetail.vue";
+import PurchaseBucket from "@/pages/purchases/PurchaseBucket.vue";
 import BillsList from "@/pages/purchases/BillsList.vue";
 import BillDetail from "@/pages/purchases/BillDetail.vue";
 import { useUi } from "@/composables/useUi";

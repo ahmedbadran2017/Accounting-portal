@@ -1,0 +1,209 @@
+<template>
+  <div class="space-y-3.5">
+    <!-- Pipeline strip -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <button v-for="b in PIPE" :key="b.key" class="group relative bg-white border rounded-[16px] p-4 text-start transition-all overflow-hidden"
+              :class="bucket === b.key ? 'shadow-cardHover -translate-y-0.5' : 'border-line shadow-card hover:-translate-y-0.5 hover:shadow-cardHover'"
+              :style="bucket === b.key ? { borderColor: b.color + '66' } : {}" @click="goBucket(b.key)">
+        <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: b.color, opacity: bucket === b.key ? 1 : .25 }"></span>
+        <div class="relative flex items-start gap-2.5">
+          <span class="w-9 h-9 rounded-[11px] grid place-items-center flex-shrink-0" :style="{ background: b.tint }"><Icon :name="b.icon" :size="17" :color="b.color" /></span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
+              <span v-if="dateScope" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ dateScope }}</span>
+            </div>
+            <div class="text-[24px] font-extrabold tnum leading-tight tracking-tight" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ cardCount(b.key).toLocaleString() }}</div>
+          </div>
+        </div>
+        <div class="relative mt-2 text-[11px] text-ink-3 font-semibold tnum">{{ money(cardValue(b.key)) }} <span class="text-ink-muted font-normal">MAD</span></div>
+        <div class="relative mt-1 text-[10px] text-ink-muted">{{ b.hint() }}</div>
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
+      <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
+        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" :style="{ background: active.tint }"><Icon :name="active.icon" :size="14" :color="active.color" /></span>
+        <span class="text-[13px] font-bold">{{ active.label() }}</span>
+        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? "Live" : "Sample" }}</span>
+        <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("docs","مستند","docs") }} · {{ dateScope || "FY 2026" }}<span v-if="bucketCount > rows.length"> · {{ L("first","أول","premiers") }} {{ rows.length }}</span></span>
+        <div class="relative ms-auto">
+          <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
+          <input v-model.trim="srch" :placeholder="L('Document / supplier…','مستند / مورّد…','Document / fournisseur…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair flex-wrap bg-app-warm/20">
+        <Icon name="clock" :size="13" color="#a8a29e" />
+        <button v-for="p in DATE_PRESETS" :key="p.key" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
+                :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'" @click="setPreset(p.key)">{{ p.label() }}</button>
+        <div v-if="datePreset === 'range'" class="flex items-center gap-1">
+          <input type="date" v-model="dateFrom" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+          <span class="text-ink-muted text-[11px]">→</span>
+          <input type="date" v-model="dateTo" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        </div>
+        <span v-if="loading" class="ms-2 text-[11px] text-ink-muted inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>{{ L("loading…","تحميل…","…") }}</span>
+      </div>
+
+      <TableToolbar :t="tt" :filename="bucket" />
+      <div class="overflow-x-auto">
+        <table class="w-full text-[12px]">
+          <thead>
+            <tr style="background:#fafaf9">
+              <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
+                  class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
+                  :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
+                <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ colLabel(c) }}
+                  <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70">
+              <td v-show="!tt.hidden.value.has('name')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}</td>
+              <td v-show="!tt.hidden.value.has('supplier_name')" class="px-4 py-2.5 truncate max-w-[200px]">{{ o.supplier_name }}</td>
+              <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
+              <td v-show="!tt.hidden.value.has('due')" class="px-4 py-2.5 whitespace-nowrap">
+                <span v-if="o.due" :class="isOverdue(o.due) ? 'text-sale font-semibold' : 'text-ink-2'">{{ o.due }}</span>
+                <span v-else class="text-ink-muted">—</span>
+              </td>
+              <td v-show="!tt.hidden.value.has('info')" class="px-4 py-2.5 text-end whitespace-nowrap">
+                <template v-if="bucket === 'tobuy' || bucket === 'received'">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="w-12 h-1.5 rounded-full bg-app-warm overflow-hidden"><span class="block h-full rounded-full" :style="{ width: Math.round(o.progress) + '%', background: active.color }"></span></span>
+                    <span class="text-[11px] tnum text-ink-3">{{ Math.round(o.progress) }}%</span>
+                  </span>
+                </template>
+                <template v-else-if="bucket === 'paid'">
+                  <span v-if="o.method" class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="methodStyle(o.method)">{{ o.method }}</span>
+                  <span v-else class="text-ink-muted">—</span>
+                </template>
+                <span v-else class="tnum font-bold text-sale">{{ fmt(o.progress) }}</span>
+              </td>
+              <td v-show="!tt.hidden.value.has('value')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ fmt(o.value) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="!tt.sorted.value.length && !loading" class="py-12 text-center text-[12px] text-ink-muted">{{ L("Nothing in this stage.","لا شيء في هذه المرحلة.","Rien ici.") }}</div>
+      <TablePager :t="tt" />
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
+import Icon from "@/components/Icon.vue";
+import TableToolbar from "@/components/TableToolbar.vue";
+import TablePager from "@/components/TablePager.vue";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
+import { useUi } from "@/composables/useUi";
+import { useTableTools } from "@/composables/useTableTools";
+
+const route = useRoute();
+const router = useRouter();
+const { locale } = useI18n();
+const { entityId } = useUi();
+const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const fmt = (n) => Number(n || 0).toLocaleString("en-US");
+const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
+const today = new Date().toISOString().slice(0, 10);
+const isOverdue = (d) => d && d < today;
+function methodStyle(m) {
+  m = (m || "").toLowerCase();
+  if (/cheque|chèque|شيك/.test(m)) return "background:#fffbeb;color:#b45309";
+  if (/bank|virement|transfer|حوالة|تحويل/.test(m)) return "background:#eff6ff;color:#0369a1";
+  if (/cash|كاش|espèce/.test(m)) return "background:#ecfdf5;color:#047857";
+  return "background:#f5f3ff;color:#6d28d9";
+}
+
+const PIPE = [
+  { key: "tobuy", color: "#0369a1", icon: "cart", tint: "#eff6ff", label: () => L("To buy", "للشراء", "À acheter"), hint: () => L("ordered · not received", "مطلوب · لم يُستلم", "commandé") },
+  { key: "received", color: "#b45309", icon: "box", tint: "#fffbeb", label: () => L("Received", "مُستلم", "Reçu"), hint: () => L("received · not billed (GRNI)", "مُستلم · بلا فاتورة", "reçu · non facturé") },
+  { key: "billed", color: "#0891b2", icon: "doc", tint: "#ecfeff", label: () => L("Billed", "متفوتر", "Facturé"), hint: () => L("owed · not due yet", "مستحق · لم يَحِن", "dû · pas échu") },
+  { key: "topay", color: "#be123c", icon: "wallet", tint: "#fef2f2", label: () => L("To pay", "للدفع", "À payer"), hint: () => L("due / overdue", "مستحق / متأخّر", "échu / en retard") },
+  { key: "paid", color: "#047857", icon: "check", tint: "#ecfdf5", label: () => L("Paid", "مدفوع", "Payé"), hint: () => L("settled", "مُسوّى", "réglé") },
+];
+const bucket = computed(() => (PIPE.some((b) => b.key === route.params.sub) ? route.params.sub : "topay"));
+const active = computed(() => PIPE.find((b) => b.key === bucket.value) || PIPE[3]);
+
+const DATE_PRESETS = [
+  { key: "all", label: () => L("All", "الكل", "Tout") },
+  { key: "today", label: () => L("Today", "اليوم", "Auj.") },
+  { key: "7d", label: () => L("7 days", "7 أيام", "7 j") },
+  { key: "30d", label: () => L("30 days", "30 يوم", "30 j") },
+  { key: "month", label: () => L("This month", "هذا الشهر", "Ce mois") },
+  { key: "range", label: () => L("Range", "نطاق", "Plage") },
+];
+
+const cols = [
+  { key: "name", label: L("Document", "المستند", "Document"), align: "s" },
+  { key: "supplier_name", label: L("Supplier", "المورّد", "Fournisseur"), align: "s" },
+  { key: "date", label: L("Date", "التاريخ", "Date"), align: "s" },
+  { key: "due", label: L("Due", "الاستحقاق", "Échéance"), align: "s" },
+  { key: "info", label: L("Progress", "التقدّم", "Suivi"), align: "e" },
+  { key: "value", label: L("Value", "القيمة", "Valeur"), align: "e" },
+];
+function colLabel(c) {
+  if (c.key !== "info") return c.label;
+  if (bucket.value === "paid") return L("Method", "الطريقة", "Méthode");
+  if (bucket.value === "billed" || bucket.value === "topay") return L("Owed", "المستحق", "Dû");
+  return L("Received", "مُستلم", "Reçu");
+}
+
+const rows = ref([]);
+const sum = ref({});
+const live = ref(null);
+const loading = ref(false);
+const srch = ref("");
+const datePreset = ref("month");
+const dateFrom = ref("");
+const dateTo = ref("");
+const bucketCount = ref(0);
+const bucketValue = ref(0);
+const tt = useTableTools(rows, cols, { defaultSort: "value", defaultDir: -1, accessor: (r, k) => (k === "info" ? Number(r.progress) || 0 : r[k]) });
+
+const dateScope = computed(() => { if (datePreset.value === "all") return ""; const p = DATE_PRESETS.find((x) => x.key === datePreset.value); return p ? p.label() : ""; });
+function cardCount(k) { return (sum.value[k] && sum.value[k].count) || 0; }
+function cardValue(k) { return (sum.value[k] && sum.value[k].value) || 0; }
+
+function bounds(key) {
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const now = new Date(); const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (key === "today") return [iso(t), iso(now)];
+  if (key === "7d") { const s = new Date(t); s.setDate(s.getDate() - 7); return [iso(s), iso(now)]; }
+  if (key === "30d") { const s = new Date(t); s.setDate(s.getDate() - 30); return [iso(s), iso(now)]; }
+  if (key === "month") return [iso(new Date(now.getFullYear(), now.getMonth(), 1)), iso(now)];
+  if (key === "range") return [dateFrom.value || null, dateTo.value || null];
+  return [null, null];
+}
+
+const SAMPLE_SUM = { tobuy: { count: 1319, value: 3333693 }, received: { count: 1713, value: 4202082 }, billed: { count: 2, value: 257180 }, topay: { count: 141, value: 3198528 }, paid: { count: 99, value: 4970687 } };
+async function loadSummary() {
+  const [fd, td] = bounds(datePreset.value);
+  try { sum.value = await api.call("accounting_portal.api.purchases.purchases_summary", { company: currentCompany(), from_date: fd || undefined, to_date: td || undefined }) || {}; }
+  catch { sum.value = SAMPLE_SUM; }
+}
+async function loadRows() {
+  loading.value = true;
+  const [fd, td] = bounds(datePreset.value);
+  try {
+    const r = await api.call("accounting_portal.api.purchases.list_purchase_bucket", { company: currentCompany(), bucket: bucket.value, search: srch.value || undefined, from_date: fd || undefined, to_date: td || undefined, limit: 500 });
+    rows.value = r.rows || []; bucketCount.value = r.count || 0; bucketValue.value = r.value || 0; live.value = true;
+  } catch { rows.value = []; bucketCount.value = 0; bucketValue.value = 0; live.value = false; }
+  finally { loading.value = false; }
+}
+
+function setPreset(k) { datePreset.value = k; if (k !== "range") { loadSummary(); loadRows(); } }
+let timer;
+watch(entityId, loadSummary, { immediate: true });
+watch([bucket, entityId], () => { tt.reset(); loadRows(); }, { immediate: true });
+watch([dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(() => { loadSummary(); loadRows(); }, 300); });
+watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
+
+function goBucket(k) { router.push(`/accounting/purchases/${k}`); }
+</script>

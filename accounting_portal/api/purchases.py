@@ -176,3 +176,117 @@ def get_supplier(name):
         "connections": {"bills": bills.n or 0, "pos": n_pos, "receipts": n_grn, "payments": n_pe},
         "ledger": ledger,
     }
+
+
+# ── Procure-to-pay pipeline (To Buy → Received → Billed → To Pay → Paid) ──
+def _target(company):
+    companies = resolve_companies(company)
+    if not companies:
+        return None
+    return company if (company and company in companies) else companies[0]
+
+
+def _fy_start():
+    from frappe.utils import getdate, nowdate
+    return getdate(nowdate()).replace(month=1, day=1).isoformat()
+
+
+# bucket -> (doctype, condition, date field, due field, value expr, has_return)
+_PURCH = {
+    "tobuy":    ("Purchase Order",   "per_received < 100",                                          "transaction_date", "schedule_date", "grand_total",       False),
+    "received": ("Purchase Receipt", "per_billed < 100",                                            "posting_date",     "NULL",          "grand_total",       True),
+    "billed":   ("Purchase Invoice", "outstanding_amount > 0 AND due_date > CURDATE()",             "posting_date",     "due_date",      "outstanding_amount", True),
+    "topay":    ("Purchase Invoice", "outstanding_amount > 0 AND (due_date <= CURDATE() OR due_date IS NULL)", "posting_date", "due_date", "outstanding_amount", True),
+    "paid":     ("Purchase Invoice", "outstanding_amount <= 0",                                     "posting_date",     "due_date",      "grand_total",       True),
+}
+PURCH_BUCKETS = ("tobuy", "received", "billed", "topay", "paid")
+
+
+def _purch_where(bucket, params, search=False, from_date=None, to_date=None):
+    dt, cond, date_f, _due, _val, has_ret = _PURCH[bucket]
+    conds = ["company=%(c)s", "docstatus=1", f"({cond})", f"{date_f} >= %(fy)s"]
+    if has_ret:
+        conds.append("IFNULL(is_return,0)=0")
+    if from_date:
+        conds.append(f"{date_f} >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append(f"{date_f} <= %(td)s"); params["td"] = to_date
+    if search:
+        conds.append("(name LIKE %(s)s OR supplier LIKE %(s)s OR IFNULL(supplier_name,'') LIKE %(s)s)")
+    return dt, date_f, _due, _val, " AND ".join(conds)
+
+
+@frappe.whitelist()
+def purchases_summary(company=None, from_date=None, to_date=None):
+    """Count + value per procure-to-pay stage (current fiscal year, optional range)."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    ck = f"ap_purch_summary:{target}:{from_date or ''}:{to_date or ''}"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
+    out = {}
+    for b in PURCH_BUCKETS:
+        params = {"c": target, "fy": _fy_start()}
+        dt, _df, _due, val, where = _purch_where(b, params, from_date=from_date, to_date=to_date)
+        r = frappe.db.sql(f"SELECT COUNT(*) n, ROUND(SUM({val})) val FROM `tab{dt}` WHERE {where}",
+                          params, as_dict=True)[0]
+        out[b] = {"count": r.n or 0, "value": flt(r.val)}
+    frappe.cache().set_value(ck, out, expires_in_sec=300)
+    return out
+
+
+@frappe.whitelist()
+def list_purchase_bucket(company=None, bucket="topay", search=None, from_date=None, to_date=None, limit=500):
+    """Documents in one procure-to-pay stage. Each stage is a different doctype:
+    To Buy = Purchase Order, Received = Purchase Receipt, Billed/To Pay/Paid =
+    Purchase Invoice (split by due date / payment status)."""
+    assert_portal_access()
+    target = _target(company)
+    if not target or bucket not in _PURCH:
+        return {"count": 0, "value": 0, "rows": []}
+    params = {"c": target, "fy": _fy_start(), "limit": min(int(limit or 500), 1000)}
+    if search:
+        params["s"] = f"%{search}%"
+    dt, date_f, due_f, val, where = _purch_where(bucket, params, search=bool(search), from_date=from_date, to_date=to_date)
+    # progress / owed differs by doctype
+    prog = {"tobuy": "per_received", "received": "per_billed",
+            "billed": "outstanding_amount", "topay": "outstanding_amount", "paid": "0"}[bucket]
+    order_by = "due ASC" if bucket in ("billed", "topay") else f"{date_f} DESC"
+    rows = frappe.db.sql(
+        f"""SELECT name, supplier, IFNULL(supplier_name, supplier) AS supplier_name,
+                   {date_f} AS date, {due_f} AS due, grand_total AS value,
+                   {prog} AS progress, status,
+                   COUNT(*) OVER() AS _cnt, ROUND(SUM({val}) OVER()) AS _val
+            FROM `tab{dt}` WHERE {where}
+            ORDER BY {order_by} LIMIT %(limit)s""",
+        params, as_dict=True)
+    cnt = rows[0]["_cnt"] if rows else 0
+    total = rows[0]["_val"] if rows else 0
+    methods = _pi_methods([r["name"] for r in rows]) if bucket == "paid" else {}
+    for r in rows:
+        r.pop("_cnt", None); r.pop("_val", None)
+        r["value"] = flt(r["value"])
+        r["date"] = str(r.get("date") or "")
+        r["due"] = str(r.get("due") or "") if r.get("due") else ""
+        r["bucket"] = bucket
+        r["method"] = methods.get(r["name"], "")
+    return {"count": cnt or 0, "value": flt(total), "rows": rows}
+
+
+def _pi_methods(names):
+    """Payment method(s) that settled each Purchase Invoice — from the Payment
+    Entries referencing it."""
+    if not names:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT per.reference_name inv,
+                  SUBSTRING_INDEX(GROUP_CONCAT(DISTINCT IFNULL(pe.mode_of_payment,'') ORDER BY pe.posting_date DESC), ',', 1) method
+           FROM `tabPayment Entry Reference` per
+           JOIN `tabPayment Entry` pe ON pe.name=per.parent AND pe.docstatus=1
+           WHERE per.reference_doctype='Purchase Invoice' AND per.reference_name IN %(n)s
+           GROUP BY per.reference_name""",
+        {"n": tuple(names)}, as_dict=True)
+    return {r.inv: r.method for r in rows}
