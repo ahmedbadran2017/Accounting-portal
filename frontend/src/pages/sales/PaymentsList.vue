@@ -27,6 +27,7 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
+              <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
                   class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
@@ -36,7 +37,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in tt.pageRows.value" :key="p.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(p.name)">
+            <tr v-for="p in tt.pageRows.value" :key="p.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(p) ? 'bg-accent/5' : ''" @click="open(p.name)">
+              <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(p)" @change="tt.toggleRow(p)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
               <td v-show="!tt.hidden.value.has('name')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ p.name }}</td>
               <td v-show="!tt.hidden.value.has('customer')" class="px-4 py-2.5 truncate max-w-[200px]">{{ p.customer }}</td>
               <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ p.date }}</td>
@@ -55,6 +57,8 @@
       <div v-else-if="!tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No payments match your filters.","لا توجد مدفوعات مطابقة.","Aucun paiement.") }}</div>
       <TablePager :t="tt" />
     </div>
+
+    <BulkBar :t="tt" filename="payments-received-selected" :actions="bulkActions" />
   </div>
 </template>
 
@@ -69,6 +73,8 @@ import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
+import BulkBar from "@/components/BulkBar.vue";
+import { useBulkDocActions } from "@/composables/useBulkActions";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -95,11 +101,12 @@ const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
 const tt = useTableTools(rows, cols, {
-  dateKey: "date", defaultSort: "date", defaultDir: -1,
+  keyField: "name", dateKey: "date", defaultSort: "date", defaultDir: -1,
   facets: [{ key: "method", label: L("method", "طريقة", "méthode") }],
 });
 
-onMounted(async () => {
+async function load() {
+  loading.value = true;
   try {
     const res = await liveOrSample(
       "accounting_portal.api.sales.list_receipts", { company: currentCompany(), limit: 500 }, () => SAMPLE,
@@ -108,7 +115,9 @@ onMounted(async () => {
     rows.value = res.data;
     isLive.value = res.live;
   } finally { loading.value = false; }
-});
+}
+onMounted(load);
+const bulkActions = useBulkDocActions("Payment Entry", { keyField: "name", ops: ["cancel"], onDone: () => { tt.clearSelection(); load(); }, L });
 
 const kpi = computed(() => {
   const rs = tt.sorted.value;

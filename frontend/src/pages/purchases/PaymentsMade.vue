@@ -30,6 +30,7 @@
       <table class="w-full text-[12px]">
         <thead>
           <tr style="background:#fafaf9">
+            <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
             <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
                 class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                 :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
@@ -39,7 +40,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.name)">
+          <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(o) ? 'bg-accent/5' : ''" @click="open(o.name)">
+            <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(o)" @change="tt.toggleRow(o)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
             <td v-show="!tt.hidden.value.has('name')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}</td>
             <td v-show="!tt.hidden.value.has('party_name')" class="px-4 py-2.5 truncate max-w-[220px]">{{ o.party_name }}</td>
             <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
@@ -55,6 +57,8 @@
     </div>
     <div v-if="!loading && !tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No payments in this period.", "لا مدفوعات في هذه الفترة.", "Aucun paiement.") }}</div>
     <TablePager :t="tt" />
+
+    <BulkBar :t="tt" filename="payments-made-selected" :actions="bulkActions" />
   </div>
 </template>
 
@@ -70,6 +74,8 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useTableTools } from "@/composables/useTableTools";
+import BulkBar from "@/components/BulkBar.vue";
+import { useBulkDocActions } from "@/composables/useBulkActions";
 
 const router = useRouter();
 const { locale } = useI18n();
@@ -105,7 +111,8 @@ const srch = ref("");
 const datePreset = ref("month");
 const advancesOnly = ref(false);
 const adv = ref({ count: 0, total: 0 });
-const tt = useTableTools(rows, cols, { defaultSort: "date", defaultDir: -1 });
+const tt = useTableTools(rows, cols, { keyField: "name", defaultSort: "date", defaultDir: -1 });
+const bulkActions = useBulkDocActions("Payment Entry", { keyField: "name", ops: ["cancel"], onDone: () => { tt.clearSelection(); loadAdv(); load(); }, L });
 
 function bounds() {
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -137,6 +144,6 @@ function toggleAdvances() { advancesOnly.value = !advancesOnly.value; if (advanc
 function open(name) { router.push({ path: "/accounting/purchases/payments", query: { id: name } }); }
 
 let timer;
-watch(entityId, () => { advancesOnly.value = false; loadAdv(); load(); }, { immediate: true });
+watch(entityId, () => { advancesOnly.value = false; tt.clearSelection(); loadAdv(); load(); }, { immediate: true });
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(load, 300); });
 </script>

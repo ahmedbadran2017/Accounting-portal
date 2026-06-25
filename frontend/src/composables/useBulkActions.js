@@ -5,7 +5,7 @@ import { currentCompany } from "@/composables/useLive";
 // Build Submit/Cancel BulkBar action descriptors for one doctype. Routed through
 // the gated/audited backend (accounting_portal.api.bulk). `keyField` is the row
 // property holding the document name; `onDone` refreshes the list.
-export function useBulkDocActions(doctype, { keyField = "name", onDone, L }) {
+export function useBulkDocActions(doctype, { keyField = "name", onDone, L, ops = ["submit", "cancel"] }) {
   const toast = useToast();
   const names = (rows) => rows.map((r) => r[keyField]).filter(Boolean);
 
@@ -24,7 +24,7 @@ export function useBulkDocActions(doctype, { keyField = "name", onDone, L }) {
     } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
   }
 
-  return [
+  const all = [
     { key: "submit", label: L("Submit", "ترحيل", "Soumettre"), icon: "check", color: "#0369a1",
       confirm: (rows) => L(`Submit ${rows.length} document(s)?`, `ترحيل ${rows.length} مستند؟`, `Soumettre ${rows.length} ?`),
       run: (rows) => run("accounting_portal.api.bulk.bulk_submit", rows, L("Submitted", "تم الترحيل", "Soumis")) },
@@ -32,4 +32,5 @@ export function useBulkDocActions(doctype, { keyField = "name", onDone, L }) {
       confirm: (rows) => L(`Cancel ${rows.length} document(s)? This reverses their journal entries.`, `إلغاء ${rows.length} مستند؟ سيُعكَس القيد المحاسبي.`, `Annuler ${rows.length} ? Les écritures seront annulées.`),
       run: (rows) => run("accounting_portal.api.bulk.bulk_cancel", rows, L("Cancelled", "تم الإلغاء", "Annulé")) },
   ];
+  return all.filter((a) => ops.includes(a.key));
 }
