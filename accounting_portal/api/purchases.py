@@ -487,3 +487,80 @@ def payment_modes(company=None):
              ON mopa.parent=mop.name AND mopa.company=%s
            WHERE mop.enabled=1 ORDER BY mop.name""", target, as_dict=True)
     return rows
+
+
+# ── Group payment: settle many invoices of ONE supplier with one Payment Entry ──
+GRP_PAY_ACTION = "Group Pay"
+
+
+def _group_pay_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    invoices = p["invoices"]
+    pe = frappe.get_attr("erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry")(
+        "Purchase Invoice", invoices[0])
+    pe.references = []
+    total = 0.0
+    for inv in invoices:
+        pi = frappe.get_doc("Purchase Invoice", inv)
+        pe.append("references", {
+            "reference_doctype": "Purchase Invoice", "reference_name": inv,
+            "due_date": pi.due_date, "total_amount": pi.grand_total,
+            "outstanding_amount": pi.outstanding_amount, "allocated_amount": pi.outstanding_amount})
+        total += flt(pi.outstanding_amount)
+    pe.paid_amount = total
+    pe.received_amount = total
+    if p.get("paid_from"):
+        pe.paid_from = p["paid_from"]
+    if p.get("mode"):
+        pe.mode_of_payment = p["mode"]
+    if p.get("reference_no"):
+        pe.reference_no = p["reference_no"]
+        pe.reference_date = p.get("reference_date") or nowdate()
+    pe.flags.ignore_permissions = True
+    pe.insert()
+    pe.reload()
+    pe.submit()
+    return {"voucher_type": "Payment Entry", "voucher_no": pe.name,
+            "result": {"invoices": invoices, "count": len(invoices), "paid": flt(pe.paid_amount)}}
+
+
+_actions.register_poster(GRP_PAY_ACTION, _group_pay_poster)
+
+
+@frappe.whitelist()
+def pay_bills_group(company=None, invoices=None, mode=None, paid_from=None,
+                    reference_no=None, reference_date=None, dedupe_key=None):
+    """Settle several Purchase Invoices of ONE supplier with a single Payment
+    Entry (one cash-out, one reference per invoice). All invoices must be the
+    same company + same supplier + unpaid."""
+    assert_can_write()
+    target = _target(company)
+    names = invoices if isinstance(invoices, list) else json.loads(invoices or "[]")
+    names = [n for n in names if n]
+    if not target or len(names) < 1:
+        frappe.throw("No invoices given")
+    rows = frappe.db.sql(
+        """SELECT name, supplier, company, docstatus, outstanding_amount, is_return
+           FROM `tabPurchase Invoice` WHERE name IN %(n)s""", {"n": tuple(names)}, as_dict=True)
+    if len(rows) != len(names):
+        frappe.throw("Some invoices were not found")
+    suppliers = {r.supplier for r in rows}
+    if len(suppliers) != 1:
+        frappe.throw("All invoices must belong to the same supplier to pay together")
+    for r in rows:
+        if r.company != target:
+            frappe.throw(f"{r.name} belongs to another company")
+        if r.docstatus != 1 or r.is_return:
+            frappe.throw(f"{r.name} is not a submitted bill")
+        if flt(r.outstanding_amount) <= 0:
+            frappe.throw(f"{r.name} is already settled")
+    total = sum(flt(r.outstanding_amount) for r in rows)
+    key = dedupe_key or "paygrp:" + frappe.generate_hash("".join(sorted(names)), 16)
+    res = _actions.execute(
+        GRP_PAY_ACTION, target, key,
+        payload={"invoices": sorted(names), "mode": mode, "paid_from": paid_from,
+                 "reference_no": reference_no, "reference_date": reference_date},
+        amount=total, reference_doctype="Purchase Invoice", reference_name=sorted(names)[0],
+        notes=f"Group payment · {len(names)} bills · {next(iter(suppliers))}")
+    _bust_purch_cache()
+    return res
