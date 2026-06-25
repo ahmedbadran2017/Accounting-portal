@@ -405,3 +405,60 @@ def vat_periods(company=None, months=12):
             "net": round(out_ - in_), "deadline": f"{ny:04d}-{nmo:02d}-20",
         })
     return {"company": target, "periods": periods}
+
+
+@frappe.whitelist()
+def period_close_status(company=None, month=None):
+    """Month-end readiness — a live checklist that pulls every signal the portal
+    tracks (drafts, COD application, GRNI, advances, cheques, VAT) so the team
+    knows what still has to tie before locking the period."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    from frappe.utils import nowdate
+    ym = (month or nowdate())[:7]
+
+    def one(v):
+        return flt((v or [[None]])[0][0])
+
+    drafts = sum(frappe.db.count(dt, {"company": target, "docstatus": 0})
+                 for dt in ("Sales Invoice", "Purchase Invoice", "Journal Entry", "Payment Entry"))
+    debtors = one(frappe.db.sql(
+        "SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
+        "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Receivable'", target))
+    grni = one(frappe.db.sql(
+        "SELECT SUM(grand_total) FROM `tabPurchase Receipt` WHERE company=%s AND docstatus=1 "
+        "AND IFNULL(is_return,0)=0 AND per_billed<100", target))
+    adv = one(frappe.db.sql(
+        "SELECT SUM(unallocated_amount) FROM `tabPayment Entry` WHERE company=%s AND docstatus=1 "
+        "AND payment_type='Pay' AND party_type='Supplier' AND unallocated_amount>0", target))
+    chq = int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tabPayment Entry` pe WHERE pe.company=%s AND pe.docstatus=1 "
+        "AND pe.payment_type='Pay' AND pe.clearance_date IS NULL "
+        "AND (IFNULL(pe.reference_no,'') LIKE 'CHQ%%' OR pe.mode_of_payment IN ('Cheque','Bank Draft'))", target)))
+    vat_net = one(frappe.db.sql(
+        "SELECT SUM(CASE WHEN a.root_type='Liability' THEN g.credit-g.debit ELSE -(g.credit-g.debit) END) "
+        "FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
+        "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Tax' "
+        "AND DATE_FORMAT(g.posting_date,'%%Y-%%m')=%s", (target, ym)))
+
+    items = [
+        {"key": "drafts", "en": "All documents submitted", "ar": "كل المستندات مُرحّلة", "fr": "Documents tous soumis",
+         "state": "done" if drafts == 0 else "blocked", "value": drafts, "unit": "docs", "link": "/accounting/accountant/journals"},
+        {"key": "cod", "en": "COD collections applied to invoices", "ar": "تحصيلات COD مطبّقة على الفواتير", "fr": "Encaissements COD appliqués",
+         "state": "done" if abs(debtors) < 1000 else "blocked", "value": round(debtors), "unit": "MAD", "link": "/accounting/reports/arap"},
+        {"key": "grni", "en": "GRNI cleared (received → billed)", "ar": "GRNI مُصفّى", "fr": "GRNI soldé",
+         "state": "done" if grni < 1000 else "pending", "value": round(grni), "unit": "MAD", "link": "/accounting/purchases/received"},
+        {"key": "advances", "en": "Supplier advances matched", "ar": "مقدّمات الموردين مطابقة", "fr": "Avances fournisseurs affectées",
+         "state": "done" if adv < 1000 else "pending", "value": round(adv), "unit": "MAD", "link": "/accounting/purchases/payments"},
+        {"key": "cheques", "en": "Cheques cleared", "ar": "الشيكات مُصرّفة", "fr": "Chèques encaissés",
+         "state": "done" if chq == 0 else "pending", "value": chq, "unit": "cheques", "link": "/accounting/purchases/cheques"},
+        {"key": "vat", "en": "VAT computed for the period", "ar": "الضريبة محسوبة للفترة", "fr": "TVA calculée",
+         "state": "done", "value": round(vat_net), "unit": "MAD", "link": "/accounting/reports/taxreports"},
+    ]
+    return {"company": target, "month": ym,
+            "ready": all(i["state"] == "done" for i in items),
+            "blocked": sum(1 for i in items if i["state"] == "blocked"),
+            "pending": sum(1 for i in items if i["state"] == "pending"),
+            "items": items}

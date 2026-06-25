@@ -1,33 +1,42 @@
 <template>
-  <div class="grid lg:grid-cols-[1.3fr_1fr] gap-3.5">
+  <div class="grid lg:grid-cols-[1.4fr_1fr] gap-3.5">
     <!-- Checklist -->
     <div class="bg-white border border-line rounded-[14px] p-4 shadow-card">
-      <div class="text-[13px] font-bold">{{ L("Period-close checklist","قائمة إقفال الفترة","Liste de clôture") }}</div>
-      <div class="text-[11px] text-ink-muted mb-3">{{ L("June 2026 · everything must tie before locking","يونيو ٢٠٢٦ · كل شيء يجب أن يتطابق قبل الإقفال","Juin 2026 · tout doit concorder avant verrouillage") }}</div>
-      <div class="flex flex-col gap-2.5">
-        <div v-for="c in checklist" :key="c.key" class="flex items-center gap-2.5 px-3 py-2.5 border border-line rounded-[11px]" style="background:#fdfcfb">
-          <span class="w-[22px] h-[22px] rounded-[7px] grid place-items-center flex-shrink-0" :style="{ background: meta(c).bg }"><Icon :name="meta(c).icon" :size="12" :color="meta(c).fg" /></span>
-          <span class="flex-1 text-[12px] font-medium">{{ L(c.en, c.ar, c.fr) }}</span>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded-badge border" :style="{ background: meta(c).bg, color: meta(c).fg, borderColor: meta(c).bd }">{{ statusLabel(c) }}</span>
-        </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[13px] font-bold">{{ L("Period-close checklist", "قائمة إقفال الفترة", "Liste de clôture") }}</span>
+        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? "Live" : "Sample" }}</span>
+        <span class="ms-auto text-[11px] font-bold px-2 py-0.5 rounded-full" :style="ready ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ ready ? L("Ready to lock", "جاهز للإقفال", "Prêt") : (data.blocked + data.pending) + " " + L("open", "متبقّي", "ouverts") }}</span>
+      </div>
+      <div class="text-[11px] text-ink-muted mb-3 mt-0.5">{{ monthLabel }} · {{ L("everything must tie before locking", "كل شيء يجب أن يتطابق قبل الإقفال", "tout doit concorder avant verrouillage") }}</div>
+      <div v-if="loading"><TableLoading :rows="6" /></div>
+      <div v-else class="flex flex-col gap-2.5">
+        <button v-for="c in items" :key="c.key" @click="go(c.link)"
+                class="flex items-center gap-2.5 px-3 py-2.5 border rounded-[11px] text-start hover:shadow-card transition-all"
+                :style="{ borderColor: meta(c).bd, background: c.state === 'done' ? '#fdfdfc' : meta(c).bg + '55' }">
+          <span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center flex-shrink-0" :style="{ background: meta(c).bg }"><Icon :name="meta(c).icon" :size="13" :color="meta(c).fg" /></span>
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-semibold">{{ L(c.en, c.ar, c.fr) }}</div>
+            <div v-if="c.state !== 'done'" class="text-[10.5px] text-ink-muted">{{ valueLabel(c) }}</div>
+          </div>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-badge border whitespace-nowrap" :style="{ background: meta(c).bg, color: meta(c).fg, borderColor: meta(c).bd }">{{ statusLabel(c) }}</span>
+          <Icon name="arrow" :size="12" color="#cfc9c4" class="rtl:rotate-180 flex-shrink-0" />
+        </button>
       </div>
     </div>
 
     <div class="flex flex-col gap-3.5">
-      <!-- FX revaluation -->
+      <!-- Readiness gauge -->
       <div class="bg-white border border-line rounded-[14px] p-4 shadow-card">
-        <div class="flex items-center justify-between">
-          <span class="text-[13px] font-bold">{{ L("FX revaluation","تسوية العملة","Réévaluation change") }}</span>
-          <span class="text-[10.5px] text-ink-muted">30 Jun 2026</span>
+        <div class="text-[13px] font-bold mb-2.5">{{ L("Readiness", "الجاهزية", "Préparation") }}</div>
+        <div class="flex h-2.5 rounded-full overflow-hidden bg-app-warm">
+          <div :style="{ width: pct('done') + '%', background: '#047857' }"></div>
+          <div :style="{ width: pct('pending') + '%', background: '#b45309' }"></div>
+          <div :style="{ width: pct('blocked') + '%', background: '#be123c' }"></div>
         </div>
-        <div class="flex flex-col gap-px mt-2.5">
-          <div v-for="f in fx" :key="f.pair" class="flex items-center justify-between py-1.5 border-t border-line-hair">
-            <span class="text-[12px] font-semibold text-ink-2">{{ f.pair }}</span>
-            <span class="flex gap-3.5">
-              <span class="text-[11.5px] tnum">{{ f.rate }}</span>
-              <span class="text-[11px] tnum w-12 text-end" :style="{ color: f.delta.startsWith('-') ? '#be123c' : '#047857' }">{{ f.delta }}</span>
-            </span>
-          </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2.5 text-[11px]">
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#047857"></span>{{ L("Done", "تم", "Fait") }} <b>{{ count('done') }}</b></span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#b45309"></span>{{ L("Pending", "معلّق", "En attente") }} <b>{{ count('pending') }}</b></span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#be123c"></span>{{ L("Blocked", "محظور", "Bloqué") }} <b>{{ count('blocked') }}</b></span>
         </div>
       </div>
 
@@ -36,47 +45,76 @@
         <div class="flex items-center gap-2.5">
           <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center" style="background:rgba(255,255,255,.1)"><Icon name="lock" :size="16" color="#fbbf24" /></span>
           <div class="flex-1">
-            <div class="text-[12.5px] font-bold">{{ L("Period lock","قفل الفترة","Verrouillage") }}</div>
-            <div class="text-[10.5px] text-ink-muted">{{ L("Stops back-dated postings","يمنع القيود بأثر رجعي","Bloque les écritures antidatées") }}</div>
+            <div class="text-[12.5px] font-bold">{{ L("Period lock", "قفل الفترة", "Verrouillage") }}</div>
+            <div class="text-[10.5px]" style="color:#a8a29e">{{ L("Stops back-dated postings", "يمنع القيود بأثر رجعي", "Bloque les écritures antidatées") }}</div>
           </div>
         </div>
         <div class="flex items-center gap-2.5 mt-3 px-3 py-2.5 rounded-[10px]" style="background:rgba(255,255,255,.06)">
-          <span class="w-[7px] h-[7px] rounded-full" style="background:#fbbf24"></span>
-          <span class="flex-1 text-[11.5px]" style="color:#e7e5e4">01–30 Jun 2026</span>
-          <span class="text-[10.5px] font-bold" style="color:#fbbf24">{{ L("Open","مفتوحة","Ouverte") }}</span>
+          <span class="w-[7px] h-[7px] rounded-full" :style="{ background: ready ? '#34d399' : '#fbbf24' }"></span>
+          <span class="flex-1 text-[11.5px]" style="color:#e7e5e4">{{ monthLabel }}</span>
+          <span class="text-[10.5px] font-bold" :style="{ color: ready ? '#34d399' : '#fbbf24' }">{{ ready ? L("Ready", "جاهز", "Prêt") : L("Open", "مفتوحة", "Ouverte") }}</span>
         </div>
+        <p class="text-[10px] mt-2" style="color:#a8a29e">{{ ready ? L("All checks tie — safe to lock in ERPNext.", "كل الفحوصات متطابقة — آمن للإقفال.", "Tout concorde — verrouillage possible.") : L("Clear the open items above first.", "صفِّ المتبقّي أعلاه أولًا.", "Réglez d'abord les éléments ouverts.") }}</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, computed, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import TableLoading from "@/components/TableLoading.vue";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
+import { useUi } from "@/composables/useUi";
+
 const { locale } = useI18n();
+const router = useRouter();
+const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 
 const META = {
   done: { bg: "#ecfdf5", fg: "#047857", bd: "#a7f3d0", icon: "check" },
   pending: { bg: "#fffbeb", fg: "#b45309", bd: "#fde68a", icon: "clock" },
-  blocked: { bg: "#fef2f2", fg: "#dc2626", bd: "#fecaca", icon: "alert" },
+  blocked: { bg: "#fef2f2", fg: "#be123c", bd: "#fecaca", icon: "alert" },
 };
 const meta = (c) => META[c.state] || META.pending;
-const statusLabel = (c) => ({
-  done: L("Done", "تم", "Fait"), pending: L("Pending", "معلّق", "En attente"), blocked: L("1 blocked", "١ محظور", "1 bloquée"),
-}[c.state]);
+const statusLabel = (c) => ({ done: L("Done", "تم", "Fait"), pending: L("Pending", "معلّق", "En attente"), blocked: L("Blocked", "محظور", "Bloqué") }[c.state]);
+function valueLabel(c) {
+  if (c.unit === "MAD") return fmt(Math.abs(c.value)) + " MAD " + L("outstanding", "متبقّي", "en attente");
+  if (c.unit === "docs") return c.value + " " + L("unsubmitted drafts", "مسودة غير مُرحّلة", "brouillons");
+  if (c.unit === "cheques") return c.value + " " + L("uncleared", "غير مُصرّفة", "non encaissés");
+  return fmt(c.value);
+}
 
-const checklist = [
-  { key: "bank", en: "Bank reconciliation", ar: "المطابقة البنكية", fr: "Rapprochement bancaire", state: "done" },
-  { key: "cod", en: "COD remittance matched", ar: "تطابق تحصيل COD", fr: "Encaissement COD rapproché", state: "done" },
-  { key: "dep", en: "Depreciation posted", ar: "ترحيل الإهلاك", fr: "Amortissement passé", state: "pending" },
-  { key: "fx", en: "FX revaluation", ar: "تسوية العملة", fr: "Réévaluation change", state: "pending" },
-  { key: "mc", en: "Maker-checker queue cleared", ar: "تصفية طابور الاعتماد", fr: "File maker-checker vidée", state: "blocked" },
-];
-const fx = [
-  { pair: "USD/MAD", rate: "9.94", delta: "+0.12" },
-  { pair: "TRY/MAD", rate: "0.262", delta: "-0.004" },
-  { pair: "CNY/MAD", rate: "1.371", delta: "+0.02" },
-  { pair: "EUR/MAD", rate: "10.78", delta: "+0.05" },
-];
+const SAMPLE = { month: "2026-06", ready: false, blocked: 1, pending: 3, items: [
+  { key: "drafts", en: "All documents submitted", ar: "كل المستندات مُرحّلة", fr: "Documents tous soumis", state: "done", value: 0, unit: "docs", link: "/accounting/accountant/journals" },
+  { key: "cod", en: "COD collections applied to invoices", ar: "تحصيلات COD مطبّقة", fr: "Encaissements COD appliqués", state: "blocked", value: -2851136, unit: "MAD", link: "/accounting/reports/arap" },
+  { key: "grni", en: "GRNI cleared (received → billed)", ar: "GRNI مُصفّى", fr: "GRNI soldé", state: "pending", value: 4376059, unit: "MAD", link: "/accounting/purchases/received" },
+  { key: "advances", en: "Supplier advances matched", ar: "مقدّمات الموردين مطابقة", fr: "Avances affectées", state: "pending", value: 3775135, unit: "MAD", link: "/accounting/purchases/payments" },
+  { key: "cheques", en: "Cheques cleared", ar: "الشيكات مُصرّفة", fr: "Chèques encaissés", state: "pending", value: 12, unit: "cheques", link: "/accounting/purchases/cheques" },
+  { key: "vat", en: "VAT computed for the period", ar: "الضريبة محسوبة", fr: "TVA calculée", state: "done", value: 142057, unit: "MAD", link: "/accounting/reports/taxreports" },
+] };
+
+const data = ref(SAMPLE);
+const live = ref(null);
+const loading = ref(true);
+const items = computed(() => data.value.items || []);
+const ready = computed(() => !!data.value.ready);
+const monthLabel = computed(() => { const m = data.value.month || ""; const [y, mo] = m.split("-"); const arr = locale.value === "ar" ? ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"] : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]; return mo ? `${arr[+mo - 1]} ${y}` : m; });
+const count = (s) => items.value.filter((i) => i.state === s).length;
+const pct = (s) => (items.value.length ? count(s) / items.value.length * 100 : 0);
+function go(link) { if (link) router.push(link); }
+
+async function load() {
+  loading.value = true;
+  try { data.value = await api.call("accounting_portal.api.reports.period_close_status", { company: currentCompany() }); live.value = true; }
+  catch { data.value = SAMPLE; live.value = false; }
+  finally { loading.value = false; }
+}
+onMounted(load);
+watch(entityId, load);
 </script>
