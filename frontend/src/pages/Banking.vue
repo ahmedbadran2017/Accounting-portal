@@ -16,7 +16,10 @@
               @click="goSub(s[0])">{{ t(s[1]) }}</button>
     </div>
 
-    <RemittanceDetail v-if="activeSub === 'remittance' && route.query.id" />
+    <BankAccountDetail v-if="activeSub === 'accounts' && route.query.id" />
+    <BankAccounts v-else-if="activeSub === 'accounts'" />
+    <BankTransactions v-else-if="activeSub === 'transactions'" />
+    <RemittanceDetail v-else-if="activeSub === 'remittance' && route.query.id" />
     <RemittanceList v-else-if="activeSub === 'remittance'" />
     <VarianceQueue v-else-if="activeSub === 'variance'" />
     <CarrierAging v-else-if="activeSub === 'aging'" />
@@ -32,6 +35,9 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
+import BankAccounts from "@/pages/banking/BankAccounts.vue";
+import BankAccountDetail from "@/pages/banking/BankAccountDetail.vue";
+import BankTransactions from "@/pages/banking/BankTransactions.vue";
 import RemittanceList from "@/pages/banking/RemittanceList.vue";
 import RemittanceDetail from "@/pages/banking/RemittanceDetail.vue";
 import VarianceQueue from "@/pages/banking/VarianceQueue.vue";

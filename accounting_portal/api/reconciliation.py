@@ -250,3 +250,75 @@ def mark_bank_cleared(company=None, entries=None, clearance_date=None):
     except Exception:
         pass
     return res
+
+
+@frappe.whitelist()
+def get_bank_account(company=None, account=None, from_date=None, to_date=None, limit=60):
+    """One bank/cash account — header, balance, period in/out, uncleared, and the
+    recent ledger with a running balance."""
+    assert_portal_access()
+    target = _target(company)
+    a = frappe.db.get_value("Account", account, ["account_name", "account_type", "account_currency", "company"], as_dict=True)
+    if not a or a.company != target:
+        frappe.throw("Account not found")
+    balance = flt(frappe.db.sql(
+        "SELECT SUM(debit-credit) FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0", account)[0][0])
+    fl = frappe.db.sql(
+        """SELECT ROUND(SUM(debit)) inflow, ROUND(SUM(credit)) outflow, COUNT(*) n
+           FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0
+           AND posting_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)""", account, as_dict=True)[0]
+    pe = frappe.db.sql(
+        """SELECT COUNT(*) n, ROUND(SUM(ABS(paid_amount))) v FROM `tabPayment Entry`
+           WHERE company=%s AND docstatus=1 AND (paid_to=%s OR paid_from=%s) AND clearance_date IS NULL""",
+        (target, account, account), as_dict=True)[0]
+    je = frappe.db.sql(
+        """SELECT COUNT(DISTINCT je.name) n FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
+           WHERE je.company=%s AND je.docstatus=1 AND jea.account=%s AND je.clearance_date IS NULL""",
+        (target, account), as_dict=True)[0]
+    ledger = frappe.db.sql(
+        """SELECT posting_date AS date, voucher_type AS type, voucher_no AS voucher,
+                  IFNULL(against,'') AS against, ROUND(debit,2) AS debit, ROUND(credit,2) AS credit
+           FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0
+           ORDER BY posting_date DESC, creation DESC LIMIT %s""", (account, min(int(limit or 60), 200)), as_dict=True)
+    running = balance
+    for e in ledger:
+        e["debit"] = flt(e["debit"]); e["credit"] = flt(e["credit"])
+        e["balance"] = round(running, 2)
+        e["date"] = str(e.get("date") or "")
+        running -= (e["debit"] - e["credit"])
+    return {
+        "account": account, "name": a.account_name, "type": a.account_type,
+        "currency": a.account_currency or "MAD", "balance": balance,
+        "inflow": flt(fl.inflow), "outflow": flt(fl.outflow),
+        "uncleared_n": (pe.n or 0) + (je.n or 0), "uncleared_v": flt(pe.v),
+        "ledger": ledger,
+    }
+
+
+@frappe.whitelist()
+def bank_transactions(company=None, from_date=None, to_date=None, search=None, limit=400):
+    """Live bank & cash movements (GL entries on Bank/Cash accounts) — the
+    statement-style transactions feed."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return []
+    conds = ["g.company=%(c)s", "g.is_cancelled=0", "a.account_type IN ('Bank','Cash')"]
+    p = {"c": target, "lim": min(int(limit or 400), 1000)}
+    if from_date:
+        conds.append("g.posting_date>=%(fd)s"); p["fd"] = from_date
+    if to_date:
+        conds.append("g.posting_date<=%(td)s"); p["td"] = to_date
+    if search:
+        conds.append("(g.voucher_no LIKE %(s)s OR IFNULL(g.against,'') LIKE %(s)s OR a.account_name LIKE %(s)s OR IFNULL(g.remarks,'') LIKE %(s)s)")
+        p["s"] = f"%{search}%"
+    rows = frappe.db.sql(
+        f"""SELECT g.posting_date AS date, g.voucher_type AS type, g.voucher_no AS voucher,
+                   a.account_name AS account, IFNULL(g.against,'') AS against,
+                   ROUND(g.debit - g.credit, 2) AS amount
+            FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+            WHERE {' AND '.join(conds)}
+            ORDER BY g.posting_date DESC, g.creation DESC LIMIT %(lim)s""", p, as_dict=True)
+    for r in rows:
+        r["amount"] = flt(r["amount"]); r["date"] = str(r.get("date") or "")
+    return rows
