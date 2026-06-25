@@ -369,3 +369,39 @@ def ar_ap_reconciliation(company=None):
     }
     frappe.cache().set_value(ck, out, expires_in_sec=300)
     return out
+
+
+@frappe.whitelist()
+def vat_periods(company=None, months=12):
+    """Monthly VAT (output − input) with the filing deadline (20th of the next
+    month) — the VAT declaration tracker."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    months = min(int(months or 12), 24)
+    rows = frappe.db.sql(
+        """SELECT DATE_FORMAT(gle.posting_date,'%%Y-%%m') AS m, a.root_type,
+                  ROUND(SUM(gle.credit - gle.debit)) AS net
+           FROM `tabGL Entry` gle JOIN `tabAccount` a ON a.name = gle.account
+           WHERE gle.company=%s AND gle.is_cancelled=0 AND a.account_type='Tax'
+             AND gle.posting_date >= DATE_SUB(DATE_FORMAT(CURDATE(),'%%Y-%%m-01'), INTERVAL %s MONTH)
+           GROUP BY m, a.root_type""",
+        (target, months), as_dict=True)
+    by = {}
+    for r in rows:
+        d = by.setdefault(r.m, {"output": 0.0, "input": 0.0})
+        if r.root_type == "Liability":
+            d["output"] += flt(r.net)
+        else:
+            d["input"] += -flt(r.net)
+    periods = []
+    for m in sorted(by, reverse=True):
+        out_, in_ = by[m]["output"], by[m]["input"]
+        y, mo = int(m[:4]), int(m[5:7])
+        ny, nmo = (y + 1, 1) if mo == 12 else (y, mo + 1)
+        periods.append({
+            "month": m, "output": round(out_), "input": round(in_),
+            "net": round(out_ - in_), "deadline": f"{ny:04d}-{nmo:02d}-20",
+        })
+    return {"company": target, "periods": periods}
