@@ -35,6 +35,8 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { NAV_GROUPS, SUBTABS } from "@/data/nav";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
 
 const props = defineProps({ open: Boolean });
 const emit = defineEmits(["close", "create"]);
@@ -65,13 +67,26 @@ const index = computed(() => {
   return out;
 });
 
+const liveResults = ref([]);
+let timer;
+watch(q, (v) => {
+  clearTimeout(timer);
+  const s = (v || "").trim();
+  if (s.length < 2) { liveResults.value = []; return; }
+  timer = setTimeout(async () => {
+    try { liveResults.value = (await api.call("accounting_portal.api.search.global_search", { company: currentCompany(), query: s })) || []; }
+    catch { liveResults.value = []; }
+  }, 220);
+});
+
 const items = computed(() => {
   const s = q.value.trim().toLowerCase();
   if (!s) return index.value;
-  return index.value.filter((it) => (it.label + " " + (it.sub || "")).toLowerCase().includes(s));
+  const nav = index.value.filter((it) => (it.label + " " + (it.sub || "")).toLowerCase().includes(s));
+  return [...liveResults.value, ...nav];
 });
 
-watch(() => props.open, (v) => { if (v) { q.value = ""; active.value = 0; nextTick(() => box.value?.focus()); } });
+watch(() => props.open, (v) => { if (v) { q.value = ""; liveResults.value = []; active.value = 0; nextTick(() => box.value?.focus()); } });
 watch(items, () => { active.value = 0; });
 
 function move(d) {
