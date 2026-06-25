@@ -336,6 +336,98 @@ def get_cod_cockpit(company=None):
     }
 
 
+def _build_alerts(target, ccy):
+    """Real, live alerts for the dashboard feed (replaces hardcoded anomalies).
+    Each: severity high/medium/low, title, detail, route to drill in."""
+    out = []
+
+    def add(sev, title, detail, route):
+        out.append({"severity": sev, "title": title, "detail": detail, "route": route})
+
+    # Negative cash position.
+    cash = flt(frappe.db.sql(
+        """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g
+           JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash')""",
+        (target,))[0][0])
+    if cash < 0:
+        add("high", "Negative cash balance", f"{round(cash):,.0f} {ccy} across bank + cash", "/accounting/banking")
+
+    # Debtors carrying a credit balance (collections not applied to invoices).
+    deb = flt(frappe.db.sql(
+        """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g
+           JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Receivable'""",
+        (target,))[0][0])
+    if deb < -1000:
+        add("high", "Debtors have a credit balance", f"{round(deb):,.0f} {ccy} — collections unapplied to invoices", "/accounting/reports/arap")
+
+    # GRNI — received but not billed (Purchase Receipt per_billed<100).
+    try:
+        from accounting_portal.api import purchases as _pur
+        psum = _pur.purchases_summary(target) or {}
+        grni = (psum.get("received") or {}).get("value", 0)
+        if grni and grni > 50000:
+            add("medium", "Goods received, not billed (GRNI)", f"{round(grni):,.0f} {ccy} awaiting supplier invoice", "/accounting/purchases/received")
+        overdue_ap = (psum.get("topay") or {}).get("value", 0)
+        if overdue_ap and overdue_ap > 50000:
+            add("medium", "Bills due now", f"{round(overdue_ap):,.0f} {ccy} payable due or overdue", "/accounting/purchases/topay")
+    except Exception:
+        pass
+
+    # Delivered-but-not-invoiced aged > 60 days (revenue recognition gap).
+    try:
+        from accounting_portal.api import sales as _sal
+        tb = (_sal.to_bill_queue(target) or {}).get("summary", {})
+        if tb.get("value_over_60", 0) > 10000:
+            add("medium", "Delivered, not invoiced (>60d)", f"{round(tb['value_over_60']):,.0f} {ccy} revenue unrecognised", "/accounting/sales/tobill")
+    except Exception:
+        pass
+
+    # Supplier cheques clearing within 7 days (cash-out heads-up).
+    try:
+        from accounting_portal.api import purchases as _pur2
+        chq = _pur2.cheques_summary(target) or {}
+        due = chq.get("due_soon_value") or chq.get("due_value") or 0
+        if due and due > 0:
+            add("low", "Cheques clearing soon", f"{round(due):,.0f} {ccy} within 7 days", "/accounting/purchases/cheques")
+    except Exception:
+        pass
+
+    sev_order = {"high": 0, "medium": 1, "low": 2}
+    out.sort(key=lambda a: sev_order.get(a["severity"], 3))
+    return out
+
+
+@frappe.whitelist()
+def command_center(company=None):
+    """Dashboard command strip + live alerts: collected today, approvals waiting,
+    AR/AP aging buckets, and a real alerts feed."""
+    assert_portal_access()
+    cs = _resolve_companies(company)
+    if not cs:
+        return {}
+    target = cs[0]
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    today = nowdate()
+    collected_today = flt(frappe.db.sql(
+        """SELECT COALESCE(SUM(paid_amount),0) FROM `tabPayment Entry`
+           WHERE company=%s AND docstatus=1 AND payment_type='Receive' AND posting_date=%s""",
+        (target, today))[0][0])
+    approvals = 0
+    if frappe.db.exists("DocType", "Accounting Portal Action"):
+        approvals = frappe.db.count("Accounting Portal Action", {"company": target, "status": "Proposed"})
+    from accounting_portal.api.reports import _aging
+    return {
+        "company": target, "currency": ccy,
+        "collected_today": collected_today,
+        "approvals_pending": approvals,
+        "ar_aging": _aging("Sales Invoice", target),
+        "ap_aging": _aging("Purchase Invoice", target),
+        "alerts": _build_alerts(target, ccy),
+    }
+
+
 def _fiscal_year_start():
     """Start date of the fiscal year containing today. Falls back to Jan 1."""
     try:

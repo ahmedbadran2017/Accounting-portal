@@ -55,6 +55,32 @@
       </div>
     </div>
 
+    <!-- Command strip: collected today · approvals · AR/AP aging -->
+    <div v-if="cc" class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+      <button @click="goBucket('collected')" class="bg-white rounded-[14px] border border-line p-3.5 shadow-card text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected today","محصّل اليوم","Encaissé") }}</div>
+        <div class="text-[22px] font-extrabold tnum mt-1 text-success-dark">{{ money(ccData.collected_today) }} <span class="text-[11px] text-ink-muted font-normal">{{ ccyLabel }}</span></div>
+      </button>
+      <button @click="goApprovals" class="bg-white rounded-[14px] border p-3.5 shadow-card text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all" :style="ccData.approvals_pending ? 'border-color:#fde68a;background:#fffdf5' : 'border-color:#f0efed'">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Approvals waiting","موافقات معلّقة","Approbations") }}</div>
+        <div class="text-[22px] font-extrabold tnum mt-1" :class="ccData.approvals_pending ? 'text-amber-700' : ''">{{ ccData.approvals_pending || 0 }}</div>
+      </button>
+      <div class="bg-white rounded-[14px] border border-line p-3.5 shadow-card cursor-pointer hover:shadow-cardHover transition-all" @click="goArap">
+        <div class="flex items-center justify-between"><span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("AR aging","تقادم المدينين","Âge créances") }}</span><span class="text-[10px] font-bold tnum">{{ money(arAging.total) }}</span></div>
+        <div class="flex items-end gap-1 h-[24px] mt-2">
+          <div v-for="seg in agingSegs(arAging)" :key="seg.k" class="flex-1 rounded-t-sm" :style="{ height: seg.h + '%', minHeight: '3px', background: seg.color }" :title="seg.label"></div>
+        </div>
+        <div class="flex justify-between text-[8px] text-ink-muted mt-1"><span>cur</span><span>30</span><span>60</span><span>90</span><span>90+</span></div>
+      </div>
+      <div class="bg-white rounded-[14px] border border-line p-3.5 shadow-card cursor-pointer hover:shadow-cardHover transition-all" @click="goArap">
+        <div class="flex items-center justify-between"><span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("AP aging","تقادم الدائنين","Âge dettes") }}</span><span class="text-[10px] font-bold tnum">{{ money(apAging.total) }}</span></div>
+        <div class="flex items-end gap-1 h-[24px] mt-2">
+          <div v-for="seg in agingSegs(apAging)" :key="seg.k" class="flex-1 rounded-t-sm" :style="{ height: seg.h + '%', minHeight: '3px', background: seg.color }" :title="seg.label"></div>
+        </div>
+        <div class="flex justify-between text-[8px] text-ink-muted mt-1"><span>cur</span><span>30</span><span>60</span><span>90</span><span>90+</span></div>
+      </div>
+    </div>
+
     <!-- COD pipeline funnel -->
     <div v-if="cod.pipeline" class="grid grid-cols-2 lg:grid-cols-5 gap-3">
       <button v-for="b in funnel" :key="b.key" @click="goBucket(b.key)"
@@ -295,26 +321,30 @@
       <div class="flex items-center gap-2.5">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#f5f3ff"><Icon name="shield" :size="14" color="#7c3aed" /></span>
         <div class="flex-1">
-          <div class="text-[13.5px] font-bold">{{ t("dash.flagged_title") }}</div>
+          <div class="flex items-center gap-2">
+            <div class="text-[13.5px] font-bold">{{ t("dash.flagged_title") }}</div>
+            <span class="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full border" :style="alertsLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ alertsLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+          </div>
           <div class="text-[11px] text-ink-muted">{{ t("dash.flagged_sub") }}</div>
         </div>
         <button class="text-[11px] font-semibold text-accent-dark hover:underline" @click="goCopilot">{{ t("dash.view_all") }} →</button>
       </div>
       <div class="flex flex-col gap-2 mt-3">
-        <button v-for="a in anomalies" :key="a.id"
+        <button v-for="a in alertRows" :key="a.id"
                 class="yo-row flex items-center gap-3 px-3 py-[11px] rounded-[11px] border border-line text-start w-full hover:bg-app-warm/60"
-                style="background:#fdfcfb" @click="go(a.go)">
+                style="background:#fdfcfb" @click="goAlert(a)">
           <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: sev(a).bg }"><Icon :name="a.icon" :size="15" :color="sev(a).fg" /></span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-[12.5px] font-bold">{{ a.title(locale) }}</span>
+              <span class="text-[12.5px] font-bold">{{ a.title }}</span>
               <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge border" :style="{ background: sev(a).bg, color: sev(a).fg, borderColor: sev(a).bd }">{{ sevLabel(a.sev, locale) }}</span>
             </div>
-            <div class="text-[11.5px] text-ink-3 mt-0.5 truncate">{{ a.desc(locale) }}</div>
+            <div class="text-[11.5px] text-ink-3 mt-0.5 truncate">{{ a.desc }}</div>
           </div>
           <span v-if="a.amount" class="text-[12px] font-bold tnum flex-shrink-0" :class="a.amount.includes('-') ? 'text-sale' : ''">{{ a.amount }}</span>
           <Icon name="chev" :size="15" color="#cfc9c4" class="rtl:rotate-180 flex-shrink-0" />
         </button>
+        <div v-if="alertsLive && !alertRows.length" class="flex items-center gap-2 px-3 py-4 text-[12px] text-success-dark"><Icon name="check" :size="15" color="#047857" />{{ L("No issues flagged — the books look healthy.","لا ملاحظات — الدفاتر تبدو سليمة.","Aucune anomalie — les comptes semblent sains.") }}</div>
       </div>
     </div>
     </template>
@@ -332,6 +362,8 @@ import { useUi } from "@/composables/useUi";
 import { buildDashVM } from "@/data/dashboard";
 import { ANOMALIES, SEV_META, sevLabel } from "@/data/copilot";
 import { useDashboard, overlayCockpit } from "@/composables/useDashboard";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -344,9 +376,14 @@ const cockpit = ref(null);
 const isLive = ref(null);
 const loaded = ref(false);
 // Show a skeleton until the live cockpit resolves — no flash of sample/fake data.
+const cc = ref(null);
 async function load() {
   loaded.value = false;
-  try { cockpit.value = await loadCockpit(); isLive.value = !!(cockpit.value && cockpit.value.company); }
+  try {
+    cockpit.value = await loadCockpit(); isLive.value = !!(cockpit.value && cockpit.value.company);
+    try { cc.value = await api.call("accounting_portal.api.dashboard.command_center", { company: currentCompany() }); }
+    catch { cc.value = null; }
+  }
   finally { loaded.value = true; }
 }
 watch(entityId, load, { immediate: true });
@@ -396,8 +433,32 @@ const PROC = [
   { key: "topay", color: "#be123c", tint: "#fef2f2", icon: "wallet", label: () => L("To pay · due", "مستحق للدفع", "À payer") },
 ];
 const procStrip = computed(() => PROC.map((p) => ({ ...p, label: p.label(), count: (cod.value.purchases?.[p.key] || {}).count || 0, value: (cod.value.purchases?.[p.key] || {}).value || 0 })));
-const anomalies = ANOMALIES.slice(0, 4);
+// Live alerts (real signals) with a sample fallback flagged as such.
+const SEV_ICON = { high: "alert", medium: "shield", low: "info" };
+const alertsLive = computed(() => Array.isArray(cc.value?.alerts));
+const alertRows = computed(() => {
+  const live = cc.value?.alerts;
+  if (Array.isArray(live)) {
+    return live.map((a, i) => ({ id: "al" + i, title: a.title, desc: a.detail, sev: a.severity === "high" ? "critical" : a.severity === "medium" ? "high" : "low", icon: SEV_ICON[a.severity] || "shield", route: a.route, amount: "" }));
+  }
+  return ANOMALIES.slice(0, 4).map((a) => ({ id: a.id, title: a.title(locale.value), desc: a.desc(locale.value), sev: a.sev, icon: a.icon, amount: a.amount, go: a.go }));
+});
 const sev = (a) => SEV_META[a.sev] || SEV_META.low;
+function goAlert(a) { if (a.route) router.push(a.route); else if (a.go) go(a.go); }
+
+// C2 command strip — collected today, approvals waiting, AR/AP aging.
+const ccData = computed(() => cc.value || {});
+const arAging = computed(() => ccData.value.ar_aging || {});
+const apAging = computed(() => ccData.value.ap_aging || {});
+const ccyLabel = computed(() => ccData.value.currency || cod.value.currency || "MAD");
+function goApprovals() { router.push("/accounting/settings/activity"); }
+function agingSegs(a) {
+  const v = [a.cur || 0, a.d1_30 || 0, a.d31_60 || 0, a.d61_90 || 0, a.d90p || 0].map(Number);
+  const max = Math.max(...v, 1);
+  const colors = ["#34d399", "#fbbf24", "#fb923c", "#f87171", "#dc2626"];
+  const labels = ["Current", "1-30", "31-60", "61-90", "90+"];
+  return v.map((x, i) => ({ k: i, h: (x / max) * 100, color: colors[i], label: `${labels[i]}: ${Math.round(x).toLocaleString()}` }));
+}
 
 function go(g) {
   if (!g) return;
