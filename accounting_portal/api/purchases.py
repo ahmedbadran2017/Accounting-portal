@@ -310,7 +310,16 @@ def get_purchase_doc(name=None, doctype=None):
     if not dt or not name or not frappe.db.exists(dt, name):
         return None
     doc = frappe.get_doc(dt, name)
+    codes = list({it.item_code for it in doc.items if it.item_code})
+    imeta = {}
+    if codes:
+        for r in frappe.db.sql(
+                "SELECT name, custom_sku AS sku, image FROM `tabItem` WHERE name IN %(c)s",
+                {"c": tuple(codes)}, as_dict=True):
+            imeta[r.name] = r
     items = [{"item_code": it.item_code, "item_name": it.get("item_name") or it.item_code,
+              "sku": (imeta.get(it.item_code) or {}).get("sku") or "",
+              "image": (imeta.get(it.item_code) or {}).get("image") or "",
               "qty": flt(it.qty), "rate": flt(it.rate), "amount": flt(it.amount)} for it in doc.items[:200]]
     header = {
         "name": doc.name, "doctype": dt, "supplier": doc.supplier,

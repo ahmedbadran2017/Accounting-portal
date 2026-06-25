@@ -62,7 +62,18 @@
               </tr></thead>
               <tbody>
                 <tr v-for="(it, i) in d.items" :key="i" class="border-t border-line-hair">
-                  <td class="px-4 py-2.5"><div class="font-medium truncate max-w-[260px]">{{ it.item_name }}</div><div class="text-[10px] text-ink-muted font-mono">{{ it.item_code }}</div></td>
+                  <td class="px-4 py-2.5">
+                    <div class="flex items-center gap-2.5">
+                      <img v-if="it.image" :src="it.image" loading="lazy" @error="$event.target.style.display='none'" class="w-9 h-9 rounded-[8px] object-cover border border-line-2 bg-app-warm flex-shrink-0" />
+                      <span v-else class="w-9 h-9 rounded-[8px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="14" color="#a8a29e" /></span>
+                      <div class="min-w-0">
+                        <div class="font-medium truncate max-w-[230px]">{{ it.item_name }}</div>
+                        <div class="text-[10px] text-ink-muted">
+                          <span v-if="it.sku" class="font-mono font-semibold text-accent-dark">{{ it.sku }}</span><span v-if="it.sku" class="mx-1">·</span><span class="font-mono">{{ it.item_code }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
                   <td class="px-4 py-2.5 text-end tnum">{{ it.qty }}</td>
                   <td class="px-4 py-2.5 text-end tnum text-ink-3">{{ fmt(it.rate) }}</td>
                   <td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(it.amount) }}</td>
