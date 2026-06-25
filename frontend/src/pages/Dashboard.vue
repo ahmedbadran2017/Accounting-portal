@@ -223,6 +223,18 @@
       </button>
     </div>
 
+    <!-- Cheques due (cash-out heads-up) -->
+    <button v-if="cheques && cheques.due_week_n" @click="goCheques"
+            class="w-full flex items-center gap-3 bg-white rounded-[14px] border p-3.5 shadow-card hover:-translate-y-0.5 hover:shadow-cardHover transition-all text-start" style="border-color:#fde68a">
+      <span class="w-9 h-9 rounded-[10px] grid place-items-center flex-shrink-0" style="background:#fffbeb"><Icon name="doc" :size="16" color="#b45309" /></span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] font-bold">{{ cheques.due_week_n }} {{ L("cheques due ≤ 7 days", "شيكات مستحقة ≤ 7 أيام", "chèques échéance ≤ 7 j") }}</div>
+        <div class="text-[11px] text-ink-muted">{{ L("cash leaving the bank soon — review the register", "كاش هيخرج قريبًا — راجع السجل", "sortie de trésorerie imminente") }}</div>
+      </div>
+      <span class="text-[16px] font-extrabold tnum" style="color:#b45309">{{ money(cheques.due_week) }} <span class="text-[11px] text-ink-muted">MAD</span></span>
+      <Icon name="arrow" :size="14" color="#a8a29e" class="rtl:rotate-180 flex-shrink-0" />
+    </button>
+
     <!-- Receivables & Payables reconciliation -->
     <button v-if="arap && arap.working_capital !== undefined" @click="goArap"
             class="w-full bg-white rounded-[16px] border border-line p-[17px] shadow-card text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all">
@@ -375,7 +387,9 @@ function goBucket(k) { router.push(`/accounting/sales/${k}`); }
 function goReport() { router.push("/accounting/reports/salescol"); }
 function goPurch(k) { router.push(`/accounting/purchases/${k}`); }
 function goArap() { router.push("/accounting/reports/arap"); }
+function goCheques() { router.push("/accounting/purchases/cheques"); }
 const arap = computed(() => cod.value.arap || {});
+const cheques = computed(() => cod.value.cheques || {});
 const PROC = [
   { key: "tobuy", color: "#0369a1", tint: "#eff6ff", icon: "cart", label: () => L("Open POs · to buy", "أوامر مفتوحة", "BC ouverts") },
   { key: "received", color: "#b45309", tint: "#fffbeb", icon: "box", label: () => L("GRNI · received not billed", "مُستلم بلا فاتورة", "Reçu non facturé") },

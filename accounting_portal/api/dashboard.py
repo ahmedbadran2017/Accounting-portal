@@ -298,6 +298,13 @@ def get_cod_cockpit(company=None):
         purchases = _pur.purchases_summary(target) or {}
     except Exception:
         pass
+    # Cheques due — supplier cheques clearing within 7 days (cash-out heads-up).
+    cheques = {}
+    try:
+        from accounting_portal.api import purchases as _pur2
+        cheques = _pur2.cheques_summary(target) or {}
+    except Exception:
+        pass
     # AR/AP reconciliation headline for the dashboard's books card.
     arap = {}
     try:
@@ -325,7 +332,7 @@ def get_cod_cockpit(company=None):
         "channels": channels, "cash_flow": cash_flow,
         "pipeline": pipeline, "carrier_float": carrier_float,
         "reconciled_pct": reconciled_pct, "returns_exposure": returns_exposure,
-        "cohort": cohort, "purchases": purchases, "arap": arap,
+        "cohort": cohort, "purchases": purchases, "arap": arap, "cheques": cheques,
     }
 
 
