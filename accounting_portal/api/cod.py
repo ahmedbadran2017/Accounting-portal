@@ -169,7 +169,13 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
             return cached
     conds = [_BASE, "(" + _COND[bucket] + ")"]
     if search:
-        conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)")
+        # Match order #, customer, the remittance ref (on the order or its
+        # invoice), and the invoice number itself.
+        conds.append(
+            "(so.name LIKE %(s)s OR so.customer LIKE %(s)s "
+            "OR IFNULL(so.custom_reference_number,'') LIKE %(s)s OR IFNULL(inv.ref,'') LIKE %(s)s "
+            "OR EXISTS (SELECT 1 FROM `tabSales Invoice Item` x JOIN `tabSales Invoice` y ON y.name=x.parent "
+            "WHERE x.sales_order=so.name AND y.name LIKE %(s)s))")
         params["s"] = f"%{search}%"
     if from_date:
         conds.append("so.transaction_date >= %(fd)s")

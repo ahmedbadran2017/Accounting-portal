@@ -38,7 +38,7 @@
         </button>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="srch" :placeholder="L('Search order / customer…','بحث…','Rechercher…')" class="w-40 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="srch" :placeholder="L('Order / customer / invoice / ref…','أوردر / عميل / فاتورة / مرجع…','Commande / client / facture…')" class="w-40 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
