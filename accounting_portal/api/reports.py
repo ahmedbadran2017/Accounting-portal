@@ -274,3 +274,75 @@ def sales_collections_cohort(company=None, from_date=None, to_date=None):
     out = {"company": target, "from_date": from_date, "to_date": to_date, "months": months, "totals": t}
     frappe.cache().set_value(ck, out, expires_in_sec=180)
     return out
+
+
+@frappe.whitelist()
+def ar_ap_reconciliation(company=None):
+    """Tie the operational pipelines (COD carrier float, unpaid bills, supplier
+    advances, GRNI) to the GL control accounts and flag the gaps that need
+    reconciliation. The honest AR/AP picture: where the books diverge from
+    operational reality."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    ck = f"ap_arap_recon:{target}"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
+
+    def glbal(types):
+        ph = ",".join(["%s"] * len(types))
+        v = frappe.db.sql(
+            f"""SELECT SUM(g.debit - g.credit) FROM `tabGL Entry` g
+                JOIN `tabAccount` a ON a.name = g.account
+                WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ({ph})""",
+            [target] + types)[0][0]
+        return flt(v)
+
+    # ── AR ──
+    gl_debtors = glbal(["Receivable"])
+    si_outstanding = flt(frappe.db.sql(
+        "SELECT SUM(outstanding_amount) FROM `tabSales Invoice` "
+        "WHERE company=%s AND docstatus=1 AND outstanding_amount>0", target)[0][0])
+    from accounting_portal.api import cod
+    codsum = cod.cod_summary(target) or {}
+    carrier_float = flt((codsum.get("delivered") or {}).get("value"))
+
+    # ── AP ──
+    gl_creditors = glbal(["Payable"])
+    gl_grni = glbal(["Stock Received But Not Billed"])
+    pi_unpaid = flt(frappe.db.sql(
+        "SELECT SUM(outstanding_amount) FROM `tabPurchase Invoice` "
+        "WHERE company=%s AND docstatus=1 AND IFNULL(is_return,0)=0 AND outstanding_amount>0", target)[0][0])
+    advances = flt(frappe.db.sql(
+        "SELECT SUM(unallocated_amount) FROM `tabPayment Entry` "
+        "WHERE company=%s AND docstatus=1 AND payment_type='Pay' AND party_type='Supplier' "
+        "AND unallocated_amount>0", target)[0][0])
+    grni = flt(frappe.db.sql(
+        "SELECT SUM(grand_total) FROM `tabPurchase Receipt` "
+        "WHERE company=%s AND docstatus=1 AND IFNULL(is_return,0)=0 AND per_billed<100", target)[0][0])
+
+    net_invoice = pi_unpaid - advances
+    creditors_owed = -gl_creditors  # payable sits as a credit balance
+    grni_owed = -gl_grni
+    out = {
+        "company": target,
+        "ar": {
+            "carrier_float": carrier_float,        # operational receivable (delivered, not collected)
+            "si_outstanding": si_outstanding,      # invoiced & unpaid
+            "gl_debtors": gl_debtors,              # book AR
+            "wrong_sign": gl_debtors < 0,          # credit balance in a receivable = broken
+            "reconciled": False,                   # COD collections unapplied → never ties as-is
+        },
+        "ap": {
+            "pi_unpaid": pi_unpaid, "advances": advances, "net_invoice": net_invoice,
+            "gl_creditors": creditors_owed, "invoice_gap": round(net_invoice - creditors_owed),
+            "grni": grni, "gl_grni": grni_owed, "grni_gap": round(grni - grni_owed),
+            "reconciled": abs(net_invoice - creditors_owed) < 0.05 * max(1, abs(creditors_owed)),
+        },
+        "ar_aging": _aging("Sales Invoice", target),
+        "ap_aging": _aging("Purchase Invoice", target),
+    }
+    frappe.cache().set_value(ck, out, expires_in_sec=300)
+    return out
