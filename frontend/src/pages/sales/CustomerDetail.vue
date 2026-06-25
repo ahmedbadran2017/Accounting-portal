@@ -95,6 +95,8 @@
         </table>
       </div>
     </div>
+
+    <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
     <!-- Edit modal -->
     <div v-if="editing" class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:p-8 overflow-y-auto" style="background:rgba(28,25,23,.45)" @click.self="editing = false">
       <div class="bg-white rounded-[18px] shadow-cardHover w-full max-w-md my-6 overflow-hidden">
@@ -131,6 +133,7 @@ import { ref, reactive, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import DocHub from "@/components/DocHub.vue";
 import { initials } from "@/data/customers";
 import { AV } from "@/data/orders";
 import { useCustomers } from "@/composables/useCustomers";
@@ -142,6 +145,7 @@ const router = useRouter();
 const { loadDetail, updateCustomer } = useCustomers();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const DOCTYPE = "Customer";
 
 const d = ref(null);
 async function load() { d.value = route.query.id ? await loadDetail(route.query.id, locale.value) : null; }

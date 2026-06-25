@@ -74,6 +74,8 @@
           </table>
         </div>
       </div>
+
+      <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
     </template>
   </div>
 </template>
@@ -83,6 +85,7 @@ import { ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import DocHub from "@/components/DocHub.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -91,6 +94,7 @@ const route = useRoute();
 const router = useRouter();
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const DOCTYPE = "Payment Entry";
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function statusStyle(s) {
   if (s === "Submitted") return "background:#ecfdf5;color:#047857";

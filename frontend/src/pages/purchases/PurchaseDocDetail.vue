@@ -104,6 +104,8 @@
           <div v-else class="py-8 text-center text-[11px] text-ink-muted">{{ L("No journal yet.","لا قيد بعد.","Aucune écriture.") }}</div>
         </div>
       </div>
+
+      <DocHub v-if="d" :doctype="doctype" :name="route.query.id" class="mt-1" />
     </template>
 
     <!-- Pay dialog -->
@@ -148,6 +150,7 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import DocHub from "@/components/DocHub.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";

@@ -73,6 +73,8 @@
           <div v-else class="py-8 text-center text-[11px] text-ink-muted">{{ L("No journal.", "لا قيد.", "Aucune écriture.") }}</div>
         </div>
       </div>
+
+      <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
     </template>
 
     <!-- Advance matching modal -->
@@ -115,6 +117,7 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import DocHub from "@/components/DocHub.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -125,6 +128,7 @@ const router = useRouter();
 const { locale } = useI18n();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const DOCTYPE = "Payment Entry";
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const d = ref(null);

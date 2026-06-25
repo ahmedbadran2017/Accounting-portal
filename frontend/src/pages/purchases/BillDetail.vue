@@ -62,6 +62,8 @@
         </tbody>
       </table>
     </div>
+
+    <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
   </div>
   <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
 </template>
@@ -71,6 +73,7 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import DocHub from "@/components/DocHub.vue";
 import { BILL_STATUS, billStatusLabel } from "@/data/purchases";
 import { useBills } from "@/composables/useBills";
 
@@ -79,6 +82,7 @@ const route = useRoute();
 const router = useRouter();
 const { loadDetail } = useBills();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const DOCTYPE = "Purchase Invoice";
 
 // Live get_bill (real 3-way match + posted journal) with sample fallback.
 const vm = ref(null);

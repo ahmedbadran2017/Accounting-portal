@@ -158,6 +158,8 @@
         </div>
       </div>
     </div>
+
+    <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
   </div>
   <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
 </template>
@@ -167,6 +169,7 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import DocHub from "@/components/DocHub.vue";
 import { STATE_META, stateLabel, AV, postingInfo } from "@/data/orders";
 import { useOrders } from "@/composables/useOrders";
 
@@ -174,6 +177,7 @@ const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { loadDetail } = useOrders();
+const DOCTYPE = "Sales Order";
 
 // Live get_order (real posted journal) with sample fallback; rebuilt on id/locale change.
 const vm = ref(null);

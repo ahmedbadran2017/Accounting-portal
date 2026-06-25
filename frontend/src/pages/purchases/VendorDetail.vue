@@ -67,6 +67,8 @@
         </table>
       </div>
     </div>
+
+    <DocHub v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id" class="mt-1" />
   </div>
   <div v-else class="py-20 text-center text-[12px] text-ink-muted">{{ t("common.error_loading") }}</div>
 </template>
@@ -76,12 +78,14 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import DocHub from "@/components/DocHub.vue";
 import api from "@/services/api";
 
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const DOCTYPE = "Supplier";
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const ini = (n) => String(n || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 const badge = "linear-gradient(135deg,#b45309,#7c2d12)";
