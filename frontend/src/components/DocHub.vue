@@ -7,6 +7,7 @@
       <input v-model.trim="newTag" @keyup.enter="addTag" :placeholder="L('+ tag', '+ وسم', '+ tag')" class="w-20 h-6 text-[11px] bg-transparent border-b border-dashed border-line-2 focus:outline-none focus:border-accent/40" />
       <div class="ms-auto flex items-center gap-1.5">
         <button @click="openEdit" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="gear" :size="12" />{{ L("Edit", "تعديل", "Modifier") }}</button>
+        <button v-if="canEmail" @click="openEmail" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="send" :size="12" />{{ L("Email", "إيميل", "E-mail") }}</button>
         <a :href="printUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-ink hover:opacity-90"><Icon name="doc" :size="12" color="#fff" />{{ L("Print / PDF", "طباعة", "PDF") }}</a>
       </div>
     </div>
@@ -92,6 +93,21 @@
         <div class="flex gap-2 justify-end pt-1">
           <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
           <button v-if="editFields.length" @click="saveEdit" :disabled="savingEdit" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-accent disabled:opacity-50">{{ savingEdit ? L("Saving…", "حفظ…", "…") : L("Save", "حفظ", "Enregistrer") }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email modal -->
+    <div v-if="emailOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="emailOpen = false">
+      <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
+        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[9px] grid place-items-center" style="background:#eff6ff"><Icon name="send" :size="15" color="#0369a1" /></span><div class="text-[14px] font-bold">{{ L("Email document", "إرسال بالإيميل", "Envoyer par e-mail") }}</div></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("To", "إلى", "À") }}</label><input v-model.trim="em.recipients" :placeholder="L('email@…  (comma-separated)', 'بريد إلكتروني', 'email@…')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Subject", "الموضوع", "Objet") }}</label><input v-model.trim="em.subject" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Message", "الرسالة", "Message") }}</label><textarea v-model="em.message" rows="3" class="w-full mt-1 border border-line-2 rounded-[9px] px-2 py-1.5 text-[12.5px] focus:outline-none focus:border-accent/40 resize-y"></textarea></div>
+        <p class="text-[10px] text-ink-muted">{{ L("The document PDF is attached automatically.", "ملف PDF يُرفق تلقائيًا.", "Le PDF est joint automatiquement.") }}</p>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="emailOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
+          <button @click="sendEmail" :disabled="sending || !em.recipients" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-accent disabled:opacity-50">{{ sending ? L("Sending…", "إرسال…", "…") : L("Send", "إرسال", "Envoyer") }}</button>
         </div>
       </div>
     </div>
@@ -212,6 +228,25 @@ async function saveEdit() {
     editOpen.value = false; toast.success(L("Saved", "تم الحفظ", "Enregistré")); loadActivity();
   } catch (e) { toast.error(String((e && e.message) || L("Save failed", "فشل الحفظ", "Échec")).slice(0, 140)); }
   finally { savingEdit.value = false; }
+}
+
+// ── Email ──
+const canEmail = computed(() => !["Customer", "Supplier"].includes(props.doctype));
+const emailOpen = ref(false);
+const sending = ref(false);
+const em = ref({ recipients: "", subject: "", message: "" });
+async function openEmail() {
+  em.value = { recipients: "", subject: `${props.doctype} ${props.name}`, message: L(`Please find attached ${props.doctype} ${props.name}.`, `مرفق ${props.doctype} ${props.name}.`, `Veuillez trouver ci-joint ${props.doctype} ${props.name}.`) };
+  emailOpen.value = true;
+  try { const r = await api.call("accounting_portal.api.docmeta.default_recipient", { doctype: props.doctype, name: props.name }); if (r && r.email) em.value.recipients = r.email; } catch { /* keep blank */ }
+}
+async function sendEmail() {
+  sending.value = true;
+  try {
+    await api.call("accounting_portal.api.docmeta.email_document", { doctype: props.doctype, name: props.name, recipients: em.value.recipients, subject: em.value.subject, message: em.value.message });
+    emailOpen.value = false; toast.success(L("Email sent", "تم الإرسال", "E-mail envoyé")); loadActivity();
+  } catch (e) { toast.error(String((e && e.message) || L("Send failed", "فشل الإرسال", "Échec")).slice(0, 160)); }
+  finally { sending.value = false; }
 }
 
 watch(() => [props.doctype, props.name], () => { if (props.name) { loadActivity(); loadFiles(); loadTags(); } }, { immediate: true });

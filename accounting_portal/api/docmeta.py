@@ -204,3 +204,51 @@ def update_doc_fields(doctype=None, name=None, fields=None):
         doc.set(k, v or None)
     doc.save()
     return {"ok": True}
+
+
+@frappe.whitelist()
+def default_recipient(doctype=None, name=None):
+    """Best-guess email to send this document to — the party's contact email."""
+    assert_portal_access()
+    _check(doctype, name)
+    party_field = {"Sales Invoice": "customer", "Sales Order": "customer",
+                   "Purchase Invoice": "supplier", "Purchase Order": "supplier",
+                   "Customer": None, "Supplier": None}.get(doctype)
+    party_type = "Customer" if doctype in ("Sales Invoice", "Sales Order", "Customer") else "Supplier"
+    party = name if doctype in ("Customer", "Supplier") else (
+        frappe.db.get_value(doctype, name, party_field) if party_field else None)
+    if not party:
+        return {"email": ""}
+    email = frappe.db.get_value(party_type, party, "email_id") or ""
+    if not email:
+        email = frappe.db.sql(
+            """SELECT c.email_id FROM `tabContact` c JOIN `tabDynamic Link` dl ON dl.parent=c.name
+               WHERE dl.link_doctype=%s AND dl.link_name=%s AND IFNULL(c.email_id,'')!='' LIMIT 1""",
+            (party_type, party))
+        email = email[0][0] if email else ""
+    return {"email": email}
+
+
+@frappe.whitelist()
+def email_document(doctype=None, name=None, recipients=None, subject=None, message=None):
+    """Email the document (as a PDF) to the recipients via the configured outgoing
+    account. Outward-facing — the UI collects + confirms the recipients."""
+    assert_can_write()
+    _check(doctype, name)
+    to = [r.strip() for r in (recipients or "").replace(";", ",").split(",") if r.strip()]
+    if not to:
+        frappe.throw("No recipients")
+    frappe.sendmail(
+        recipients=to,
+        subject=subject or f"{doctype} {name}",
+        message=message or f"Please find attached {doctype} {name}.",
+        attachments=[frappe.attach_print(doctype, name)],
+        reference_doctype=doctype, reference_name=name,
+    )
+    frappe.get_doc({
+        "doctype": "Comment", "comment_type": "Comment",
+        "reference_doctype": doctype, "reference_name": name,
+        "content": f"📧 Emailed to {', '.join(to)}",
+        "comment_email": frappe.session.user, "comment_by": frappe.session.user,
+    }).insert(ignore_permissions=True)
+    return {"ok": True, "sent_to": to}
