@@ -132,6 +132,54 @@ def match_candidates(payment, limit=10):
     }
 
 
+# ── Reconcile an unallocated COD receipt to the customer's open invoices ──
+RECONCILE_ACTION = "Reconcile COD"
+
+
+def _reconcile_receipt_poster(action):
+    """Allocate a customer Receive Payment Entry to its open invoices via Payment
+    Reconciliation — clears the unallocated amount off the debtor."""
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    pe = frappe.get_doc("Payment Entry", p["payment"])
+    inv_names = set(p["invoices"])
+    pr = frappe.get_doc({
+        "doctype": "Payment Reconciliation", "company": pe.company,
+        "party_type": "Customer", "party": pe.party,
+        # Receive: the debtor (receivable) account is the paid_from leg.
+        "receivable_payable_account": pe.paid_from,
+    })
+    pr.get_unreconciled_entries()
+    invs = [x.as_dict() for x in pr.invoices if x.invoice_number in inv_names]
+    pays = [x.as_dict() for x in pr.payments if x.reference_name == p["payment"]]
+    if not invs or not pays:
+        frappe.throw("Nothing left to reconcile (already applied?)")
+    pr.allocate_entries({"invoices": invs, "payments": pays})
+    pr.reconcile()
+    return {"voucher_type": "Payment Entry", "voucher_no": p["payment"], "result": "reconciled"}
+
+
+_actions.register_poster(RECONCILE_ACTION, _reconcile_receipt_poster)
+
+
+@frappe.whitelist()
+def reconcile_receipt(company=None, payment=None, invoices=None, dedupe_key=None):
+    """Apply an unallocated COD receipt to one or more open invoices (gated)."""
+    assert_can_write()
+    target = _target(company)
+    if not target or not payment:
+        frappe.throw("Payment is required")
+    if isinstance(invoices, str):
+        invoices = json.loads(invoices)
+    names = sorted({i for i in (invoices or []) if i})
+    if not names:
+        frappe.throw("Select at least one invoice")
+    amt = flt(frappe.db.get_value("Payment Entry", payment, "unallocated_amount"))
+    key = dedupe_key or f"recv:{payment}:{','.join(names)}"
+    return _actions.execute(
+        RECONCILE_ACTION, target, key, payload={"payment": payment, "invoices": names},
+        amount=amt, notes=f"Reconcile {payment} → {len(names)} invoice(s)")
+
+
 # ── Bank reconciliation (mark book entries cleared against the statement) ──
 CLEAR_BANK_ACTION = "Clear Bank Entry"
 
