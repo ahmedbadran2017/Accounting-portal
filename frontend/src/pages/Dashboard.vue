@@ -19,20 +19,20 @@
     </div>
 
     <!-- Entity banner (non-Morocco) — shown first to set context -->
-    <div v-if="vm.entityBanner" class="rounded-[14px] p-4 border" style="background:#fffbeb;border-color:#fde68a">
+    <div v-if="entityBanner" class="rounded-[14px] p-4 border" style="background:#fffbeb;border-color:#fde68a">
       <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
         <div class="min-w-0">
-          <div class="text-[13px] font-bold text-amber-900">{{ vm.entityBanner.name }} · {{ vm.entityBanner.ccy }}</div>
-          <div class="text-[11.5px] text-amber-800/80 max-w-xl">{{ vm.entityBanner.role }}</div>
+          <div class="text-[13px] font-bold text-amber-900">{{ entityBanner.name }} · {{ entityBanner.ccy }}</div>
+          <div class="text-[11.5px] text-amber-800/80 max-w-xl">{{ entityBanner.role }}</div>
         </div>
         <div class="flex items-center gap-5 ms-auto">
-          <div v-for="f in vm.entityBanner.figs" :key="f.label" class="leading-tight">
+          <div v-for="f in entityBanner.figs" :key="f.label" class="leading-tight">
             <div class="text-[10px] text-amber-700/80 uppercase tracking-wide">{{ f.label }}</div>
             <div class="text-[14px] font-bold text-amber-900 tnum">{{ f.value }}</div>
           </div>
         </div>
       </div>
-      <div class="text-[11px] text-amber-800/70 mt-2 pt-2 border-t border-amber-200">{{ vm.entityBanner.note }}</div>
+      <div class="text-[11px] text-amber-800/70 mt-2 pt-2 border-t border-amber-200">{{ entityBanner.note }}</div>
     </div>
 
     <!-- Auditor digest banner -->
@@ -104,7 +104,7 @@
           <span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted leading-tight">{{ b.label }}</span>
         </div>
         <div class="text-[22px] font-extrabold tnum mt-1.5 leading-none" :style="{ color: b.color }">{{ (b.count || 0).toLocaleString() }}</div>
-        <div class="text-[11px] text-ink-3 mt-1 tnum">{{ money(b.value) }} <span class="text-ink-muted">MAD</span></div>
+        <div class="text-[11px] text-ink-3 mt-1 tnum">{{ money(b.value) }} <span class="text-ink-muted">{{ ccyLabel }}</span></div>
       </button>
     </div>
 
@@ -116,7 +116,7 @@
           <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fef2f2"><Icon name="truck" :size="14" color="#be123c" /></span>
           <span class="text-[13px] font-bold">{{ L("Carrier float · uncollected","رصيد لدى الناقل · غير محصّل","Flottant transporteur") }}</span>
         </div>
-        <div class="relative text-[28px] font-extrabold text-sale tnum mt-2.5 tracking-tight leading-none">{{ money(cod.carrier_float) }}<span class="text-[13px] text-ink-muted ms-1">MAD</span></div>
+        <div class="relative text-[28px] font-extrabold text-sale tnum mt-2.5 tracking-tight leading-none">{{ money(cod.carrier_float) }}<span class="text-[13px] text-ink-muted ms-1">{{ ccyLabel }}</span></div>
         <div class="relative text-[11.5px] text-ink-3 mt-2 leading-snug">{{ L("Cash for delivered orders that hasn't been reconciled yet — it's with Cathedis.","كاش طلبات مُسلّمة لسه ماتطابقش — لسه مع كاتدييس.","Encaisse livrée non rapprochée — chez Cathedis.") }}</div>
       </div>
       <div class="bg-white rounded-[16px] border border-line p-[17px] shadow-card flex flex-col">
@@ -186,7 +186,7 @@
         <div class="flex gap-6 mt-3.5 pt-3 border-t border-line-hair">
           <div>
             <div class="text-[10px] font-semibold text-ink-muted">{{ vm.cashflow.inLbl }}</div>
-            <div class="text-[18px] font-bold text-success-dark tnum mt-px">{{ vm.cashflow.totalIn }}<span class="text-[11px] text-ink-muted ms-0.5">MAD</span></div>
+            <div class="text-[18px] font-bold text-success-dark tnum mt-px">{{ vm.cashflow.totalIn }}<span class="text-[11px] text-ink-muted ms-0.5">{{ ccyLabel }}</span></div>
           </div>
           <div>
             <div class="text-[10px] font-semibold text-ink-muted">{{ vm.cashflow.outLbl }}</div>
@@ -214,7 +214,7 @@
             <div class="h-[7px] rounded-[5px] bg-line-hair overflow-hidden">
               <div class="h-full rounded-[5px] animate-barGrow origin-left" :style="{ width: Math.max(c.share, 2.5) + '%', background: c.bar }"></div>
             </div>
-            <div class="text-[10px] text-ink-muted mt-[3px] font-mono tnum">{{ c.sub }} · {{ c.amount }} MAD</div>
+            <div class="text-[10px] text-ink-muted mt-[3px] font-mono tnum">{{ c.sub }} · {{ c.amount }} {{ ccyLabel }}</div>
           </div>
         </div>
         <div class="flex gap-2 mt-3.5 px-3 py-2.5 rounded-[10px]" style="background:#fffbeb;border:1px solid #fde68a">
@@ -257,7 +257,7 @@
           <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" :style="{ background: p.tint }"><Icon :name="p.icon" :size="14" :color="p.color" /></span>
           <span class="text-[12px] font-bold text-ink-3">{{ p.label }}</span>
         </div>
-        <div class="text-[24px] font-extrabold tnum mt-2 leading-none" :style="{ color: p.color }">{{ money(p.value) }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
+        <div class="text-[24px] font-extrabold tnum mt-2 leading-none" :style="{ color: p.color }">{{ money(p.value) }}<span class="text-[12px] text-ink-muted ms-1">{{ ccyLabel }}</span></div>
         <div class="text-[11px] text-ink-muted mt-1.5">{{ (p.count || 0).toLocaleString() }} {{ L("docs","مستند","docs") }}</div>
       </button>
     </div>
@@ -270,7 +270,7 @@
         <div class="text-[12.5px] font-bold">{{ cheques.due_week_n }} {{ L("cheques due ≤ 7 days", "شيكات مستحقة ≤ 7 أيام", "chèques échéance ≤ 7 j") }}</div>
         <div class="text-[11px] text-ink-muted">{{ L("cash leaving the bank soon — review the register", "كاش هيخرج قريبًا — راجع السجل", "sortie de trésorerie imminente") }}</div>
       </div>
-      <span class="text-[16px] font-extrabold tnum" style="color:#b45309">{{ money(cheques.due_week) }} <span class="text-[11px] text-ink-muted">MAD</span></span>
+      <span class="text-[16px] font-extrabold tnum" style="color:#b45309">{{ money(cheques.due_week) }} <span class="text-[11px] text-ink-muted">{{ ccyLabel }}</span></span>
       <Icon name="arrow" :size="14" color="#a8a29e" class="rtl:rotate-180 flex-shrink-0" />
     </button>
 
@@ -311,7 +311,7 @@
           <span class="text-[13px] font-bold">{{ vm.arap.arLabel }}</span>
           <span class="text-[10.5px] text-ink-muted ms-auto">{{ vm.arap.arRows }} {{ t("dash.lines") }}</span>
         </div>
-        <div class="relative text-[26px] font-bold text-sale tnum mt-2.5 tracking-tight">{{ vm.arap.arVal }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
+        <div class="relative text-[26px] font-bold text-sale tnum mt-2.5 tracking-tight">{{ vm.arap.arVal }}<span class="text-[12px] text-ink-muted ms-1">{{ ccyLabel }}</span></div>
         <div class="relative flex gap-2 mt-2.5 px-3 py-2.5 rounded-[10px]" style="background:#fef2f2;border:1px solid #fecaca">
           <Icon name="alert" :size="13" color="#be123c" class="flex-shrink-0 mt-px" />
           <span class="text-[11px] leading-snug" style="color:#991b1b">{{ vm.arap.arNote }}</span>
@@ -324,7 +324,7 @@
           <span class="text-[13px] font-bold">{{ vm.arap.apLabel }}</span>
           <span class="text-[10.5px] text-ink-muted ms-auto">{{ vm.arap.apRows }} {{ t("dash.lines") }}</span>
         </div>
-        <div class="relative text-[26px] font-bold text-ink tnum mt-2.5 tracking-tight">{{ vm.arap.apVal }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
+        <div class="relative text-[26px] font-bold text-ink tnum mt-2.5 tracking-tight">{{ vm.arap.apVal }}<span class="text-[12px] text-ink-muted ms-1">{{ ccyLabel }}</span></div>
         <div class="relative text-[11.5px] text-ink-3 mt-3.5 leading-snug">{{ vm.arap.apNote }}</div>
       </div>
     </div>
@@ -408,13 +408,16 @@ const currentRange = computed(() => {
 });
 
 const cc = ref(null);
+const entitySnap = ref(null);
 async function load() {
   loaded.value = false;
   // Fire both heavy aggregates concurrently (don't serialize 8s + 1s).
   const ccP = api.call("accounting_portal.api.dashboard.command_center", { company: currentCompany() }).catch(() => null);
+  const snapP = api.call("accounting_portal.api.dashboard.entity_snapshot", { company: currentCompany() }).catch(() => null);
   try {
     cockpit.value = await loadCockpit(currentRange.value); isLive.value = !!(cockpit.value && cockpit.value.company);
     cc.value = await ccP;
+    entitySnap.value = await snapP;
   }
   finally { loaded.value = true; }
 }
@@ -424,6 +427,20 @@ function applyRange() { if (customFrom.value && customTo.value) load(); }
 
 const vm = computed(() => overlayCockpit(buildDashVM(locale.value, entityId.value), cockpit.value, locale.value));
 const asOf = computed(() => cockpit.value?.as_of || "");
+
+// Entity banner (non-Morocco): override the hardcoded figs with live snapshot.
+const entityBanner = computed(() => {
+  const b = vm.value.entityBanner;
+  if (!b) return null;
+  const s = entitySnap.value;
+  if (!s || !s.currency) return b;
+  const m = (n) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  return { ...b, ccy: s.currency, figs: [
+    { label: L("Bills YTD", "الفواتير (السنة)", "Factures (an)"), value: String(s.bills_ytd) },
+    { label: L("Spend YTD", "المصروف (السنة)", "Dépenses (an)"), value: m(s.spend_ytd) + " " + s.currency },
+    { label: L("Open payable", "مستحق الدفع", "À payer"), value: m(s.open_payable) + " " + s.currency },
+  ] };
+});
 
 // COD control-tower sections read the live cockpit directly.
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

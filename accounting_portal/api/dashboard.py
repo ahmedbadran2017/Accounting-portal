@@ -485,3 +485,24 @@ def _fiscal_year_start():
     except Exception:
         pass
     return f"{getdate(nowdate()).year}-01-01"
+
+
+@frappe.whitelist()
+def entity_snapshot(company=None):
+    """Live headline figures for a non-Morocco entity banner (Maslak/China/…) in
+    that entity's own currency — replaces the hardcoded banner numbers."""
+    assert_portal_access()
+    companies = _resolve_companies(company)
+    target = company if (company and company in companies) else (companies[0] if companies else None)
+    if not target:
+        return {}
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "USD"
+    y0 = f"{nowdate()[:4]}-01-01"
+    bills = frappe.db.sql(
+        """SELECT COUNT(*) n, ROUND(SUM(grand_total)) spend FROM `tabPurchase Invoice`
+           WHERE company=%s AND docstatus=1 AND posting_date>=%s""", (target, y0), as_dict=True)[0]
+    payable = flt(frappe.db.sql(
+        """SELECT ROUND(SUM(outstanding_amount)) FROM `tabPurchase Invoice`
+           WHERE company=%s AND docstatus=1 AND outstanding_amount<>0""", (target,))[0][0] or 0)
+    return {"company": target, "currency": ccy,
+            "bills_ytd": bills.n or 0, "spend_ytd": flt(bills.spend), "open_payable": payable}
