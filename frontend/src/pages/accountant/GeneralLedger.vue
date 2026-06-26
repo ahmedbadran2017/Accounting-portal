@@ -3,7 +3,8 @@
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#f5f3ff"><Icon name="ledger" :size="14" color="#7c3aed" /></span>
       <span class="text-[13px] font-bold">{{ L("General ledger","الأستاذ العام","Grand livre") }}</span>
-      <span class="text-[11px] text-ink-muted">{{ L("Every posting, reconciled to source","كل قيد، مطابق للمصدر","Chaque écriture, rapprochée à la source") }}</span>
+      <span v-if="acct" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-chip bg-app-warm text-ink-2"><span class="font-mono">{{ acct }}</span><button class="text-ink-muted hover:text-sale" @click="clearAcct">✕</button></span>
+      <span v-else class="text-[11px] text-ink-muted">{{ L("Every posting, reconciled to source","كل قيد، مطابق للمصدر","Chaque écriture, rapprochée à la source") }}</span>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-[12px]">
@@ -33,20 +34,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { GL } from "@/data/accountant";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 
+const route = useRoute();
+const router = useRouter();
+const acct = computed(() => route.query.account || "");
 const rows = ref(GL);
-onMounted(async () => {
+async function load() {
   const res = await liveOrSample(
-    "accounting_portal.api.ledger.general_ledger", { company: currentCompany(), limit: 100 }, () => GL,
+    "accounting_portal.api.ledger.general_ledger", { company: currentCompany(), account: acct.value || undefined, limit: acct.value ? 300 : 100 }, () => GL,
     (data) => data.map((r) => ({ date: r.date, ref: r.ref, account: r.account, dim: r.party || "—", dr: r.dr ? Number(r.dr).toFixed(2) : "", cr: r.cr ? Number(r.cr).toFixed(2) : "" })),
   );
   rows.value = res.data;
-});
+}
+onMounted(load);
+watch(() => route.query.account, load);
+function clearAcct() { router.replace({ path: "/accounting/accountant/gl", query: {} }); }
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 </script>

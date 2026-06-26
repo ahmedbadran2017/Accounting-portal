@@ -742,3 +742,81 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
         "prior_from": p_from, "prior_to": p_to, "compare": compare,
         "pnl": pnl_pack, "balance_sheet": bs_pack, "cash_flow": cf_pack,
     }
+
+
+@frappe.whitelist()
+def verified_dd(company=None):
+    """Investor/audit-ready health scorecard — key figures tied to the GL plus a
+    pass/watch/fail checklist across the areas a buyer's DD examines."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    fy = _year_bounds()[0]
+
+    def _root(rt, fr=None):
+        cond = "g.posting_date BETWEEN %s AND %s" if fr else "g.posting_date<=%s"
+        args = (target, fr, _year_bounds()[1]) if fr else (target, nowdate())
+        sign = "g.credit-g.debit" if rt in ("Income", "Liability", "Equity") else "g.debit-g.credit"
+        return flt(frappe.db.sql(
+            f"""SELECT COALESCE(SUM({sign}),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+                WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type=%s AND {cond}""",
+            (args[0], rt) + args[1:])[0][0])
+
+    rev = _root("Income", fy)
+    cogs = flt(frappe.db.sql(
+        """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Cost of Goods Sold' AND g.posting_date>=%s""",
+        (target, fy))[0][0])
+    gross_margin = round((rev - cogs) / rev * 100, 1) if rev else 0
+    cash = flt(frappe.db.sql(
+        """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash')""", (target,))[0][0])
+    debtors = flt(frappe.db.sql(
+        """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Receivable'""", (target,))[0][0])
+
+    findings, exposure, highs = [], 0, 0
+    try:
+        from accounting_portal.api import auditor as _aud
+        ctl = _aud.run_controls(target) or {}
+        findings = ctl.get("findings") or []
+        exposure = (ctl.get("summary") or {}).get("exposure", 0)
+        highs = (ctl.get("summary") or {}).get("high", 0)
+    except Exception:
+        pass
+    # Document compliance.
+    miss = {}
+    try:
+        from accounting_portal.api import docmeta as _dm
+        miss = (_dm.missing_documents(target, "bills") or {}).get("counts", {})
+    except Exception:
+        pass
+    bills_total = frappe.db.count("Purchase Invoice", {"company": target, "docstatus": 1}) or 1
+    bills_missing_pct = round((miss.get("bills", 0)) / bills_total * 100) if bills_total else 0
+
+    def chk(area, status, value, note):
+        return {"area": area, "status": status, "value": value, "note": note}
+
+    checklist = [
+        chk("Revenue recognition", "watch" if rev else "fail", f"{round(rev):,.0f} {ccy}",
+            "Recognised on delivery; a to-bill backlog remains"),
+        chk("Gross margin quality", "fail" if gross_margin < 0 else ("watch" if gross_margin < 20 else "pass"),
+            f"{gross_margin}%", "COGS exceeds revenue — inventory/COGS posting is broken"),
+        chk("Receivables integrity", "fail" if debtors < -100000 else "pass",
+            f"{round(debtors):,.0f} {ccy}", "Debtors carry a credit balance — collections unapplied" if debtors < 0 else "Clean"),
+        chk("Liquidity", "fail" if cash < 0 else ("watch" if cash < 500000 else "pass"),
+            f"{round(cash):,.0f} {ccy}", "Cash on hand across bank + cash"),
+        chk("Audit findings", "fail" if highs >= 3 else ("watch" if highs else "pass"),
+            f"{len(findings)} ({highs} high)", f"{round(exposure):,.0f} {ccy} high-severity exposure"),
+        chk("Document compliance", "fail" if bills_missing_pct > 60 else ("watch" if bills_missing_pct > 20 else "pass"),
+            f"{bills_missing_pct}% missing", "Supplier bills without an attached source document"),
+    ]
+    score = sum(1 for c in checklist if c["status"] == "pass")
+    return {
+        "company": target, "currency": ccy,
+        "metrics": {"revenue": round(rev), "gross_margin": gross_margin, "cash": round(cash),
+                    "debtors": round(debtors), "exposure": round(exposure)},
+        "checklist": checklist, "score": score, "total": len(checklist),
+    }

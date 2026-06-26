@@ -28,8 +28,8 @@
           <tbody>
             <template v-for="sec in pnlSections" :key="sec.key">
               <tr class="border-t border-line-hair" style="background:#fcfcfb"><td class="px-5 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3" :colspan="compare ? 4 : 2">{{ sec.title }}</td></tr>
-              <tr v-for="(a, i) in sec.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/40">
-                <td class="px-5 py-1.5 ps-8 text-ink-2 truncate max-w-[280px]">{{ a.name }}</td>
+              <tr v-for="(a, i) in sec.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/40" :class="a.account && 'cursor-pointer'" @click="a.account && drill(a.account)">
+                <td class="px-5 py-1.5 ps-8 text-ink-2 truncate max-w-[280px] hover:text-accent-dark">{{ a.name }}</td>
                 <td class="px-5 py-1.5 text-end tnum">{{ fmt(a.amount) }}</td>
                 <template v-if="compare"><td class="px-5 py-1.5 text-end tnum text-ink-muted">{{ fmt(a.prior) }}</td><td class="px-5 py-1.5 text-end tnum" :class="delta(a.amount, a.prior).c">{{ delta(a.amount, a.prior).t }}</td></template>
               </tr>
@@ -56,9 +56,9 @@
       </div>
       <table class="w-full text-[12.5px]">
         <tbody>
-          <BsBlock :title="L('Assets','الأصول','Actifs')" :sections="d.balance_sheet.assets" :total="d.balance_sheet.assets_total" :compare="compare" />
-          <BsBlock :title="L('Liabilities','الخصوم','Passifs')" :sections="d.balance_sheet.liabilities" :total="d.balance_sheet.liabilities_total" :compare="compare" />
-          <BsBlock :title="L('Equity','حقوق الملكية','Capitaux')" :sections="d.balance_sheet.equity" :total="d.balance_sheet.equity_total" :compare="compare" />
+          <BsBlock :title="L('Assets','الأصول','Actifs')" :sections="d.balance_sheet.assets" :total="d.balance_sheet.assets_total" :compare="compare" :on-drill="drill" />
+          <BsBlock :title="L('Liabilities','الخصوم','Passifs')" :sections="d.balance_sheet.liabilities" :total="d.balance_sheet.liabilities_total" :compare="compare" :on-drill="drill" />
+          <BsBlock :title="L('Equity','حقوق الملكية','Capitaux')" :sections="d.balance_sheet.equity" :total="d.balance_sheet.equity_total" :compare="compare" :on-drill="drill" />
         </tbody>
       </table>
     </div>
@@ -83,6 +83,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, h } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
@@ -90,7 +91,9 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
+const router = useRouter();
 const { entityId } = useUi();
+function drill(account) { if (account) router.push({ path: "/accounting/accountant/gl", query: { account } }); }
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(1) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
@@ -155,14 +158,14 @@ function delta(cur, prior) {
 function printIt() { window.print(); }
 
 const BsBlock = {
-  props: ["title", "sections", "total", "compare"],
+  props: ["title", "sections", "total", "compare", "onDrill"],
   setup(p) {
     return () => [
       h("tr", { style: "background:#fcfcfb", class: "border-t border-line-hair" }, [h("td", { class: "px-5 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3", colspan: p.compare ? 4 : 2 }, p.title)]),
       ...(p.sections || []).flatMap((s) => [
         h("tr", { class: "border-t border-line-hair", style: "background:#fff" }, [h("td", { class: "px-5 py-1 ps-7 font-semibold text-ink-2 text-[11.5px]", colspan: p.compare ? 4 : 2 }, s.section)]),
-        ...(s.accounts || []).map((a) => h("tr", { class: "border-t border-line-hair hover:bg-app-warm/40" }, [
-          h("td", { class: "px-5 py-1 ps-10 text-ink-3 truncate", style: "max-width:280px" }, a.name),
+        ...(s.accounts || []).map((a) => h("tr", { class: "border-t border-line-hair hover:bg-app-warm/40" + (a.account ? " cursor-pointer" : ""), onClick: () => a.account && p.onDrill && p.onDrill(a.account) }, [
+          h("td", { class: "px-5 py-1 ps-10 text-ink-3 truncate hover:text-accent-dark", style: "max-width:280px" }, a.name),
           h("td", { class: "px-5 py-1 text-end tnum" }, fmt(a.amount)),
           ...(p.compare ? [h("td", { class: "px-5 py-1 text-end tnum text-ink-muted" }, fmt(a.prior)), h("td", { class: "px-5 py-1 text-end tnum" })] : []),
         ])),
