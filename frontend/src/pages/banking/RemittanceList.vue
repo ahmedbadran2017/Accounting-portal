@@ -1,74 +1,82 @@
 <template>
-  <div class="space-y-3.5">
-    <!-- Bank accounts -->
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      <div v-for="acc in BANK_ACCOUNTS" :key="acc.no" class="yo-card bg-white border border-line rounded-[14px] p-4 shadow-card">
-        <div class="flex items-center gap-2.5">
-          <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center" :style="{ background: acc.bg }"><Icon name="bank" :size="15" :color="acc.color" /></span>
-          <div class="flex-1 min-w-0">
-            <div class="text-[12.5px] font-bold truncate">{{ acc.name }}</div>
-            <div class="text-[10.5px] text-ink-muted">{{ acc.no }}</div>
-          </div>
-        </div>
-        <div class="text-[20px] font-bold tnum mt-2.5">{{ acc.balance }}<span class="text-[11px] text-ink-muted ms-0.5">{{ acc.ccy }}</span></div>
+  <div class="bg-white border border-line rounded-card shadow-card overflow-hidden">
+    <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
+      <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="truck" :size="14" color="#b45309" /></span>
+      <span class="text-[13px] font-bold">{{ L("COD remittance batches","دفعات تحصيل COD","Lots d’encaissement COD") }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span class="hidden lg:inline text-[11px] text-ink-muted">{{ L("carrier collected vs deposited","المُحصَّل مقابل المُودَع","collecté vs déposé") }}</span>
+      <div class="ms-auto relative">
+        <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
+        <input v-model.trim="search" @input="onSearch" :placeholder="L('Search ref / carrier…','بحث…','Rechercher…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
       </div>
     </div>
-
-    <!-- COD remittance batches -->
-    <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="flex items-center gap-2.5 px-[18px] py-[15px] border-b border-line-hair">
-        <span class="w-7 h-7 rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="truck" :size="15" color="#b45309" /></span>
-        <div class="flex-1">
-          <div class="text-[13.5px] font-bold">{{ L("COD remittance batches","دفعات تحصيل COD","Lots d’encaissement COD") }}</div>
-          <div class="text-[11px] text-ink-muted">{{ L("Carrier statements → payment entries","كشوف الناقلين → قيود الدفع","Relevés transporteurs → écritures") }}</div>
-        </div>
-        <button class="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] bg-white border border-line-2 text-ink-2 text-[11.5px] font-semibold hover:bg-app-warm">
-          <Icon name="plus" :size="13" />{{ L("Import statement","استيراد كشف","Importer relevé") }}
-        </button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-[12px]">
-          <thead>
-            <tr style="background:#fafaf9">
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Batch","الدفعة","Lot") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Carrier","الناقل","Transporteur") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected","المُحصَّل","Collecté") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Fees","الرسوم","Frais") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Variance","الفرق","Écart") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="b in BATCHES" :key="b.id" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(b.id)">
-              <td class="px-4 py-3 font-mono font-semibold whitespace-nowrap">{{ b.id }}</td>
-              <td class="px-4 py-3 font-semibold">{{ b.carrier }}</td>
-              <td class="px-4 py-3 text-ink-3 whitespace-nowrap">{{ b.date }}</td>
-              <td class="px-4 py-3 text-end tnum">{{ money(b.collected) }}</td>
-              <td class="px-4 py-3 text-end tnum text-sale">{{ money(b.fees) }}</td>
-              <td class="px-4 py-3 text-end tnum font-bold" :class="b.variance < 0 ? 'text-sale' : 'text-ink-3'">{{ b.variance ? money(b.variance) : "0" }}</td>
-              <td class="px-4 py-3">
-                <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border"
-                      :style="{ background: BATCH_STATUS[b.status].bg, color: BATCH_STATUS[b.status].fg, borderColor: BATCH_STATUS[b.status].bd }">
-                  {{ batchStatusLabel(b.status, locale) }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <TableLoading v-if="loading" :rows="8" />
+    <div v-else class="overflow-x-auto">
+      <table class="w-full text-[12px]">
+        <thead><tr style="background:#fafaf9">
+          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Batch","الدفعة","Lot") }}</th>
+          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Carrier","الناقل","Transp.") }}</th>
+          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Orders","الطلبات","Cmd") }}</th>
+          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Expected","المتوقَّع","Attendu") }}</th>
+          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected","المُحصَّل","Collecté") }}</th>
+          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Variance","الفرق","Écart") }}</th>
+          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
+        </tr></thead>
+        <tbody>
+          <tr v-for="b in rows" :key="b.ref" class="border-t border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="open(b.ref)">
+            <td class="px-4 py-2.5 font-mono text-[11px] font-semibold whitespace-nowrap">{{ b.ref }}<div class="text-[10px] text-ink-muted font-sans">{{ b.date }}</div></td>
+            <td class="px-4 py-2.5">{{ b.carrier }}</td>
+            <td class="px-4 py-2.5 text-end tnum text-ink-3">{{ b.orders }}</td>
+            <td class="px-4 py-2.5 text-end tnum">{{ money(b.expected) }}</td>
+            <td class="px-4 py-2.5 text-end tnum font-semibold">{{ money(b.collected) }}</td>
+            <td class="px-4 py-2.5 text-end tnum font-bold" :class="b.variance < 0 ? 'text-sale' : b.variance > 0 ? 'text-amber-700' : 'text-ink-3'">{{ b.variance > 0 ? "+" : "" }}{{ money(b.variance) }}</td>
+            <td class="px-4 py-2.5"><span class="inline-flex text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="stBadge(b.status)">{{ stLabel(b.status) }}</span></td>
+          </tr>
+          <tr v-if="!rows.length"><td colspan="7" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No remittance batches.","لا دفعات.","Aucun lot.") }}</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { BATCHES, BATCH_STATUS, batchStatusLabel, money, BANK_ACCOUNTS } from "@/data/banking";
+import TableLoading from "@/components/TableLoading.vue";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
+import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
+const { entityId } = useUi();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-function open(id) { router.push({ path: "/accounting/banking/remittance", query: { id } }); }
+const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
+
+const rows = ref([]);
+const isLive = ref(null);
+const loading = ref(true);
+const search = ref("");
+let t = null;
+const SAMPLE = [{ ref: "CATH0102…0526", carrier: "Cathedis", date: "2026-05-02", orders: 716, expected: 150990, collected: 154153, variance: 3163, status: "over" }];
+async function load() {
+  loading.value = true;
+  try { rows.value = await api.call("accounting_portal.api.cod.cod_remittances", { company: currentCompany(), search: search.value || undefined, limit: 200 }); isLive.value = true; }
+  catch { rows.value = SAMPLE; isLive.value = false; }
+  finally { loading.value = false; }
+}
+function onSearch() { clearTimeout(t); t = setTimeout(load, 350); }
+onMounted(load);
+watch(entityId, load);
+function open(ref) { router.push({ path: "/accounting/banking/remittance", query: { id: ref } }); }
+
+const ST = {
+  matched: { en: "Matched", ar: "مطابقة", fr: "Rapproché", bg: "#ecfdf5", fg: "#047857" },
+  short: { en: "Short", ar: "نقص", fr: "Manque", bg: "#fef2f2", fg: "#b91c1c" },
+  over: { en: "Over", ar: "زيادة", fr: "Excédent", bg: "#fffbeb", fg: "#b45309" },
+};
+function stLabel(s) { const x = ST[s] || ST.matched; return locale.value === "ar" ? x.ar : locale.value === "fr" ? x.fr : x.en; }
+function stBadge(s) { const x = ST[s] || ST.matched; return `background:${x.bg};color:${x.fg}`; }
 </script>

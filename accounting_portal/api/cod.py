@@ -42,6 +42,90 @@ def _target(company):
     return company if (company and company in companies) else companies[0]
 
 
+def _remit_status(variance, expected):
+    """Matched if the deposit ties to expected; short if under, over if above."""
+    if expected and abs(variance) / expected <= 0.005:
+        return "matched"
+    return "short" if variance < 0 else "over"
+
+
+@frappe.whitelist()
+def cod_remittances(company=None, search=None, variance_only=0, limit=100):
+    """COD remittance batches: each carrier reference (CATH…) groups the orders it
+    collected (expected) against what was actually deposited to the bank, with the
+    variance. Powers the remittance workbench + the variance queue."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return []
+    conds = ["company=%(c)s", "docstatus=1", "IFNULL(custom_reference_number,'') LIKE 'CATH%%'"]
+    params = {"c": target, "limit": min(int(limit or 100), 500)}
+    if search:
+        conds.append("(custom_reference_number LIKE %(s)s OR IFNULL(custom_tracking_company,'') LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    batches = frappe.db.sql(
+        f"""SELECT custom_reference_number AS ref,
+                   IFNULL(NULLIF(custom_tracking_company,''),'Cathedis') AS carrier,
+                   COUNT(*) AS orders, ROUND(SUM(grand_total)) AS expected,
+                   MAX(transaction_date) AS date
+            FROM `tabSales Order` WHERE {' AND '.join(conds)}
+            GROUP BY custom_reference_number, custom_tracking_company
+            ORDER BY MAX(transaction_date) DESC LIMIT %(limit)s""", params, as_dict=True)
+    refs = [b["ref"] for b in batches]
+    deposits = {}
+    if refs:
+        for r in frappe.db.sql(
+                """SELECT reference_no AS ref, ROUND(SUM(paid_amount)) AS amt, COUNT(*) AS n
+                   FROM `tabPayment Entry` WHERE company=%(c)s AND docstatus=1
+                     AND payment_type='Receive' AND reference_no IN %(r)s
+                   GROUP BY reference_no""", {"c": target, "r": refs}, as_dict=True):
+            deposits[r.ref] = r
+    out = []
+    for b in batches:
+        d = deposits.get(b["ref"])
+        b["collected"] = flt(d.amt) if d else 0
+        b["deposits"] = d.n if d else 0
+        b["variance"] = round(b["collected"] - flt(b["expected"]), 0)
+        b["status"] = _remit_status(b["variance"], flt(b["expected"]))
+        b["date"] = str(b.get("date") or "")
+        if not (int(variance_only or 0) and b["status"] == "matched"):
+            out.append(b)
+    return out
+
+
+@frappe.whitelist()
+def get_remittance(ref=None, company=None):
+    """One remittance batch: the orders it collected, the deposits posted against
+    it, and the reconciliation totals."""
+    assert_portal_access()
+    target = _target(company)
+    if not target or not ref:
+        return None
+    orders = frappe.db.sql(
+        """SELECT name, customer, ROUND(grand_total) AS value, transaction_date AS date,
+                  IFNULL(NULLIF(custom_track_shipment_status,''), custom_logistics_status) AS status
+           FROM `tabSales Order` WHERE company=%s AND docstatus=1 AND custom_reference_number=%s
+           ORDER BY transaction_date DESC LIMIT 500""", (target, ref), as_dict=True)
+    if not orders:
+        return None
+    deposits = frappe.db.sql(
+        """SELECT name, party AS customer, ROUND(paid_amount) AS amount, posting_date AS date,
+                  IFNULL(mode_of_payment,'—') AS method
+           FROM `tabPayment Entry` WHERE company=%s AND docstatus=1 AND payment_type='Receive'
+             AND reference_no=%s ORDER BY posting_date DESC LIMIT 500""", (target, ref), as_dict=True)
+    expected = sum(flt(o.value) for o in orders)
+    collected = sum(flt(d.amount) for d in deposits)
+    carrier = frappe.db.get_value("Sales Order", {"custom_reference_number": ref, "company": target}, "custom_tracking_company") or "Cathedis"
+    variance = round(collected - expected, 0)
+    return {
+        "ref": ref, "carrier": carrier, "company": target,
+        "orders": orders, "deposits": deposits,
+        "n_orders": len(orders), "n_deposits": len(deposits),
+        "expected": round(expected), "collected": round(collected), "variance": variance,
+        "status": _remit_status(variance, expected),
+    }
+
+
 # ── bucket classifier (must agree with the SQL conditions below) ──
 # To Return = carrier flagged it back (track) but the goods haven't physically
 # returned. Returned = a submitted return Delivery Note exists (goods back in the
