@@ -16,49 +16,51 @@
 
     <!-- Taxes -->
     <div v-else-if="activeSub === 'taxconf'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="px-4 py-3 border-b border-line-hair text-[13px] font-bold">{{ L("Taxes","الضرائب","Taxes") }}</div>
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Taxes","الضرائب","Taxes") }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span></div>
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Tax","الضريبة","Taxe") }}</th>
+          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Tax template","قالب الضريبة","Modèle") }}</th>
           <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","النسبة","Taux") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Region","المنطقة","Région") }}</th>
+          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Company","الشركة","Société") }}</th>
         </tr></thead>
         <tbody>
-          <tr v-for="x in taxes" :key="x.name" class="border-t border-line-hair">
+          <tr v-for="x in taxRows" :key="x.name" class="border-t border-line-hair">
             <td class="px-4 py-2.5 font-semibold">{{ x.name }}</td>
-            <td class="px-4 py-2.5 text-end tnum font-bold">{{ x.rate }}</td>
-            <td class="px-4 py-2.5 text-ink-3">{{ x.region }}</td>
+            <td class="px-4 py-2.5 text-end tnum font-bold">{{ x.rate }}%</td>
+            <td class="px-4 py-2.5 text-ink-3">{{ x.company }}</td>
           </tr>
+          <tr v-if="!taxRows.length"><td colspan="3" class="px-4 py-8 text-center text-ink-muted">{{ L("No tax templates.","لا قوالب.","Aucun modèle.") }}</td></tr>
         </tbody>
       </table>
     </div>
 
     <!-- Currencies -->
     <div v-else-if="activeSub === 'currencies'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="px-4 py-3 border-b border-line-hair text-[13px] font-bold">{{ L("Currencies · base MAD","العملات · الأساس درهم","Devises · base MAD") }}</div>
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Currency exchange rates","أسعار صرف العملات","Taux de change") }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span></div>
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Currency","العملة","Devise") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Role","الدور","Rôle") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate → MAD","السعر → درهم","Taux → MAD") }}</th>
+          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Pair","الزوج","Paire") }}</th>
+          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Taux") }}</th>
+          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("As of","حتى","Au") }}</th>
         </tr></thead>
         <tbody>
-          <tr v-for="c in currencies" :key="c.ccy" class="border-t border-line-hair">
-            <td class="px-4 py-2.5 font-mono font-bold">{{ c.ccy }}</td>
-            <td class="px-4 py-2.5 text-ink-2">{{ c.role }}</td>
+          <tr v-for="(c, i) in fxRows" :key="i" class="border-t border-line-hair">
+            <td class="px-4 py-2.5 font-mono font-bold">{{ c.frm }} → {{ c.too }}</td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ c.rate }}</td>
+            <td class="px-4 py-2.5 text-end text-ink-3">{{ String(c.date).slice(0,10) }}</td>
           </tr>
+          <tr v-if="!fxRows.length"><td colspan="3" class="px-4 py-8 text-center text-ink-muted">{{ L("No exchange rates.","لا أسعار.","Aucun taux.") }}</td></tr>
         </tbody>
       </table>
     </div>
 
     <!-- Organizations -->
     <div v-else-if="activeSub === 'orgs'" class="grid sm:grid-cols-2 gap-3">
-      <div v-for="e in entities" :key="e.id" class="bg-white border border-line rounded-[14px] p-4 shadow-card flex items-center gap-2.5">
-        <span class="w-9 h-9 rounded-lg grid place-items-center text-white text-[11px] font-bold" :style="{ background: e.badge }">{{ e.code }}</span>
+      <div v-for="e in orgRows" :key="e.name" class="bg-white border border-line rounded-[14px] p-4 shadow-card flex items-center gap-2.5">
+        <span class="w-9 h-9 rounded-lg grid place-items-center text-white text-[11px] font-bold" :style="{ background: orgColor(e.name) }">{{ e.abbr || e.name.slice(0,2) }}</span>
         <div class="min-w-0">
           <div class="text-[13px] font-bold truncate">{{ e.name }}</div>
-          <div class="text-[11px] text-ink-muted">{{ e.place }} · {{ e.ccy }}</div>
+          <div class="text-[11px] text-ink-muted">{{ e.country || "—" }} · {{ e.ccy }}</div>
         </div>
       </div>
     </div>
@@ -69,8 +71,9 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import api from "@/services/api";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
@@ -97,7 +100,19 @@ const title = computed(() => {
   return found ? t(found[1]) : t("nav.settings");
 });
 const users = computed(() => settingsUsers(locale.value));
-const taxes = computed(() => settingsTaxes(locale.value));
-const currencies = computed(() => settingsCurrencies(locale.value));
 function goSub(s) { router.push(`/accounting/settings/${s}`); }
+
+// Live reference data (taxes / FX / companies).
+const ref_ = ref({ taxes: [], fx: [], companies: [] });
+const refLive = ref(false);
+async function loadRef() {
+  try { ref_.value = await api.call("accounting_portal.api.settings.settings_reference", {}); refLive.value = true; }
+  catch { refLive.value = false; ref_.value = { taxes: settingsTaxes(locale.value).map((x) => ({ name: x.name, rate: x.rate, company: x.region })), fx: [], companies: [] }; }
+}
+onMounted(loadRef);
+const taxRows = computed(() => ref_.value.taxes || []);
+const fxRows = computed(() => ref_.value.fx || []);
+const orgRows = computed(() => ref_.value.companies || []);
+const PAL = ["#7c3aed", "#0369a1", "#047857", "#b45309"];
+function orgColor(n) { let h = 0; for (const ch of String(n)) h = (h * 31 + ch.charCodeAt(0)) % PAL.length; return PAL[h]; }
 </script>
