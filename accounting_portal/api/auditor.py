@@ -140,3 +140,93 @@ def run_controls(company=None):
         "exposure": sum(abs(x["amount"]) for x in f if x["severity"] == "high"),
     }
     return {"company": target, "generated_on": nowdate(), "findings": f, "summary": summary}
+
+
+# ── Conversational auditor — grounded on the live findings ──
+def _context_text(data):
+    """Render the live findings as compact grounding text for the model."""
+    fs = data.get("findings") or []
+    if not fs:
+        return "No control findings — the books look healthy on the checked controls."
+    lines = [f"Company: {data.get('company')}. {len(fs)} open finding(s)."]
+    for x in fs:
+        lines.append(
+            f"- [{x['severity'].upper()}] {x['title']}: {x['detail']} "
+            f"(amount {x.get('amount'):,.0f}, account {x.get('account') or '—'}). "
+            f"Fix: {x.get('recommendation')}")
+    return "\n".join(lines)
+
+
+def _claude_answer(question, ctx):
+    """Ask Claude, grounded strictly on the findings. Returns None on any failure
+    so the caller falls back to the deterministic responder."""
+    key = frappe.conf.get("anthropic_api_key")
+    if not key:
+        return None
+    model = frappe.conf.get("auditor_model") or "claude-sonnet-4-6"
+    try:
+        import requests
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={
+                "model": model, "max_tokens": 500,
+                "system": (
+                    "You are the Justyol accounting auditor speaking to the finance team. "
+                    "Answer ONLY from the FINDINGS provided — they are real, live figures from the books. "
+                    "Be concise (2-5 sentences). Cite the exact amounts and account names. Always end with the "
+                    "concrete next action. If the question isn't covered by the findings, say what you can see "
+                    "and where in the portal to look. Never invent numbers or accounts."),
+                "messages": [{"role": "user", "content": f"FINDINGS:\n{ctx}\n\nQUESTION: {question}"}],
+            },
+            timeout=20)
+        if r.status_code == 200:
+            body = r.json()
+            parts = body.get("content") or []
+            text = "".join(p.get("text", "") for p in parts if p.get("type") == "text").strip()
+            return text or None
+        frappe.log_error(f"auditor claude {r.status_code}: {r.text[:300]}", "AI Auditor")
+    except Exception as e:
+        frappe.log_error(f"auditor claude error: {e}", "AI Auditor")
+    return None
+
+
+def _rule_answer(question, data):
+    """Deterministic grounded answer when the model is unavailable."""
+    fs = data.get("findings") or []
+    s = data.get("summary") or {}
+    q = (question or "").lower()
+    if not fs:
+        return "No control findings right now — the books look healthy on the checked controls (stock/COGS, COD, GRNI, corrections, cash, payables)."
+    top = fs[0]
+    if any(w in q for w in ("fix", "do first", "priority", "recommend", "action", "أصلح", "أولوية")):
+        return f"Start with the highest-severity item — {top['title']}: {top.get('recommendation')} (amount {top.get('amount'):,.0f}, account {top.get('account') or '—'})."
+    if any(w in q for w in ("exposure", "how much", "total", "risk", "تعرّض", "كم")):
+        return f"Open findings: {s.get('high', 0)} high, {s.get('medium', 0)} medium. High-severity exposure totals {s.get('exposure', 0):,.0f} MAD. Biggest: {top['title']}."
+    if any(w in q for w in ("biggest", "worst", "main", "أكبر", "أهم")):
+        return f"{top['title']} — {top['detail']} Fix: {top.get('recommendation')}"
+    # keyword match against a specific finding
+    for x in fs:
+        if any(t in q for t in (x["id"].split("_") + x["metric"].lower().split())):
+            return f"{x['title']} — {x['detail']} Fix: {x.get('recommendation')}"
+    titles = "; ".join(f"{x['title']} ({x.get('amount'):,.0f})" for x in fs[:4])
+    return f"I'm tracking {len(fs)} finding(s): {titles}. Ask about any one, or which to fix first."
+
+
+@frappe.whitelist()
+def ask_auditor(question=None, company=None):
+    """Conversational auditor grounded on the live control findings. Uses Claude
+    when configured, else a deterministic responder — either way only the real
+    findings are used as the source."""
+    assert_portal_access()
+    if not (question or "").strip():
+        frappe.throw("Ask a question")
+    target = _target(company)
+    data = run_controls(target)
+    ctx = _context_text(data)
+    ai = _claude_answer(question, ctx)
+    return {
+        "answer": ai or _rule_answer(question, data),
+        "source": "ai" if ai else "rules",
+        "findings_count": len((data.get("findings") or [])),
+    }

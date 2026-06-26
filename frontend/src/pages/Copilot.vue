@@ -94,6 +94,8 @@ import Icon from "@/components/Icon.vue";
 import { SEV_META, sevLabel, seedMessages, replyTo } from "@/data/copilot";
 import { loadControls, feedFrom } from "@/composables/useAuditor";
 import { useUi } from "@/composables/useUi";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -121,14 +123,22 @@ const suggestions = [
 
 function scrollEnd() { nextTick(() => { if (thread.value) thread.value.scrollTop = thread.value.scrollHeight; }); }
 
-function send() {
+async function send() {
   const text = draft.value.trim();
   if (!text) return;
   messages.push({ role: "user", text });
   draft.value = "";
   scrollEnd();
   typing.value = true;
-  setTimeout(() => { typing.value = false; messages.push(replyTo(text, locale.value)); scrollEnd(); }, 650);
+  try {
+    const r = await api.call("accounting_portal.api.auditor.ask_auditor", { question: text, company: currentCompany() });
+    messages.push({ role: "ai", text: r.answer, source: r.source });
+  } catch {
+    messages.push(replyTo(text, locale.value)); // offline fallback
+  } finally {
+    typing.value = false;
+    scrollEnd();
+  }
 }
 function quick(s) { draft.value = s; send(); }
 function investigate(a) { draft.value = `${L("Investigate", "تحقّق من", "Enquêter sur")} ${a.ref} — ${a.title(locale.value)}`; send(); }
