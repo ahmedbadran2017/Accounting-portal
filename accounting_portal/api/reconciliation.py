@@ -209,13 +209,17 @@ def bank_rec_accounts(company=None):
                WHERE company=%s AND docstatus=1 AND (paid_to=%s OR paid_from=%s) AND clearance_date IS NULL""",
             (target, r.name, r.name), as_dict=True)[0]
         je = frappe.db.sql(
-            """SELECT COUNT(DISTINCT je.name) n FROM `tabJournal Entry` je
+            """SELECT COUNT(DISTINCT je.name) n,
+                      ROUND(SUM(ABS(jea.debit_in_account_currency - jea.credit_in_account_currency))) v
+               FROM `tabJournal Entry` je
                JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
                WHERE je.company=%s AND je.docstatus=1 AND jea.account=%s AND je.clearance_date IS NULL""",
             (target, r.name), as_dict=True)[0]
         r["book"] = flt(r["book"])
         r["uncleared_n"] = (pe.n or 0) + (je.n or 0)
-        r["uncleared_v"] = flt(pe.v)
+        # Include uncleared Journal Entries, not just Payment Entries, so the value
+        # matches the count (was understated whenever bank JEs were uncleared).
+        r["uncleared_v"] = flt(pe.v) + flt(je.v)
     frappe.cache().set_value(ck, accts, expires_in_sec=180)
     return accts
 
@@ -320,7 +324,9 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None, l
            WHERE company=%s AND docstatus=1 AND (paid_to=%s OR paid_from=%s) AND clearance_date IS NULL""",
         (target, account, account), as_dict=True)[0]
     je = frappe.db.sql(
-        """SELECT COUNT(DISTINCT je.name) n FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
+        """SELECT COUNT(DISTINCT je.name) n,
+                  ROUND(SUM(ABS(jea.debit_in_account_currency - jea.credit_in_account_currency))) v
+           FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
            WHERE je.company=%s AND je.docstatus=1 AND jea.account=%s AND je.clearance_date IS NULL""",
         (target, account), as_dict=True)[0]
     ledger = frappe.db.sql(
@@ -338,7 +344,7 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None, l
         "account": account, "name": a.account_name, "type": a.account_type,
         "currency": a.account_currency or "MAD", "balance": balance,
         "inflow": flt(fl.inflow), "outflow": flt(fl.outflow),
-        "uncleared_n": (pe.n or 0) + (je.n or 0), "uncleared_v": flt(pe.v),
+        "uncleared_n": (pe.n or 0) + (je.n or 0), "uncleared_v": flt(pe.v) + flt(je.v),
         "ledger": ledger,
     }
 

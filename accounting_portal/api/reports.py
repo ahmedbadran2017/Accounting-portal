@@ -820,3 +820,32 @@ def verified_dd(company=None):
                     "debtors": round(debtors), "exposure": round(exposure)},
         "checklist": checklist, "score": score, "total": len(checklist),
     }
+
+
+@frappe.whitelist()
+def fixed_assets(company=None):
+    """Live fixed-asset register — gross cost, net book value, accumulated
+    depreciation and status per asset (replaces the hardcoded sample list)."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": [], "summary": {}, "currency": "MAD"}
+    rows = frappe.db.sql(
+        """SELECT name, asset_name, asset_category AS category,
+                  IFNULL(gross_purchase_amount,0) AS gross,
+                  IFNULL(value_after_depreciation, gross_purchase_amount) AS nbv,
+                  status, purchase_date, location
+           FROM `tabAsset` WHERE company=%s
+           ORDER BY asset_category, purchase_date DESC LIMIT 500""",
+        (target,), as_dict=True)
+    for r in rows:
+        r["asset_name"] = (r.get("asset_name") or "").split("\n")[0][:80]
+        r["gross"] = flt(r["gross"]); r["nbv"] = flt(r["nbv"])
+    gross = sum(r["gross"] for r in rows)
+    nbv = sum(r["nbv"] for r in rows)
+    return {
+        "rows": rows,
+        "summary": {"count": len(rows), "gross": round(gross), "nbv": round(nbv),
+                    "accumulated_dep": round(gross - nbv)},
+        "currency": frappe.db.get_value("Company", target, "default_currency") or "MAD",
+    }

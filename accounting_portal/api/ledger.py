@@ -18,19 +18,39 @@ def _target(company):
 
 
 @frappe.whitelist()
-def general_ledger(company=None, account=None, limit=100):
-    """Recent GL entries for one company (newest first)."""
+def general_ledger(company=None, account=None, party=None, voucher_no=None,
+                   from_date=None, to_date=None, limit=200):
+    """GL entries for one company, filterable by account / party / voucher / date
+    range — the portal's replacement for the ERPNext General Ledger report. When a
+    single account is filtered, an opening balance and a running balance are
+    returned so it reads like a true account statement."""
     assert_portal_access()
     target = _target(company)
     if not target:
-        return []
-    limit = min(int(limit or 100), 500)
+        return {"rows": [], "opening": 0.0}
+    limit = min(int(limit or 200), 1000)
     conds = ["gl.company = %(company)s", "gl.is_cancelled = 0"]
     params = {"company": target, "limit": limit}
     if account:
-        conds.append("gl.account = %(account)s")
-        params["account"] = account
-    return frappe.db.sql(
+        conds.append("gl.account = %(account)s"); params["account"] = account
+    if party:
+        conds.append("gl.party = %(party)s"); params["party"] = party
+    if voucher_no:
+        conds.append("gl.voucher_no LIKE %(vno)s"); params["vno"] = f"%{voucher_no}%"
+    if from_date:
+        conds.append("gl.posting_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("gl.posting_date <= %(td)s"); params["td"] = to_date
+
+    # Opening balance (debit−credit before from_date) for a single-account view.
+    opening = 0.0
+    if account and from_date:
+        opening = flt(frappe.db.sql(
+            """SELECT COALESCE(SUM(debit-credit),0) FROM `tabGL Entry`
+               WHERE company=%s AND account=%s AND is_cancelled=0 AND posting_date < %s""",
+            (target, account, from_date))[0][0])
+
+    rows = frappe.db.sql(
         f"""
         SELECT gl.posting_date AS date, gl.voucher_type, gl.voucher_no AS ref,
                gl.account, gl.party, gl.debit AS dr, gl.credit AS cr, gl.remarks
@@ -41,6 +61,15 @@ def general_ledger(company=None, account=None, limit=100):
         """,
         params, as_dict=True,
     )
+    # Running balance only makes sense for a single account; compute oldest→newest.
+    if account:
+        run = opening + sum(flt(r["dr"]) - flt(r["cr"]) for r in rows)
+        for r in rows:
+            r["balance"] = round(run, 2)
+            run -= (flt(r["dr"]) - flt(r["cr"]))
+    return {"rows": rows, "opening": round(opening, 2),
+            "total_dr": round(sum(flt(r["dr"]) for r in rows), 2),
+            "total_cr": round(sum(flt(r["cr"]) for r in rows), 2)}
 
 
 @frappe.whitelist()
@@ -92,7 +121,7 @@ def chart_of_accounts(company=None):
         return []
     rows = frappe.db.sql(
         """
-        SELECT acc.account_number AS code, acc.account_name AS name,
+        SELECT acc.name AS account, acc.account_number AS code, acc.account_name AS name,
                acc.root_type, acc.account_type,
                SUM(gl.debit - gl.credit) AS bal
         FROM `tabGL Entry` gl

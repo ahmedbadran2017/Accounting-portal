@@ -361,8 +361,15 @@ def refresh_cockpit(company=None):
 
 
 def _bust_cockpit_cache(company):
-    """Drop the cached cockpit + command-center for a company (call after writes)."""
-    frappe.cache().delete_value(f"ap_cockpit:{company}")
+    """Drop the cached cockpit + command-center for a company (call after writes).
+
+    The cockpit is cached per date-range (ap_cockpit:{company}:{from}:{to}), so we
+    must clear every period variant, not just the bare key — otherwise a custom
+    date range keeps serving stale numbers until its TTL expires."""
+    try:
+        frappe.cache().delete_keys(f"ap_cockpit:{company}")  # matches all :{from}:{to} suffixes
+    except Exception:
+        frappe.cache().delete_value(f"ap_cockpit:{company}")
     frappe.cache().delete_value(f"ap_command:{company}")
 
 
