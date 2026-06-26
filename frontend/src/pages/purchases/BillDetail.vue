@@ -18,6 +18,22 @@
           </span>
         </div>
       </div>
+      <div v-if="b.status !== 'ret'" class="flex justify-end mt-3 pt-3 border-t border-line-hair">
+        <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="confirmDebit = true">
+          <Icon name="refresh" :size="13" />{{ L("Debit note / return","إشعار مدين / مرتجع","Note de débit") }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="confirmDebit" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 px-4" @click.self="confirmDebit = false">
+      <div class="bg-white rounded-card shadow-pop w-full max-w-sm p-5">
+        <div class="text-[14px] font-bold">{{ L("Create a debit note?","إنشاء إشعار مدين؟","Créer une note de débit ?") }}</div>
+        <div class="text-[12px] text-ink-3 mt-1.5">{{ L("Posts a return against this bill (reverses it / claws back the payable). Amounts over 10,000 need approval.","يسجّل مرتجعًا مقابل هذه الفاتورة. ما فوق 10٬000 يحتاج موافقة.","Enregistre un retour sur cette facture.") }}</div>
+        <div class="flex justify-end gap-2 mt-4">
+          <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="confirmDebit = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
+          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-sale disabled:opacity-50" :disabled="busy" @click="makeDebit">{{ busy ? L("Working…","جارٍ…","…") : L("Create","إنشاء","Créer") }}</button>
+        </div>
+      </div>
     </div>
 
     <!-- 3-way match panel -->
@@ -103,15 +119,31 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import DocHub from "@/components/DocHub.vue";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
+import { useToast } from "@/composables/useToast";
 import { BILL_STATUS, billStatusLabel } from "@/data/purchases";
 import { useBills } from "@/composables/useBills";
 
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 const { loadDetail } = useBills();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const DOCTYPE = "Purchase Invoice";
+const busy = ref(false);
+const confirmDebit = ref(false);
+async function makeDebit() {
+  busy.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.purchases.make_debit_note", { company: currentCompany(), invoice: route.query.id, submit: 1 });
+    if (r && r.status && r.status !== "Posted") toast.success(L("Queued for approval (over 10,000)", "بانتظار الموافقة (فوق 10٬000)", "En attente d'approbation"));
+    else { toast.success(L("Debit note created", "تم إنشاء الإشعار", "Note créée")); load(); }
+    confirmDebit.value = false;
+  } catch (err) { toast.error(String((err && err.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
+  finally { busy.value = false; }
+}
 
 // Live get_bill (real 3-way match + posted journal) with sample fallback.
 const vm = ref(null);

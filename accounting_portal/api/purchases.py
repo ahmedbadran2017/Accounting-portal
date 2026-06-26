@@ -1018,3 +1018,51 @@ def po_item_options(search=None, supplier=None, limit=15):
              AND (name LIKE %s OR item_name LIKE %s OR IFNULL(custom_sku,'') LIKE %s)
            ORDER BY modified DESC LIMIT %s""",
         (like, like, like, min(int(limit or 15), 30)), as_dict=True)
+
+
+# ── Debit Note / purchase return (return goods / claw back a bill) ───────────
+DEBIT_NOTE_ACTION = "Debit Note"
+
+
+def _debit_note_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    rd = frappe.get_attr(
+        "erpnext.controllers.sales_and_purchase_return.make_return_doc")("Purchase Invoice", p["invoice"])
+    # The return must post no earlier than the original bill.
+    rd.set_posting_time = 1
+    rd.posting_date = nowdate()
+    rd.posting_time = frappe.utils.nowtime()
+    rd.flags.ignore_permissions = True
+    rd.insert()
+    rd.reload()
+    if p.get("submit", 1):
+        rd.submit()
+    return {"voucher_type": "Purchase Invoice", "voucher_no": rd.name,
+            "result": {"against": p["invoice"], "grand_total": flt(rd.grand_total)}}
+
+
+_actions.register_poster(DEBIT_NOTE_ACTION, _debit_note_poster)
+
+
+@frappe.whitelist()
+def make_debit_note(company=None, invoice=None, submit=1, dedupe_key=None):
+    """Create a Debit Note (purchase return) against a submitted Purchase Invoice —
+    returns goods to / claws back a bill from the supplier."""
+    assert_can_write()
+    target = _target(company)
+    if not target or not invoice or not frappe.db.exists("Purchase Invoice", invoice):
+        frappe.throw("Bill not found")
+    pi = frappe.db.get_value("Purchase Invoice", invoice,
+                             ["company", "docstatus", "is_return", "grand_total"], as_dict=True)
+    if pi.company != target:
+        frappe.throw("Bill belongs to another company")
+    if pi.docstatus != 1:
+        frappe.throw("Bill is not submitted")
+    if pi.is_return:
+        frappe.throw("This is already a return")
+    res = _actions.execute(DEBIT_NOTE_ACTION, target, dedupe_key or f"debit:{invoice}",
+                           payload={"invoice": invoice, "submit": int(submit or 0)},
+                           amount=abs(flt(pi.grand_total)), reference_doctype="Purchase Invoice",
+                           reference_name=invoice, notes=f"Debit note against {invoice}")
+    _bust_purch_cache()
+    return res
