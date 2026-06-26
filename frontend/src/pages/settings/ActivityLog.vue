@@ -35,12 +35,21 @@
             <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-badge border" :style="badge(a.status)">{{ a.status }}</span></td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ a.amount ? money0(a.amount) : "—" }}</td>
             <td class="px-4 py-2.5 font-mono text-[11px] text-ink-2">{{ a.voucher_no || "—" }}</td>
-            <td class="px-4 py-2.5 text-ink-3">{{ shortUser(a.proposed_by) }}<span v-if="a.approved_by" class="text-ink-muted"> → {{ shortUser(a.approved_by) }}</span></td>
+            <td class="px-4 py-2.5 text-ink-3">{{ shortUser(a.proposed_by) }}<span v-if="a.approved_by" class="text-ink-muted"> → {{ shortUser(a.approved_by) }}</span>
+              <span v-if="assigneesOf(a).length" class="ms-1 inline-flex gap-0.5 align-middle"><span v-for="u in assigneesOf(a)" :key="u" :title="u" class="w-5 h-5 rounded-full grid place-items-center text-[8px] font-bold text-white" :style="{ background: avatarColor(u) }">{{ initials(u) }}</span></span>
+            </td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ when(a.posted_on || a.creation) }}</td>
             <td class="px-4 py-2.5 text-end whitespace-nowrap">
-              <span v-if="a.status === 'Proposed'" class="inline-flex gap-1.5">
-                <button @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
-                <button @click="reject(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm">{{ L("Reject", "رفض", "Rejeter") }}</button>
+              <span class="inline-flex gap-1.5 items-center">
+                <span v-if="a.status === 'Proposed'" class="relative">
+                  <button @click="assignOpen = assignOpen === a.name ? '' : a.name" class="h-7 px-2 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1"><Icon name="user" :size="12" />{{ L("Assign","إسناد","Assigner") }}</button>
+                  <div v-if="assignOpen === a.name" class="absolute z-20 mt-1 end-0 w-52 bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-60 overflow-auto text-start">
+                    <button v-for="u in users" :key="u.name" @click="assign(a, u.name)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm flex items-center justify-between"><span class="truncate">{{ u.full_name || u.name }}</span><Icon v-if="assigneesOf(a).includes(u.name)" name="check" :size="12" color="#047857" /></button>
+                    <div v-if="!users.length" class="px-3 py-2 text-[11px] text-ink-muted">{{ L("No users","لا مستخدمين","Aucun") }}</div>
+                  </div>
+                </span>
+                <button v-if="a.status === 'Proposed'" @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
+                <button v-if="a.status === 'Proposed'" @click="reject(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm">{{ L("Reject", "رفض", "Rejeter") }}</button>
               </span>
             </td>
           </tr>
@@ -68,6 +77,8 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const FILTERS = ["", "Proposed", "Posted", "Rejected"];
 const filter = ref("");
 const busy = ref(false);
+const users = ref([]);
+const assignOpen = ref("");
 
 const SAMPLE = [
   { name: "a1", action_type: "Post Correction", status: "Posted", amount: 4200, voucher_no: "ACC-JV-2026-04920", proposed_by: "demo@justyol.com", approved_by: null, posted_on: "2026-06-23 14:12:00", notes: "June accrual reclass" },
@@ -83,8 +94,23 @@ async function load() {
   live.value = r.live;
   rows.value = Array.isArray(r.data) ? r.data : SAMPLE;
 }
-onMounted(load);
+onMounted(() => { load(); loadUsers(); });
 watch(entityId, load);
+async function loadUsers() { try { users.value = await api.call("accounting_portal.api.docops.assignable_users", {}) || []; } catch { /* */ } }
+function assigneesOf(a) { try { return a._assign ? JSON.parse(a._assign) : []; } catch { return []; } }
+async function assign(a, user) {
+  try {
+    const has = assigneesOf(a).includes(user);
+    const list = await api.call(`accounting_portal.api.docops.${has ? "unassign_doc" : "assign_doc"}`,
+      { doctype: "Accounting Portal Action", name: a.name, [has ? "from_user" : "to_user"]: user });
+    a._assign = JSON.stringify(list || []);
+    toast.success(has ? L("Unassigned", "أُلغي الإسناد", "Retiré") : L("Assigned", "تم الإسناد", "Assigné"));
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
+  assignOpen.value = "";
+}
+const PAL = ["#7c3aed", "#0369a1", "#047857", "#b45309", "#be123c", "#0891b2"];
+function avatarColor(u) { let h = 0; for (const ch of String(u)) h = (h * 31 + ch.charCodeAt(0)) % PAL.length; return PAL[h]; }
+function initials(u) { const s = String(u).split("@")[0].replace(/[._-]/g, " ").trim().split(/\s+/); return ((s[0] || "")[0] + (s[1] ? s[1][0] : "")).toUpperCase().slice(0, 2) || "?"; }
 
 const filtered = computed(() => (filter.value ? rows.value.filter((r) => r.status === filter.value) : rows.value));
 const pending = computed(() => rows.value.filter((r) => r.status === "Proposed").length);

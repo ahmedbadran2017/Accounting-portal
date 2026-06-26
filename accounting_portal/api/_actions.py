@@ -154,6 +154,6 @@ def list_actions(company=None, status=None, limit=50):
     return frappe.get_all(
         APA, filters=filters,
         fields=["name", "action_type", "status", "company", "amount", "voucher_type",
-                "voucher_no", "proposed_by", "approved_by", "posted_on", "creation", "notes"],
+                "voucher_no", "proposed_by", "approved_by", "posted_on", "creation", "notes", "_assign"],
         order_by="creation desc", limit=min(int(limit or 50), 200),
     )
