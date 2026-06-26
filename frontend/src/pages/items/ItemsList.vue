@@ -4,8 +4,8 @@
     <div class="flex items-center gap-2.5 px-[15px] py-[13px] rounded-[13px]" style="background:#fff7ed;border:1px solid #fed7aa">
       <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center flex-shrink-0" style="background:#ffedd5"><Icon name="alert" :size="16" color="#ea580c" /></span>
       <div class="flex-1">
-        <div class="text-[12.5px] font-bold" style="color:#9a3412">{{ L("True margin needs RTO allocated to SKU","الهامش الحقيقي يحتاج توزيع الإرجاع على الصنف","Marge réelle : retours à imputer au SKU") }}</div>
-        <div class="text-[11.5px] mt-px" style="color:#c2410c">{{ L("Margin = avg sold − cost. Stock valuation is broken (cost falls back to last purchase); return shipping isn’t yet costed back to the item.","الهامش = متوسط البيع − التكلفة. تقييم المخزون معطّل (التكلفة من آخر شراء)؛ شحن الإرجاع غير محمَّل بعد.","Marge = vente moy. − coût. Valorisation cassée; retour non imputé.") }}</div>
+        <div class="text-[12.5px] font-bold" style="color:#9a3412">{{ L("True margin = sell − cost − landed − COD fee, discounted by RTO","الهامش الحقيقي = البيع − التكلفة − المحمَّل − رسوم التحصيل، مخصوماً بنسبة الإرجاع","Marge réelle = vente − coût − revient − COD, ajustée du RTO") }}</div>
+        <div class="text-[11.5px] mt-px" style="color:#c2410c">{{ L("Landed/unit and RTO% are live (LCV allocations + returned orders). COD fee is modeled at 5% of sell. Cost falls back to last purchase (valuation is broken).","المحمَّل ونسبة الإرجاع حقيقيان؛ رسوم التحصيل مُقدَّرة 5٪ من البيع؛ التكلفة من آخر شراء.","Revient & RTO réels; frais COD estimés à 5%; coût = dernier achat.") }}</div>
       </div>
       <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-[3px] rounded-full flex-shrink-0" style="background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe"><Icon name="shield" :size="11" />{{ L("Auditor","المدقّق","Auditeur") }}</span>
     </div>
@@ -32,11 +32,12 @@
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
             <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Group","المجموعة","Groupe") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Cost","التكلفة","Coût") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Avg sold","متوسط البيع","Vente moy.") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Margin","الهامش","Marge") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Stock","المخزون","Stock") }}</th>
+            <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Sell","البيع","Vente") }}</th>
+            <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Cost","التكلفة","Coût") }}</th>
+            <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Landed","المحمَّل","Revient") }}</th>
+            <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("COD fee","رسوم التحصيل","Frais COD") }}</th>
+            <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("RTO","الإرجاع","RTO") }}</th>
+            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("True margin","الهامش الحقيقي","Marge réelle") }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="r in rows" :key="r.item_code" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="open(r.item_code)">
@@ -44,21 +45,22 @@
                 <span class="flex items-center gap-2.5">
                   <img v-if="r.image" :src="r.image" class="w-9 h-9 rounded-[8px] object-cover flex-shrink-0 border border-line-hair" />
                   <span v-else class="w-9 h-9 rounded-[8px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="14" color="#a8a29e" /></span>
-                  <span class="min-w-0"><span class="block font-semibold truncate max-w-[280px]">{{ r.item_name }}</span><span v-if="r.sku" class="block text-[10px] text-ink-muted font-mono">{{ r.sku }}</span></span>
+                  <span class="min-w-0"><span class="block font-semibold truncate max-w-[220px]">{{ r.item_name }}</span><span class="block text-[10px] text-ink-muted font-mono">{{ r.sku || r.item_group }}</span></span>
                 </span>
               </td>
-              <td class="px-4 py-2.5 text-ink-3 truncate max-w-[140px]">{{ r.item_group }}</td>
-              <td class="px-4 py-2.5 text-end tnum">{{ r.cost ? fmt(r.cost) : "—" }}</td>
-              <td class="px-4 py-2.5 text-end tnum">{{ r.avg_sold ? fmt(r.avg_sold) : "—" }}</td>
+              <td class="px-3 py-2.5 text-end tnum font-semibold">{{ r.avg_sold ? fmt(r.avg_sold) : "—" }}</td>
+              <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.cost ? fmt(r.cost) : "—" }}</td>
+              <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.landed ? "+" + fmt(r.landed) : "—" }}</td>
+              <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.cod_fee ? fmt(r.cod_fee) : "—" }}</td>
+              <td class="px-3 py-2.5 text-end"><span v-if="r.qty_sold" class="text-[10.5px] font-bold px-1.5 py-0.5 rounded-badge" :style="rtoBadge(r.rto_pct)">{{ r.rto_pct }}%</span><span v-else class="text-ink-muted">—</span></td>
               <td class="px-4 py-2.5 text-end">
-                <span v-if="r.avg_sold" class="inline-flex items-center gap-1.5 tnum font-bold" :class="r.margin >= 0 ? 'text-success-dark' : 'text-sale'">
-                  {{ r.margin >= 0 ? "+" : "" }}{{ fmt(r.margin) }}<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-badge" :style="marginBadge(r.margin_pct)">{{ r.margin_pct }}%</span>
+                <span v-if="r.avg_sold" class="inline-flex items-center gap-1.5 tnum font-bold" :class="r.true_margin >= 0 ? 'text-success-dark' : 'text-sale'">
+                  {{ r.true_margin >= 0 ? "+" : "" }}{{ fmt(r.true_margin) }}<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-badge" :style="marginBadge(r.true_margin_pct)">{{ r.true_margin_pct }}%</span>
                 </span>
                 <span v-else class="text-ink-muted">—</span>
               </td>
-              <td class="px-4 py-2.5 text-end tnum" :class="r.stock_qty < 0 ? 'text-sale font-semibold' : 'text-ink-3'">{{ r.stock_qty }}</td>
             </tr>
-            <tr v-if="!rows.length"><td colspan="6" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No items match.","لا أصناف.","Aucun article.") }}</td></tr>
+            <tr v-if="!rows.length"><td colspan="7" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No items match.","لا أصناف.","Aucun article.") }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -92,7 +94,7 @@ const group = ref("");
 let t = null;
 
 const SAMPLE = [
-  { item_code: "JY-JKT-0301", item_name: "Veste en Jean", sku: "JY-JKT-0301", item_group: "Vestes", cost: 104.65, avg_sold: 299, margin: 194.35, margin_pct: 65, stock_qty: 120 },
+  { item_code: "JY-JKT-0301", item_name: "Veste en Jean", sku: "JY-JKT-0301", item_group: "Vestes", cost: 104.65, avg_sold: 299, landed: 11.5, cod_fee: 14.95, rto_pct: 18, true_margin: 137.6, true_margin_pct: 46, qty_sold: 320, stock_qty: 120 },
 ];
 async function load() {
   loading.value = true;
@@ -115,5 +117,11 @@ function marginBadge(p) {
   if (p >= 20) return "background:#fffbeb;color:#b45309";
   if (p > 0) return "background:#fff7ed;color:#c2410c";
   return "background:#fef2f2;color:#b91c1c";
+}
+function rtoBadge(p) {
+  if (p >= 20) return "background:#fef2f2;color:#b91c1c";
+  if (p >= 10) return "background:#fff7ed;color:#c2410c";
+  if (p > 0) return "background:#fffbeb;color:#b45309";
+  return "background:#ecfdf5;color:#047857";
 }
 </script>

@@ -13,6 +13,10 @@ from accounting_portal.api.permissions import assert_portal_access, resolve_comp
 # broken books), then 0.
 _COST = "COALESCE(NULLIF(i.valuation_rate,0), NULLIF(i.last_purchase_rate,0), 0)"
 
+# Carrier COD collection fee as a fraction of the sold price — modeled (Cathedis
+# doesn't post a per-item fee to the GL). Overridable per call.
+_DEFAULT_COD_RATE = 0.05
+
 
 @frappe.whitelist()
 def item_groups():
@@ -24,9 +28,15 @@ def item_groups():
 
 
 @frappe.whitelist()
-def list_items(company=None, search=None, group=None, limit=60):
-    """Items with cost, stock, recent sold price and gross margin. Paged + searchable."""
+def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
+    """Items with cost, stock, recent sold price and TRUE margin.
+
+    True margin = avg sold − cost − landed/unit − COD fee, then discounted by the
+    real RTO (return) rate. Landed/unit and RTO are real (from LCV allocations and
+    returned orders); the COD fee is a modeled % of the sold price.
+    """
     assert_portal_access()
+    cod_rate = float(cod_rate) if cod_rate not in (None, "") else _DEFAULT_COD_RATE
     limit = min(int(limit or 60), 200)
     conds = ["i.disabled=0"]
     params = {"limit": limit}
@@ -41,7 +51,7 @@ def list_items(company=None, search=None, group=None, limit=60):
             FROM `tabItem` i WHERE {' AND '.join(conds)}
             ORDER BY i.modified DESC LIMIT %(limit)s""", params, as_dict=True)
     codes = [r["item_code"] for r in rows]
-    sold, stock = {}, {}
+    sold, stock, landed, returned = {}, {}, {}, {}
     if codes:
         for r in frappe.db.sql(
                 """SELECT soi.item_code, AVG(soi.base_net_rate) AS avg_sold, SUM(soi.qty) AS qty_sold
@@ -53,14 +63,36 @@ def list_items(company=None, search=None, group=None, limit=60):
                    WHERE item_code IN %(c)s AND is_cancelled=0 GROUP BY item_code""",
                 {"c": codes}, as_dict=True):
             stock[r.item_code] = r.qty
+        # Real landed cost per unit — applicable charges ÷ qty from LCV allocations.
+        for r in frappe.db.sql(
+                """SELECT item_code, SUM(applicable_charges) AS chg, SUM(qty) AS qty
+                   FROM `tabLanded Cost Item` WHERE item_code IN %(c)s GROUP BY item_code HAVING qty>0""",
+                {"c": codes}, as_dict=True):
+            landed[r.item_code] = float(r.chg or 0) / float(r.qty)
+        # Real RTO rate — qty on returned/exception orders ÷ total ordered qty.
+        for r in frappe.db.sql(
+                """SELECT soi.item_code, SUM(soi.qty) AS ret_qty
+                   FROM `tabSales Order Item` soi JOIN `tabSales Order` so ON so.name=soi.parent
+                   WHERE soi.item_code IN %(c)s AND so.docstatus=1
+                     AND (so.custom_sales_status='Returned' OR so.custom_logistics_status='Returned'
+                          OR so.custom_track_shipment_status IN ('Delivery Exception','Failed Attempt'))
+                   GROUP BY soi.item_code""", {"c": codes}, as_dict=True):
+            returned[r.item_code] = float(r.ret_qty or 0)
     for r in rows:
         s = sold.get(r["item_code"])
         r["avg_sold"] = round(float(s.avg_sold), 2) if (s and s.avg_sold) else 0
         r["qty_sold"] = float(s.qty_sold) if (s and s.qty_sold) else 0
         r["stock_qty"] = round(float(stock.get(r["item_code"], 0)), 1)
         r["cost"] = round(float(r["cost"]), 2)
+        r["landed"] = round(landed.get(r["item_code"], 0), 2)
+        r["cod_fee"] = round(r["avg_sold"] * cod_rate, 2) if r["avg_sold"] else 0
+        r["rto_pct"] = round(returned.get(r["item_code"], 0) / r["qty_sold"] * 100, 1) if r["qty_sold"] else 0
+        # Gross (sell − cost) and true (− landed − COD, discounted by RTO).
         r["margin"] = round(r["avg_sold"] - r["cost"], 2) if r["avg_sold"] else 0
         r["margin_pct"] = round(r["margin"] / r["avg_sold"] * 100, 1) if r["avg_sold"] else 0
+        base = r["avg_sold"] - r["cost"] - r["landed"] - r["cod_fee"] if r["avg_sold"] else 0
+        r["true_margin"] = round(base * (1 - r["rto_pct"] / 100), 2) if r["avg_sold"] else 0
+        r["true_margin_pct"] = round(r["true_margin"] / r["avg_sold"] * 100, 1) if r["avg_sold"] else 0
     return rows
 
 
