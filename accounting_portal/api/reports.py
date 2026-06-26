@@ -868,3 +868,79 @@ def fixed_assets(company=None):
                     "accumulated_dep": round(gross - nbv)},
         "currency": frappe.db.get_value("Company", target, "default_currency") or "MAD",
     }
+
+
+@frappe.whitelist()
+def pnl_monthly(company=None, year=None):
+    """Profit & loss broken down month-by-month (columns) for a fiscal year — the
+    'see the months side by side' view. Accounts grouped Revenue → COGS → Gross →
+    OpEx → Net, each with a per-month array + a year total."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    y = int(year or nowdate()[:4])
+    ck = f"ap_fs:{target}:monthly:{y}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    last_m = int(nowdate()[5:7]) if y == int(nowdate()[:4]) else 12
+    months = [f"{y}-{m:02d}" for m in range(1, last_m + 1)]
+    midx = {ym: i for i, ym in enumerate(months)}
+    n = len(months)
+
+    rows = frappe.db.sql(
+        """SELECT a.name, a.account_name AS an, a.root_type AS rt, IFNULL(a.account_type,'') AS at,
+                  DATE_FORMAT(g.posting_date,'%%Y-%%m') AS ym, ROUND(SUM(g.credit-g.debit)) AS net
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type IN ('Income','Expense')
+             AND g.posting_date BETWEEN %s AND %s
+           GROUP BY a.name, ym""",
+        (target, f"{y}-01-01", f"{y}-12-31"), as_dict=True)
+
+    def classify(rt, at):
+        if rt == "Income":
+            return "revenue"
+        return "cogs" if at == "Cost of Goods Sold" else "opex"
+
+    accts = {}
+    for r in rows:
+        i = midx.get(r["ym"])
+        if i is None:
+            continue
+        sec = classify(r["rt"], r["at"])
+        amt = (1 if r["rt"] == "Income" else -1) * flt(r["net"])  # revenue +, expense +
+        a = accts.setdefault(r["name"], {"account": r["name"], "name": r["an"], "section": sec,
+                                         "monthly": [0.0] * n, "total": 0.0})
+        a["monthly"][i] += amt
+        a["total"] += amt
+
+    sec_monthly, sections = {}, []
+    for key, label in (("revenue", "Revenue"), ("cogs", "Cost of goods sold"), ("opex", "Operating expenses")):
+        sa = [a for a in accts.values() if a["section"] == key]
+        sa.sort(key=lambda a: -abs(a["total"]))
+        mt = [round(sum(a["monthly"][i] for a in sa)) for i in range(n)]
+        for a in sa:
+            a["monthly"] = [round(x) for x in a["monthly"]]
+            a["total"] = round(a["total"])
+        sec_monthly[key] = mt
+        sections.append({"key": key, "label": label, "accounts": sa,
+                         "monthly_total": mt, "total": round(sum(mt))})
+
+    rev = sec_monthly.get("revenue", [0] * n)
+    cogs = sec_monthly.get("cogs", [0] * n)
+    opex = sec_monthly.get("opex", [0] * n)
+    gross = [rev[i] - cogs[i] for i in range(n)]
+    net = [gross[i] - opex[i] for i in range(n)]
+    result = {
+        "company": target, "currency": ccy, "year": y, "months": months,
+        "sections": sections,
+        "gross_monthly": gross, "gross_total": sum(gross),
+        "net_monthly": net, "net_total": sum(net),
+    }
+    try:
+        frappe.cache().set_value(ck, result, expires_in_sec=180)
+    except Exception:
+        pass
+    return result

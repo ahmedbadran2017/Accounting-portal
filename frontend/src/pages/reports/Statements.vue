@@ -7,14 +7,16 @@
       </div>
       <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
       <div class="ms-auto flex items-center gap-1.5">
-        <button v-for="p in PRESETS" :key="p.key" @click="setPreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="preset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>
-        <button @click="compare = compare ? 0 : 1, load()" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="compare ? 'bg-accent/10 text-accent-dark border-accent/30' : 'bg-white text-ink-3 border-line-2'">{{ L("Compare","مقارنة","Comparer") }}</button>
+        <template v-if="tab !== 'monthly'">
+          <button v-for="p in PRESETS" :key="p.key" @click="setPreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="preset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>
+          <button @click="compare = compare ? 0 : 1, load()" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="compare ? 'bg-accent/10 text-accent-dark border-accent/30' : 'bg-white text-ink-3 border-line-2'">{{ L("Compare","مقارنة","Comparer") }}</button>
+        </template>
         <button @click="printIt" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />{{ L("Print","طباعة","Imprimer") }}</button>
       </div>
     </div>
-    <div class="text-[11px] text-ink-muted no-print tnum">{{ d.from_date }} → {{ d.to_date }}<span v-if="compare && d.prior_from"> · {{ L("vs","مقابل","vs") }} {{ d.prior_from }} → {{ d.prior_to }}</span></div>
+    <div v-if="tab !== 'monthly'" class="text-[11px] text-ink-muted no-print tnum">{{ d.from_date }} → {{ d.to_date }}<span v-if="compare && d.prior_from"> · {{ L("vs","مقابل","vs") }} {{ d.prior_from }} → {{ d.prior_to }}</span></div>
 
-    <div v-if="loading" class="bg-white rounded-card border border-line shadow-card py-16 text-center text-ink-muted text-[12px]">{{ L("Loading…","تحميل…","…") }}</div>
+    <div v-if="loading && tab !== 'monthly'" class="bg-white rounded-card border border-line shadow-card py-16 text-center text-ink-muted text-[12px]">{{ L("Loading…","تحميل…","…") }}</div>
 
     <!-- ── Profit & Loss ── -->
     <div v-else-if="tab === 'pnl'" class="space-y-3">
@@ -64,7 +66,7 @@
     </div>
 
     <!-- ── Cash Flow ── -->
-    <div v-else class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+    <div v-else-if="tab === 'cf'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="15" color="#7c3aed" /><span class="text-[13px] font-bold">{{ L("Cash flow statement","قائمة التدفّق النقدي","Flux de trésorerie") }}</span><span class="text-[10px] text-ink-muted">{{ L("direct method","الطريقة المباشرة","méthode directe") }}</span>
         <span class="ms-auto text-[9.5px] font-bold px-2 py-0.5 rounded-full" :style="d.cash_flow.reconciles ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ d.cash_flow.reconciles ? L("Reconciles","متطابق","Rapproché") : L("Check","راجع","Vérifier") }}</span>
       </div>
@@ -77,6 +79,54 @@
           <tr class="border-t-2 border-ink font-extrabold" style="background:#faf6f4"><td class="px-5 py-2.5 text-[13px]">{{ L("Closing cash","نقد ختامي","Trésorerie de clôture") }}</td><td class="px-5 py-2.5 text-end tnum text-[14px]" :class="d.cash_flow.close_cash < 0 ? 'text-sale' : 'text-success-dark'">{{ fmt(d.cash_flow.close_cash) }} <span class="text-[10px] text-ink-muted">{{ d.currency }}</span></td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- ── P&L by month ── -->
+    <div v-else-if="tab === 'monthly'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap no-print">
+        <Icon name="scale" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("P&L by month","الأرباح والخسائر بالشهر","Résultat par mois") }}</span>
+        <span class="text-[10px] text-ink-muted">{{ dm.currency }} · {{ mYear }}</span>
+        <div class="ms-auto flex items-center gap-1.5">
+          <button v-for="yr in [y, y - 1]" :key="yr" @click="setYear(yr)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="mYear === yr ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ yr }}</button>
+          <button @click="mCsv" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />CSV</button>
+        </div>
+      </div>
+      <div v-if="mLoading" class="py-16 text-center text-ink-muted text-[12px]">{{ L("Loading…","تحميل…","…") }}</div>
+      <div v-else-if="dm.months && dm.months.length" class="overflow-x-auto">
+        <table class="text-[12px] min-w-full whitespace-nowrap">
+          <thead><tr style="background:#fafaf9">
+            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted sticky start-0 z-10" style="background:#fafaf9">{{ L("Account","الحساب","Compte") }}</th>
+            <th v-for="ym in dm.months" :key="ym" class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ monLabel(ym) }}</th>
+            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-2">{{ L("Total","الإجمالي","Total") }}</th>
+          </tr></thead>
+          <tbody>
+            <template v-for="sk in ['revenue', 'cogs', 'opex']" :key="sk">
+              <tr style="background:#fcfcfb"><td :colspan="dm.months.length + 2" class="px-4 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3 sticky start-0" >{{ secLabel(sk) }}</td></tr>
+              <tr v-for="(a, i) in mSection(sk).accounts" :key="sk + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
+                <td class="px-4 py-1.5 truncate max-w-[220px] sticky start-0 bg-white hover:text-accent-dark">{{ a.name }}</td>
+                <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
+                <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(a.total) }}</td>
+              </tr>
+              <tr class="border-t border-line-2 font-bold" style="background:#fafaf9">
+                <td class="px-4 py-1.5 sticky start-0" style="background:#fafaf9">{{ L("Total","إجمالي","Total") }} {{ secLabel(sk).toLowerCase() }}</td>
+                <td v-for="(v, j) in mSection(sk).monthly_total" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : ''">{{ money(v) }}</td>
+                <td class="px-4 py-1.5 text-end tnum">{{ money(mSection(sk).total) }}</td>
+              </tr>
+              <tr v-if="sk === 'cogs'" :key="'gp'" class="border-t border-line-2 font-bold" style="background:#f3f8f6">
+                <td class="px-4 py-1.5 sticky start-0" style="background:#f3f8f6">{{ L("Gross profit","الربح الإجمالي","Marge brute") }}</td>
+                <td v-for="(v, j) in dm.gross_monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : ''">{{ money(v) }}</td>
+                <td class="px-4 py-1.5 text-end tnum">{{ money(dm.gross_total) }}</td>
+              </tr>
+            </template>
+            <tr class="border-t-2 border-ink font-extrabold" style="background:#faf6f4">
+              <td class="px-4 py-2 sticky start-0" style="background:#faf6f4">{{ L("Net profit","صافي الربح","Résultat net") }}</td>
+              <td v-for="(v, j) in dm.net_monthly" :key="j" class="px-3 py-2 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
+              <td class="px-4 py-2 text-end tnum">{{ money(dm.net_total) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-else class="py-16 text-center text-ink-muted text-[12px]">{{ L("No data for this year.","لا بيانات لهذه السنة.","Aucune donnée.") }}</div>
     </div>
   </div>
 </template>
@@ -102,8 +152,10 @@ const TABS = [
   { key: "pnl", label: () => L("P&L", "أ.خ", "Résultat") },
   { key: "bs", label: () => L("Balance sheet", "الميزانية", "Bilan") },
   { key: "cf", label: () => L("Cash flow", "التدفّق النقدي", "Trésorerie") },
+  { key: "monthly", label: () => L("By month", "بالشهر", "Par mois") },
 ];
 const tab = ref("pnl");
+watch(tab, (t) => { if (t === "monthly" && !dm.value.months) loadMonthly(); });
 
 const y = new Date().getFullYear();
 const pad = (n) => String(n).padStart(2, "0");
@@ -136,7 +188,35 @@ async function load() {
 }
 function setPreset(k) { preset.value = k; load(); }
 onMounted(load);
-watch(entityId, load);
+watch(entityId, () => { load(); dm.value = {}; if (tab.value === "monthly") loadMonthly(); });
+
+// ── By-month P&L ──
+const dm = ref({});
+const mLoading = ref(false);
+const mYear = ref(y);
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MON_AR = ["ينا", "فبر", "مار", "أبر", "ماي", "يون", "يول", "أغس", "سبت", "أكت", "نوف", "ديس"];
+const monLabel = (ym) => { const m = +String(ym).slice(5, 7) - 1; return (locale.value === "ar" ? MON_AR : MON)[m] || ym; };
+async function loadMonthly() {
+  mLoading.value = true;
+  try { dm.value = await api.call("accounting_portal.api.reports.pnl_monthly", { company: currentCompany(), year: mYear.value }); }
+  catch { dm.value = { months: [], sections: [] }; }
+  finally { mLoading.value = false; }
+}
+function setYear(yr) { mYear.value = yr; loadMonthly(); }
+const mSection = (k) => (dm.value.sections || []).find((s) => s.key === k) || { accounts: [], monthly_total: [], total: 0 };
+const secLabel = (k) => ({ revenue: L("Revenue", "الإيرادات", "Produits"), cogs: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), opex: L("Operating expenses", "المصروفات التشغيلية", "Charges") }[k] || k);
+function mCsv() {
+  const mo = dm.value.months || [];
+  const head = ["Section", "Account", ...mo.map(monLabel), "Total"];
+  const lines = [head.join(",")];
+  const push = (sec, name, arr, tot) => lines.push([sec, `"${String(name).replace(/"/g, '""')}"`, ...arr, tot].join(","));
+  ["revenue", "cogs", "opex"].forEach((k) => { const s = mSection(k); s.accounts.forEach((a) => push(s.label, a.name, a.monthly, a.total)); push(s.label, "Total " + s.label, s.monthly_total, s.total); });
+  push("", "Gross profit", dm.value.gross_monthly || [], dm.value.gross_total);
+  push("", "Net profit", dm.value.net_monthly || [], dm.value.net_total);
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `pnl-by-month-${mYear.value}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
 
 const pnlSections = computed(() => {
   const p = d.value.pnl || {};
