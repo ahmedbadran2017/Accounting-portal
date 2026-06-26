@@ -27,6 +27,22 @@ def item_groups():
            ORDER BY item_group LIMIT 200""", as_dict=True)]
 
 
+def _sold_rank(top=400):
+    """Cached map item_code → sales rank (0 = best-seller). The group-by over all
+    Sales Order Items is heavy (~3.5s), so it's cached for 30 min; used to order
+    the default Items view by selling volume."""
+    ck = "ap_item_sold_rank"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
+    rows = frappe.db.sql(
+        """SELECT item_code FROM `tabSales Order Item` WHERE docstatus=1
+           GROUP BY item_code ORDER BY SUM(qty) DESC LIMIT %s""", (int(top),), as_dict=True)
+    rank = {r.item_code: i for i, r in enumerate(rows)}
+    frappe.cache().set_value(ck, rank, expires_in_sec=1800)
+    return rank
+
+
 @frappe.whitelist()
 def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
     """Items with cost, stock, recent sold price and TRUE margin.
@@ -38,18 +54,28 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
     assert_portal_access()
     cod_rate = float(cod_rate) if cod_rate not in (None, "") else _DEFAULT_COD_RATE
     limit = min(int(limit or 60), 200)
-    conds = ["i.disabled=0"]
-    params = {"limit": limit}
-    if search:
-        conds.append("(i.name LIKE %(s)s OR i.item_name LIKE %(s)s OR IFNULL(i.custom_sku,'') LIKE %(s)s)")
-        params["s"] = f"%{search}%"
-    if group:
-        conds.append("i.item_group=%(g)s"); params["g"] = group
-    rows = frappe.db.sql(
-        f"""SELECT i.name AS item_code, i.item_name, i.custom_sku AS sku, i.image,
-                   i.item_group, {_COST} AS cost, i.stock_uom
-            FROM `tabItem` i WHERE {' AND '.join(conds)}
-            ORDER BY i.modified DESC LIMIT %(limit)s""", params, as_dict=True)
+    _cols = f"""i.name AS item_code, i.item_name, i.custom_sku AS sku, i.image,
+                i.item_group, {_COST} AS cost, i.stock_uom"""
+    # Default view (no filter): show best-sellers first so the margin table is
+    # meaningful up top. Filtered/search: most-recent first.
+    rank = _sold_rank() if not (search or group) else None
+    if rank:
+        ranked = sorted(rank.keys(), key=lambda k: rank[k])[:limit]
+        rows = frappe.db.sql(
+            f"SELECT {_cols} FROM `tabItem` i WHERE i.disabled=0 AND i.name IN %(codes)s",
+            {"codes": tuple(ranked)}, as_dict=True) if ranked else []
+        rows.sort(key=lambda r: rank.get(r["item_code"], 1 << 30))
+    else:
+        conds = ["i.disabled=0"]
+        params = {"limit": limit}
+        if search:
+            conds.append("(i.name LIKE %(s)s OR i.item_name LIKE %(s)s OR IFNULL(i.custom_sku,'') LIKE %(s)s)")
+            params["s"] = f"%{search}%"
+        if group:
+            conds.append("i.item_group=%(g)s"); params["g"] = group
+        rows = frappe.db.sql(
+            f"SELECT {_cols} FROM `tabItem` i WHERE {' AND '.join(conds)} "
+            f"ORDER BY i.modified DESC LIMIT %(limit)s", params, as_dict=True)
     codes = [r["item_code"] for r in rows]
     sold, stock, landed, returned = {}, {}, {}, {}
     if codes:
