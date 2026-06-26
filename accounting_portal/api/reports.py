@@ -516,3 +516,55 @@ def party_statement(party_type=None, party=None, company=None, from_date=None, t
         "opening": round(opening, 2), "closing": round(bal, 2),
         "debit_total": round(dr_t, 2), "credit_total": round(cr_t, 2), "rows": rows,
     }
+
+
+@frappe.whitelist()
+def cash_forecast(company=None):
+    """Forward cash view: cash now + expected COD inflow (carrier float) − cheques
+    clearing − bills due. A 7-day liquidity check and a 30-day projection."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    cash = flt(frappe.db.sql(
+        """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash')""", (target,))[0][0])
+    # Inflow — delivered COD still with the carrier (will land).
+    carrier_float = 0.0
+    try:
+        from accounting_portal.api import cod as _cod
+        cs = _cod.cod_summary(target) or {}
+        carrier_float = flt((cs.get("delivered") or {}).get("value"))
+    except Exception:
+        pass
+    # Last-30d collections run-rate (sanity inflow).
+    runrate = flt(frappe.db.sql(
+        """SELECT COALESCE(SUM(paid_amount),0) FROM `tabPayment Entry`
+           WHERE company=%s AND docstatus=1 AND payment_type='Receive'
+             AND posting_date>=DATE_SUB(CURDATE(),INTERVAL 30 DAY)""", (target,))[0][0])
+    # Outflow — cheques clearing + bills due.
+    chq = {}
+    try:
+        from accounting_portal.api import purchases as _pur
+        chq = _pur.cheques_summary(target) or {}
+    except Exception:
+        pass
+    cheques_7 = flt(chq.get("due_week"))
+    cheques_out = flt(chq.get("outstanding") or chq.get("due_week"))
+    bills_due = 0.0
+    try:
+        from accounting_portal.api import purchases as _pur2
+        psum = _pur2.purchases_summary(target) or {}
+        bills_due = flt((psum.get("topay") or {}).get("value"))
+    except Exception:
+        pass
+    proj_7 = cash + carrier_float * 0.4 - cheques_7 - bills_due * 0.5
+    proj_30 = cash + carrier_float - cheques_out - bills_due
+    return {
+        "company": target, "currency": ccy, "as_of": nowdate(),
+        "cash": round(cash), "carrier_float": round(carrier_float), "runrate_30d": round(runrate),
+        "cheques_7d": round(cheques_7), "cheques_out": round(cheques_out), "bills_due": round(bills_due),
+        "proj_7d": round(proj_7), "proj_30d": round(proj_30),
+        "liquidity_7d_ok": (cash - cheques_7 - bills_due * 0.5) > 0,
+    }

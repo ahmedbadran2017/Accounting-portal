@@ -27,7 +27,7 @@
     "remittance": "Encaissement COD", "variance": "File écarts", "aging": "Ancienneté", "bankrec": "Rappr. bancaire",
     "journals": "Écritures", "coa": "Plan comptable", "gl": "Grand livre", "trial": "Balance",
     "assets": "Immobilisations", "fx": "Ajust. change", "opening": "Solde d’ouverture", "close": "Clôture",
-    "salescol": "Ventes & encaissements", "arap": "Créances & Dettes", "statements": "États financiers", "taxreports": "Taxes & dimensions", "dd": "Indicateurs DD", "dataroom": "Data room",
+    "salescol": "Ventes & encaissements", "arap": "Créances & Dettes", "forecast": "Prévision trésorerie", "statements": "États financiers", "taxreports": "Taxes & dimensions", "dd": "Indicateurs DD", "dataroom": "Data room",
     "orgs": "Organisations", "users": "Utilisateurs", "taxconf": "Taxes", "currencies": "Devises",
     "locations": "Emplacements", "tags": "Étiquettes", "custom": "Modules perso.", "integrations": "Intégrations", "anomrules": "Règles d’anomalie", "activity": "Activité & audit"
   },
