@@ -7,7 +7,7 @@ sold rate, not a MAD selling price list (there isn't one).
 """
 import frappe
 
-from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
 
 # Cost: prefer a real valuation, fall back to last purchase (valuation is 0 on the
 # broken books), then 0.
@@ -94,6 +94,47 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
         r["true_margin"] = round(base * (1 - r["rto_pct"] / 100), 2) if r["avg_sold"] else 0
         r["true_margin_pct"] = round(r["true_margin"] / r["avg_sold"] * 100, 1) if r["avg_sold"] else 0
     return rows
+
+
+@frappe.whitelist()
+def item_options(search=None, limit=15):
+    """Item search for pickers — by SKU, code or name."""
+    assert_portal_access()
+    like = f"%{(search or '').strip()}%"
+    return frappe.db.sql(
+        """SELECT name AS item_code, item_name, custom_sku AS sku FROM `tabItem`
+           WHERE disabled=0 AND (name LIKE %s OR item_name LIKE %s OR IFNULL(custom_sku,'') LIKE %s)
+           ORDER BY modified DESC LIMIT %s""",
+        (like, like, like, min(int(limit or 15), 30)), as_dict=True)
+
+
+@frappe.whitelist()
+def set_item_price(item_code=None, price_list=None, rate=None):
+    """Create or update an Item Price (e.g. set a Morocco MAD selling price).
+    Master data — gated by write capability, not the GL approval flow."""
+    assert_can_write()
+    if not (item_code and price_list):
+        frappe.throw("Item and price list are required")
+    if not frappe.db.exists("Item", item_code):
+        frappe.throw("Item not found")
+    pl = frappe.db.get_value("Price List", price_list, ["name", "selling", "buying"], as_dict=True)
+    if not pl:
+        frappe.throw("Price list not found")
+    rate = frappe.utils.flt(rate)
+    if rate <= 0:
+        frappe.throw("Rate must be positive")
+    existing = frappe.db.get_value("Item Price", {"item_code": item_code, "price_list": price_list}, "name")
+    if existing:
+        doc = frappe.get_doc("Item Price", existing)
+        doc.price_list_rate = rate
+        doc.save(ignore_permissions=True)
+        return {"name": doc.name, "updated": True, "rate": rate}
+    doc = frappe.get_doc({
+        "doctype": "Item Price", "item_code": item_code, "price_list": price_list,
+        "price_list_rate": rate, "selling": pl.selling, "buying": pl.buying,
+    })
+    doc.insert(ignore_permissions=True)
+    return {"name": doc.name, "updated": False, "rate": rate}
 
 
 @frappe.whitelist()

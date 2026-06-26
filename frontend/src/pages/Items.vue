@@ -3,8 +3,8 @@
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div class="flex items-center gap-2 ms-auto">
-          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand">
-            <Icon name="plus" :size="14" />{{ t("module.new") }}
+          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showPrice = true">
+            <Icon name="plus" :size="14" />{{ L("Set price","تعيين سعر","Définir prix") }}
           </button>
         </div>
       </template>
@@ -41,6 +41,7 @@
     </div>
 
     <InventoryCorrectionModal :open="showFix" @close="showFix = false" @done="loadHealth" />
+    <SetPriceModal :open="showPrice" :preset-list="activeSub === 'pricelists' ? route.query.id : ''" @close="showPrice = false" />
 
     <ItemDetail v-if="activeSub === 'items' && route.query.id" />
     <ItemsList v-else-if="activeSub === 'items'" />
@@ -66,6 +67,7 @@ import ItemDetail from "@/pages/items/ItemDetail.vue";
 import PriceListsList from "@/pages/items/PriceListsList.vue";
 import PriceListDetail from "@/pages/items/PriceListDetail.vue";
 import InventoryCorrectionModal from "@/components/InventoryCorrectionModal.vue";
+import SetPriceModal from "@/components/SetPriceModal.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
@@ -94,6 +96,7 @@ async function loadHealth() {
   healthLive.value = r.live; health.value = r.data;
 }
 const showFix = ref(false);
+const showPrice = ref(false);
 function proposeFix() { showFix.value = true; }
 onMounted(loadHealth);
 watch(entityId, loadHealth);
