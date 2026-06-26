@@ -23,6 +23,8 @@
     <GeneralLedger v-else-if="activeSub === 'gl'" />
     <TrialBalance v-else-if="activeSub === 'trial'" />
     <FixedAssets v-else-if="activeSub === 'assets'" />
+    <FxRevaluation v-else-if="activeSub === 'fx'" />
+    <OpeningEntry v-else-if="activeSub === 'opening'" />
     <PeriodClose v-else-if="activeSub === 'close'" />
     <ScaffoldTable v-else />
   </div>
@@ -42,6 +44,8 @@ import ChartOfAccounts from "@/pages/accountant/ChartOfAccounts.vue";
 import GeneralLedger from "@/pages/accountant/GeneralLedger.vue";
 import TrialBalance from "@/pages/accountant/TrialBalance.vue";
 import FixedAssets from "@/pages/accountant/FixedAssets.vue";
+import FxRevaluation from "@/pages/accountant/FxRevaluation.vue";
+import OpeningEntry from "@/pages/accountant/OpeningEntry.vue";
 import PeriodClose from "@/pages/accountant/PeriodClose.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";

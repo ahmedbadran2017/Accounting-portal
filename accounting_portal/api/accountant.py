@@ -249,3 +249,118 @@ def get_journal(name=None):
     je["posting_date"] = str(je.posting_date or "")
     je["clearance_date"] = str(je.clearance_date or "")
     return je
+
+
+# ── Opening-balance entry ────────────────────────────────────────────────────
+OPENING_ACTION = "Opening Entry"
+
+
+def _opening_poster(action):
+    """Create + submit an opening-balance Journal Entry (is_opening = Yes)."""
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    je = frappe.get_doc({
+        "doctype": "Journal Entry",
+        "company": action.company,
+        "posting_date": p.get("posting_date") or nowdate(),
+        "voucher_type": "Opening Entry",
+        "is_opening": "Yes",
+        "multi_currency": 1,
+        "user_remark": p.get("remark") or "Opening balance via Accounting Portal",
+        "accounts": [
+            {
+                "account": ln["account"],
+                "debit_in_account_currency": flt(ln.get("debit")),
+                "credit_in_account_currency": flt(ln.get("credit")),
+                "party_type": ln.get("party_type") or None,
+                "party": ln.get("party") or None,
+            }
+            for ln in (p.get("lines") or [])
+        ],
+    })
+    je.insert(ignore_permissions=True)
+    je.submit()
+    return {"voucher_type": "Journal Entry", "voucher_no": je.name, "result": "opening submitted"}
+
+
+_actions.register_poster(OPENING_ACTION, _opening_poster)
+
+
+@frappe.whitelist()
+def create_opening_entry(company=None, posting_date=None, lines=None, remark=None, dedupe_key=None):
+    """Post a balanced opening-balance entry (is_opening = Yes) through the gateway.
+    `lines`: [{account, debit, credit, party_type?, party?}, …] — must balance."""
+    assert_can_write()
+    companies = resolve_companies(company)
+    if not companies:
+        frappe.throw("No company in scope")
+    target = company if (company and company in companies) else companies[0]
+    if isinstance(lines, str):
+        lines = json.loads(lines)
+    lines = lines or []
+    if len(lines) < 2:
+        frappe.throw("An opening entry needs at least two lines")
+    dr = sum(flt(ln.get("debit")) for ln in lines)
+    cr = sum(flt(ln.get("credit")) for ln in lines)
+    if round(dr - cr, 2) != 0:
+        frappe.throw(f"Debits ({dr:,.2f}) and credits ({cr:,.2f}) must balance")
+    if dr <= 0:
+        frappe.throw("Opening entry has no amount")
+    posting_date = posting_date or nowdate()
+    key = dedupe_key or f"open:{target}:{posting_date}:{round(dr, 2)}:{(remark or '')[:40]}"
+    payload = {"posting_date": posting_date, "lines": lines, "remark": remark}
+    return _actions.execute(OPENING_ACTION, target, key, payload=payload, amount=dr, notes=remark or "Opening entry")
+
+
+# ── FX revaluation preview (unrealized gain/loss on foreign-currency balances) ─
+@frappe.whitelist()
+def fx_revaluation(company=None):
+    """Unrealized FX gain/loss on monetary foreign-currency account balances,
+    revalued at the latest stored rate. Read-only diagnostic (ERPNext's own
+    revaluation tool crashes on these books' missing rates). Fixed assets / stock
+    / equity are excluded — only monetary items are revalued. Accounts missing a
+    rate are flagged so the team can set it in Settings → Currencies."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    target = company if (company and company in companies) else (companies[0] if companies else None)
+    if not target:
+        return {"rows": [], "summary": {}}
+    base = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    accts = frappe.db.sql(
+        """SELECT a.name AS account, a.account_currency AS ccy,
+                  ROUND(SUM(g.debit_in_account_currency - g.credit_in_account_currency), 2) AS bal_acct,
+                  ROUND(SUM(g.debit - g.credit), 2) AS bal_base
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name = g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.is_group=0
+             AND a.account_currency IS NOT NULL AND a.account_currency <> %s
+             AND a.root_type IN ('Asset','Liability')
+             AND IFNULL(a.account_type,'') NOT IN ('Fixed Asset','Stock','Capital Work in Progress','Accumulated Depreciation')
+           GROUP BY a.name HAVING ABS(SUM(g.debit - g.credit)) > 0.5
+           ORDER BY ABS(SUM(g.debit - g.credit)) DESC""",
+        (target, base), as_dict=True)
+    rate_cache = {}
+
+    def rate_for(ccy):
+        if ccy not in rate_cache:
+            r = frappe.db.sql(
+                """SELECT exchange_rate FROM `tabCurrency Exchange`
+                   WHERE from_currency=%s AND to_currency=%s ORDER BY date DESC LIMIT 1""",
+                (ccy, base))
+            rate_cache[ccy] = flt(r[0][0]) if r else None
+        return rate_cache[ccy]
+
+    rows, total, missing = [], 0.0, 0
+    for a in accts:
+        r = rate_for(a["ccy"])
+        if r is None:
+            missing += 1
+            rows.append({**a, "rate": None, "revalued": None, "unrealized": None})
+            continue
+        revalued = round(flt(a["bal_acct"]) * r, 2)
+        unrealized = round(revalued - flt(a["bal_base"]), 2)
+        total += unrealized
+        rows.append({**a, "rate": r, "revalued": revalued, "unrealized": unrealized})
+    return {
+        "company": target, "currency": base, "rows": rows,
+        "summary": {"count": len(rows), "total_unrealized": round(total, 2),
+                    "missing_rate": missing},
+    }

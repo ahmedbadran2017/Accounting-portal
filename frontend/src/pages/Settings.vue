@@ -46,12 +46,28 @@
         <tbody>
           <tr v-for="(c, i) in fxRows" :key="i" class="border-t border-line-hair">
             <td class="px-4 py-2.5 font-mono font-bold">{{ c.frm }} → {{ c.too }}</td>
-            <td class="px-4 py-2.5 text-end tnum font-semibold">{{ c.rate }}</td>
+            <td class="px-4 py-2.5 text-end tnum font-semibold">
+              <template v-if="canWrite && editKey === i"><input v-model.number="editRate" type="number" step="any" class="w-24 h-7 border border-line-2 rounded-[6px] px-2 text-end text-[12px]" /></template>
+              <template v-else>{{ c.rate }}</template>
+            </td>
             <td class="px-4 py-2.5 text-end text-ink-3">{{ String(c.date).slice(0,10) }}</td>
+            <td v-if="canWrite" class="px-4 py-2.5 text-end">
+              <template v-if="editKey === i"><button class="text-[11px] font-bold text-success-dark me-2" :disabled="fxBusy" @click="saveRate(c)">{{ L("Save","حفظ","OK") }}</button><button class="text-[11px] text-ink-3" @click="editKey = null">✕</button></template>
+              <button v-else class="text-[11px] font-semibold text-accent-dark" @click="startEdit(i, c)">{{ L("Edit","تعديل","Modifier") }}</button>
+            </td>
           </tr>
-          <tr v-if="!fxRows.length"><td colspan="3" class="px-4 py-8 text-center text-ink-muted">{{ L("No exchange rates.","لا أسعار.","Aucun taux.") }}</td></tr>
+          <tr v-if="!fxRows.length"><td :colspan="canWrite ? 4 : 3" class="px-4 py-8 text-center text-ink-muted">{{ L("No exchange rates.","لا أسعار.","Aucun taux.") }}</td></tr>
         </tbody>
       </table>
+      <!-- Add a new rate -->
+      <div v-if="canWrite" class="flex items-center gap-2 px-4 py-3 border-t border-line-hair flex-wrap bg-app-warm/20">
+        <input v-model.trim="nf.frm" :placeholder="L('From','من','De')" class="w-16 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] uppercase" maxlength="3" />
+        <span class="text-ink-muted">→</span>
+        <input v-model.trim="nf.too" :placeholder="L('To','إلى','Vers')" class="w-16 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] uppercase" maxlength="3" />
+        <input v-model.number="nf.rate" type="number" step="any" :placeholder="L('Rate','السعر','Taux')" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end" />
+        <input v-model="nf.date" type="date" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px]" />
+        <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="fxBusy || !nf.frm || !nf.too || !nf.rate" @click="addRate">{{ L("Add / update","إضافة/تحديث","Ajouter") }}</button>
+      </div>
     </div>
 
     <!-- Organizations -->
@@ -81,6 +97,8 @@ import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import ActivityLog from "@/pages/settings/ActivityLog.vue";
 import PortalUsers from "@/pages/settings/Users.vue";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { settingsUsers, settingsTaxes, settingsCurrencies } from "@/data/settings";
 import { AV } from "@/data/orders";
@@ -115,4 +133,31 @@ const fxRows = computed(() => ref_.value.fx || []);
 const orgRows = computed(() => ref_.value.companies || []);
 const PAL = ["#7c3aed", "#0369a1", "#047857", "#b45309"];
 function orgColor(n) { let h = 0; for (const ch of String(n)) h = (h * 31 + ch.charCodeAt(0)) % PAL.length; return PAL[h]; }
+
+// ── FX rate editing ──
+const { can } = useAuth();
+const toast = useToast();
+const canWrite = computed(() => can("post_entries"));
+const editKey = ref(null);
+const editRate = ref(0);
+const fxBusy = ref(false);
+const today = new Date().toISOString().slice(0, 10);
+const nf = ref({ frm: "", too: "", rate: null, date: today });
+function startEdit(i, c) { editKey.value = i; editRate.value = Number(c.rate) || 0; }
+async function saveRate(c) {
+  fxBusy.value = true;
+  try {
+    await api.call("accounting_portal.api.settings.set_exchange_rate", { from_currency: c.frm, to_currency: c.too, rate: editRate.value, date: today });
+    toast.success(L("Rate saved", "تم الحفظ", "Taux enregistré")); editKey.value = null; loadRef();
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
+  finally { fxBusy.value = false; }
+}
+async function addRate() {
+  fxBusy.value = true;
+  try {
+    await api.call("accounting_portal.api.settings.set_exchange_rate", { from_currency: nf.value.frm.toUpperCase(), to_currency: nf.value.too.toUpperCase(), rate: nf.value.rate, date: nf.value.date || today });
+    toast.success(L("Rate saved", "تم الحفظ", "Taux enregistré")); nf.value = { frm: "", too: "", rate: null, date: today }; loadRef();
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
+  finally { fxBusy.value = false; }
+}
 </script>

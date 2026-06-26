@@ -50,11 +50,18 @@
           </div>
         </div>
         <div class="flex items-center gap-2.5 mt-3 px-3 py-2.5 rounded-[10px]" style="background:rgba(255,255,255,.06)">
-          <span class="w-[7px] h-[7px] rounded-full" :style="{ background: ready ? '#34d399' : '#fbbf24' }"></span>
-          <span class="flex-1 text-[11.5px]" style="color:#e7e5e4">{{ monthLabel }}</span>
-          <span class="text-[10.5px] font-bold" :style="{ color: ready ? '#34d399' : '#fbbf24' }">{{ ready ? L("Ready", "جاهز", "Prêt") : L("Open", "مفتوحة", "Ouverte") }}</span>
+          <span class="w-[7px] h-[7px] rounded-full" :style="{ background: lockedUpto ? '#34d399' : '#fbbf24' }"></span>
+          <span class="flex-1 text-[11.5px]" style="color:#e7e5e4">{{ lockedUpto ? L("Locked up to", "مقفلة حتى", "Verrouillé au") + " " + lockedUpto : L("Not locked", "غير مقفلة", "Non verrouillé") }}</span>
         </div>
-        <p class="text-[10px] mt-2" style="color:#a8a29e">{{ ready ? L("All checks tie — safe to lock in ERPNext.", "كل الفحوصات متطابقة — آمن للإقفال.", "Tout concorde — verrouillage possible.") : L("Clear the open items above first.", "صفِّ المتبقّي أعلاه أولًا.", "Réglez d'abord les éléments ouverts.") }}</p>
+        <template v-if="isAdmin">
+          <div class="flex items-center gap-2 mt-2.5">
+            <input v-model="lockDate" type="date" class="flex-1 h-8 rounded-[8px] px-2 text-[12px] text-ink bg-white/90 border-0 focus:outline-none" />
+            <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-bold text-ink" style="background:#fbbf24" :disabled="lockBusy || !lockDate" @click="lock(lockDate)">{{ lockBusy ? "…" : L("Lock", "قفل", "Verrouiller") }}</button>
+          </div>
+          <button v-if="lockedUpto" class="mt-2 text-[10.5px] font-semibold" style="color:#a8a29e" :disabled="lockBusy" @click="lock('')">{{ L("Unlock", "إلغاء القفل", "Déverrouiller") }}</button>
+          <p class="text-[10px] mt-2" style="color:#a8a29e">{{ L("Locks posting on/before the date across all companies.", "يمنع القيود في هذا التاريخ وقبله لكل الشركات.", "Bloque les écritures à cette date et avant, toutes sociétés.") }}</p>
+        </template>
+        <p v-else class="text-[10px] mt-2" style="color:#a8a29e">{{ L("Only an admin can lock the period.", "المشرف فقط يمكنه قفل الفترة.", "Seul un admin peut verrouiller.") }}</p>
       </div>
     </div>
   </div>
@@ -69,12 +76,32 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
 const router = useRouter();
 const { entityId } = useUi();
+const { isAdmin } = useAuth();
+const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
+
+const lockedUpto = ref(null);
+const lockDate = ref(new Date().toISOString().slice(0, 10));
+const lockBusy = ref(false);
+async function loadLock() {
+  try { const r = await api.call("accounting_portal.api.settings.get_period_lock", {}); const d = r && r.acc_frozen_upto; lockedUpto.value = (d && String(d) > "0001-01-01") ? String(d).slice(0, 10) : null; } catch { /* */ }
+}
+async function lock(date) {
+  lockBusy.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.settings.set_period_lock", { date: date || "" });
+    const d = r && r.acc_frozen_upto; lockedUpto.value = (d && String(d) > "0001-01-01") ? String(d).slice(0, 10) : null;
+    toast.success(date ? L("Period locked", "تم القفل", "Verrouillé") : L("Unlocked", "تم إلغاء القفل", "Déverrouillé"));
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
+  finally { lockBusy.value = false; }
+}
 
 const META = {
   done: { bg: "#ecfdf5", fg: "#047857", bd: "#a7f3d0", icon: "check" },
@@ -115,6 +142,6 @@ async function load() {
   catch { data.value = SAMPLE; live.value = false; }
   finally { loading.value = false; }
 }
-onMounted(load);
+onMounted(() => { load(); loadLock(); });
 watch(entityId, load);
 </script>

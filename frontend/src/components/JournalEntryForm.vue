@@ -4,7 +4,7 @@
       <div class="flex items-center gap-2.5 px-5 py-4 border-b border-line">
         <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#f5f3ff"><Icon name="ledger" :size="16" color="#7c3aed" /></span>
         <div class="flex-1 min-w-0">
-          <div class="text-[14px] font-bold">{{ L("New journal entry", "قيد يومية جديد", "Nouvelle écriture") }}</div>
+          <div class="text-[14px] font-bold">{{ opening ? L("New opening entry", "قيد افتتاحي جديد", "Nouvelle écriture d'ouverture") : L("New journal entry", "قيد يومية جديد", "Nouvelle écriture") }}</div>
           <div class="text-[11px] text-ink-muted">{{ entityName }} · {{ L("posts to ERPNext via the audit gateway", "يُرحّل لـ ERPNext عبر بوابة التدقيق", "passe via la passerelle d'audit") }}</div>
         </div>
         <button class="text-ink-3 hover:text-ink" @click="$emit('close')"><Icon name="close" :size="18" /></button>
@@ -86,6 +86,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
+const props = defineProps({ opening: { type: Boolean, default: false } });
 const emit = defineEmits(["close", "posted"]);
 const { locale } = useI18n();
 const { entityId, entities } = useUi();
@@ -126,7 +127,8 @@ async function post() {
   if (clean.length < 2) { error.value = L("Add at least two complete lines.", "أضف سطرين مكتملين على الأقل.", "Ajoutez au moins deux lignes."); return; }
   posting.value = true;
   try {
-    const res = await api.call("accounting_portal.api.accountant.create_journal_entry", {
+    const method = props.opening ? "create_opening_entry" : "create_journal_entry";
+    const res = await api.call(`accounting_portal.api.accountant.${method}`, {
       company: currentCompany(), posting_date: postingDate.value,
       lines: clean.map((l) => ({ account: l.account, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0 })),
       remark: remark.value,
