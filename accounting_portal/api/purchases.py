@@ -921,3 +921,100 @@ def bulk_create_suppliers(rows=None):
             "created": sum(1 for x in out if x["status"] == "created"),
             "exists": sum(1 for x in out if x["status"] == "exists"),
             "failed": sum(1 for x in out if x["status"] in ("error", "skipped"))}
+
+
+# ── Create Purchase Order (procure-to-pay START) ────────────────────────────
+PO_ACTION = "Create Purchase Order"
+
+
+def _create_po_poster(action):
+    """Build + (optionally) submit a Purchase Order from the action payload."""
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    company = action.company
+    txn = p.get("transaction_date") or nowdate()
+    sched = p.get("schedule_date") or nowdate()
+    po = frappe.get_doc({
+        "doctype": "Purchase Order",
+        "company": company,
+        "supplier": p["supplier"],
+        "transaction_date": txn,
+        "schedule_date": sched,
+        "items": [{
+            "item_code": it["item_code"], "qty": flt(it.get("qty") or 1),
+            "rate": flt(it.get("rate") or 0),
+            "schedule_date": it.get("schedule_date") or sched,
+        } for it in (p.get("items") or [])],
+    })
+    # Programmatic POs must fetch item_name/uom/conversion_rate/base amounts that
+    # the desk form fetches on the client, else mandatory-field validation fails.
+    po.set_missing_values()
+    po.run_method("calculate_taxes_and_totals")
+    po.flags.ignore_permissions = True
+    po.insert()
+    submitted = False
+    if p.get("submit"):
+        po.reload()
+        po.submit()
+        submitted = True
+    return {"voucher_type": "Purchase Order", "voucher_no": po.name,
+            "result": {"supplier": po.supplier, "grand_total": flt(po.grand_total),
+                       "submitted": submitted}}
+
+
+_actions.register_poster(PO_ACTION, _create_po_poster)
+
+
+@frappe.whitelist()
+def create_purchase_order(company=None, supplier=None, items=None, transaction_date=None,
+                          schedule_date=None, submit=1, dedupe_key=None):
+    """Create a Purchase Order through the write gateway — the procurement start
+    that previously had to be done in ERPNext. `items`: [{item_code, qty, rate}, …]."""
+    assert_can_write()
+    target = _target(company)
+    if not target:
+        frappe.throw("No company in scope")
+    if not supplier or not frappe.db.exists("Supplier", supplier):
+        frappe.throw("Select a supplier")
+    if isinstance(items, str):
+        items = json.loads(items or "[]")
+    items = [it for it in (items or []) if it.get("item_code") and flt(it.get("qty")) > 0]
+    if not items:
+        frappe.throw("Add at least one line item")
+    amount = sum(flt(it.get("qty")) * flt(it.get("rate") or 0) for it in items)
+    key = dedupe_key or f"po:create:{target}:{supplier}:" + frappe.generate_hash(
+        json.dumps(items, sort_keys=True, default=str), 12)
+    payload = {"company": target, "supplier": supplier, "items": items,
+               "transaction_date": transaction_date, "schedule_date": schedule_date,
+               "submit": int(submit or 0)}
+    res = _actions.execute(PO_ACTION, target, key, payload=payload, amount=amount,
+                           reference_doctype="Supplier", reference_name=supplier,
+                           notes=f"Purchase Order for {supplier} ({amount:,.0f})")
+    _bust_purch_cache()
+    return res
+
+
+@frappe.whitelist()
+def supplier_options(search=None, company=None, limit=15):
+    """Supplier search for the PO picker — by name."""
+    assert_portal_access()
+    like = f"%{(search or '').strip()}%"
+    return frappe.db.sql(
+        """SELECT name, supplier_name, default_currency AS ccy FROM `tabSupplier`
+           WHERE disabled=0 AND (name LIKE %s OR supplier_name LIKE %s)
+           ORDER BY modified DESC LIMIT %s""",
+        (like, like, min(int(limit or 15), 30)), as_dict=True)
+
+
+@frappe.whitelist()
+def po_item_options(search=None, supplier=None, limit=15):
+    """Item search for the PO picker — includes the last purchase rate as a default."""
+    assert_portal_access()
+    like = f"%{(search or '').strip()}%"
+    return frappe.db.sql(
+        """SELECT name AS item_code, item_name, custom_sku AS sku, stock_uom AS uom,
+                  IFNULL(last_purchase_rate, 0) AS rate
+           FROM `tabItem`
+           WHERE disabled=0 AND is_purchase_item=1
+             AND (name LIKE %s OR item_name LIKE %s OR IFNULL(custom_sku,'') LIKE %s)
+           ORDER BY modified DESC LIMIT %s""",
+        (like, like, like, min(int(limit or 15), 30)), as_dict=True)

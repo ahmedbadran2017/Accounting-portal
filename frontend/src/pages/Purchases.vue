@@ -3,8 +3,8 @@
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div class="flex items-center gap-2 ms-auto">
-          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand">
-            <Icon name="plus" :size="14" />{{ t("module.new") }}
+          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showPo = true">
+            <Icon name="plus" :size="14" />{{ L("New PO","أمر شراء","Nouvelle CA") }}
           </button>
         </div>
       </template>
@@ -26,16 +26,19 @@
     <PaymentsMade v-else-if="activeSub === 'payments'" />
     <Cheques v-else-if="activeSub === 'cheques'" />
     <ScaffoldTable v-else />
+
+    <PurchaseOrderForm v-if="showPo" @close="showPo = false" @created="onPoCreated" />
   </div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
+import PurchaseOrderForm from "@/components/PurchaseOrderForm.vue";
 import VendorsList from "@/pages/purchases/VendorsList.vue";
 import VendorDetail from "@/pages/purchases/VendorDetail.vue";
 import PurchaseBucket from "@/pages/purchases/PurchaseBucket.vue";
@@ -48,10 +51,13 @@ import Cheques from "@/pages/purchases/Cheques.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const route = useRoute();
 const router = useRouter();
 const { entityId, entities } = useUi();
+const showPo = ref(false);
+function onPoCreated() { if (activeSub.value === "tobuy") router.replace({ path: "/accounting/purchases/tobuy", query: { _r: Date.now() } }); }
 
 const subs = SUBTABS.purchases;
 const activeSub = computed(() => route.params.sub || defaultSub("purchases"));
