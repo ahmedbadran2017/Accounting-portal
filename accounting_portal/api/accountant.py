@@ -118,6 +118,46 @@ def propose_inventory_correction(company=None):
 
 
 @frappe.whitelist()
+def propose_correction_pile(company=None):
+    """Diagnose the “Correction Need” pile and propose a reclassification journal
+    (NOT posted) to clear it to COGS — the parked stock-delivery corrections. The
+    accountant reviews/edits the target account and submits via the gated flow."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return {}
+    target = company if (company and company in companies) else companies[0]
+
+    def _top(where):
+        r = frappe.db.sql(
+            f"""SELECT a.name, ROUND(SUM(g.debit-g.credit)) bal, COUNT(*) n FROM `tabGL Entry` g
+                JOIN `tabAccount` a ON a.name=g.account
+                WHERE g.company=%s AND g.is_cancelled=0 AND {where}
+                GROUP BY a.name ORDER BY ABS(SUM(g.debit-g.credit)) DESC LIMIT 1""",
+            (target,), as_dict=True)
+        return (r[0].name, flt(r[0].bal), r[0].n) if r else (None, 0.0, 0)
+
+    acct, bal, n = _top("a.account_name LIKE '%%Correction%%'")
+    cogs, _, _ = _top("a.account_type='Cost of Goods Sold'")
+    if not acct or abs(bal) < 1:
+        return {"available": False}
+    amount = round(abs(bal), 2)
+    # Debit balance ⇒ credit it to clear, debit the target; and vice-versa.
+    if bal >= 0:
+        lines = [{"account": acct, "debit": 0, "credit": amount, "label": "Clear the Correction-Need pile"},
+                 {"account": cogs, "debit": amount, "credit": 0, "label": "Reclassify to COGS"}]
+    else:
+        lines = [{"account": acct, "debit": amount, "credit": 0, "label": "Clear the Correction-Need pile"},
+                 {"account": cogs, "debit": 0, "credit": amount, "label": "Reclassify to COGS"}]
+    return {
+        "available": True, "company": target,
+        "account": acct, "balance": bal, "entries": n, "cogs_account": cogs,
+        "suggested_amount": amount, "lines": lines, "after": 0,
+        "remark": "Reclassify the Correction-Need pile to COGS (triage)",
+    }
+
+
+@frappe.whitelist()
 def create_journal_entry(company=None, posting_date=None, lines=None, remark=None, dedupe_key=None):
     """Post a balanced Journal Entry through the write gateway.
 

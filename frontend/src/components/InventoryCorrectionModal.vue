@@ -12,11 +12,12 @@
       <div v-else class="p-5 space-y-3.5">
         <!-- Diagnosis -->
         <div class="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3">
-          <p class="text-[11.5px] text-amber-800 leading-relaxed">{{ L("Stock-in-hand carries "+money(p.stock_balance)+" while “"+shortAcct(p.adjustment_account)+"” absorbs "+money(p.adjustment_balance)+". This nets the churn out: stock falls to "+money(p.stock_after)+" and the adjustment account zeroes.","المخزون يحمل "+money(p.stock_balance)+" بينما يمتص حساب التسوية "+money(p.adjustment_balance)+". هذا القيد يصفّي الفرق: المخزون ينزل إلى "+money(p.stock_after)+".","Le stock porte "+money(p.stock_balance)+"; cette écriture le ramène à "+money(p.stock_after)+".") }}</p>
+          <p v-if="p.stock_account" class="text-[11.5px] text-amber-800 leading-relaxed">{{ L("Stock-in-hand carries "+money(p.stock_balance)+" while “"+shortAcct(p.adjustment_account)+"” absorbs "+money(p.adjustment_balance)+". This nets the churn out: stock falls to "+money(p.stock_after)+" and the adjustment account zeroes.","المخزون يحمل "+money(p.stock_balance)+" بينما يمتص حساب التسوية "+money(p.adjustment_balance)+". هذا القيد يصفّي الفرق: المخزون ينزل إلى "+money(p.stock_after)+".","Le stock porte "+money(p.stock_balance)+"; cette écriture le ramène à "+money(p.stock_after)+".") }}</p>
+          <p v-else class="text-[11.5px] text-amber-800 leading-relaxed">{{ L("“"+shortAcct(p.account)+"” holds "+money(p.balance)+" across "+(p.entries||0).toLocaleString()+" parked entries. This reclassifies the balance to COGS and zeroes the pile.","حساب التصحيح يحمل "+money(p.balance)+" عبر "+(p.entries||0).toLocaleString()+" قيد. هذا يعيد تصنيفه لتكلفة المبيعات ويصفّي الرصيد.","Le compte de correction porte "+money(p.balance)+" sur "+(p.entries||0).toLocaleString()+" écritures. Reclassé en CMV.") }}</p>
         </div>
 
-        <!-- Credit target choice -->
-        <div class="flex items-center gap-2 flex-wrap">
+        <!-- Credit target choice (inventory only) -->
+        <div v-if="p.stock_account" class="flex items-center gap-2 flex-wrap">
           <span class="text-[11px] font-bold text-ink-3">{{ L("Offset against","المقابل","Contrepartie") }}:</span>
           <button @click="setTarget('stock')" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border" :class="target==='stock' ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2'">{{ L("Net to stock (conservative)","تصفية مقابل المخزون","Stock") }}</button>
           <button v-if="p.cogs_account" @click="setTarget('cogs')" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border" :class="target==='cogs' ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2'">{{ L("Reclass to COGS (if delivered)","ترحيل لتكلفة المبيعات","CMV") }}</button>
@@ -73,8 +74,9 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
 
-const props = defineProps({ open: Boolean });
+const props = defineProps({ open: Boolean, kind: { type: String, default: "inventory" } });
 const emit = defineEmits(["close", "done"]);
+const ENDPOINT = { inventory: "propose_inventory_correction", correction: "propose_correction_pile" };
 const { locale } = useI18n();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -98,7 +100,7 @@ const balanced = computed(() => totalDr.value > 0 && Math.round((totalDr.value -
 async function loadAll() {
   loading.value = true; error.value = "";
   try {
-    p.value = await api.call("accounting_portal.api.accountant.propose_inventory_correction", { company: currentCompany() });
+    p.value = await api.call(`accounting_portal.api.accountant.${ENDPOINT[props.kind] || ENDPOINT.inventory}`, { company: currentCompany() });
     accounts.value = await api.call("accounting_portal.api.accountant.account_options", { company: currentCompany() });
     if (p.value && p.value.available) {
       lines.value = p.value.lines.map((l) => ({ account: l.account, debit: l.debit, credit: l.credit }));

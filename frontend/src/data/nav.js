@@ -28,7 +28,7 @@ export const SUBTABS = {
     ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"],
   ],
   accountant: [
-    ["journals", "sub.journals"], ["coa", "sub.coa"], ["gl", "sub.gl"], ["trial", "sub.trial"],
+    ["journals", "sub.journals"], ["triage", "sub.triage"], ["coa", "sub.coa"], ["gl", "sub.gl"], ["trial", "sub.trial"],
     ["assets", "sub.assets"], ["fx", "sub.fx"], ["opening", "sub.opening"], ["close", "sub.close"],
   ],
   reports: [["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["statements", "sub.statements"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"], ["dataroom", "sub.dataroom"]],

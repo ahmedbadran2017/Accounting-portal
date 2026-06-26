@@ -18,6 +18,7 @@
 
     <JournalDetail v-if="activeSub === 'journals' && route.query.id" />
     <Journals v-else-if="activeSub === 'journals'" />
+    <Remediation v-else-if="activeSub === 'triage'" />
     <ChartOfAccounts v-else-if="activeSub === 'coa'" />
     <GeneralLedger v-else-if="activeSub === 'gl'" />
     <TrialBalance v-else-if="activeSub === 'trial'" />
@@ -36,6 +37,7 @@ import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import Journals from "@/pages/accountant/Journals.vue";
 import JournalDetail from "@/pages/accountant/JournalDetail.vue";
+import Remediation from "@/pages/accountant/Remediation.vue";
 import ChartOfAccounts from "@/pages/accountant/ChartOfAccounts.vue";
 import GeneralLedger from "@/pages/accountant/GeneralLedger.vue";
 import TrialBalance from "@/pages/accountant/TrialBalance.vue";
