@@ -40,8 +40,12 @@
       </div>
     </div>
 
-    <LandedCost v-if="activeSub === 'landed'" />
+    <ItemDetail v-if="activeSub === 'items' && route.query.id" />
     <ItemsList v-else-if="activeSub === 'items'" />
+    <PriceListDetail v-else-if="activeSub === 'pricelists' && route.query.id" />
+    <PriceListsList v-else-if="activeSub === 'pricelists'" />
+    <LandedCostDetail v-else-if="activeSub === 'landed' && route.query.id" />
+    <LandedCost v-else-if="activeSub === 'landed'" />
     <ScaffoldTable v-else />
   </div>
 </template>
@@ -54,7 +58,11 @@ import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import LandedCost from "@/pages/items/LandedCost.vue";
+import LandedCostDetail from "@/pages/items/LandedCostDetail.vue";
 import ItemsList from "@/pages/items/ItemsList.vue";
+import ItemDetail from "@/pages/items/ItemDetail.vue";
+import PriceListsList from "@/pages/items/PriceListsList.vue";
+import PriceListDetail from "@/pages/items/PriceListDetail.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { liveOrSample, currentCompany } from "@/composables/useLive";

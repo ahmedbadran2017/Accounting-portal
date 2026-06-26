@@ -5,62 +5,115 @@
       <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center flex-shrink-0" style="background:#ffedd5"><Icon name="alert" :size="16" color="#ea580c" /></span>
       <div class="flex-1">
         <div class="text-[12.5px] font-bold" style="color:#9a3412">{{ L("True margin needs RTO allocated to SKU","الهامش الحقيقي يحتاج توزيع الإرجاع على الصنف","Marge réelle : retours à imputer au SKU") }}</div>
-        <div class="text-[11.5px] mt-px" style="color:#c2410c">{{ L("Margin is now landed-cost based, but return shipping isn’t yet costed back to the item.","الهامش الآن مبني على التكلفة المحمَّلة، لكن شحن الإرجاع لا يُحمَّل بعد على الصنف.","La marge inclut le coût de revient, mais le retour n’est pas encore imputé à l’article.") }}</div>
+        <div class="text-[11.5px] mt-px" style="color:#c2410c">{{ L("Margin = avg sold − cost. Stock valuation is broken (cost falls back to last purchase); return shipping isn’t yet costed back to the item.","الهامش = متوسط البيع − التكلفة. تقييم المخزون معطّل (التكلفة من آخر شراء)؛ شحن الإرجاع غير محمَّل بعد.","Marge = vente moy. − coût. Valorisation cassée; retour non imputé.") }}</div>
       </div>
       <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-[3px] rounded-full flex-shrink-0" style="background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe"><Icon name="shield" :size="11" />{{ L("Auditor","المدقّق","Auditeur") }}</span>
     </div>
 
-    <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="flex items-center gap-2.5 px-4 py-3.5 border-b border-line-hair">
-        <span class="text-[13px] font-bold">{{ L("Items & true margin","الأصناف والهامش الحقيقي","Articles & marge réelle") }}</span>
-        <span class="text-[11px] text-ink-muted">{{ L("Sell − landed cost − COD fee − RTO","البيع − التكلفة المحمَّلة − رسوم COD − الإرجاع","Vente − coût de revient − frais COD − retour") }}</span>
+    <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
+      <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
+        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="box" :size="14" color="#0b5c4f" /></span>
+        <span class="text-[13px] font-bold">{{ L("Items & true margin","الأصناف والهامش الحقيقي","Articles & marge") }}</span>
+        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+        <div class="ms-auto flex items-center gap-2">
+          <select v-model="group" @change="load" class="h-9 border border-line-2 rounded-[10px] px-2 text-[12px] bg-white max-w-[150px] focus:outline-none focus:border-accent/40">
+            <option value="">{{ L("All groups","كل المجموعات","Tous") }}</option>
+            <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
+          </select>
+          <div class="relative">
+            <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
+            <input v-model.trim="search" @input="onSearch" :placeholder="L('Search SKU / item…','بحث…','Rechercher…')" class="w-40 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          </div>
+        </div>
       </div>
-      <div class="overflow-x-auto">
+
+      <TableLoading v-if="loading" :rows="8" />
+      <div v-else class="overflow-x-auto">
         <table class="w-full text-[12px]">
-          <thead>
-            <tr style="background:#fafaf9">
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">SKU</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-              <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Sell","البيع","Vente") }}</th>
-              <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Cost","التكلفة","Coût") }}</th>
-              <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Landed","المحمَّلة","Revient") }}</th>
-              <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("COD fee","رسوم COD","Frais COD") }}</th>
-              <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">RTO</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Margin","الهامش","Marge") }}</th>
-            </tr>
-          </thead>
+          <thead><tr style="background:#fafaf9">
+            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Group","المجموعة","Groupe") }}</th>
+            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Cost","التكلفة","Coût") }}</th>
+            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Avg sold","متوسط البيع","Vente moy.") }}</th>
+            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Margin","الهامش","Marge") }}</th>
+            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Stock","المخزون","Stock") }}</th>
+          </tr></thead>
           <tbody>
-            <tr v-for="r in ITEMS" :key="r.sku" class="border-t border-line-hair" :class="r.flagged ? 'bg-amber-50/30' : ''">
-              <td class="px-4 py-2.5 font-mono font-bold whitespace-nowrap">{{ r.sku }}</td>
-              <td class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ r.name }}</td>
-              <td class="px-3 py-2.5 text-end tnum font-semibold">{{ r.sell }}</td>
-              <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.cost }}</td>
-              <td class="px-3 py-2.5 text-end tnum text-success-dark">{{ r.landed }}</td>
-              <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.codFee }}</td>
-              <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.rto }}</td>
-              <td class="px-4 py-2.5 text-end whitespace-nowrap">
-                <span class="text-[12.5px] font-bold" :style="{ color: r.flagged ? '#c2410c' : '#047857' }">{{ r.margin }}</span>
-                <span class="text-[10.5px] text-ink-muted ms-1.5">{{ r.marginPct }}</span>
+            <tr v-for="r in rows" :key="r.item_code" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="open(r.item_code)">
+              <td class="px-4 py-2.5">
+                <span class="flex items-center gap-2.5">
+                  <img v-if="r.image" :src="r.image" class="w-9 h-9 rounded-[8px] object-cover flex-shrink-0 border border-line-hair" />
+                  <span v-else class="w-9 h-9 rounded-[8px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="14" color="#a8a29e" /></span>
+                  <span class="min-w-0"><span class="block font-semibold truncate max-w-[280px]">{{ r.item_name }}</span><span v-if="r.sku" class="block text-[10px] text-ink-muted font-mono">{{ r.sku }}</span></span>
+                </span>
               </td>
+              <td class="px-4 py-2.5 text-ink-3 truncate max-w-[140px]">{{ r.item_group }}</td>
+              <td class="px-4 py-2.5 text-end tnum">{{ r.cost ? fmt(r.cost) : "—" }}</td>
+              <td class="px-4 py-2.5 text-end tnum">{{ r.avg_sold ? fmt(r.avg_sold) : "—" }}</td>
+              <td class="px-4 py-2.5 text-end">
+                <span v-if="r.avg_sold" class="inline-flex items-center gap-1.5 tnum font-bold" :class="r.margin >= 0 ? 'text-success-dark' : 'text-sale'">
+                  {{ r.margin >= 0 ? "+" : "" }}{{ fmt(r.margin) }}<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-badge" :style="marginBadge(r.margin_pct)">{{ r.margin_pct }}%</span>
+                </span>
+                <span v-else class="text-ink-muted">—</span>
+              </td>
+              <td class="px-4 py-2.5 text-end tnum" :class="r.stock_qty < 0 ? 'text-sale font-semibold' : 'text-ink-3'">{{ r.stock_qty }}</td>
             </tr>
+            <tr v-if="!rows.length"><td colspan="6" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No items match.","لا أصناف.","Aucun article.") }}</td></tr>
           </tbody>
         </table>
       </div>
+      <div class="px-4 py-2.5 border-t border-line-hair text-[11px] text-ink-muted">{{ rows.length }} {{ L("items shown","صنف معروض","articles") }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import TableLoading from "@/components/TableLoading.vue";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
+import { useUi } from "@/composables/useUi";
+
 const { locale } = useI18n();
+const { entityId } = useUi();
+const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const ITEMS = [
-  { sku: "JY-JKT-0301", name: "Veste en Jean", sell: "299", cost: "104.65", landed: "+11.5", codFee: "12", rto: "18%", margin: "+118", marginPct: "39%" },
-  { sku: "JY-DRS-0392", name: "Robe Plissée", sell: "249", cost: "87.15", landed: "+8.4", codFee: "10", rto: "14%", margin: "+96", marginPct: "38%" },
-  { sku: "JY-PNT-0145", name: "Pantalon Cargo", sell: "189", cost: "66.15", landed: "+9.2", codFee: "8", rto: "22%", margin: "+47", marginPct: "25%", flagged: true },
-  { sku: "JY-SET-1205", name: "Set 12 contenants", sell: "129", cost: "45.15", landed: "+4.1", codFee: "7", rto: "12%", margin: "+58", marginPct: "45%" },
-  { sku: "JY-ORG-3010", name: "Organisateur cuisine", sell: "298", cost: "104.30", landed: "+10.8", codFee: "12", rto: "9%", margin: "+142", marginPct: "48%" },
-  { sku: "JY-BOX-0061", name: "Set 4 boîtes 6L", sell: "101", cost: "35.35", landed: "+3.2", codFee: "6", rto: "16%", margin: "+42", marginPct: "42%" },
+const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const rows = ref([]);
+const groups = ref([]);
+const isLive = ref(null);
+const loading = ref(true);
+const search = ref("");
+const group = ref("");
+let t = null;
+
+const SAMPLE = [
+  { item_code: "JY-JKT-0301", item_name: "Veste en Jean", sku: "JY-JKT-0301", item_group: "Vestes", cost: 104.65, avg_sold: 299, margin: 194.35, margin_pct: 65, stock_qty: 120 },
 ];
+async function load() {
+  loading.value = true;
+  try {
+    rows.value = await api.call("accounting_portal.api.items.list_items", { company: currentCompany(), search: search.value || undefined, group: group.value || undefined, limit: 80 });
+    isLive.value = true;
+  } catch { rows.value = SAMPLE; isLive.value = false; }
+  finally { loading.value = false; }
+}
+async function loadGroups() {
+  try { groups.value = await api.call("accounting_portal.api.items.item_groups", {}); } catch { groups.value = []; }
+}
+function onSearch() { clearTimeout(t); t = setTimeout(load, 350); }
+onMounted(() => { load(); loadGroups(); });
+watch(entityId, load);
+
+function open(code) { router.push({ path: "/accounting/items/items", query: { id: code } }); }
+function marginBadge(p) {
+  if (p >= 40) return "background:#ecfdf5;color:#047857";
+  if (p >= 20) return "background:#fffbeb;color:#b45309";
+  if (p > 0) return "background:#fff7ed;color:#c2410c";
+  return "background:#fef2f2;color:#b91c1c";
+}
 </script>

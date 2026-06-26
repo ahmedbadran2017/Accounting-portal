@@ -15,7 +15,7 @@ from accounting_portal.api.permissions import assert_can_write, assert_portal_ac
 _DOCS = {
     "Sales Invoice", "Purchase Invoice", "Sales Order", "Purchase Order",
     "Purchase Receipt", "Delivery Note", "Payment Entry", "Journal Entry",
-    "Customer", "Supplier",
+    "Customer", "Supplier", "Item", "Landed Cost Voucher",
 }
 
 
