@@ -50,6 +50,7 @@ def _ensure_posters():
     import accounting_portal.api.cod          # noqa: F401 — Collect COD poster
     import accounting_portal.api.purchases    # noqa: F401 — Receipt/Invoice/Pay posters
     import accounting_portal.api.bulk         # noqa: F401 — Bulk Submit/Cancel posters
+    import accounting_portal.api.docops       # noqa: F401 — Amend Document poster
     import accounting_portal.api.reconciliation  # noqa: F401 — Clear Bank Entry poster
 
 

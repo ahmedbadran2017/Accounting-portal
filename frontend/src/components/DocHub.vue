@@ -1,5 +1,7 @@
 <template>
   <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+    <!-- Document actions: submit / cancel / amend / assign -->
+    <DocActions :doctype="doctype" :name="name" @changed="onChanged" @open="goto" />
     <!-- Toolbar: tags + print + edit -->
     <div class="flex items-center gap-2 px-3 py-2.5 border-b border-line-hair flex-wrap">
       <Icon name="filter" :size="13" color="#a8a29e" />
@@ -116,15 +118,24 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import DocActions from "@/components/DocActions.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
 
 const props = defineProps({ doctype: { type: String, required: true }, name: { type: String, required: true } });
+const emit = defineEmits(["changed"]);
+const route = useRoute();
+const router = useRouter();
 const { locale } = useI18n();
 const toast = useToast();
+// Refresh the activity timeline + tell the parent detail page to reload its data.
+function onChanged() { loadActivity(); emit("changed"); }
+// Navigate to a related document (e.g. the new draft created by Amend).
+function goto(name) { router.replace({ path: route.path, query: { ...route.query, id: name } }); }
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
 const EV = {
