@@ -40,6 +40,8 @@
       </div>
     </div>
 
+    <InventoryCorrectionModal :open="showFix" @close="showFix = false" @done="loadHealth" />
+
     <ItemDetail v-if="activeSub === 'items' && route.query.id" />
     <ItemsList v-else-if="activeSub === 'items'" />
     <PriceListDetail v-else-if="activeSub === 'pricelists' && route.query.id" />
@@ -63,6 +65,7 @@ import ItemsList from "@/pages/items/ItemsList.vue";
 import ItemDetail from "@/pages/items/ItemDetail.vue";
 import PriceListsList from "@/pages/items/PriceListsList.vue";
 import PriceListDetail from "@/pages/items/PriceListDetail.vue";
+import InventoryCorrectionModal from "@/components/InventoryCorrectionModal.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
@@ -90,7 +93,8 @@ async function loadHealth() {
   const r = await liveOrSample("accounting_portal.api.reports.inventory_health", { company: currentCompany() }, () => SAMPLE_HEALTH);
   healthLive.value = r.live; health.value = r.data;
 }
-function proposeFix() { router.push("/accounting/accountant/journals"); }
+const showFix = ref(false);
+function proposeFix() { showFix.value = true; }
 onMounted(loadHealth);
 watch(entityId, loadHealth);
 </script>

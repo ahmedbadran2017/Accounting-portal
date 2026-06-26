@@ -64,6 +64,60 @@ _actions.register_poster(JE_ACTION, _je_poster)
 
 
 @frappe.whitelist()
+def propose_inventory_correction(company=None):
+    """Diagnose the perpetual-stock-not-relieving-to-COGS break and propose a
+    reclassification journal (NOT posted) the accountant reviews, edits and
+    submits — it then runs through the gated propose→approve→post flow.
+
+    Default proposal nets the Stock-Adjustment churn against the over-stated
+    Stock asset; the alternative routes it to COGS for delivered goods.
+    """
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return {}
+    target = company if (company and company in companies) else companies[0]
+
+    def _top(where):
+        r = frappe.db.sql(
+            f"""SELECT a.name, ROUND(SUM(g.debit-g.credit)) bal FROM `tabGL Entry` g
+                JOIN `tabAccount` a ON a.name=g.account
+                WHERE g.company=%s AND g.is_cancelled=0 AND {where}
+                GROUP BY a.name ORDER BY ABS(SUM(g.debit-g.credit)) DESC LIMIT 1""",
+            (target,), as_dict=True)
+        return (r[0].name, flt(r[0].bal)) if r else (None, 0.0)
+
+    stock_acct, stock_bal = _top("a.account_type='Stock'")
+    adj_acct, adj_bal = _top("a.account_name LIKE '%%Stock Adjustment%%'")
+    cogs_acct, _ = _top("a.account_type='Cost of Goods Sold'")
+    if not (stock_acct and adj_acct):
+        return {"available": False}
+
+    # Net the misnamed adjustment against the over-stated stock: zero the
+    # adjustment and reduce stock by the same amount.
+    amount = round(min(abs(stock_bal), abs(adj_bal)), 2)
+    # Adjustment carries a credit balance (negative) → debit it to clear; stock
+    # is a debit balance (positive) → credit it to reduce.
+    lines = [
+        {"account": adj_acct, "debit": amount, "credit": 0,
+         "label": "Clear the Stock-Adjustment churn"},
+        {"account": stock_acct, "debit": 0, "credit": amount,
+         "label": "Reduce over-stated stock-in-hand"},
+    ]
+    return {
+        "available": True, "company": target,
+        "stock_account": stock_acct, "stock_balance": stock_bal,
+        "adjustment_account": adj_acct, "adjustment_balance": adj_bal,
+        "cogs_account": cogs_acct,
+        "suggested_amount": amount,
+        "lines": lines,
+        "remark": "Reclassify Stock-Adjustment churn against over-stated stock (inventory health fix)",
+        "stock_after": round(stock_bal - amount, 2),
+        "note_alt": cogs_acct,  # alternative credit target for delivered goods
+    }
+
+
+@frappe.whitelist()
 def create_journal_entry(company=None, posting_date=None, lines=None, remark=None, dedupe_key=None):
     """Post a balanced Journal Entry through the write gateway.
 
