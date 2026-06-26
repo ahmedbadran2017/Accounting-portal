@@ -71,7 +71,6 @@ const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const KINDS = [
   { key: "bills", label: () => L("Supplier bills", "فواتير الموردين", "Factures fourn.") },
   { key: "payments", label: () => L("Payments out", "مدفوعات", "Paiements") },
-  { key: "receipts", label: () => L("Receipts", "مقبوضات", "Encaissements") },
   { key: "journals", label: () => L("Journals", "قيود", "Écritures") },
 ];
 const kind = ref("bills");

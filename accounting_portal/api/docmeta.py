@@ -97,12 +97,13 @@ def list_attachments(doctype=None, name=None):
            ORDER BY creation DESC""", (doctype, name), as_dict=True)
 
 
-# Document kinds the team chases for missing source documents. Sales Invoices are
-# excluded — they're auto-generated from Shopify (no receipt to attach).
+# Document kinds the team chases for a missing source document — only the ones a
+# human actually attaches a file to. Sales Invoices AND COD receipts are excluded:
+# both are bulk auto-generated (Shopify invoices, ~48k carrier-collection receipts)
+# with no paper to chase.
 _MISSING = {
     "bills": ("Purchase Invoice", "supplier", "grand_total", "docstatus=1"),
     "payments": ("Payment Entry", "party", "paid_amount", "docstatus=1 AND payment_type='Pay'"),
-    "receipts": ("Payment Entry", "party", "received_amount", "docstatus=1 AND payment_type='Receive'"),
     "journals": ("Journal Entry", "NULL", "total_debit", "docstatus=1 AND voucher_type IN ('Journal Entry','Bank Entry')"),
 }
 
