@@ -97,6 +97,55 @@ def list_attachments(doctype=None, name=None):
            ORDER BY creation DESC""", (doctype, name), as_dict=True)
 
 
+# Document kinds the team chases for missing source documents. Sales Invoices are
+# excluded — they're auto-generated from Shopify (no receipt to attach).
+_MISSING = {
+    "bills": ("Purchase Invoice", "supplier", "grand_total", "docstatus=1"),
+    "payments": ("Payment Entry", "party", "paid_amount", "docstatus=1 AND payment_type='Pay'"),
+    "receipts": ("Payment Entry", "party", "received_amount", "docstatus=1 AND payment_type='Receive'"),
+    "journals": ("Journal Entry", "NULL", "total_debit", "docstatus=1 AND voucher_type IN ('Journal Entry','Bank Entry')"),
+}
+
+
+@frappe.whitelist()
+def missing_documents(company=None, kind="bills", search=None, limit=200):
+    """Documents with NO file attached — the team's 'upload the source doc' queue.
+    kind: bills | payments | receipts | journals. Returns rows + per-kind counts."""
+    assert_portal_access()
+    if kind not in _MISSING:
+        frappe.throw("Unknown kind")
+    companies = resolve_companies(company)
+    if not companies:
+        return {"rows": [], "counts": {}}
+    target = company if (company and company in companies) else companies[0]
+
+    def _count(k):
+        dt, _pf, _af, cond = _MISSING[k]
+        return frappe.db.sql(
+            f"""SELECT COUNT(*) FROM `tab{dt}` d WHERE d.company=%s AND {cond}
+                AND NOT EXISTS (SELECT 1 FROM `tabFile` f
+                    WHERE f.attached_to_doctype=%s AND f.attached_to_name=d.name)""",
+            (target, dt))[0][0]
+
+    dt, pf, af, cond = _MISSING[kind]
+    party_sel = f"d.{pf} AS party" if pf != "NULL" else "'' AS party"
+    conds = [f"d.company=%(c)s", cond,
+             "NOT EXISTS (SELECT 1 FROM `tabFile` f WHERE f.attached_to_doctype=%(dt)s AND f.attached_to_name=d.name)"]
+    params = {"c": target, "dt": dt, "limit": min(int(limit or 200), 500)}
+    if search:
+        like = f"%{search}%"
+        conds.append(f"(d.name LIKE %(s)s OR {('d.'+pf+' LIKE %(s)s') if pf!='NULL' else '0'})")
+        params["s"] = like
+    rows = frappe.db.sql(
+        f"""SELECT d.name, {party_sel}, d.posting_date AS date, ROUND(d.{af}) AS amount
+            FROM `tab{dt}` d WHERE {' AND '.join(conds)}
+            ORDER BY d.posting_date DESC LIMIT %(limit)s""", params, as_dict=True)
+    counts = {k: _count(k) for k in _MISSING}
+    routes = {"bills": "purchases/bills", "payments": "purchases/payments",
+              "receipts": "sales/payments", "journals": "accountant/journals"}
+    return {"kind": kind, "doctype": dt, "rows": rows, "counts": counts, "route": routes.get(kind)}
+
+
 @frappe.whitelist()
 def add_attachment(doctype=None, name=None, filename=None, content=None):
     """Upload a file against the document. `content` is base64 (optionally a data

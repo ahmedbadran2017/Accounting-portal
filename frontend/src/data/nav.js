@@ -31,7 +31,7 @@ export const SUBTABS = {
     ["journals", "sub.journals"], ["triage", "sub.triage"], ["coa", "sub.coa"], ["gl", "sub.gl"], ["trial", "sub.trial"],
     ["assets", "sub.assets"], ["fx", "sub.fx"], ["opening", "sub.opening"], ["close", "sub.close"],
   ],
-  reports: [["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["statements", "sub.statements"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"], ["dataroom", "sub.dataroom"]],
+  reports: [["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["missingdocs", "sub.missingdocs"], ["statements", "sub.statements"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"], ["dataroom", "sub.dataroom"]],
   settings: [
     ["orgs", "sub.orgs"], ["users", "sub.users"], ["activity", "sub.activity"], ["taxconf", "sub.taxconf"], ["currencies", "sub.currencies"],
     ["locations", "sub.locations"], ["tags", "sub.tags"], ["custom", "sub.custom"], ["integrations", "sub.integrations"], ["anomrules", "sub.anomrules"],
