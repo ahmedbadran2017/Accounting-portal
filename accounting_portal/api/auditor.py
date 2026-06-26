@@ -10,10 +10,14 @@ This is the rule layer. Narration/conversational answers via the Claude API sit
 on top of these findings (server-side key, added when wired); the findings
 themselves are fully real and update every time the controls run.
 """
-import frappe
-from frappe.utils import flt, nowdate
+import json
 
-from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+import frappe
+from frappe.utils import add_days, flt, nowdate
+
+from accounting_portal.api.permissions import (
+    assert_can_write, assert_portal_access, resolve_companies,
+)
 
 SEV_WEIGHT = {"high": 3, "medium": 2, "low": 1}
 
@@ -59,6 +63,10 @@ def run_controls(company=None):
     target = _target(company)
     if not target:
         return {"findings": [], "summary": {}}
+    ck = f"ap_auditor:{target}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
     by_type, named = _metrics(target)
     f = []
 
@@ -131,6 +139,93 @@ def run_controls(company=None):
             "drill": {"module": "reports", "sub": "statements", "label": "AP aging"},
         })
 
+    bank = by_type.get("Bank", 0)
+    if bank < -100_000:
+        f.append({
+            "id": "negative_bank", "severity": "medium", "metric": "Bank balance",
+            "title": "Bank account is overdrawn on the books",
+            "detail": f"Bank accounts net to {bank:,.0f} MAD. A negative book balance usually means uncleared/unreconciled entries or a missed deposit.",
+            "amount": bank, "account": "Bank",
+            "recommendation": "Run bank reconciliation; clear uncleared entries and find the missing deposits.",
+            "drill": {"module": "banking", "sub": "bankrec", "label": "Bank reconciliation"},
+        })
+
+    # Revenue recognition gap — delivered but not invoiced.
+    dn = frappe.db.sql(
+        """SELECT COUNT(*) n, ROUND(SUM(grand_total)) v FROM `tabDelivery Note`
+           WHERE company=%s AND docstatus=1 AND IFNULL(per_billed,0) < 100 AND grand_total > 0""",
+        (target,), as_dict=True)[0]
+    if (dn.n or 0) > 0 and abs(flt(dn.v)) > 100_000:
+        f.append({
+            "id": "rev_recognition", "severity": "high", "metric": "Unbilled deliveries",
+            "title": "Delivered orders not yet invoiced",
+            "detail": f"{dn.n:,} delivered Delivery Notes worth {flt(dn.v):,.0f} MAD have no Sales Invoice — revenue is delivered but unrecognised, understating income and receivables.",
+            "amount": flt(dn.v), "account": "Revenue",
+            "recommendation": "Bill the delivered notes from Reports → Missing docs / Sales → To-bill.",
+            "drill": {"module": "sales", "sub": "tobill", "label": "To-bill queue"},
+        })
+
+    # Document compliance — submitted bills with no source file attached.
+    miss = flt(frappe.db.sql(
+        """SELECT COUNT(*) FROM `tabPurchase Invoice` pi
+           WHERE pi.company=%s AND pi.docstatus=1
+             AND NOT EXISTS (SELECT 1 FROM `tabFile` fl
+                 WHERE fl.attached_to_doctype='Purchase Invoice' AND fl.attached_to_name=pi.name)""",
+        (target,))[0][0])
+    if miss > 50:
+        f.append({
+            "id": "missing_docs", "severity": "medium", "metric": "Missing documents",
+            "title": "Supplier bills without a source document",
+            "detail": f"{int(miss):,} submitted bills have no invoice/receipt file attached — an audit-trail and VAT-deduction risk.",
+            "amount": miss, "account": None,
+            "recommendation": "Upload the missing source files from Reports → Missing docs; assign by supplier.",
+            "drill": {"module": "reports", "sub": "missingdocs", "label": "Missing docs"},
+        })
+
+    # Aged payables 90+.
+    ap90 = flt(frappe.db.sql(
+        """SELECT ROUND(SUM(outstanding_amount)) FROM `tabPurchase Invoice`
+           WHERE company=%s AND docstatus=1 AND outstanding_amount > 0
+             AND DATEDIFF(CURDATE(), IFNULL(due_date, posting_date)) > 90""", (target,))[0][0])
+    if ap90 > 500_000:
+        f.append({
+            "id": "ap_aged_90", "severity": "medium", "metric": "Payables 90+",
+            "title": "Supplier payables aged over 90 days",
+            "detail": f"{ap90:,.0f} MAD of supplier bills are more than 90 days overdue — supplier-relationship and possible penalty risk.",
+            "amount": ap90, "account": "Creditors",
+            "recommendation": "Review the 90+ AP aging and schedule payments against the COD cash pipeline.",
+            "drill": {"module": "purchases", "sub": "topay", "label": "To pay" },
+        })
+
+    # Aged receivables 90+ (positive outstanding).
+    ar90 = flt(frappe.db.sql(
+        """SELECT ROUND(SUM(outstanding_amount)) FROM `tabSales Invoice`
+           WHERE company=%s AND docstatus=1 AND outstanding_amount > 0
+             AND DATEDIFF(CURDATE(), IFNULL(due_date, posting_date)) > 90""", (target,))[0][0])
+    if ar90 > 500_000:
+        f.append({
+            "id": "ar_aged_90", "severity": "medium", "metric": "Receivables 90+",
+            "title": "Customer receivables aged over 90 days",
+            "detail": f"{ar90:,.0f} MAD of customer invoices are more than 90 days outstanding — collection risk; provision may be required.",
+            "amount": ar90, "account": "Debtors",
+            "recommendation": "Chase or provide for the aged 90+ receivables; reconcile against COD collections.",
+            "drill": {"module": "reports", "sub": "arap", "label": "AR/AP" },
+        })
+
+    # Draft pile-up — unsubmitted documents sitting in the books.
+    drafts = 0
+    for dt in ("Journal Entry", "Purchase Invoice", "Sales Invoice", "Payment Entry"):
+        drafts += frappe.db.count(dt, {"company": target, "docstatus": 0})
+    if drafts > 20:
+        f.append({
+            "id": "draft_pileup", "severity": "low", "metric": "Draft documents",
+            "title": "Unsubmitted draft documents are piling up",
+            "detail": f"{drafts:,} documents are still in Draft (not posted to the ledger). They don't hit the books until submitted and can hide real activity.",
+            "amount": drafts, "account": None,
+            "recommendation": "Review and submit or cancel the drafts (bulk Submit on each list).",
+            "drill": {"module": "accountant", "sub": "journals", "label": "Journals"},
+        })
+
     f.sort(key=lambda x: SEV_WEIGHT.get(x["severity"], 0), reverse=True)
     summary = {
         "high": sum(1 for x in f if x["severity"] == "high"),
@@ -139,7 +234,12 @@ def run_controls(company=None):
         "count": len(f),
         "exposure": sum(abs(x["amount"]) for x in f if x["severity"] == "high"),
     }
-    return {"company": target, "generated_on": nowdate(), "findings": f, "summary": summary}
+    result = {"company": target, "generated_on": nowdate(), "findings": f, "summary": summary}
+    try:
+        frappe.cache().set_value(ck, result, expires_in_sec=120)
+    except Exception:
+        pass
+    return result
 
 
 # ── Conversational auditor — grounded on the live findings ──
@@ -170,13 +270,16 @@ def _claude_answer(question, ctx):
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={
-                "model": model, "max_tokens": 500,
+                "model": model, "max_tokens": 700,
                 "system": (
-                    "You are the Justyol accounting auditor speaking to the finance team. "
-                    "Answer ONLY from the FINDINGS provided — they are real, live figures from the books. "
-                    "Be concise (2-5 sentences). Cite the exact amounts and account names. Always end with the "
-                    "concrete next action. If the question isn't covered by the findings, say what you can see "
-                    "and where in the portal to look. Never invent numbers or accounts."),
+                    "You are the Justyol Group's Accounting Manager and CFO, speaking to your accounting team. "
+                    "You think like a CFO: triage by financial risk and cash impact, protect the audit trail, and "
+                    "decide what gets fixed first and by whom. "
+                    "Reason ONLY from the FINDINGS and TEAM/TASKS context provided — they are real, live figures from "
+                    "the books. Cite exact amounts and account names. When asked what to do, give a prioritized plan: "
+                    "for each issue say the action, who should own it (accountant), and a sensible deadline. Keep it "
+                    "crisp and managerial (bullet points are good). If something isn't in the findings, say what you "
+                    "can see and where in the portal to look. Never invent numbers or accounts."),
                 "messages": [{"role": "user", "content": f"FINDINGS:\n{ctx}\n\nQUESTION: {question}"}],
             },
             timeout=20)
@@ -224,9 +327,134 @@ def ask_auditor(question=None, company=None):
     target = _target(company)
     data = run_controls(target)
     ctx = _context_text(data)
+    try:
+        board = remediation_board(target)
+        bs = board.get("summary") or {}
+        if board.get("tasks"):
+            ctx += f"\n\nTEAM/TASKS: {bs.get('open', 0)} open, {bs.get('done', 0)} done. Assigned:\n"
+            for t in board["tasks"][:12]:
+                ctx += f"- {t['title']} → {t.get('assigned_to') or 'unassigned'} ({t.get('priority')}, due {t.get('due')}, {t.get('status')})\n"
+    except Exception:
+        pass
     ai = _claude_answer(question, ctx)
     return {
         "answer": ai or _rule_answer(question, data),
         "source": "ai" if ai else "rules",
         "findings_count": len((data.get("findings") or [])),
     }
+
+
+# ── CFO task board — turn findings into assigned tasks for the accountants ──
+SEV_PRIORITY = {"high": "High", "medium": "Medium", "low": "Low"}
+SEV_DUE_DAYS = {"high": 3, "medium": 7, "low": 14}
+
+
+def _marker(company, fid):
+    return f"⟦AUDIT:{company}:{fid}⟧"
+
+
+def _existing_task(company, fid):
+    return frappe.db.get_value(
+        "ToDo", {"description": ["like", f"%{_marker(company, fid)}%"], "status": "Open"}, "name")
+
+
+def _finding(data, fid):
+    return next((x for x in (data.get("findings") or []) if x["id"] == fid), None)
+
+
+@frappe.whitelist()
+def assign_finding(company=None, finding_id=None, to_user=None, priority=None, due_date=None):
+    """Turn a control finding into a task (ToDo) assigned to an accountant.
+    Idempotent per finding — re-assigning updates the same task."""
+    assert_can_write()
+    target = _target(company)
+    fnd = _finding(run_controls(target), finding_id)
+    if not fnd:
+        frappe.throw("Finding not found")
+    if not to_user:
+        frappe.throw("Pick an accountant to own this")
+    pr = priority or SEV_PRIORITY.get(fnd["severity"], "Medium")
+    dd = due_date or add_days(nowdate(), SEV_DUE_DAYS.get(fnd["severity"], 7))
+    desc = (f"<b>{fnd['title']}</b><br>{fnd['detail']}<br><br>"
+            f"<b>Fix:</b> {fnd.get('recommendation')}<br>"
+            f"<b>Amount:</b> {flt(fnd.get('amount')):,.0f} &middot; <b>Account:</b> {fnd.get('account') or '—'}<br>"
+            f"<span style='color:#aaa'>{_marker(target, finding_id)}</span>")
+    existing = _existing_task(target, finding_id)
+    if existing:
+        todo = frappe.get_doc("ToDo", existing)
+        todo.allocated_to = to_user
+        todo.priority = pr
+        todo.date = dd
+    else:
+        todo = frappe.get_doc({
+            "doctype": "ToDo", "allocated_to": to_user, "description": desc,
+            "priority": pr, "date": dd, "status": "Open", "assigned_by": frappe.session.user})
+    todo.flags.ignore_permissions = True
+    todo.save(ignore_permissions=True) if existing else todo.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return {"task": todo.name, "finding_id": finding_id, "assigned_to": to_user,
+            "priority": pr, "due": str(dd)}
+
+
+@frappe.whitelist()
+def auto_plan(company=None, assignees=None):
+    """CFO auto-plan: create a task for every finding that doesn't have one yet,
+    round-robin across the given accountants (or all enabled users), prioritized by
+    severity with a severity-based deadline. Returns the plan it created."""
+    assert_can_write()
+    target = _target(company)
+    findings = run_controls(target).get("findings") or []
+    if isinstance(assignees, str):
+        assignees = json.loads(assignees or "[]")
+    if not assignees:
+        assignees = [u.name for u in frappe.get_all(
+            "User", filters={"enabled": 1, "user_type": "System User"}, fields=["name"], limit=20)]
+    if not assignees:
+        frappe.throw("No accountants available to assign to")
+    created, i = [], 0
+    for fnd in findings:
+        if _existing_task(target, fnd["id"]):
+            continue
+        res = assign_finding(target, fnd["id"], assignees[i % len(assignees)])
+        created.append({**res, "title": fnd["title"], "severity": fnd["severity"]})
+        i += 1
+    return {"created": len(created), "skipped": len(findings) - len(created), "tasks": created}
+
+
+@frappe.whitelist()
+def remediation_board(company=None):
+    """All open audit tasks (findings turned into ToDos) with owner / priority / due."""
+    assert_portal_access()
+    target = _target(company)
+    marker = f"⟦AUDIT:{target}:"
+    rows = frappe.get_all(
+        "ToDo", filters={"description": ["like", f"%{marker}%"]},
+        fields=["name", "allocated_to", "priority", "date", "status", "description"],
+        order_by="date asc", limit=200)
+    out = []
+    for r in rows:
+        d = r.get("description") or ""
+        m = d.find(marker)
+        fid = d[m + len(marker):].split("⟧")[0] if m >= 0 else ""
+        a, b = d.find("<b>"), d.find("</b>")
+        title = d[a + 3:b] if (a >= 0 and b > a) else "Audit task"
+        out.append({"task": r["name"], "finding_id": fid, "title": title,
+                    "assigned_to": r.get("allocated_to"), "priority": r.get("priority"),
+                    "due": str(r.get("date") or ""), "status": r.get("status")})
+    order = {"High": 0, "Medium": 1, "Low": 2}
+    out.sort(key=lambda t: (order.get(t["priority"], 1), t["due"] or "9999"))
+    open_n = sum(1 for t in out if t["status"] == "Open")
+    return {"company": target, "tasks": out,
+            "summary": {"open": open_n, "done": len(out) - open_n, "total": len(out)}}
+
+
+@frappe.whitelist()
+def close_task(task=None):
+    """Mark an audit task done."""
+    assert_can_write()
+    todo = frappe.get_doc("ToDo", task)
+    todo.status = "Closed"
+    todo.flags.ignore_permissions = True
+    todo.save(ignore_permissions=True)
+    frappe.db.commit()
+    return {"task": task, "status": "Closed"}

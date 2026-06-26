@@ -9,7 +9,7 @@ couple of minutes stale. Call bust_report_caches() after a write for freshness.
 """
 import frappe
 
-_PREFIXES = ("ap_coa:", "ap_tb:", "ap_gl:", "ap_items:", "ap_fs:", "ap_vdd:", "ap_fxr:")
+_PREFIXES = ("ap_coa:", "ap_tb:", "ap_gl:", "ap_items:", "ap_fs:", "ap_vdd:", "ap_fxr:", "ap_auditor:")
 
 
 def cached(key, ttl, builder):
