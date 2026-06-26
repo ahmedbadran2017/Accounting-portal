@@ -1,115 +1,192 @@
 <template>
-  <div class="space-y-3.5">
-    <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
-            :class="live ? 'text-success-dark bg-success-soft' : 'text-amber-700 bg-amber-50'">
-        <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échantillon") }}
-      </span>
-      <span class="text-[11px] text-ink-muted">{{ L("Fiscal year to date","السنة المالية حتى اليوم","Exercice à ce jour") }}</span>
+  <div class="space-y-3.5 print-statement">
+    <!-- Controls -->
+    <div class="flex items-center gap-2 flex-wrap no-print">
+      <div class="inline-flex bg-white border border-line rounded-chip p-1 shadow-card">
+        <button v-for="s in TABS" :key="s.key" @click="tab = s.key" class="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition" :class="tab === s.key ? 'bg-app-warm text-accent-dark shadow-card' : 'text-ink-3 hover:text-ink'">{{ s.label() }}</button>
+      </div>
+      <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <div class="ms-auto flex items-center gap-1.5">
+        <button v-for="p in PRESETS" :key="p.key" @click="setPreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="preset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>
+        <button @click="compare = compare ? 0 : 1, load()" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="compare ? 'bg-accent/10 text-accent-dark border-accent/30' : 'bg-white text-ink-3 border-line-2'">{{ L("Compare","مقارنة","Comparer") }}</button>
+        <button @click="printIt" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />{{ L("Print","طباعة","Imprimer") }}</button>
+      </div>
     </div>
+    <div class="text-[11px] text-ink-muted no-print tnum">{{ d.from_date }} → {{ d.to_date }}<span v-if="compare && d.prior_from"> · {{ L("vs","مقابل","vs") }} {{ d.prior_from }} → {{ d.prior_to }}</span></div>
 
-    <div class="grid lg:grid-cols-[1.4fr_1fr] gap-3.5">
-      <!-- Profit & loss -->
-      <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
-        <div class="px-4 py-3 border-b border-line flex items-center gap-2">
-          <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#ecfdf5"><Icon name="trend" :size="14" color="#047857" /></span>
-          <span class="text-[13px] font-bold">{{ L("Profit & loss","الأرباح والخسائر","Résultat") }}</span>
-        </div>
-        <table class="w-full text-[12px]">
+    <div v-if="loading" class="bg-white rounded-card border border-line shadow-card py-16 text-center text-ink-muted text-[12px]">{{ L("Loading…","تحميل…","…") }}</div>
+
+    <!-- ── Profit & Loss ── -->
+    <div v-else-if="tab === 'pnl'" class="space-y-3">
+      <div v-if="d.pnl.anomaly" class="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2.5">
+        <Icon name="alert" :size="15" color="#b45309" /><span class="text-[11.5px] text-ink-2">{{ L("Net is distorted by","الصافي متأثر بـ","Faussé par") }} “{{ d.pnl.anomaly.name }}” ({{ money(d.pnl.anomaly.amount) }}) — {{ L("the broken stock/COGS posting. Read net with care.","قيد المخزون/التكلفة المعطّل. اقرأ الصافي بحذر.","écriture stock/CMV cassée.") }}</span>
+      </div>
+      <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+        <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("Profit & loss","الأرباح والخسائر","Compte de résultat") }}</span><span class="text-[10px] text-ink-muted">{{ d.currency }}</span></div>
+        <table class="w-full text-[12.5px]">
+          <thead v-if="compare"><tr style="background:#fafaf9"><th></th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Current","الحالية","Actuel") }}</th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Prior","السابقة","Précéd.") }}</th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">Δ</th></tr></thead>
           <tbody>
-            <tr class="border-b border-line-hair"><td class="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted" colspan="2">{{ L("Income","الإيرادات","Produits") }}</td></tr>
-            <tr v-for="(r,i) in pnl.income" :key="'i'+i" class="border-b border-line-hair"><td class="px-4 py-1.5 text-ink-2">{{ r.name }}</td><td class="px-4 py-1.5 text-end tnum font-medium text-success-dark">{{ money0(r.amount) }}</td></tr>
-            <tr class="border-b border-line-2 bg-app-warm/40"><td class="px-4 py-1.5 font-semibold">{{ L("Total income","إجمالي الإيرادات","Total produits") }}</td><td class="px-4 py-1.5 text-end tnum font-bold text-success-dark">{{ money0(pnl.income_total) }}</td></tr>
-            <tr class="border-b border-line-hair"><td class="px-4 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted" colspan="2">{{ L("Expense","المصروفات","Charges") }}</td></tr>
-            <tr v-for="(r,i) in pnl.expense" :key="'e'+i" class="border-b border-line-hair" :class="pnl.anomaly && r.account===pnl.anomaly.account ? 'bg-amber-50' : ''">
-              <td class="px-4 py-1.5 text-ink-2">{{ r.name }}<span v-if="pnl.anomaly && r.account===pnl.anomaly.account" class="ms-1.5 text-[9.5px] font-bold text-amber-700">⚠ {{ L("anomaly","شذوذ","anomalie") }}</span></td>
-              <td class="px-4 py-1.5 text-end tnum font-medium text-sale">{{ money0(r.amount) }}</td>
+            <template v-for="sec in pnlSections" :key="sec.key">
+              <tr class="border-t border-line-hair" style="background:#fcfcfb"><td class="px-5 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3" :colspan="compare ? 4 : 2">{{ sec.title }}</td></tr>
+              <tr v-for="(a, i) in sec.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/40">
+                <td class="px-5 py-1.5 ps-8 text-ink-2 truncate max-w-[280px]">{{ a.name }}</td>
+                <td class="px-5 py-1.5 text-end tnum">{{ fmt(a.amount) }}</td>
+                <template v-if="compare"><td class="px-5 py-1.5 text-end tnum text-ink-muted">{{ fmt(a.prior) }}</td><td class="px-5 py-1.5 text-end tnum" :class="delta(a.amount, a.prior).c">{{ delta(a.amount, a.prior).t }}</td></template>
+              </tr>
+              <tr v-if="sec.subtotal != null" class="border-t border-line-2 font-bold" style="background:#fafaf9">
+                <td class="px-5 py-2">{{ sec.subtotalLabel }}</td><td class="px-5 py-2 text-end tnum" :class="sec.subtotal < 0 ? 'text-sale' : ''">{{ fmt(sec.subtotal) }}</td>
+                <template v-if="compare"><td class="px-5 py-2 text-end tnum text-ink-muted">{{ fmt(sec.subtotalPrior) }}</td><td class="px-5 py-2 text-end tnum" :class="delta(sec.subtotal, sec.subtotalPrior).c">{{ delta(sec.subtotal, sec.subtotalPrior).t }}</td></template>
+              </tr>
+            </template>
+            <tr class="border-t-2 border-ink font-extrabold" style="background:#faf6f4">
+              <td class="px-5 py-2.5 text-[13px]">{{ L("Net profit","صافي الربح","Résultat net") }}</td>
+              <td class="px-5 py-2.5 text-end tnum text-[14px]" :class="d.pnl.net < 0 ? 'text-sale' : 'text-success-dark'">{{ fmt(d.pnl.net) }}</td>
+              <template v-if="compare"><td class="px-5 py-2.5 text-end tnum text-ink-muted">{{ fmt(d.pnl.net_prior) }}</td><td class="px-5 py-2.5 text-end tnum" :class="delta(d.pnl.net, d.pnl.net_prior).c">{{ delta(d.pnl.net, d.pnl.net_prior).t }}</td></template>
             </tr>
-            <tr class="border-b border-line-2 bg-app-warm/40"><td class="px-4 py-1.5 font-semibold">{{ L("Total expense","إجمالي المصروفات","Total charges") }}</td><td class="px-4 py-1.5 text-end tnum font-bold text-sale">{{ money0(pnl.expense_total) }}</td></tr>
-            <tr><td class="px-4 py-2.5 font-bold">{{ L("Net result","صافي النتيجة","Résultat net") }}</td><td class="px-4 py-2.5 text-end tnum font-extrabold" :class="pnl.net>=0 ? 'text-success-dark' : 'text-sale'">{{ money0(pnl.net) }}</td></tr>
           </tbody>
         </table>
-        <div v-if="pnl.anomaly" class="px-4 py-2.5 border-t border-line bg-amber-50/60 text-[11px] text-amber-800 flex items-start gap-1.5">
-          <Icon name="alert" :size="13" color="#b45309" class="mt-px flex-shrink-0" />
-          <span>{{ L("“"+pnl.anomaly.name+"” of "+money0(pnl.anomaly.amount)+" dominates expense — perpetual inventory isn't relieving to COGS. The auditor flags this for a correcting entry.","«"+pnl.anomaly.name+"» بمقدار "+money0(pnl.anomaly.amount)+" يهيمن على المصروفات — الجرد المستمر لا يُرحّل لتكلفة المبيعات. المدقّق يرصده لقيد تصحيحي.","« "+pnl.anomaly.name+" » domine les charges — l'inventaire perpétuel ne se solde pas en CMV.") }}</span>
-        </div>
-      </div>
-
-      <!-- Balance sheet -->
-      <div class="bg-white rounded-card border border-line overflow-hidden shadow-card h-fit">
-        <div class="px-4 py-3 border-b border-line flex items-center gap-2">
-          <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="ledger" :size="14" color="#0369a1" /></span>
-          <span class="text-[13px] font-bold">{{ L("Balance sheet","الميزانية","Bilan") }}</span>
-        </div>
-        <table class="w-full text-[12px]">
-          <tbody>
-            <tr class="border-b border-line-hair"><td class="px-4 py-2 text-ink-2">{{ L("Assets","الأصول","Actif") }}</td><td class="px-4 py-2 text-end tnum font-semibold">{{ money0(bs.assets) }}</td></tr>
-            <tr class="border-b border-line-hair"><td class="px-4 py-2 text-ink-2">{{ L("Liabilities","الخصوم","Passif") }}</td><td class="px-4 py-2 text-end tnum font-semibold">{{ money0(bs.liabilities) }}</td></tr>
-            <tr class="border-b border-line-hair"><td class="px-4 py-2 text-ink-2">{{ L("Equity","حقوق الملكية","Capitaux") }}</td><td class="px-4 py-2 text-end tnum font-semibold">{{ money0(bs.equity) }}</td></tr>
-            <tr><td class="px-4 py-2 font-bold">{{ L("Check (A−L−E)","التحقّق","Contrôle") }}</td><td class="px-4 py-2 text-end tnum font-bold" :class="Math.abs(bs.check)<1 ? 'text-success-dark' : 'text-sale'">{{ money0(bs.check) }}</td></tr>
-          </tbody>
-        </table>
+        <div class="px-5 py-2 border-t border-line-hair text-[11px] text-ink-muted">{{ L("Gross margin","هامش إجمالي","Marge brute") }} {{ d.pnl.gross_margin }}%</div>
       </div>
     </div>
 
-    <!-- Aging -->
-    <div class="grid sm:grid-cols-2 gap-3.5">
-      <AgingCard :title="L('Receivables aging','أعمار الذمم المدينة','Âge des créances')" icon="coins" tint="#ecfdf5" color="#047857" :data="ar" />
-      <AgingCard :title="L('Payables aging','أعمار الذمم الدائنة','Âge des dettes')" icon="doc" tint="#fef2f2" color="#b91c1c" :data="ap" />
+    <!-- ── Balance Sheet ── -->
+    <div v-else-if="tab === 'bs'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="bank" :size="15" color="#0369a1" /><span class="text-[13px] font-bold">{{ L("Balance sheet","الميزانية العمومية","Bilan") }}</span><span class="text-[10px] text-ink-muted">{{ L("as on","حتى","au") }} {{ d.balance_sheet.as_on }}</span>
+        <span class="ms-auto text-[9.5px] font-bold px-2 py-0.5 rounded-full" :style="Math.abs(d.balance_sheet.check) < 2 ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'">{{ Math.abs(d.balance_sheet.check) < 2 ? L("Balanced","متوازنة","Équilibré") : L("Off by","فرق","Écart") + " " + money(d.balance_sheet.check) }}</span>
+      </div>
+      <table class="w-full text-[12.5px]">
+        <tbody>
+          <BsBlock :title="L('Assets','الأصول','Actifs')" :sections="d.balance_sheet.assets" :total="d.balance_sheet.assets_total" :compare="compare" />
+          <BsBlock :title="L('Liabilities','الخصوم','Passifs')" :sections="d.balance_sheet.liabilities" :total="d.balance_sheet.liabilities_total" :compare="compare" />
+          <BsBlock :title="L('Equity','حقوق الملكية','Capitaux')" :sections="d.balance_sheet.equity" :total="d.balance_sheet.equity_total" :compare="compare" />
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Cash Flow ── -->
+    <div v-else class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="15" color="#7c3aed" /><span class="text-[13px] font-bold">{{ L("Cash flow statement","قائمة التدفّق النقدي","Flux de trésorerie") }}</span><span class="text-[10px] text-ink-muted">{{ L("direct method","الطريقة المباشرة","méthode directe") }}</span>
+        <span class="ms-auto text-[9.5px] font-bold px-2 py-0.5 rounded-full" :style="d.cash_flow.reconciles ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ d.cash_flow.reconciles ? L("Reconciles","متطابق","Rapproché") : L("Check","راجع","Vérifier") }}</span>
+      </div>
+      <table class="w-full text-[12.5px]">
+        <tbody>
+          <tr class="border-t border-line-hair"><td class="px-5 py-2 font-semibold">{{ L("Opening cash","نقد افتتاحي","Trésorerie d'ouverture") }}</td><td class="px-5 py-2 text-end tnum" :class="d.cash_flow.open_cash < 0 ? 'text-sale' : ''">{{ fmt(d.cash_flow.open_cash) }}</td></tr>
+          <tr class="border-t border-line-hair"><td class="px-5 py-2 ps-8 text-success-dark">{{ L("Cash received","مقبوضات","Encaissements") }}</td><td class="px-5 py-2 text-end tnum text-success-dark">+{{ fmt(d.cash_flow.cash_in) }}</td></tr>
+          <tr class="border-t border-line-hair"><td class="px-5 py-2 ps-8 text-sale">{{ L("Cash paid","مدفوعات","Décaissements") }}</td><td class="px-5 py-2 text-end tnum text-sale">−{{ fmt(d.cash_flow.cash_out) }}</td></tr>
+          <tr class="border-t border-line-2 font-bold" style="background:#fafaf9"><td class="px-5 py-2">{{ L("Net change","صافي التغيّر","Variation nette") }}</td><td class="px-5 py-2 text-end tnum" :class="d.cash_flow.net_change < 0 ? 'text-sale' : ''">{{ fmt(d.cash_flow.net_change) }}</td></tr>
+          <tr class="border-t-2 border-ink font-extrabold" style="background:#faf6f4"><td class="px-5 py-2.5 text-[13px]">{{ L("Closing cash","نقد ختامي","Trésorerie de clôture") }}</td><td class="px-5 py-2.5 text-end tnum text-[14px]" :class="d.cash_flow.close_cash < 0 ? 'text-sale' : 'text-success-dark'">{{ fmt(d.cash_flow.close_cash) }} <span class="text-[10px] text-ink-muted">{{ d.currency }}</span></td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, h } from "vue";
+import { ref, computed, onMounted, watch, h } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
-import { loadPnl, loadBalanceSheet, loadArAging, loadApAging, money0, agingBuckets } from "@/composables/useReports";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const fmt = (n) => Number(n || 0).toLocaleString("en-US");
+const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(1) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
 
-const live = ref(false);
-const pnl = ref({ income: [], expense: [], income_total: 0, expense_total: 0, net: 0, anomaly: null });
-const bs = ref({ assets: 0, liabilities: 0, equity: 0, check: 0 });
-const ar = ref({});
-const ap = ref({});
+const TABS = [
+  { key: "pnl", label: () => L("P&L", "أ.خ", "Résultat") },
+  { key: "bs", label: () => L("Balance sheet", "الميزانية", "Bilan") },
+  { key: "cf", label: () => L("Cash flow", "التدفّق النقدي", "Trésorerie") },
+];
+const tab = ref("pnl");
 
-async function load() {
-  const [p, b, a, q] = await Promise.all([loadPnl(), loadBalanceSheet(), loadArAging(), loadApAging()]);
-  live.value = p.live;
-  pnl.value = p.data; bs.value = b.data; ar.value = a.data; ap.value = q.data;
+const y = new Date().getFullYear();
+const pad = (n) => String(n).padStart(2, "0");
+const iso = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+const PRESETS = [
+  { key: "ytd", label: () => L("YTD", "السنة", "Cumul") },
+  { key: "quarter", label: () => L("Quarter", "الربع", "Trim.") },
+  { key: "month", label: () => L("Month", "الشهر", "Mois") },
+  { key: "lastyear", label: () => L("Last year", "السنة الماضية", "An passé") },
+];
+const preset = ref("ytd");
+function range() {
+  const now = new Date(), m = now.getMonth();
+  if (preset.value === "month") return { from: iso(new Date(y, m, 1)), to: iso(now) };
+  if (preset.value === "quarter") return { from: iso(new Date(y, Math.floor(m / 3) * 3, 1)), to: iso(now) };
+  if (preset.value === "lastyear") return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` };
+  return { from: `${y}-01-01`, to: iso(now) };
 }
+
+const d = ref({ pnl: { revenue: [], cogs: {}, opex: [], anomaly: null }, balance_sheet: { assets: [], liabilities: [], equity: [] }, cash_flow: {} });
+const live = ref(null);
+const loading = ref(true);
+const compare = ref(1);
+async function load() {
+  loading.value = true;
+  const r = range();
+  try { d.value = await api.call("accounting_portal.api.reports.financial_statements", { company: currentCompany(), from_date: r.from, to_date: r.to, compare: compare.value }); live.value = true; }
+  catch { live.value = false; }
+  finally { loading.value = false; }
+}
+function setPreset(k) { preset.value = k; load(); }
 onMounted(load);
 watch(entityId, load);
 
-const AgingCard = {
-  props: ["title", "icon", "tint", "color", "data"],
-  setup(props) {
-    return () => {
-      const buckets = agingBuckets(props.data || {}, L);
-      const max = Math.max(1, ...buckets.map((b) => Math.abs(b.v)));
-      const toneColor = { ok: "#16a34a", warn: "#d97706", bad: "#dc2626" };
-      return h("div", { class: "bg-white rounded-card border border-line overflow-hidden shadow-card" }, [
-        h("div", { class: "px-4 py-3 border-b border-line flex items-center gap-2" }, [
-          h("span", { class: "w-[26px] h-[26px] rounded-[8px] grid place-items-center", style: `background:${props.tint}` }, [h(Icon, { name: props.icon, size: 14, color: props.color })]),
-          h("span", { class: "text-[13px] font-bold flex-1" }, props.title),
-          h("span", { class: "text-[12px] font-bold tnum" }, money0((props.data || {}).total)),
-          h("span", { class: "text-[10px] text-ink-muted ms-1" }, `${(props.data || {}).n || 0} ${L("docs", "مستند", "docs")}`),
+const pnlSections = computed(() => {
+  const p = d.value.pnl || {};
+  const secs = [];
+  (p.revenue || []).forEach((s) => secs.push({ key: "rev", title: L("Revenue", "الإيرادات", "Produits"), accounts: s.accounts }));
+  secs.push({ key: "revtot", title: "", accounts: [], subtotal: p.revenue_total, subtotalPrior: p.revenue_prior, subtotalLabel: L("Total revenue", "إجمالي الإيراد", "Total produits") });
+  if (p.cogs && p.cogs.accounts) { secs.push({ key: "cogs", title: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), accounts: p.cogs.accounts }); secs.push({ key: "gp", title: "", accounts: [], subtotal: p.gross_profit, subtotalPrior: p.gross_prior, subtotalLabel: L("Gross profit", "الربح الإجمالي", "Marge brute") }); }
+  (p.opex || []).forEach((s) => secs.push({ key: "opex" + s.section, title: s.section, accounts: s.accounts }));
+  secs.push({ key: "opextot", title: "", accounts: [], subtotal: p.opex_total, subtotalPrior: p.opex_prior, subtotalLabel: L("Total operating expenses", "إجمالي المصروفات", "Total charges") });
+  return secs;
+});
+
+function delta(cur, prior) {
+  const dv = (Number(cur) || 0) - (Number(prior) || 0);
+  if (!prior) return { t: "—", c: "text-ink-muted" };
+  const pct = Math.round(dv / Math.abs(prior) * 100);
+  return { t: (dv >= 0 ? "+" : "") + pct + "%", c: dv >= 0 ? "text-success-dark" : "text-sale" };
+}
+function printIt() { window.print(); }
+
+const BsBlock = {
+  props: ["title", "sections", "total", "compare"],
+  setup(p) {
+    return () => [
+      h("tr", { style: "background:#fcfcfb", class: "border-t border-line-hair" }, [h("td", { class: "px-5 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3", colspan: p.compare ? 4 : 2 }, p.title)]),
+      ...(p.sections || []).flatMap((s) => [
+        h("tr", { class: "border-t border-line-hair", style: "background:#fff" }, [h("td", { class: "px-5 py-1 ps-7 font-semibold text-ink-2 text-[11.5px]", colspan: p.compare ? 4 : 2 }, s.section)]),
+        ...(s.accounts || []).map((a) => h("tr", { class: "border-t border-line-hair hover:bg-app-warm/40" }, [
+          h("td", { class: "px-5 py-1 ps-10 text-ink-3 truncate", style: "max-width:280px" }, a.name),
+          h("td", { class: "px-5 py-1 text-end tnum" }, fmt(a.amount)),
+          ...(p.compare ? [h("td", { class: "px-5 py-1 text-end tnum text-ink-muted" }, fmt(a.prior)), h("td", { class: "px-5 py-1 text-end tnum" })] : []),
+        ])),
+        h("tr", { class: "border-t border-line-hair font-semibold", style: "background:#fafaf9" }, [
+          h("td", { class: "px-5 py-1 ps-7 text-[11.5px]" }, s.section + " " + L("subtotal", "إجمالي", "s/total")),
+          h("td", { class: "px-5 py-1 text-end tnum" }, fmt(s.total)),
+          ...(p.compare ? [h("td", { class: "px-5 py-1 text-end tnum text-ink-muted" }, fmt(s.prior)), h("td")] : []),
         ]),
-        h("div", { class: "p-4 space-y-2" }, buckets.map((bk) =>
-          h("div", { class: "flex items-center gap-2.5" }, [
-            h("span", { class: "text-[11px] text-ink-3 w-14 flex-shrink-0" }, bk.k),
-            h("div", { class: "flex-1 h-[18px] rounded bg-app-warm overflow-hidden" }, [
-              h("div", { class: "h-full rounded", style: `width:${Math.max(2, Math.abs(bk.v) / max * 100)}%;background:${toneColor[bk.tone]}` }),
-            ]),
-            h("span", { class: "text-[11.5px] tnum font-semibold w-20 text-end flex-shrink-0" }, money0(bk.v)),
-          ])
-        )),
-      ]);
-    };
+      ]),
+      h("tr", { class: "border-t-2 border-line-2 font-extrabold", style: "background:#faf6f4" }, [
+        h("td", { class: "px-5 py-2" }, L("Total", "إجمالي", "Total") + " " + p.title),
+        h("td", { class: "px-5 py-2 text-end tnum" }, fmt(p.total)),
+        ...(p.compare ? [h("td"), h("td")] : []),
+      ]),
+    ];
   },
 };
 </script>
+
+<style>
+@media print {
+  body * { visibility: hidden !important; }
+  .print-statement, .print-statement * { visibility: visible !important; }
+  .print-statement { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+}
+</style>

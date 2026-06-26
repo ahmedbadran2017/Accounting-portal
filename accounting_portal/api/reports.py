@@ -568,3 +568,177 @@ def cash_forecast(company=None):
         "proj_7d": round(proj_7), "proj_30d": round(proj_30),
         "liquidity_7d_ok": (cash - cheques_7 - bills_due * 0.5) > 0,
     }
+
+
+# ── Full classified financial statements (P&L + Balance Sheet + Cash Flow) ──
+def _classify_asset(at):
+    if at in ("Bank", "Cash"): return "Cash & bank"
+    if at == "Receivable": return "Receivables"
+    if at in ("Stock", "Stock Adjustment"): return "Inventory"
+    if at in ("Fixed Asset", "Accumulated Depreciation"): return "Fixed assets"
+    return "Other assets"
+
+
+def _classify_liab(at):
+    if at == "Payable": return "Payables"
+    if at == "Tax": return "Tax & duties"
+    return "Other liabilities"
+
+
+def _bs_rows(company, as_on):
+    return frappe.db.sql(
+        """SELECT a.name, a.account_name, a.root_type, IFNULL(a.account_type,'') AS at,
+                  ROUND(SUM(g.debit-g.credit)) AS bal
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0
+             AND a.root_type IN ('Asset','Liability','Equity') AND g.posting_date<=%s
+           GROUP BY a.name HAVING ROUND(SUM(g.debit-g.credit))<>0""", (company, as_on), as_dict=True)
+
+
+def _pnl_rows(company, fr, to):
+    return frappe.db.sql(
+        """SELECT a.name, a.account_name, a.root_type, IFNULL(a.account_type,'') AS at,
+                  ROUND(SUM(g.credit-g.debit)) AS net
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0
+             AND a.root_type IN ('Income','Expense') AND g.posting_date BETWEEN %s AND %s
+           GROUP BY a.name HAVING ROUND(SUM(g.credit-g.debit))<>0""", (company, fr, to), as_dict=True)
+
+
+def _grouped(rows, sign_key, classify, prior_map=None, prior_key=None):
+    """Group account rows into sections {section: {total, prior, accounts:[...]}}."""
+    secs = {}
+    for r in rows:
+        amt = sign_key(r)
+        sec = classify(r.get("at"))
+        s = secs.setdefault(sec, {"section": sec, "total": 0.0, "prior": 0.0, "accounts": []})
+        prior = flt((prior_map or {}).get(r["name"], 0))
+        if prior_map is not None and prior_key:
+            prior = prior_key(prior_map.get(r["name"]))
+        s["total"] += amt
+        s["prior"] += prior
+        s["accounts"].append({"account": r["name"], "name": r["account_name"], "amount": round(amt), "prior": round(prior)})
+    out = list(secs.values())
+    for s in out:
+        s["total"] = round(s["total"]); s["prior"] = round(s["prior"])
+        s["accounts"].sort(key=lambda a: -abs(a["amount"]))
+    out.sort(key=lambda s: -abs(s["total"]))
+    return out
+
+
+@frappe.whitelist()
+def financial_statements(company=None, from_date=None, to_date=None, compare=1):
+    """P&L (structured), classified Balance Sheet, and a Cash-Flow statement — with
+    a prior-period comparison column. The team's full statement pack."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    if not (from_date and to_date):
+        from_date, to_date = _year_bounds()
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    compare = int(compare or 0)
+
+    # Prior period of equal length, immediately before.
+    from frappe.utils import add_days, date_diff, getdate
+    span = date_diff(to_date, from_date)
+    p_to = add_days(from_date, -1)
+    p_from = add_days(p_to, -span)
+    prior_as_on = add_days(from_date, -1)
+
+    # ── P&L ──
+    cur = _pnl_rows(target, from_date, to_date)
+    pri = {r["name"]: r for r in _pnl_rows(target, p_from, p_to)} if compare else {}
+    inc = [r for r in cur if r["root_type"] == "Income"]
+    exp = [r for r in cur if r["root_type"] == "Expense"]
+    inc_p = {k: v for k, v in pri.items() if v["root_type"] == "Income"}
+    exp_p = {k: v for k, v in pri.items() if v["root_type"] == "Expense"}
+
+    def _exp_class(at):
+        return "Cost of goods sold" if at == "Cost of Goods Sold" else "Operating expenses"
+    revenue = _grouped(inc, lambda r: flt(r["net"]), lambda at: "Revenue",
+                       inc_p, lambda v: flt(v["net"]) if v else 0)
+    expenses = _grouped(exp, lambda r: -flt(r["net"]), _exp_class,
+                        exp_p, lambda v: -flt(v["net"]) if v else 0)
+    rev_total = sum(s["total"] for s in revenue)
+    rev_prior = sum(s["prior"] for s in revenue)
+    cogs = next((s for s in expenses if s["section"] == "Cost of goods sold"), {"total": 0, "prior": 0})
+    opex = [s for s in expenses if s["section"] != "Cost of goods sold"]
+    opex_total = sum(s["total"] for s in opex); opex_prior = sum(s["prior"] for s in opex)
+    gross = rev_total - cogs["total"]; gross_p = rev_prior - cogs["prior"]
+    net = gross - opex_total; net_p = gross_p - opex_prior
+    # Flag a single account that dominates expenses (the broken Stock-Adjustment
+    # pile) so net profit isn't silently read as real.
+    anomaly = None
+    for s in expenses:
+        for a in s["accounts"]:
+            if abs(a["amount"]) > 1_000_000 and abs(a["amount"]) > 0.4 * (abs(opex_total) + abs(cogs["total"]) or 1):
+                anomaly = {"name": a["name"], "account": a["account"], "amount": a["amount"]}
+                break
+        if anomaly:
+            break
+    pnl_pack = {
+        "revenue": revenue, "cogs": cogs, "opex": opex,
+        "revenue_total": round(rev_total), "revenue_prior": round(rev_prior),
+        "gross_profit": round(gross), "gross_prior": round(gross_p),
+        "gross_margin": round(gross / rev_total * 100, 1) if rev_total else 0,
+        "opex_total": round(opex_total), "opex_prior": round(opex_prior),
+        "net": round(net), "net_prior": round(net_p), "anomaly": anomaly,
+    }
+
+    # ── Balance Sheet (classified) ──
+    bcur = _bs_rows(target, to_date)
+    bpri = {r["name"]: flt(r["bal"]) for r in _bs_rows(target, prior_as_on)} if compare else {}
+    assets = _grouped([r for r in bcur if r["root_type"] == "Asset"], lambda r: flt(r["bal"]),
+                      _classify_asset, bpri, lambda v: flt(v or 0))
+    liabs = _grouped([r for r in bcur if r["root_type"] == "Liability"], lambda r: -flt(r["bal"]),
+                     _classify_liab, bpri, lambda v: -flt(v or 0))
+    equity = _grouped([r for r in bcur if r["root_type"] == "Equity"], lambda r: -flt(r["bal"]),
+                      lambda at: "Equity", bpri, lambda v: -flt(v or 0))
+    # The P&L was never closed to retained earnings — add cumulative earnings
+    # (income − expense, all-time) to equity so the sheet balances.
+    def _cum_earn(as_on):
+        return flt(frappe.db.sql(
+            """SELECT COALESCE(SUM(g.credit-g.debit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+               WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type IN ('Income','Expense') AND g.posting_date<=%s""",
+            (target, as_on))[0][0])
+    cum_now = _cum_earn(to_date)
+    cum_prior = _cum_earn(prior_as_on) if compare else 0
+    if round(cum_now):
+        equity.append({"section": "Retained earnings (P&L, unclosed)", "total": round(cum_now),
+                       "prior": round(cum_prior), "accounts": []})
+    a_tot = sum(s["total"] for s in assets); l_tot = sum(s["total"] for s in liabs); e_tot = sum(s["total"] for s in equity)
+    bs_pack = {
+        "assets": assets, "liabilities": liabs, "equity": equity,
+        "assets_total": round(a_tot), "liabilities_total": round(l_tot), "equity_total": round(e_tot),
+        "check": round(a_tot - l_tot - e_tot), "as_on": to_date,
+    }
+
+    # ── Cash Flow (direct — actual Bank/Cash movement; always reconciles, and
+    # immune to the non-cash stock-adjustment distortion in net income) ──
+    def _cash_at(as_on):
+        return flt(frappe.db.sql(
+            """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+               WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash') AND g.posting_date<=%s""",
+            (target, as_on))[0][0])
+    open_cash = _cash_at(prior_as_on)
+    close_cash = _cash_at(to_date)
+    mv = frappe.db.sql(
+        """SELECT ROUND(SUM(g.debit)) cin, ROUND(SUM(g.credit)) cout
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash')
+             AND g.posting_date BETWEEN %s AND %s""", (target, from_date, to_date), as_dict=True)[0]
+    cash_in = flt(mv.cin); cash_out = flt(mv.cout)
+    cf_pack = {
+        "open_cash": round(open_cash), "close_cash": round(close_cash),
+        "cash_in": round(cash_in), "cash_out": round(cash_out),
+        "net_change": round(cash_in - cash_out),
+        "reconciles": abs(round(open_cash + cash_in - cash_out) - round(close_cash)) < max(1000, abs(close_cash) * 0.02),
+        "method": "direct",
+    }
+
+    return {
+        "company": target, "currency": ccy, "from_date": from_date, "to_date": to_date,
+        "prior_from": p_from, "prior_to": p_to, "compare": compare,
+        "pnl": pnl_pack, "balance_sheet": bs_pack, "cash_flow": cf_pack,
+    }
