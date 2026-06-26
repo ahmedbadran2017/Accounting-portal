@@ -324,6 +324,10 @@ def fx_revaluation(company=None):
     target = company if (company and company in companies) else (companies[0] if companies else None)
     if not target:
         return {"rows": [], "summary": {}}
+    ck = f"ap_fxr:{target}"
+    cached_hit = frappe.cache().get_value(ck)
+    if cached_hit is not None:
+        return cached_hit
     base = frappe.db.get_value("Company", target, "default_currency") or "MAD"
     accts = frappe.db.sql(
         """SELECT a.name AS account, a.account_currency AS ccy,
@@ -359,8 +363,13 @@ def fx_revaluation(company=None):
         unrealized = round(revalued - flt(a["bal_base"]), 2)
         total += unrealized
         rows.append({**a, "rate": r, "revalued": revalued, "unrealized": unrealized})
-    return {
+    result = {
         "company": target, "currency": base, "rows": rows,
         "summary": {"count": len(rows), "total_unrealized": round(total, 2),
                     "missing_rate": missing},
     }
+    try:
+        frappe.cache().set_value(ck, result, expires_in_sec=180)
+    except Exception:
+        pass
+    return result

@@ -80,6 +80,13 @@ def _post(doc):
     doc.db_set("posted_on", now_datetime())
     doc.db_set("status", "Posted")
     frappe.db.commit()
+    # A posting changes the GL → drop the cached report aggregates for this company
+    # so the next page load reflects it (cockpit busts itself separately).
+    try:
+        from accounting_portal.api import _cache
+        _cache.bust_report_caches(doc.get("company"))
+    except Exception:
+        pass
     return doc
 
 

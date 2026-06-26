@@ -54,6 +54,10 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
     assert_portal_access()
     cod_rate = float(cod_rate) if cod_rate not in (None, "") else _DEFAULT_COD_RATE
     limit = min(int(limit or 60), 200)
+    ck = f"ap_items:{search or ''}:{group or ''}:{limit}:{cod_rate}"
+    cached_hit = frappe.cache().get_value(ck)
+    if cached_hit is not None:
+        return cached_hit
     _cols = f"""i.name AS item_code, i.item_name, i.custom_sku AS sku, i.image,
                 i.item_group, {_COST} AS cost, i.stock_uom"""
     # Default view (no filter): show best-sellers first so the margin table is
@@ -119,6 +123,10 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
         base = r["avg_sold"] - r["cost"] - r["landed"] - r["cod_fee"] if r["avg_sold"] else 0
         r["true_margin"] = round(base * (1 - r["rto_pct"] / 100), 2) if r["avg_sold"] else 0
         r["true_margin_pct"] = round(r["true_margin"] / r["avg_sold"] * 100, 1) if r["avg_sold"] else 0
+    try:
+        frappe.cache().set_value(ck, rows, expires_in_sec=300)
+    except Exception:
+        pass
     return rows
 
 

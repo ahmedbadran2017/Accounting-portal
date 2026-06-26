@@ -8,6 +8,7 @@ like the stock-adjustment pile in the P&L, stay visible rather than hidden).
 import frappe
 from frappe.utils import flt, nowdate
 
+from accounting_portal.api import _cache
 from accounting_portal.api.permissions import assert_portal_access, resolve_companies
 
 
@@ -636,8 +637,12 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
         return {}
     if not (from_date and to_date):
         from_date, to_date = _year_bounds()
-    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
     compare = int(compare or 0)
+    ck = f"ap_fs:{target}:{from_date}:{to_date}:{compare}"
+    cached_hit = frappe.cache().get_value(ck)
+    if cached_hit is not None:
+        return cached_hit
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
 
     # Prior period of equal length, immediately before.
     from frappe.utils import add_days, date_diff, getdate
@@ -737,11 +742,16 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
         "method": "direct",
     }
 
-    return {
+    result = {
         "company": target, "currency": ccy, "from_date": from_date, "to_date": to_date,
         "prior_from": p_from, "prior_to": p_to, "compare": compare,
         "pnl": pnl_pack, "balance_sheet": bs_pack, "cash_flow": cf_pack,
     }
+    try:
+        frappe.cache().set_value(ck, result, expires_in_sec=180)
+    except Exception:
+        pass
+    return result
 
 
 @frappe.whitelist()
@@ -752,6 +762,10 @@ def verified_dd(company=None):
     target = _target(company)
     if not target:
         return {}
+    ck = f"ap_vdd:{target}"
+    cached_hit = frappe.cache().get_value(ck)
+    if cached_hit is not None:
+        return cached_hit
     ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
     fy = _year_bounds()[0]
 
@@ -814,12 +828,17 @@ def verified_dd(company=None):
             f"{bills_missing_pct}% missing", "Supplier bills without an attached source document"),
     ]
     score = sum(1 for c in checklist if c["status"] == "pass")
-    return {
+    result = {
         "company": target, "currency": ccy,
         "metrics": {"revenue": round(rev), "gross_margin": gross_margin, "cash": round(cash),
                     "debtors": round(debtors), "exposure": round(exposure)},
         "checklist": checklist, "score": score, "total": len(checklist),
     }
+    try:
+        frappe.cache().set_value(ck, result, expires_in_sec=300)
+    except Exception:
+        pass
+    return result
 
 
 @frappe.whitelist()
