@@ -49,15 +49,21 @@
             <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
             <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Age","العمر","Âge") }}</th>
             <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Value","القيمة","Valeur") }}</th>
+            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted"></th>
           </tr></thead>
           <tbody>
-            <tr v-for="r in tt.pageRows.value" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="open(r.name)">
-              <td class="px-4 py-2.5 font-mono text-[11.5px] font-semibold">{{ r.name }}</td>
-              <td class="px-4 py-2.5 truncate max-w-[220px]">{{ r.customer }}</td>
+            <tr v-for="r in tt.pageRows.value" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50">
+              <td class="px-4 py-2.5 font-mono text-[11.5px] font-semibold cursor-pointer hover:text-accent-dark" @click="open(r.name)">{{ r.name }}</td>
+              <td class="px-4 py-2.5 truncate max-w-[220px] cursor-pointer" @click="open(r.name)">{{ r.customer }}</td>
               <td class="px-4 py-2.5 text-end"><span class="text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="ageBadge(r.age)">{{ r.age }}{{ L("d","ي","j") }}</span></td>
               <td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(r.value) }}</td>
+              <td class="px-4 py-2.5 text-end">
+                <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50 inline-flex items-center gap-1" :disabled="busy === r.name" @click.stop="bill(r)">
+                  <Icon name="receipt" :size="12" color="#fff" />{{ busy === r.name ? L("…","…","…") : L("Bill","فوترة","Facturer") }}
+                </button>
+              </td>
             </tr>
-            <tr v-if="!tt.pageRows.value.length"><td colspan="4" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("Nothing awaiting invoice. 🎉","لا شيء بانتظار الفوترة. 🎉","Rien à facturer. 🎉") }}</td></tr>
+            <tr v-if="!tt.pageRows.value.length"><td colspan="5" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("Nothing awaiting invoice. 🎉","لا شيء بانتظار الفوترة. 🎉","Rien à facturer. 🎉") }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -78,10 +84,12 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useTableTools } from "@/composables/useTableTools";
 import { useUi } from "@/composables/useUi";
+import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
 const router = useRouter();
+const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const money = (n) => { n = Number(n) || 0; return Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + "M" : Math.abs(n) >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
@@ -100,6 +108,7 @@ const rows = ref([]);
 const sum = ref({});
 const isLive = ref(null);
 const loading = ref(true);
+const busy = ref("");
 const tt = useTableTools(rows, cols, { keyField: "name", defaultSort: "age", defaultDir: -1 });
 
 async function load() {
@@ -124,6 +133,19 @@ const agingBars = computed(() => {
   ];
 });
 
+async function bill(r) {
+  busy.value = r.name;
+  try {
+    const res = await api.call("accounting_portal.api.sales.bill_delivery_note", { company: currentCompany(), delivery_note: r.name, submit: 1 });
+    if (res && res.status && res.status !== "Posted") {
+      toast.success(L("Queued for approval (over 10,000)", "بانتظار الموافقة (فوق 10٬000)", "En attente d'approbation"));
+    } else {
+      toast.success(L("Invoiced", "تمت الفوترة", "Facturé"));
+      rows.value = rows.value.filter((x) => x.name !== r.name);
+    }
+  } catch (err) { toast.error(String((err && err.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
+  finally { busy.value = ""; }
+}
 function open(name) { router.push({ path: "/accounting/sales/challans", query: { id: name } }); }
 function ageBadge(d) {
   d = Number(d) || 0;

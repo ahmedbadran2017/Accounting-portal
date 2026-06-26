@@ -615,3 +615,48 @@ def create_sales_return(company=None, invoice=None, reason=None, dedupe_key=None
         SR_ACTION, target, key, payload={"invoice": invoice, "reason": reason},
         reference_doctype="Sales Invoice", reference_name=invoice, amount=flt(si.grand_total),
         notes=f"Credit note for {invoice} ({flt(si.grand_total):,.0f})")
+
+
+# ── Bill a Delivery Note (recognise delivered-but-unbilled revenue) ──────────
+BILL_DN_ACTION = "Bill Delivery Note"
+
+
+def _bill_dn_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    si = frappe.get_attr(
+        "erpnext.stock.doctype.delivery_note.delivery_note.make_sales_invoice")(p["delivery_note"])
+    si.update_stock = 0  # the Delivery Note already moved stock — don't double-update
+    si.flags.ignore_permissions = True
+    si.insert()
+    si.reload()
+    if p.get("submit", 1):
+        si.submit()
+    return {"voucher_type": "Sales Invoice", "voucher_no": si.name,
+            "result": {"from_dn": p["delivery_note"], "grand_total": flt(si.grand_total)}}
+
+
+_actions.register_poster(BILL_DN_ACTION, _bill_dn_poster)
+
+
+@frappe.whitelist()
+def bill_delivery_note(company=None, delivery_note=None, submit=1, dedupe_key=None):
+    """Create + submit a Sales Invoice from a delivered-but-unbilled Delivery Note —
+    closes the revenue-recognition gap the To-Bill queue surfaces."""
+    assert_can_write()
+    companies = resolve_companies(company)
+    target = company if (company and company in companies) else (companies[0] if companies else None)
+    if not target or not delivery_note or not frappe.db.exists("Delivery Note", delivery_note):
+        frappe.throw("Delivery Note not found")
+    dn = frappe.db.get_value("Delivery Note", delivery_note,
+                             ["company", "docstatus", "per_billed", "grand_total"], as_dict=True)
+    if dn.company != target:
+        frappe.throw("Delivery Note belongs to another company")
+    if dn.docstatus != 1:
+        frappe.throw("Delivery Note is not submitted")
+    if flt(dn.per_billed) >= 100:
+        frappe.throw("Already fully billed")
+    res = _actions.execute(BILL_DN_ACTION, target, dedupe_key or f"billdn:{delivery_note}",
+                           payload={"delivery_note": delivery_note, "submit": int(submit or 0)},
+                           amount=flt(dn.grand_total), reference_doctype="Delivery Note",
+                           reference_name=delivery_note, notes=f"Invoice for {delivery_note}")
+    return res
