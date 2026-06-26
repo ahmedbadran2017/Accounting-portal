@@ -15,7 +15,7 @@
     "dashboard": "Dashboard", "sales": "Sales · COD", "purchases": "Purchases",
     "items": "Items & margin", "banking": "Banking & COD", "accountant": "Accountant",
     "reports": "Reports & DD", "settings": "Settings", "copilot": "Auditor copilot",
-    "consolidation": "Consolidation"
+    "mywork": "My work", "consolidation": "Consolidation"
   },
   "sub": {
     "customers": "Customers", "orders": "Sales orders", "todeliver": "To deliver", "delivered": "Delivered", "collected": "Collected", "toreturn": "To return", "returned": "Returned", "challans": "Delivery challans", "tobill": "To bill",

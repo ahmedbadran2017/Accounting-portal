@@ -143,11 +143,43 @@ def unassign_doc(doctype=None, name=None, from_user=None):
 
 @frappe.whitelist()
 def my_work(user=None):
-    """Open documents assigned to a user — the personal to-do feed."""
+    """Open tasks assigned to a user — audit/CFO tasks plus any assigned documents —
+    enriched with a title, priority and due date for the personal task screen."""
     assert_portal_access()
     u = user or frappe.session.user
     rows = frappe.get_all(
         "ToDo", filters={"allocated_to": u, "status": "Open"},
-        fields=["reference_type", "reference_name", "description", "date", "priority"],
-        order_by="date asc", limit=100)
-    return rows
+        fields=["name", "reference_type", "reference_name", "description", "date", "priority"],
+        order_by="date asc", limit=200)
+    out = []
+    for r in rows:
+        d = r.get("description") or ""
+        is_audit = "⟦AUDIT:" in d
+        a, b = d.find("<b>"), d.find("</b>")
+        title = d[a + 3:b] if (a >= 0 and b > a) else ""
+        if not title:
+            if r.get("reference_type") and r.get("reference_name"):
+                title = f"{r['reference_type']} {r['reference_name']}"
+            else:
+                title = (frappe.utils.strip_html_tags(d) or "Task")[:80]
+        detail = ""
+        if is_audit and b > 0:
+            mk = d.find("⟦AUDIT:")
+            detail = frappe.utils.strip_html_tags(d[b + 4:mk] if mk > b else d[b + 4:])[:240]
+        out.append({
+            "task": r["name"], "title": title, "detail": detail.strip(),
+            "priority": r.get("priority") or "Medium", "due": str(r.get("date") or ""),
+            "is_audit": is_audit, "reference_type": r.get("reference_type"),
+            "reference_name": r.get("reference_name"),
+        })
+    order = {"High": 0, "Medium": 1, "Low": 2}
+    out.sort(key=lambda t: (order.get(t["priority"], 1), t["due"] or "9999"))
+    return {"user": u, "tasks": out, "count": len(out)}
+
+
+@frappe.whitelist()
+def my_work_count(user=None):
+    """Open-task count for the current user — powers the sidebar badge."""
+    assert_portal_access()
+    u = user or frappe.session.user
+    return {"count": frappe.db.count("ToDo", {"allocated_to": u, "status": "Open"})}

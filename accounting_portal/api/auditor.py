@@ -391,6 +391,16 @@ def assign_finding(company=None, finding_id=None, to_user=None, priority=None, d
             "priority": pr, "date": dd, "status": "Open", "assigned_by": frappe.session.user})
     todo.flags.ignore_permissions = True
     todo.save(ignore_permissions=True) if existing else todo.insert(ignore_permissions=True)
+    # Notify the accountant (ERPNext bell + the portal's My-work badge picks it up).
+    if not existing and to_user != frappe.session.user:
+        try:
+            frappe.get_doc({
+                "doctype": "Notification Log", "for_user": to_user, "type": "Assignment",
+                "subject": f"Audit task assigned: {fnd['title']}", "from_user": frappe.session.user,
+                "document_type": "ToDo", "document_name": todo.name,
+            }).insert(ignore_permissions=True)
+        except Exception:
+            pass
     frappe.db.commit()
     return {"task": todo.name, "finding_id": finding_id, "assigned_to": to_user,
             "priority": pr, "due": str(dd)}

@@ -7,6 +7,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import Dashboard from "@/pages/Dashboard.vue";
 import Copilot from "@/pages/Copilot.vue";
+import MyWork from "@/pages/MyWork.vue";
 import Sales from "@/pages/Sales.vue";
 import Purchases from "@/pages/Purchases.vue";
 import Banking from "@/pages/Banking.vue";
@@ -24,6 +25,7 @@ const view = computed(() => {
   const m = route.params.module;
   if (m === "dashboard") return Dashboard;
   if (m === "copilot") return Copilot;
+  if (m === "mywork") return MyWork;
   if (m === "sales") return Sales;
   if (m === "purchases") return Purchases;
   if (m === "banking") return Banking;

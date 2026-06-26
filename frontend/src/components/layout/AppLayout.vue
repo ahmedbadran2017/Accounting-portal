@@ -53,8 +53,8 @@
                       @click="goModule(m.id)">
                 <Icon :name="m.icon" :size="16" :color="activeModule === m.id ? '#0b5c4f' : '#a8a29e'" />
                 <span class="flex-1 text-start">{{ t('nav.' + m.id) }}</span>
-                <span v-if="m.badge"
-                      class="min-w-[18px] h-[18px] px-1.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold grid place-items-center">{{ m.badge }}</span>
+                <span v-if="badgeFor(m)"
+                      class="min-w-[18px] h-[18px] px-1.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold grid place-items-center">{{ badgeFor(m) }}</span>
               </button>
               <!-- Sub-tabs of the active module -->
               <div v-if="activeModule === m.id && subtabs(m.id).length" class="mt-0.5 mb-1 space-y-0.5">
@@ -137,10 +137,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import api from "@/services/api";
 import CommandPalette from "@/components/CommandPalette.vue";
 import CreateModal from "@/components/CreateModal.vue";
 import { useAuth } from "@/composables/useAuth";
@@ -161,6 +162,19 @@ const paletteOpen = ref(false);
 const createMenuOpen = ref(false);
 const createType = ref(null);
 const groups = NAV_GROUPS;
+
+// Live "My work" badge — open tasks assigned to the current user.
+const workCount = ref(0);
+async function loadWorkCount() {
+  try { const r = await api.call("accounting_portal.api.docops.my_work_count", {}); workCount.value = r.count || 0; }
+  catch { workCount.value = 0; }
+}
+function badgeFor(m) {
+  if (m.id === "mywork") return workCount.value > 0 ? String(workCount.value) : "";
+  return m.badge || "";
+}
+onMounted(loadWorkCount);
+watch(() => route.path, loadWorkCount);
 
 const createOptions = computed(() => [
   { type: "customer", icon: "user", label: L("Customer", "عميل", "Client") },

@@ -14,7 +14,7 @@
   "nav": {
     "dashboard": "Tableau de bord", "sales": "Ventes · COD", "purchases": "Achats",
     "items": "Articles & marge", "banking": "Banque & COD", "accountant": "Comptable",
-    "reports": "Rapports & DD", "settings": "Paramètres", "copilot": "Copilote audit",
+    "reports": "Rapports & DD", "settings": "Paramètres", "copilot": "Copilote audit", "mywork": "Mon travail",
     "consolidation": "Consolidation"
   },
   "sub": {
