@@ -519,7 +519,8 @@ def _collect_poster(action):
     has_pc = frappe.get_meta("Sales Order").has_field("custom_payment_collection")
     done = 0
     for nm in orders:
-        if not frappe.db.exists("Sales Order", nm):
+        # Defense-in-depth: only stamp orders in this action's company.
+        if frappe.db.get_value("Sales Order", nm, "company") != action.company:
             continue
         vals = {"custom_reference_number": reference}
         if has_pc:
@@ -548,6 +549,13 @@ def apply_remittance(company=None, reference=None, orders=None, amount=0, dedupe
     orders = [o for o in (orders or []) if o]
     if not orders:
         frappe.throw("No orders to collect")
+    # Company scope: only stamp orders that actually belong to this company. The
+    # `orders` list comes from the client, so never trust it across companies.
+    in_company = set(frappe.get_all(
+        "Sales Order", filters={"name": ["in", orders], "company": target}, pluck="name"))
+    stray = [o for o in orders if o not in in_company]
+    if stray:
+        frappe.throw(f"{len(stray)} order(s) are not in {target}: {', '.join(stray[:5])}")
     key = dedupe_key or f"cod:{target}:{reference}"
     res = _actions.execute(
         COLLECT_ACTION, target, key,
