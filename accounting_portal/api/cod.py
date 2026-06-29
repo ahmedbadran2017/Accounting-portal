@@ -412,8 +412,13 @@ def parse_remittance_text(text):
         head = flat[prev:m.start()]
         prev = m.end()
         c = _CMD_RE.search(head)
+        # The carrier's 7-digit #ID leads every row and is stored on the Sales
+        # Order as custom_tracking_number — extract it INDEPENDENTLY of the N° CMD
+        # so rows whose order ref the parser can't read (#…-ex exchanges, YC-…
+        # YouCan ids) can still be matched by tracking number.
+        tkm = re.search(r"\d{7}", head)
         rows.append({
-            "tracking": c.group(1) if c else None,
+            "tracking": tkm.group(0) if tkm else (c.group(1) if c else None),
             "cmd": c.group(2) if c else None,
             "amount": _num(m.group(1)), "status": m.group(2),
             "fee": _num(m.group(3)), "commission": _num(m.group(4)),
@@ -473,23 +478,30 @@ def match_remittance(company=None, content_b64=None, filename=None):
         frappe.throw(f"Couldn't read the PDF: {e}")
 
     names = ["#" + r["cmd"] for r in parsed["rows"] if r.get("cmd")]
-    found = {}
+    trackings = [r["tracking"] for r in parsed["rows"] if r.get("tracking")]
+    _fields = ["name", "customer", "grand_total", "advance_paid", "payment_type",
+               "custom_reference_number", "custom_track_shipment_status", "custom_tracking_number"]
+    found, by_track = {}, {}
     if names:
-        for o in frappe.get_all(
-            "Sales Order",
-            filters={"name": ["in", names], "company": target},
-            fields=["name", "customer", "grand_total", "advance_paid", "payment_type",
-                    "custom_reference_number", "custom_track_shipment_status"]):
+        for o in frappe.get_all("Sales Order", filters={"name": ["in", names], "company": target}, fields=_fields):
             found[o.name] = o
+    # Secondary key: the carrier tracking number. Catches orders the N° CMD can't
+    # match — exchanges (#…-ex) and YouCan (YC-…) — which carry their own SO name.
+    if trackings:
+        for o in frappe.get_all("Sales Order",
+                                filters={"custom_tracking_number": ["in", trackings], "company": target},
+                                fields=_fields):
+            if o.custom_tracking_number:
+                by_track.setdefault(o.custom_tracking_number, o)
 
     matched, variance, already, not_found = [], [], [], []
     for r in parsed["rows"]:
         nm = ("#" + r["cmd"]) if r.get("cmd") else None
-        o = found.get(nm) if nm else None
+        o = (found.get(nm) if nm else None) or (by_track.get(r.get("tracking")) if r.get("tracking") else None)
         if not o:
             not_found.append(r)
             continue
-        r["order"] = nm
+        r["order"] = o.name
         r["customer"] = o.customer
         r["grand_total"] = flt(o.grand_total)
         r["advance"] = flt(o.get("advance_paid"))
