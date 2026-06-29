@@ -9,7 +9,14 @@ couple of minutes stale. Call bust_report_caches() after a write for freshness.
 """
 import frappe
 
-_PREFIXES = ("ap_coa:", "ap_tb:", "ap_gl:", "ap_items:", "ap_fs:", "ap_vdd:", "ap_fxr:", "ap_auditor:")
+_PREFIXES = (
+    "ap_coa:", "ap_tb:", "ap_gl:", "ap_items:", "ap_fs:", "ap_vdd:", "ap_fxr:", "ap_auditor:",
+    # report/cockpit caches that previously survived writes (audit finding)
+    "ap_bs:", "ap_invh:", "ap_consol:", "ap_command:", "ap_cod_summary:",
+    "ap_carrier_aging:", "ap_sales_cohort:", "ap_arap_recon:", "ap_purch_summary:",
+    # page-invariant list count/summary caches (short TTL, bust so a new doc shows at once)
+    "ap_orders_sc:", "ap_orders_tot:", "ap_inv_sum:", "ap_rcpt_sum:",
+)
 
 
 def cached(key, ttl, builder):

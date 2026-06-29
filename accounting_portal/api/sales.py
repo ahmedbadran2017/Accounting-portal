@@ -127,9 +127,27 @@ def list_orders(company=None, state=None, search=None, customer=None, active=0,
     elif int(active or 0):
         state_where += f" AND {_STATE_CASE} NOT IN ('placed','cancelled')"
 
-    total = frappe.db.sql(f"SELECT COUNT(*) FROM `tabSales Order` so WHERE {state_where}", params)[0][0]
-    state_counts = {r[0]: r[1] for r in frappe.db.sql(
-        f"SELECT {_STATE_CASE} st, COUNT(*) FROM `tabSales Order` so WHERE {base_where} GROUP BY st", params)}
+    # total + state_counts are page-INVARIANT (they don't change as you page) but
+    # each is a full _STATE_CASE scan over ~227k orders. Cache them per filter
+    # signature (60s) so paging within a result set doesn't re-scan every click.
+    base_sig = f"{target}|{customer or ''}|{search or ''}|{from_date or ''}|{to_date or ''}"
+    sc_key = f"ap_orders_sc:{base_sig}"
+    state_counts = frappe.cache().get_value(sc_key)
+    if state_counts is None:
+        state_counts = {r[0]: r[1] for r in frappe.db.sql(
+            f"SELECT {_STATE_CASE} st, COUNT(*) FROM `tabSales Order` so WHERE {base_where} GROUP BY st", params)}
+        try:
+            frappe.cache().set_value(sc_key, state_counts, expires_in_sec=60)
+        except Exception:
+            pass
+    tot_key = f"ap_orders_tot:{base_sig}|{state or ''}|{int(active or 0)}"
+    total = frappe.cache().get_value(tot_key)
+    if total is None:
+        total = frappe.db.sql(f"SELECT COUNT(*) FROM `tabSales Order` so WHERE {state_where}", params)[0][0]
+        try:
+            frappe.cache().set_value(tot_key, total, expires_in_sec=60)
+        except Exception:
+            pass
 
     col = _SORT_COLS.get(sort_field, "so.transaction_date")
     direction = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
@@ -260,11 +278,20 @@ def list_receipts(company=None, search=None, from_date=None, to_date=None, start
         "pe.name, pe.party AS customer, IFNULL(NULLIF(pe.reference_no,''),'—') AS ref, "
         "IFNULL(NULLIF(pe.mode_of_payment,''),'—') AS method, pe.paid_amount AS collected, pe.posting_date AS date",
         f"{col} {d}, pe.creation {d}", start, page_size)
-    # KPI totals over the WHOLE filtered set (Received / Avg / via-Cathedis share).
-    summ = frappe.db.sql(
-        f"""SELECT IFNULL(SUM(pe.paid_amount),0) total,
-                   SUM(CASE WHEN pe.mode_of_payment LIKE '%%ath%%' THEN 1 ELSE 0 END) cath
-            FROM `tabPayment Entry` pe WHERE {where}""", params, as_dict=True)[0]
+    # KPI totals over the WHOLE filtered set — page-invariant, cache per filter sig.
+    sum_key = f"ap_rcpt_sum:{target}|{search or ''}|{from_date or ''}|{to_date or ''}"
+    summ = frappe.cache().get_value(sum_key)
+    if summ is None:
+        r = frappe.db.sql(
+            f"""SELECT IFNULL(SUM(pe.paid_amount),0) total,
+                       SUM(CASE WHEN pe.mode_of_payment LIKE '%%ath%%' THEN 1 ELSE 0 END) cath
+                FROM `tabPayment Entry` pe WHERE {where}""", params, as_dict=True)[0]
+        summ = {"total": flt(r.total), "cath": int(r.cath or 0)}
+        try:
+            frappe.cache().set_value(sum_key, summ, expires_in_sec=60)
+        except Exception:
+            pass
+    summ = frappe._dict(summ)
     return {"rows": rows, "total": total, "start": s, "page_size": ps,
             "summary": {"count": total, "total": flt(summ.total),
                         "avg": (flt(summ.total) / total) if total else 0, "cath": int(summ.cath or 0)}}
@@ -398,12 +425,22 @@ def list_invoices(company=None, search=None, from_date=None, to_date=None, start
         "si.grand_total AS gross, si.status, si.posting_date AS date, si.due_date, "
         "si.outstanding_amount, si.is_return, si.currency, si.docstatus",
         f"{col} {d}, si.creation {d}", start, page_size)
-    # KPI totals over the WHOLE filtered set (not just this page).
-    summ = frappe.db.sql(
-        f"""SELECT IFNULL(SUM(si.net_total),0) net, IFNULL(SUM(si.total_taxes_and_charges),0) vat,
-                   SUM(CASE WHEN si.docstatus=1 AND si.outstanding_amount>0
-                            AND si.due_date IS NOT NULL AND si.due_date < CURDATE() THEN 1 ELSE 0 END) overdue
-            FROM `tabSales Invoice` si WHERE {where}""", params, as_dict=True)[0]
+    # KPI totals over the WHOLE filtered set — page-invariant, so cache per filter
+    # signature (60s) instead of re-scanning on every page click.
+    sum_key = f"ap_inv_sum:{target}|{search or ''}|{from_date or ''}|{to_date or ''}"
+    summ = frappe.cache().get_value(sum_key)
+    if summ is None:
+        r = frappe.db.sql(
+            f"""SELECT IFNULL(SUM(si.net_total),0) net, IFNULL(SUM(si.total_taxes_and_charges),0) vat,
+                       SUM(CASE WHEN si.docstatus=1 AND si.outstanding_amount>0
+                                AND si.due_date IS NOT NULL AND si.due_date < CURDATE() THEN 1 ELSE 0 END) overdue
+                FROM `tabSales Invoice` si WHERE {where}""", params, as_dict=True)[0]
+        summ = {"net": flt(r.net), "vat": flt(r.vat), "overdue": int(r.overdue or 0)}
+        try:
+            frappe.cache().set_value(sum_key, summ, expires_in_sec=60)
+        except Exception:
+            pass
+    summ = frappe._dict(summ)
     return {"rows": rows, "total": total, "start": s, "page_size": ps,
             "summary": {"count": total, "net": flt(summ.net), "vat": flt(summ.vat),
                         "overdue": int(summ.overdue or 0)}}

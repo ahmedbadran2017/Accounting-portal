@@ -75,6 +75,10 @@ def balance_sheet(company=None, as_on=None):
     if not target:
         return {}
     as_on = as_on or nowdate()
+    bs_key = f"ap_bs:{target}:{as_on}"
+    cached_bs = frappe.cache().get_value(bs_key)
+    if cached_bs is not None:
+        return cached_bs
     rows = frappe.db.sql(
         """SELECT a.root_type,
                   ROUND(SUM(gle.debit - gle.credit)) AS debit_net,
@@ -95,6 +99,10 @@ def balance_sheet(company=None, as_on=None):
             out["equity"] = flt(r.credit_net)
     out["as_on"] = as_on
     out["check"] = round(out["assets"] - out["liabilities"] - out["equity"], 0)
+    try:
+        frappe.cache().set_value(bs_key, out, expires_in_sec=180)
+    except Exception:
+        pass
     return out
 
 
@@ -147,6 +155,10 @@ def inventory_health(company=None):
     target = _target(company)
     if not target:
         return {}
+    invh_key = f"ap_invh:{target}"
+    cached_invh = frappe.cache().get_value(invh_key)
+    if cached_invh is not None:
+        return cached_invh
     stock = flt(frappe.db.sql(
         """SELECT ROUND(SUM(gle.debit - gle.credit)) FROM `tabGL Entry` gle
            JOIN `tabAccount` a ON a.name=gle.account
@@ -166,12 +178,17 @@ def inventory_health(company=None):
            WHERE gle.company=%s AND gle.is_cancelled=0 AND a.root_type='Income'
              AND gle.posting_date BETWEEN %s AND %s""",
         (target, *_year_bounds()))[0][0] or 0)
-    return {
+    result = {
         "company": target, "stock_in_hand": stock, "adjustment_account": adj_acct,
         "adjustment_balance": adj_bal, "revenue": revenue,
         "distortion": abs(stock) + abs(adj_bal),
         "healthy": abs(stock) < 50_000_000,
     }
+    try:
+        frappe.cache().set_value(invh_key, result, expires_in_sec=300)
+    except Exception:
+        pass
+    return result
 
 
 @frappe.whitelist()

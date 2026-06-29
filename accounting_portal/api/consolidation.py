@@ -69,6 +69,10 @@ def consolidated_financials(base=None):
     consolidated totals + the FX rates used."""
     assert_portal_access()
     base = base or GROUP_CCY
+    ck = f"ap_consol:{base}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
     companies = resolve_companies() or [c.name for c in frappe.get_all("Company", fields=["name"])]
     fy = _fy_start()
     rows, totals = [], {"income": 0, "expense": 0, "net": 0, "assets": 0, "liabilities": 0, "cash": 0, "intercompany": 0}
@@ -90,9 +94,14 @@ def consolidated_financials(base=None):
     rows.sort(key=lambda r: -abs(r["base"]["assets"]))
     for k in totals:
         totals[k] = round(totals[k])
-    return {
+    result = {
         "base": base, "fy_start": fy, "as_of": nowdate(),
         "rows": rows, "totals": totals, "rates": rates,
         "rate_warnings": sorted(set(missing)),
         "entities": len(rows),
     }
+    try:
+        frappe.cache().set_value(ck, result, expires_in_sec=300)
+    except Exception:
+        pass
+    return result
