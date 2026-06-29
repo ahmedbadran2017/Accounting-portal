@@ -59,6 +59,7 @@ import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 
 const route = useRoute();
 const router = useRouter();
@@ -71,10 +72,10 @@ const d = ref({ rows: [], opening: 0, total_dr: 0, total_cr: 0 });
 const rows = computed(() => d.value.rows || []);
 const isLive = ref(null);
 const loading = ref(true);
-const party = ref("");
-const voucher = ref("");
-const fromDate = ref("");
-const toDate = ref("");
+const party = usePersistedRef("ap_gl_party", "");
+const voucher = usePersistedRef("ap_gl_voucher", "");
+const fromDate = usePersistedRef("ap_gl_from", "");
+const toDate = usePersistedRef("ap_gl_to", "");
 
 async function load() {
   loading.value = true;

@@ -139,6 +139,7 @@ import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -154,7 +155,7 @@ const TABS = [
   { key: "cf", label: () => L("Cash flow", "التدفّق النقدي", "Trésorerie") },
   { key: "monthly", label: () => L("By month", "بالشهر", "Par mois") },
 ];
-const tab = ref("pnl");
+const tab = usePersistedRef("ap_stmt_tab", "pnl");
 watch(tab, (t) => { if (t === "monthly" && !dm.value.months) loadMonthly(); });
 
 const y = new Date().getFullYear();
@@ -166,7 +167,7 @@ const PRESETS = [
   { key: "month", label: () => L("Month", "الشهر", "Mois") },
   { key: "lastyear", label: () => L("Last year", "السنة الماضية", "An passé") },
 ];
-const preset = ref("ytd");
+const preset = usePersistedRef("ap_stmt_preset", "ytd");
 function range() {
   const now = new Date(), m = now.getMonth();
   if (preset.value === "month") return { from: iso(new Date(y, m, 1)), to: iso(now) };
@@ -178,7 +179,7 @@ function range() {
 const d = ref({ pnl: { revenue: [], cogs: {}, opex: [], anomaly: null }, balance_sheet: { assets: [], liabilities: [], equity: [] }, cash_flow: {} });
 const live = ref(null);
 const loading = ref(true);
-const compare = ref(1);
+const compare = usePersistedRef("ap_stmt_compare", 1);
 async function load() {
   loading.value = true;
   const r = range();
@@ -187,7 +188,7 @@ async function load() {
   finally { loading.value = false; }
 }
 function setPreset(k) { preset.value = k; load(); }
-onMounted(load);
+onMounted(() => { load(); if (tab.value === "monthly") loadMonthly(); });
 watch(entityId, () => { load(); dm.value = {}; if (tab.value === "monthly") loadMonthly(); });
 
 // ── By-month P&L ──

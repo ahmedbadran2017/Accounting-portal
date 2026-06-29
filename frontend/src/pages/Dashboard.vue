@@ -372,6 +372,7 @@ import Icon from "@/components/Icon.vue";
 import Consolidated from "@/pages/Consolidated.vue";
 import DashboardSkeleton from "@/components/DashboardSkeleton.vue";
 import { useUi } from "@/composables/useUi";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { buildDashVM } from "@/data/dashboard";
 import { ANOMALIES, SEV_META, sevLabel } from "@/data/copilot";
 import { useDashboard, overlayCockpit } from "@/composables/useDashboard";
@@ -389,10 +390,11 @@ const cockpit = ref(null);
 const isLive = ref(null);
 const loaded = ref(false);
 // Show a skeleton until the live cockpit resolves — no flash of sample/fake data.
-// Period filter — scopes the flow metrics; default = current month.
-const datePreset = ref("month");
-const customFrom = ref("");
-const customTo = ref("");
+// Period filter — scopes the flow metrics; default = current month. Persisted so
+// the choice survives navigating away / reloading (instead of resetting).
+const datePreset = usePersistedRef("ap_dash_preset", "month");
+const customFrom = usePersistedRef("ap_dash_from", "");
+const customTo = usePersistedRef("ap_dash_to", "");
 const pad = (n) => String(n).padStart(2, "0");
 const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const currentRange = computed(() => {
