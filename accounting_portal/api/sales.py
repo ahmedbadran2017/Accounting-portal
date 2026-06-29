@@ -204,25 +204,36 @@ def _dn_shipment_for(order_names):
 
 
 @frappe.whitelist()
-def list_challans(company=None, limit=100):
-    """Delivery Notes (COD challans) for one company — carrier, tracking, status."""
+def list_challans(company=None, search=None, from_date=None, to_date=None,
+                  start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """Delivery Notes (COD challans) for one company — carrier, tracking, status.
+    Server-paginated (Delivery Note runs to 100k+ rows)."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
-        return []
+        return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    return frappe.db.sql(
-        """
-        SELECT name, customer, posting_date AS date,
-               IFNULL(NULLIF(custom_tracking_company, ''), '—') AS carrier,
-               IFNULL(NULLIF(custom_tracking_number, ''), '—') AS tracking,
-               IFNULL(NULLIF(custom_track_shipment_status, ''), IFNULL(custom_logistics_status, status)) AS status,
-               custom_tracking_url AS tracking_url
-        FROM `tabDelivery Note`
-        WHERE company=%s AND docstatus=1
-        ORDER BY posting_date DESC, creation DESC LIMIT %s
-        """,
-        (target, min(int(limit or 100), 500)), as_dict=True)
+    conds = ["dn.company=%(c)s", "dn.docstatus=1"]
+    params = {"c": target}
+    if search:
+        conds.append("(dn.name LIKE %(s)s OR dn.customer LIKE %(s)s OR IFNULL(dn.custom_tracking_number,'') LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    if from_date:
+        conds.append("dn.posting_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("dn.posting_date <= %(td)s"); params["td"] = to_date
+    sort = {"date": "dn.posting_date", "customer": "dn.customer", "id": "dn.name"}
+    col = sort.get(sort_field, "dn.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, s, ps = _paginate.page_query(
+        "`tabDelivery Note` dn", " AND ".join(conds), params,
+        "dn.name, dn.customer, dn.posting_date AS date, "
+        "IFNULL(NULLIF(dn.custom_tracking_company,''),'—') AS carrier, "
+        "IFNULL(NULLIF(dn.custom_tracking_number,''),'—') AS tracking, "
+        "IFNULL(NULLIF(dn.custom_track_shipment_status,''), IFNULL(dn.custom_logistics_status, dn.status)) AS status, "
+        "dn.custom_tracking_url AS tracking_url",
+        f"{col} {d}, dn.creation {d}", start, page_size)
+    return {"rows": rows, "total": total, "start": s, "page_size": ps}
 
 
 @frappe.whitelist()
