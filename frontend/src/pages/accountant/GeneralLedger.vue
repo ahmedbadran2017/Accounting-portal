@@ -35,7 +35,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(g, i) in rows" :key="i" class="border-b border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="openVoucher(g)">
+          <tr v-for="(g, i) in pagedRows" :key="i" class="border-b border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="openVoucher(g)">
             <td class="px-4 py-2.5 whitespace-nowrap text-ink-3">{{ g.date }}</td>
             <td class="px-4 py-2.5 font-mono whitespace-nowrap hover:text-accent-dark">{{ g.ref }}</td>
             <td class="px-4 py-2.5 font-mono text-ink-2">{{ g.account }}</td>
@@ -47,6 +47,16 @@
           <tr v-if="!rows.length"><td :colspan="acct ? 7 : 6" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ L("No entries for these filters.","لا قيود.","Aucune écriture.") }}</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Client pager over the loaded rows (running balance is server-computed) -->
+    <div v-if="rows.length > pageSize" class="flex items-center justify-between px-4 py-3 border-t border-line-hair text-[12px]">
+      <span class="text-ink-muted">{{ L("Showing","عرض","Affichage") }} <b>{{ (page - 1) * pageSize + 1 }}–{{ Math.min(page * pageSize, rows.length) }}</b> {{ L("of","من","sur") }} <b>{{ rows.length.toLocaleString() }}</b></span>
+      <div class="flex items-center gap-1.5">
+        <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-semibold border border-line-2 disabled:opacity-40" :disabled="page <= 1" @click="page--">{{ L("Prev","السابق","Préc.") }}</button>
+        <span class="text-ink-3 px-1">{{ page }} / {{ totalPages }}</span>
+        <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-semibold border border-line-2 disabled:opacity-40" :disabled="page >= totalPages" @click="page++">{{ L("Next","التالي","Suiv.") }}</button>
+      </div>
     </div>
   </div>
 </template>
@@ -70,6 +80,10 @@ const money = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDig
 const acct = computed(() => route.query.account || "");
 const d = ref({ rows: [], opening: 0, total_dr: 0, total_cr: 0 });
 const rows = computed(() => d.value.rows || []);
+const pageSize = 100;
+const page = ref(1);
+const totalPages = computed(() => Math.max(1, Math.ceil(rows.value.length / pageSize)));
+const pagedRows = computed(() => rows.value.slice((page.value - 1) * pageSize, page.value * pageSize));
 const isLive = ref(null);
 const loading = ref(true);
 const party = usePersistedRef("ap_gl_party", "");
@@ -86,6 +100,7 @@ async function load() {
       from_date: fromDate.value || undefined, to_date: toDate.value || undefined,
       limit: acct.value ? 1000 : 200,
     });
+    page.value = 1;
     isLive.value = true;
   } catch { d.value = { rows: [], opening: 0 }; isLive.value = false; }
   finally { loading.value = false; }
