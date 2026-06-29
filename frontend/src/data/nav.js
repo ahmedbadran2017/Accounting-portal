@@ -40,7 +40,7 @@ export const SUBTABS = {
 
 // Sidebar groups → modules. icon = Icon.vue name; badge = count chip (or null).
 export const NAV_GROUPS = [
-  { label: "groups.overview", items: [{ id: "dashboard", icon: "grid" }, { id: "mywork", icon: "check" }] },
+  { label: "groups.overview", items: [{ id: "dashboard", icon: "grid" }, { id: "copilot", icon: "shield" }, { id: "mywork", icon: "check" }] },
   { label: "groups.operations", items: [
     { id: "sales", icon: "receipt" }, { id: "purchases", icon: "cart" }, { id: "items", icon: "box" },
   ] },
