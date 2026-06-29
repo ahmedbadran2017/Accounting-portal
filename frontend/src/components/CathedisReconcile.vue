@@ -57,9 +57,12 @@
           <div class="flex items-center gap-1 border-b border-line-hair">
             <button v-for="c in cats" :key="c.key" class="px-3 py-2 text-[12px] font-semibold border-b-2 -mb-px transition"
                     :class="cat === c.key ? 'border-accent text-accent-dark' : 'border-transparent text-ink-3 hover:text-ink'" @click="cat = c.key">
-              {{ c.label() }} <span class="text-[10px] px-1.5 py-0.5 rounded-full" :style="c.badge">{{ (preview[c.key] || []).length }}</span>
+              {{ c.label() }} <span class="text-[10px] px-1.5 py-0.5 rounded-full" :style="c.badge">{{ catCount(c.key) }}</span>
             </button>
           </div>
+          <p v-if="catTruncated(cat)" class="text-[10.5px] text-ink-muted -mb-1">
+            {{ L("Showing first","عرض أول","Affichage des") }} {{ (preview[cat] || []).length }} {{ L("of","من","sur") }} {{ catCount(cat) }} {{ L("— the rest are processed but not listed here.","— الباقي بيتعالج لكن مش معروض هنا.","— le reste est traité.") }}
+          </p>
           <p v-if="cat === 'variance' && (preview.variance || []).length" class="text-[11px] text-ink-3 -mb-1">
             {{ L("File cash ≠ expected. Usually card/bank paid (already settled) or partial — tick the ones you confirm to also collect.","الكاش في الملف ≠ المتوقّع. غالبًا مدفوع كارت/بنك أو جزئي — علّم اللي تأكّده عشان يتحصّل برضه.","Encaisse ≠ attendu. Cochez celles à encaisser.") }}
           </p>
@@ -127,6 +130,19 @@ const cats = [
   { key: "already_collected", label: () => L("Already collected", "محصّلة سابقًا", "Déjà"), badge: "background:#eff6ff;color:#0369a1" },
   { key: "not_found", label: () => L("Not found", "غير موجود", "Introuvable"), badge: "background:#fef2f2;color:#b91c1c" },
 ];
+
+// Tab badge = the TRUE bucket count from totals (the backend truncates the row
+// arrays to 200 for payload size, so array .length under-reports). Fall back to
+// the array length only if a total is missing.
+function catCount(key) {
+  const t = (preview.value && preview.value.totals) || {};
+  const n = t[key];
+  return Number.isFinite(n) ? n : ((preview.value && preview.value[key]) || []).length;
+}
+// True when the visible list is shorter than the real count (rows hidden).
+function catTruncated(key) {
+  return catCount(key) > ((preview.value && preview.value[key]) || []).length;
+}
 
 const tiles = computed(() => {
   const t = preview.value.totals;
