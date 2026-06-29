@@ -19,7 +19,7 @@
       <div v-if="view === 'findings'" class="flex-1 overflow-y-auto min-h-0 p-3 flex flex-col gap-2.5">
         <div class="flex items-center gap-1 flex-wrap -mt-0.5">
           <button v-for="cf in CATS" :key="cf.key" @click="catFilter = cf.key" class="text-[10px] font-bold px-2 py-0.5 rounded-full border transition" :class="catFilter === cf.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2'">{{ cf.label() }}<span v-if="catCount(cf.key)" class="ms-1 opacity-70">{{ catCount(cf.key) }}</span></button>
-          <button @click="runHunt" :disabled="hunting" class="ms-auto text-[10px] font-bold px-2 py-0.5 rounded-full text-white inline-flex items-center gap-1 disabled:opacity-60" style="background:linear-gradient(135deg,#a21caf,#6d28d9)" :title="L('Let the AI auditor investigate on its own','خلّي المدقّق الذكي يحقّق لوحده','Laisser l’IA enquêter')">
+          <button v-if="canHunt" @click="runHunt" :disabled="hunting" class="ms-auto text-[10px] font-bold px-2 py-0.5 rounded-full text-white inline-flex items-center gap-1 disabled:opacity-60" style="background:linear-gradient(135deg,#a21caf,#6d28d9)" :title="L('AI hunt — Super Admin only (uses AI credits)','الصيد الذكي — للسوبر أدمن فقط (يستهلك رصيد AI)','Chasse IA — Super Admin')">
             <Icon name="search" :size="10" />{{ hunting ? L("Hunting…","يبحث…","…") : L("AI hunt","صيد ذكي","Chasse IA") }}
           </button>
         </div>
@@ -136,6 +136,7 @@ import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { can } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
@@ -159,6 +160,9 @@ async function loadFeed() {
 }
 
 // AI hunt — the agentic auditor investigates on its own and appends its findings.
+// Super Admin only: it's the one feature that spends LLM tokens, so the button is
+// hidden for everyone else (and the backend rejects the call regardless).
+const canHunt = computed(() => can("run_ai_hunt"));
 const hunting = ref(false);
 const huntNote = ref("");
 async function runHunt() {

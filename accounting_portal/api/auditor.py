@@ -17,7 +17,7 @@ import frappe
 from frappe.utils import add_days, flt, nowdate
 
 from accounting_portal.api.permissions import (
-    assert_can_write, assert_portal_access, resolve_companies,
+    assert_can_write, assert_portal_access, assert_super_admin, resolve_companies,
 )
 
 SEV_WEIGHT = {"high": 3, "medium": 2, "low": 1}
@@ -1177,8 +1177,11 @@ def _run_hunt(target, key):
 def hunt(company=None, force=0):
     """Agentic AI auditor — investigates the books via the curated read-only
     probe catalog and reports anomalies the fixed rules miss. On-demand, cached
-    1h. Returns available=False when no anthropic_api_key is configured."""
-    assert_portal_access()
+    1h. Returns available=False when no anthropic_api_key is configured.
+
+    Super Admin only: this is the one endpoint that spends LLM tokens, so it's
+    gated to a single owner to keep the cost controlled."""
+    assert_super_admin()
     target = _target(company)
     if not target:
         return {"available": True, "findings": [], "summary": {}}

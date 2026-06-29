@@ -73,6 +73,16 @@ def assert_can_write(user=None):
         frappe.throw("Not permitted to modify accounting data", frappe.PermissionError)
 
 
+def assert_super_admin(user=None):
+    """Raise PermissionError unless the user is the portal Super Admin.
+
+    Used to gate cost-bearing or sensitive operations (e.g. the AI hunt, which
+    spends LLM tokens) to a single owner so the team can't run up the bill.
+    """
+    if not can_manage_users(user):
+        frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
+
+
 def allowed_companies(user=None):
     """Return the list of Company names this user may see.
 
@@ -118,5 +128,6 @@ def whoami():
             "manage_users": can_manage_users(user),
             "post_entries": can_write(user),
             "view_reports": True,
+            "run_ai_hunt": can_manage_users(user),  # Super Admin only — guards LLM cost
         },
     }
