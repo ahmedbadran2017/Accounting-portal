@@ -21,7 +21,7 @@ export async function loadControls() {
 }
 
 const ICON = { stock_cogs: "box", unmatched_cod: "coins", correction_pile: "ledger", negative_cash: "bank", grni_gap: "truck", payables_load: "doc" };
-const CAT_ICON = { entry: "ledger", report: "scale", control: "shield", anomaly: "alert" };
+const CAT_ICON = { entry: "ledger", report: "scale", control: "shield", anomaly: "alert", ai: "search" };
 
 // Map a backend finding into the Copilot anomaly-feed item shape.
 export function toFeedItem(f) {

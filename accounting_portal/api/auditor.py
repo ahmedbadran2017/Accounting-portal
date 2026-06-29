@@ -925,3 +925,275 @@ def full_findings(company=None):
                         "exposure": sum(abs(x["amount"]) for x in out if x["severity"] == "high"),
                         "by_category": {k: sum(1 for x in out if x["category"] == k)
                                         for k in ("control", "entry", "report", "anomaly")}}}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI HUNT — an agentic auditor that investigates the books on its own.
+#
+# Instead of letting the model write raw SQL, it picks from a CURATED CATALOG of
+# vetted, read-only probe functions (company-scoped, bounded LIMITs, parameters
+# whitelisted/coerced). The model composes an investigation by calling probes,
+# reasons over the evidence, and emits structured findings via a terminal tool.
+# This finds problems the fixed rules don't, with no raw-SQL surface and no write
+# path. The hunt is expensive (LLM tool loop) so it is on-demand only and cached
+# for an hour — never folded into full_findings (which stays fast/deterministic).
+# ─────────────────────────────────────────────────────────────────────────────
+_ROOT_TYPES = ("Asset", "Liability", "Equity", "Income", "Expense")
+
+
+def _p_gl_by_type(company, a):
+    rows = frappe.db.sql(
+        """SELECT a.account_type, ROUND(SUM(g.debit-g.credit)) net, COUNT(*) entries
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND IFNULL(a.account_type,'')<>''
+           GROUP BY a.account_type ORDER BY ABS(SUM(g.debit-g.credit)) DESC""", (company,), as_dict=True)
+    return [dict(r) for r in rows]
+
+
+def _p_accounts_like(company, a):
+    needle = str(a.get("name_contains") or "").strip()[:60]
+    if not needle:
+        return {"error": "name_contains is required"}
+    rows = frappe.db.sql(
+        """SELECT a.account_name, a.account_type, ROUND(SUM(g.debit-g.credit)) bal, COUNT(*) entries
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_name LIKE %s
+           GROUP BY a.name ORDER BY ABS(SUM(g.debit-g.credit)) DESC LIMIT 20""",
+        (company, f"%{needle}%"), as_dict=True)
+    return [dict(r) for r in rows]
+
+
+def _p_top_accounts(company, a):
+    rt = a.get("root_type")
+    if rt not in _ROOT_TYPES:
+        return {"error": f"root_type must be one of {_ROOT_TYPES}"}
+    n = min(max(int(a.get("limit") or 10), 1), 30)
+    rows = frappe.db.sql(
+        """SELECT a.account_name, ROUND(SUM(g.debit-g.credit)) bal, COUNT(*) entries
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type=%s
+           GROUP BY a.name ORDER BY ABS(SUM(g.debit-g.credit)) DESC LIMIT %s""",
+        (company, rt, n), as_dict=True)
+    return [dict(r) for r in rows]
+
+
+def _p_journal_sample(company, a):
+    needle = str(a.get("account_contains") or "").strip()[:60]
+    n = min(max(int(a.get("limit") or 10), 1), 25)
+    if needle:
+        rows = frappe.db.sql(
+            """SELECT je.name, je.posting_date, je.voucher_type, ROUND(je.total_debit) amount, je.user_remark
+               FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
+               JOIN `tabAccount` a ON a.name=jea.account
+               WHERE je.company=%s AND je.docstatus=1 AND a.account_name LIKE %s
+               GROUP BY je.name ORDER BY je.total_debit DESC LIMIT %s""",
+            (company, f"%{needle}%", n), as_dict=True)
+    else:
+        rows = frappe.db.sql(
+            """SELECT name, posting_date, voucher_type, ROUND(total_debit) amount, user_remark
+               FROM `tabJournal Entry` WHERE company=%s AND docstatus=1
+               ORDER BY total_debit DESC LIMIT %s""", (company, n), as_dict=True)
+    return [dict(r) for r in rows]
+
+
+def _p_party_aging(company, a):
+    pt = a.get("party_type")
+    if pt not in ("Customer", "Supplier"):
+        return {"error": "party_type must be Customer or Supplier"}
+    dt = "Sales Invoice" if pt == "Customer" else "Purchase Invoice"
+    rows = frappe.db.sql(
+        f"""SELECT CASE WHEN DATEDIFF(CURDATE(), due_date)<=0 THEN 'current'
+                        WHEN DATEDIFF(CURDATE(), due_date)<=30 THEN '1-30'
+                        WHEN DATEDIFF(CURDATE(), due_date)<=90 THEN '31-90'
+                        ELSE '90+' END bucket,
+                   ROUND(SUM(outstanding_amount)) amt, COUNT(*) n
+            FROM `tab{dt}` WHERE company=%s AND docstatus=1 AND outstanding_amount>0
+            GROUP BY bucket""", (company,), as_dict=True)
+    return [dict(r) for r in rows]
+
+
+def _p_monthly_pnl(company, a):
+    rows = frappe.db.sql(
+        """SELECT DATE_FORMAT(g.posting_date,'%%Y-%%m') ym, a.root_type, ROUND(SUM(g.credit-g.debit)) net
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type IN ('Income','Expense')
+             AND g.posting_date>=DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+           GROUP BY ym, a.root_type ORDER BY ym""", (company,), as_dict=True)
+    return [dict(r) for r in rows]
+
+
+def _p_doc_counts(company, a):
+    out = {}
+    for dt in ("Journal Entry", "Sales Invoice", "Purchase Invoice", "Payment Entry", "Sales Order", "Delivery Note"):
+        r = frappe.db.sql(f"SELECT docstatus, COUNT(*) c FROM `tab{dt}` WHERE company=%s GROUP BY docstatus",
+                          (company,), as_dict=True)
+        out[dt] = {("draft" if x.docstatus == 0 else "submitted" if x.docstatus == 1 else "cancelled"): x.c for x in r}
+    return out
+
+
+def _p_largest_docs(company, a):
+    dt = a.get("doctype") if a.get("doctype") in ("Journal Entry", "Sales Invoice", "Purchase Invoice", "Payment Entry") else "Journal Entry"
+    n = min(max(int(a.get("limit") or 10), 1), 25)
+    amt_col = {"Journal Entry": "total_debit", "Sales Invoice": "grand_total",
+               "Purchase Invoice": "grand_total", "Payment Entry": "paid_amount"}[dt]
+    rows = frappe.db.sql(
+        f"SELECT name, posting_date, ROUND({amt_col}) amount FROM `tab{dt}` "
+        f"WHERE company=%s AND docstatus=1 ORDER BY {amt_col} DESC LIMIT %s", (company, n), as_dict=True)
+    return [dict(r) for r in rows]
+
+
+_PROBE_CATALOG = {
+    "gl_by_account_type": {"fn": _p_gl_by_type,
+        "desc": "Net GL balance and entry count for each account type (Receivable, Payable, Stock, Bank, Cash, Tax, ...).",
+        "schema": {"type": "object", "properties": {}}},
+    "accounts_like": {"fn": _p_accounts_like,
+        "desc": "Balances + entry counts of accounts whose name contains a fragment (e.g. 'correction', 'suspense', 'clearing', 'advance', 'VAT').",
+        "schema": {"type": "object", "properties": {"name_contains": {"type": "string"}}, "required": ["name_contains"]}},
+    "top_accounts": {"fn": _p_top_accounts,
+        "desc": "The largest accounts by absolute balance within a root type.",
+        "schema": {"type": "object", "properties": {"root_type": {"type": "string", "enum": list(_ROOT_TYPES)}, "limit": {"type": "integer"}}, "required": ["root_type"]}},
+    "journal_sample": {"fn": _p_journal_sample,
+        "desc": "Sample of the largest submitted journal entries, optionally only those touching an account whose name matches a fragment.",
+        "schema": {"type": "object", "properties": {"account_contains": {"type": "string"}, "limit": {"type": "integer"}}}},
+    "party_aging": {"fn": _p_party_aging,
+        "desc": "Aging buckets (current / 1-30 / 31-90 / 90+) of outstanding receivables (Customer) or payables (Supplier).",
+        "schema": {"type": "object", "properties": {"party_type": {"type": "string", "enum": ["Customer", "Supplier"]}}, "required": ["party_type"]}},
+    "monthly_pnl": {"fn": _p_monthly_pnl,
+        "desc": "Income and expense totals by month for the last 12 months — use to spot spikes, dips, or seasonality breaks.",
+        "schema": {"type": "object", "properties": {}}},
+    "doc_counts": {"fn": _p_doc_counts,
+        "desc": "Draft / submitted / cancelled counts for the main document types — use to spot backlogs or excessive cancellations.",
+        "schema": {"type": "object", "properties": {}}},
+    "largest_docs": {"fn": _p_largest_docs,
+        "desc": "The largest submitted documents of a type by amount.",
+        "schema": {"type": "object", "properties": {"doctype": {"type": "string", "enum": ["Journal Entry", "Sales Invoice", "Purchase Invoice", "Payment Entry"]}, "limit": {"type": "integer"}}}},
+}
+
+
+def _hunt_tools():
+    tools = [{"name": n, "description": s["desc"], "input_schema": s["schema"]} for n, s in _PROBE_CATALOG.items()]
+    tools.append({
+        "name": "emit_findings",
+        "description": "Call exactly once when your investigation is complete, to report the anomalies you confirmed. Return an empty list if the books look clean.",
+        "input_schema": {"type": "object", "properties": {"findings": {"type": "array", "items": {"type": "object", "properties": {
+            "title": {"type": "string"}, "detail": {"type": "string"},
+            "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+            "amount": {"type": "number"}, "account": {"type": "string"},
+            "recommendation": {"type": "string"}}, "required": ["title", "detail", "severity"]}}}, "required": ["findings"]}})
+    return tools
+
+
+def _anthropic_call(key, model, system, messages, tools):
+    import requests
+    try:
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": model, "max_tokens": 1500, "system": system, "tools": tools, "messages": messages},
+            timeout=45)
+        if r.status_code == 200:
+            return r.json()
+        frappe.log_error(f"hunt claude {r.status_code}: {r.text[:300]}", "AI Auditor")
+    except Exception as e:
+        frappe.log_error(f"hunt claude error: {e}", "AI Auditor")
+    return None
+
+
+def _normalize_hunt(raw, target):
+    mat = _materiality(target)
+    out = []
+    for i, x in enumerate(raw or []):
+        sev = x.get("severity") if x.get("severity") in SEV_WEIGHT else "medium"
+        fnd = {"id": f"ai_{i+1}", "category": "ai", "severity": sev, "metric": "AI hunt",
+               "title": str(x.get("title") or "AI finding")[:160],
+               "detail": str(x.get("detail") or "")[:600],
+               "amount": flt(x.get("amount")), "account": (str(x.get("account"))[:140] if x.get("account") else None),
+               "recommendation": str(x.get("recommendation") or "Review with the accounting team."),
+               "drill": {"module": "accountant", "sub": "journals", "label": "Journals"}}
+        fnd["score"] = _score(fnd, mat["base"])
+        out.append(fnd)
+    out.sort(key=lambda x: x["score"], reverse=True)
+    return out
+
+
+def _run_hunt(target, key):
+    model = frappe.conf.get("auditor_model") or "claude-sonnet-4-6"
+    tools = _hunt_tools()
+    system = (
+        f"You are a forensic accounting auditor for Justyol, a cross-border COD e-commerce group "
+        f"(sourcing in Turkey/China, selling in Morocco; books for company '{target}' are in MAD). "
+        "Investigate the books for accounting anomalies, control weaknesses, and possible misstatements "
+        "that a fixed rule engine would miss. Use the probe tools to gather evidence: scan account-type "
+        "balances, the biggest accounts in each root type, suspiciously named accounts (correction, "
+        "suspense, clearing, advance), receivable/payable aging, the monthly P&L trend, and document "
+        "backlogs. Form a hypothesis, then VERIFY it with at least one more probe before reporting it. "
+        "Be skeptical and specific: only report a finding the data clearly supports, and cite the exact "
+        "amount and account name. When finished, call emit_findings exactly once.")
+    known = ("Already tracked by the rule engine — do NOT just repeat these (only report a genuinely new "
+             "angle): stock/COGS not relieving, unmatched COD debtors, GRNI gap, 'Correction Need' pile, "
+             "negative cash, foreign-currency lines at rate 1.0, stock-ledger vs warehouse-valuation gap, "
+             "unbalanced/duplicate/locked-period journals, trial-balance and AR/AP tie-outs.")
+    messages = [{"role": "user", "content": known + "\n\nBegin your investigation now."}]
+    findings, probe_calls = [], 0
+    for _ in range(8):
+        body = _anthropic_call(key, model, system, messages, tools)
+        if not body:
+            break
+        content = body.get("content") or []
+        messages.append({"role": "assistant", "content": content})
+        tool_uses = [c for c in content if c.get("type") == "tool_use"]
+        if not tool_uses:
+            break
+        results, emitted = [], False
+        for tu in tool_uses:
+            tid, tname, targs = tu.get("id"), tu.get("name"), (tu.get("input") or {})
+            if tname == "emit_findings":
+                findings = targs.get("findings") or []
+                emitted = True
+                results.append({"type": "tool_result", "tool_use_id": tid, "content": "recorded"})
+                continue
+            spec = _PROBE_CATALOG.get(tname)
+            if not spec or probe_calls >= 24:
+                results.append({"type": "tool_result", "tool_use_id": tid, "content": "probe unavailable", "is_error": True})
+                continue
+            probe_calls += 1
+            try:
+                data = spec["fn"](target, targs)
+            except Exception as e:
+                data = {"error": str(e)[:200]}
+            results.append({"type": "tool_result", "tool_use_id": tid, "content": json.dumps(data, default=str)[:6000]})
+        if emitted:
+            break
+        messages.append({"role": "user", "content": results})
+    norm = _normalize_hunt(findings, target)
+    return {"available": True, "company": target, "generated_on": nowdate(), "findings": norm,
+            "summary": {"high": sum(1 for x in norm if x["severity"] == "high"),
+                        "medium": sum(1 for x in norm if x["severity"] == "medium"),
+                        "low": sum(1 for x in norm if x["severity"] == "low"),
+                        "count": len(norm), "probe_calls": probe_calls}}
+
+
+@frappe.whitelist()
+def hunt(company=None, force=0):
+    """Agentic AI auditor — investigates the books via the curated read-only
+    probe catalog and reports anomalies the fixed rules miss. On-demand, cached
+    1h. Returns available=False when no anthropic_api_key is configured."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"available": True, "findings": [], "summary": {}}
+    key = frappe.conf.get("anthropic_api_key")
+    if not key:
+        return {"available": False, "findings": [], "summary": {},
+                "note": "Set anthropic_api_key in site config to enable the AI hunt."}
+    ck = f"ap_auditor_hunt:{target}"
+    if not int(force or 0):
+        hit = frappe.cache().get_value(ck)
+        if hit is not None:
+            return hit
+    out = _run_hunt(target, key)
+    try:
+        frappe.cache().set_value(ck, out, expires_in_sec=3600)
+    except Exception:
+        pass
+    return out

@@ -19,7 +19,11 @@
       <div v-if="view === 'findings'" class="flex-1 overflow-y-auto min-h-0 p-3 flex flex-col gap-2.5">
         <div class="flex items-center gap-1 flex-wrap -mt-0.5">
           <button v-for="cf in CATS" :key="cf.key" @click="catFilter = cf.key" class="text-[10px] font-bold px-2 py-0.5 rounded-full border transition" :class="catFilter === cf.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2'">{{ cf.label() }}<span v-if="catCount(cf.key)" class="ms-1 opacity-70">{{ catCount(cf.key) }}</span></button>
+          <button @click="runHunt" :disabled="hunting" class="ms-auto text-[10px] font-bold px-2 py-0.5 rounded-full text-white inline-flex items-center gap-1 disabled:opacity-60" style="background:linear-gradient(135deg,#a21caf,#6d28d9)" :title="L('Let the AI auditor investigate on its own','خلّي المدقّق الذكي يحقّق لوحده','Laisser l’IA enquêter')">
+            <Icon name="search" :size="10" />{{ hunting ? L("Hunting…","يبحث…","…") : L("AI hunt","صيد ذكي","Chasse IA") }}
+          </button>
         </div>
+        <div v-if="huntNote" class="text-[10.5px] text-ink-muted bg-app-warm rounded-chip px-2.5 py-1.5 -mt-1">{{ huntNote }}</div>
         <div v-for="a in filteredFeed" :key="a.id" class="border border-line rounded-[12px] p-3 bg-white shadow-card">
           <div class="flex items-start gap-2.5">
             <span class="w-7 h-7 rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: sev(a).bg }"><Icon :name="a.icon" :size="14" :color="sev(a).fg" /></span>
@@ -127,7 +131,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { SEV_META, sevLabel, seedMessages, replyTo } from "@/data/copilot";
-import { loadControls, feedFrom } from "@/composables/useAuditor";
+import { loadControls, feedFrom, toFeedItem } from "@/composables/useAuditor";
 import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
@@ -154,6 +158,32 @@ async function loadFeed() {
   feed.value = feedFrom(r.data && r.data.findings);
 }
 
+// AI hunt — the agentic auditor investigates on its own and appends its findings.
+const hunting = ref(false);
+const huntNote = ref("");
+async function runHunt() {
+  if (hunting.value) return;
+  hunting.value = true;
+  huntNote.value = L("The AI auditor is investigating the books…", "المدقّق الذكي بيحقّق في الدفاتر…", "L’IA enquête…");
+  try {
+    const r = await api.call("accounting_portal.api.auditor.hunt", { company: currentCompany() });
+    if (r && r.available === false) {
+      huntNote.value = L("AI hunt needs an API key configured on the server.", "الصيد الذكي محتاج مفتاح API على السيرفر.", "Clé API requise.");
+      return;
+    }
+    const found = (r && r.findings) || [];
+    feed.value = [...feed.value.filter((x) => x.category !== "ai"), ...found.map(toFeedItem)];
+    catFilter.value = "ai";
+    huntNote.value = found.length
+      ? L(`AI hunt found ${found.length} item(s) — reviewing ${r.summary.probe_calls} evidence probes.`, `الصيد الذكي لقى ${found.length} حاجة — راجع ${r.summary.probe_calls} فحص.`, `${found.length} constat(s).`)
+      : L("AI hunt ran — no new issues beyond what's already tracked.", "الصيد الذكي اشتغل — مفيش جديد غير اللي متتبَّع.", "Aucun nouveau problème.");
+  } catch {
+    huntNote.value = L("AI hunt couldn't run right now.", "تعذّر تشغيل الصيد الذكي الآن.", "Échec de la chasse IA.");
+  } finally {
+    hunting.value = false;
+  }
+}
+
 // Category filter: balance controls / entry-level / report tie-outs.
 const catFilter = ref("all");
 const CATS = [
@@ -162,12 +192,13 @@ const CATS = [
   { key: "entry", label: () => L("Entries", "القيود", "Écritures") },
   { key: "report", label: () => L("Reports", "التقارير", "Rapports") },
   { key: "anomaly", label: () => L("Anomalies", "شذوذ", "Anomalies") },
+  { key: "ai", label: () => L("AI hunt", "صيد ذكي", "Chasse IA") },
 ];
 const filteredFeed = computed(() => (catFilter.value === "all" ? feed.value : feed.value.filter((a) => a.category === catFilter.value)));
 const catCount = (k) => (k === "all" ? feed.value.length : feed.value.filter((a) => a.category === k).length);
-const CAT_LABEL = { control: () => L("Books", "دفاتر", "Livres"), entry: () => L("Entry", "قيد", "Écriture"), report: () => L("Report", "تقرير", "Rapport"), anomaly: () => L("Anomaly", "شذوذ", "Anomalie") };
+const CAT_LABEL = { control: () => L("Books", "دفاتر", "Livres"), entry: () => L("Entry", "قيد", "Écriture"), report: () => L("Report", "تقرير", "Rapport"), anomaly: () => L("Anomaly", "شذوذ", "Anomalie"), ai: () => L("AI", "ذكي", "IA") };
 const catLabel = (k) => (CAT_LABEL[k] ? CAT_LABEL[k]() : k);
-const catTag = (k) => ({ control: "background:#eef2ff;color:#4338ca", entry: "background:#f0fdf4;color:#15803d", report: "background:#fff7ed;color:#c2410c", anomaly: "background:#fdf2f8;color:#a21caf" }[k] || "background:#f5f5f4;color:#57534e");
+const catTag = (k) => ({ control: "background:#eef2ff;color:#4338ca", entry: "background:#f0fdf4;color:#15803d", report: "background:#fff7ed;color:#c2410c", anomaly: "background:#fdf2f8;color:#a21caf", ai: "background:#eef2ff;color:#6d28d9" }[k] || "background:#f5f5f4;color:#57534e");
 
 // ── CFO task board ──
 const view = usePersistedRef("ap_copilot_view", "findings");
