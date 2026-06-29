@@ -26,12 +26,19 @@ def get_session_info():
     user = frappe.session.user
     if user == "Guest":
         frappe.throw("Not permitted", frappe.PermissionError)
-    # Any logged-in Frappe user without an accounting role is denied — keeps
-    # the portal internal even if someone else has a site login.
-    assert_portal_access(user)
+    # Logged into the site but without any accounting-portal role: return a marked
+    # payload (instead of throwing) so the SPA shows a clear "no access" screen
+    # rather than bouncing them to the login page with no explanation.
+    if not (has_all_access(user) or get_portal_role(user)):
+        return {
+            "user": user, "full_name": frappe.db.get_value("User", user, "full_name"),
+            "has_access": False, "role": None, "is_admin": False,
+            "companies": [], "capabilities": {},
+        }
     return {
         "user": user,
         "full_name": frappe.db.get_value("User", user, "full_name"),
+        "has_access": True,
         "role": get_portal_role(user),
         "is_admin": has_all_access(user),
         "companies": allowed_companies(user),

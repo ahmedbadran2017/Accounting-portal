@@ -1,5 +1,18 @@
 <template>
-  <div class="min-h-screen flex bg-app-bg text-ink">
+  <!-- Signed into the site but with no accounting-portal role: a clear message
+       instead of a broken/blank shell or a confusing bounce to login. -->
+  <div v-if="noAccess" class="min-h-screen grid place-items-center bg-app-bg p-6">
+    <div class="bg-white border border-line rounded-card shadow-card p-8 text-center max-w-md">
+      <div class="w-14 h-14 rounded-full grid place-items-center mx-auto" style="background:#fef2f2"><Icon name="shield" :size="26" color="#b91c1c" /></div>
+      <div class="text-[17px] font-bold mt-4">{{ L("No access to this portal", "لا تملك صلاحية الدخول", "Accès non autorisé") }}</div>
+      <div class="text-[12.5px] text-ink-3 mt-2 leading-relaxed">{{ L("Your account isn't authorised for the Justyol accounting portal. Ask a Super Admin to grant you a role, then sign in again.", "حسابك غير مصرّح له بالدخول إلى بورتال محاسبة Justyol. اطلب من مسؤول (Super Admin) أن يمنحك صلاحية ثم سجّل الدخول من جديد.", "Votre compte n'est pas autorisé pour ce portail. Demandez un rôle à un Super Admin.") }}</div>
+      <div v-if="user" class="text-[11px] text-ink-muted mt-3 font-mono bg-app-warm rounded-chip px-3 py-1.5 inline-block">{{ user }}</div>
+      <div class="mt-5">
+        <button class="h-9 px-4 rounded-chip text-[12.5px] font-bold text-white bg-ink hover:bg-ink/90" @click="onLogout">{{ L("Sign out", "تسجيل الخروج", "Se déconnecter") }}</button>
+      </div>
+    </div>
+  </div>
+  <div v-else class="min-h-screen flex bg-app-bg text-ink">
     <!-- ───────── Sidebar ───────── -->
     <aside
       class="fixed lg:static inset-block-0 z-40 w-[248px] bg-white/80 backdrop-blur border-line-2 flex flex-col transition-transform"
@@ -164,7 +177,8 @@ import { LOGO_URL } from "@/utils/constants";
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { user, fullName, role, logout } = useAuth();
+const { user, fullName, role, logout, hasAccess, isLoggedIn } = useAuth();
+const noAccess = computed(() => isLoggedIn.value && !hasAccess.value);
 const { entityId, setEntity, entities } = useUi();
 
 const open = ref(false);

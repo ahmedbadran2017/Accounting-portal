@@ -10,6 +10,7 @@ const role = ref(null);
 const isAdmin = ref(false);
 const companies = ref([]);
 const capabilities = ref({});
+const hasAccess = ref(false);
 const isLoading = ref(true);
 const isInitialized = ref(false);
 
@@ -23,6 +24,8 @@ function _applySession(data) {
   isAdmin.value = !!data?.is_admin;
   companies.value = data?.companies || [];
   capabilities.value = data?.capabilities || {};
+  // A logged-in user without any portal role comes back with has_access:false.
+  hasAccess.value = data ? data.has_access !== false : false;
   // Pick the default landing entity by role (Viewer → consolidated, else Morocco).
   if (data?.role) useUi().applyRoleDefault(data.role);
 }
@@ -93,7 +96,7 @@ export function can(action) {
 
 export function useAuth() {
   return {
-    user, fullName, role, isAdmin, companies, capabilities,
+    user, fullName, role, isAdmin, companies, capabilities, hasAccess,
     isLoggedIn, isGuest, isLoading, isInitialized,
     init, login, logout, can,
   };
