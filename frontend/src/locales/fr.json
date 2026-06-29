@@ -24,7 +24,7 @@
     "recurring": "Récurrent", "payments_out": "Paiements émis", "cheques": "Chèques", "vcredits": "Avoirs fourn.",
     "items": "Articles", "pricelists": "Listes de prix", "landed": "Coût de revient",
     "accounts": "Comptes", "transactions": "Transactions", "rules": "Règles",
-    "remittance": "Encaissement COD", "variance": "File écarts", "aging": "Ancienneté", "bankrec": "Rappr. bancaire",
+    "remittance": "Encaissement COD", "variance": "File écarts", "settlements": "Règlements transp.", "aging": "Ancienneté", "bankrec": "Rappr. bancaire",
     "journals": "Écritures", "coa": "Plan comptable", "gl": "Grand livre", "trial": "Balance",
     "assets": "Immobilisations", "fx": "Ajust. change", "opening": "Solde d’ouverture", "close": "Clôture", "triage": "Remédiation",
     "salescol": "Ventes & encaissements", "arap": "Créances & Dettes", "forecast": "Prévision trésorerie", "missingdocs": "Docs manquants", "statements": "États financiers", "taxreports": "Taxes & dimensions", "dd": "Indicateurs DD", "dataroom": "Data room",

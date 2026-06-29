@@ -22,7 +22,7 @@ import re
 import frappe
 from frappe.utils import flt, getdate, nowdate
 
-from accounting_portal.api import _actions
+from accounting_portal.api import _actions, _paginate
 from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
 
 COLLECT_ACTION = "Collect COD"
@@ -634,3 +634,95 @@ def carrier_aging(company=None):
     except Exception:
         pass
     return result
+
+
+# ── Carrier settlements: cash the carriers actually collected & remitted ──────
+# Carriers collect COD cash into their own holding account ("X Transactions",
+# 108.021.00x, typed Bank) — that's "the carrier is holding our money". They then
+# sweep it to the real operating bank (BMCE). So per carrier we show: collected
+# (deposited into the carrier account this period), still held (current account
+# balance), and swept-to-bank (the difference).
+_CARRIER_DEP = ("pe.company=%(c)s AND pe.docstatus=1 AND pe.payment_type='Receive' "
+                "AND a.account_type='Bank' AND a.account_name LIKE '%%Transaction%%'")
+
+
+@frappe.whitelist()
+def carrier_settlements(company=None, from_date=None, to_date=None):
+    """Money the shipping carriers (Cathedis, Aramex, Cash Plus…) actually collected
+    for us and where it stands: collected into the carrier account this period,
+    still sitting with the carrier, and swept to our operating bank."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"by_carrier": [], "by_month": [], "total": 0}
+    conds = [_CARRIER_DEP]
+    params = {"c": target}
+    if from_date:
+        conds.append("pe.posting_date>=%(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("pe.posting_date<=%(td)s"); params["td"] = to_date
+    where = " AND ".join(conds)
+    # collected into each carrier account this period
+    rows = frappe.db.sql(
+        f"""SELECT pe.paid_to AS account, a.account_name AS carrier,
+                   ROUND(SUM(pe.paid_amount)) AS collected, COUNT(*) AS deposits,
+                   MAX(pe.posting_date) AS last_date
+            FROM `tabPayment Entry` pe JOIN `tabAccount` a ON a.name=pe.paid_to
+            WHERE {where} GROUP BY pe.paid_to ORDER BY collected DESC""", params, as_dict=True)
+    # current balance still sitting in each carrier account (point-in-time, all-time)
+    held = {}
+    if rows:
+        for h in frappe.db.sql(
+                """SELECT account, ROUND(SUM(debit-credit)) bal FROM `tabGL Entry`
+                   WHERE company=%(c)s AND is_cancelled=0 AND account IN %(accts)s GROUP BY account""",
+                {"c": target, "accts": tuple(r["account"] for r in rows)}, as_dict=True):
+            held[h.account] = flt(h.bal)
+    for r in rows:
+        r["collected"] = flt(r["collected"])
+        r["held"] = held.get(r["account"], 0.0)
+        r["swept"] = round(r["collected"] - r["held"], 0)  # left the carrier account → bank
+        r["last_date"] = str(r.get("last_date") or "")
+    by_month = frappe.db.sql(
+        f"""SELECT DATE_FORMAT(pe.posting_date,'%%Y-%%m') ym, ROUND(SUM(pe.paid_amount)) collected
+            FROM `tabPayment Entry` pe JOIN `tabAccount` a ON a.name=pe.paid_to
+            WHERE {where} GROUP BY ym ORDER BY ym DESC LIMIT 12""", params, as_dict=True)
+    for m in by_month:
+        m["collected"] = flt(m["collected"])
+    return {
+        "company": target, "currency": frappe.db.get_value("Company", target, "default_currency") or "MAD",
+        "by_carrier": rows, "by_month": list(reversed(by_month)),
+        "total_collected": sum(r["collected"] for r in rows),
+        "total_held": sum(r["held"] for r in rows),
+        "deposits": sum(r["deposits"] for r in rows),
+    }
+
+
+@frappe.whitelist()
+def list_carrier_deposits(company=None, carrier=None, search=None, from_date=None, to_date=None,
+                          start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """The actual carrier deposit Payment Entries — server-paginated. `carrier` is
+    the carrier holding account name to scope to one carrier."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": [], "total": 0}
+    conds = [_CARRIER_DEP]
+    params = {"c": target}
+    if carrier:
+        conds.append("a.account_name=%(car)s"); params["car"] = carrier
+    if search:
+        conds.append("(pe.name LIKE %(s)s OR IFNULL(pe.reference_no,'') LIKE %(s)s OR pe.party LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    if from_date:
+        conds.append("pe.posting_date>=%(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("pe.posting_date<=%(td)s"); params["td"] = to_date
+    sort = {"date": "pe.posting_date", "amount": "pe.paid_amount", "id": "pe.name", "carrier": "a.account_name"}
+    col = sort.get(sort_field, "pe.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, s, ps = _paginate.page_query(
+        "`tabPayment Entry` pe JOIN `tabAccount` a ON a.name=pe.paid_to", " AND ".join(conds), params,
+        "pe.name, pe.posting_date AS date, a.account_name AS carrier, pe.party AS customer, "
+        "IFNULL(NULLIF(pe.reference_no,''),'—') AS reference, ROUND(pe.paid_amount,2) AS amount",
+        f"{col} {d}, pe.creation {d}", start, page_size)
+    return {"rows": rows, "total": total, "start": s, "page_size": ps}

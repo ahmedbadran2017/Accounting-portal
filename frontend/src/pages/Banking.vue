@@ -22,6 +22,7 @@
     <RemittanceDetail v-else-if="activeSub === 'remittance' && route.query.id" />
     <RemittanceList v-else-if="activeSub === 'remittance'" />
     <VarianceQueue v-else-if="activeSub === 'variance'" />
+    <CarrierSettlements v-else-if="activeSub === 'settlements'" />
     <CarrierAging v-else-if="activeSub === 'aging'" />
     <BankRec v-else-if="activeSub === 'bankrec'" />
     <ScaffoldTable v-else />
@@ -42,6 +43,7 @@ import RemittanceList from "@/pages/banking/RemittanceList.vue";
 import RemittanceDetail from "@/pages/banking/RemittanceDetail.vue";
 import VarianceQueue from "@/pages/banking/VarianceQueue.vue";
 import CarrierAging from "@/pages/banking/CarrierAging.vue";
+import CarrierSettlements from "@/pages/banking/CarrierSettlements.vue";
 import BankRec from "@/pages/banking/BankRec.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
