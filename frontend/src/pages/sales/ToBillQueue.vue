@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-3.5">
-    <!-- Exposure header -->
+    <!-- Exposure header (full backlog — page/filter-invariant) -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <div class="bg-white rounded-[13px] border border-line px-4 py-3 shadow-card">
         <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Awaiting invoice","بانتظار الفوترة","À facturer") }}</div>
@@ -28,21 +28,21 @@
       <span class="text-[11.5px] text-ink-2">{{ L("These orders are delivered but not yet invoiced — revenue isn't recognised until you bill them.","هذه الطلبات سُلّمت لكن لم تُفوتر بعد — لا يُعترف بالإيراد حتى تُفوتر.","Ces commandes sont livrées mais pas encore facturées — le revenu n'est pas reconnu.") }}</span>
     </div>
 
+    <DateFilterBar :df="df" />
+
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="receipt" :size="14" color="#b45309" /></span>
         <span class="text-[13px] font-bold">{{ L("To bill","للفوترة","À facturer") }}</span>
         <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
-        <span class="hidden lg:inline text-[11px] text-ink-muted">{{ L("oldest first","الأقدم أولاً","plus anciens") }}</span>
+        <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} · {{ L("oldest first","الأقدم أولاً","plus anciens") }}</span>
         <div class="ms-auto relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="tt.search.value" :placeholder="L('Search DN / customer…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="st.search.value" :placeholder="L('Search DN / customer…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
-      <TableToolbar :t="tt" />
-      <TableLoading v-if="loading" :rows="8" />
-      <div v-else class="overflow-x-auto">
+      <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
             <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Delivery note","السند","Bon") }}</th>
@@ -52,7 +52,7 @@
             <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted"></th>
           </tr></thead>
           <tbody>
-            <tr v-for="r in tt.pageRows.value" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50">
+            <tr v-for="r in st.rows.value" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50">
               <td class="px-4 py-2.5 font-mono text-[11.5px] font-semibold cursor-pointer hover:text-accent-dark" @click="open(r.name)">{{ r.name }}</td>
               <td class="px-4 py-2.5 truncate max-w-[220px] cursor-pointer" @click="open(r.name)">{{ r.customer }}</td>
               <td class="px-4 py-2.5 text-end"><span class="text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="ageBadge(r.age)">{{ r.age }}{{ L("d","ي","j") }}</span></td>
@@ -63,26 +63,28 @@
                 </button>
               </td>
             </tr>
-            <tr v-if="!tt.pageRows.value.length"><td colspan="5" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("Nothing awaiting invoice. 🎉","لا شيء بانتظار الفوترة. 🎉","Rien à facturer. 🎉") }}</td></tr>
           </tbody>
         </table>
       </div>
-      <TablePager :t="tt" />
+      <TableLoading v-if="st.loading.value" :rows="8" />
+      <div v-else-if="!st.rows.value.length" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("Nothing awaiting invoice. 🎉","لا شيء بانتظار الفوترة. 🎉","Rien à facturer. 🎉") }}</div>
+      <ServerPager :t="st" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import TableToolbar from "@/components/TableToolbar.vue";
-import TablePager from "@/components/TablePager.vue";
+import ServerPager from "@/components/ServerPager.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import DateFilterBar from "@/components/DateFilterBar.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
-import { useTableTools } from "@/composables/useTableTools";
+import { useServerTable } from "@/composables/useServerTable";
+import { useDateFilter } from "@/composables/useDateFilter";
 import { useUi } from "@/composables/useUi";
 import { useToast } from "@/composables/useToast";
 
@@ -94,34 +96,17 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const money = (n) => { n = Number(n) || 0; return Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + "M" : Math.abs(n) >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
 
-const cols = [
-  { key: "name", label: "DN", align: "s" },
-  { key: "customer", label: L("Customer", "العميل", "Client"), align: "s" },
-  { key: "age", label: L("Age", "العمر", "Âge"), align: "e" },
-  { key: "value", label: L("Value", "القيمة", "Valeur"), align: "e" },
-];
-const SAMPLE = [
-  { name: "MAT-DN-2025-00962", customer: "COD customer", age: 120, value: 91 },
-  { name: "MAT-DN-2025-00979", customer: "COD customer", age: 95, value: 114 },
-];
-const rows = ref([]);
-const sum = ref({});
 const isLive = ref(null);
-const loading = ref(true);
 const busy = ref("");
-const tt = useTableTools(rows, cols, { storeKey: "tobill", keyField: "name", defaultSort: "age", defaultDir: -1 });
+const df = useDateFilter("tobill", (f) => st.setFilters(f));
+const st = useServerTable(
+  (params) => api.call("accounting_portal.api.sales.to_bill_queue", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
+  { pageSize: 25, sortField: "date", sortDir: "asc", filters: df.filterValue() },
+);
+st.load();
+watch(entityId, () => { st.page.value = 1; st.load(); });
 
-async function load() {
-  loading.value = true;
-  try {
-    const r = await api.call("accounting_portal.api.sales.to_bill_queue", { company: currentCompany(), limit: 400 });
-    rows.value = r.rows || []; sum.value = r.summary || {}; isLive.value = true;
-  } catch { rows.value = SAMPLE; sum.value = { count: 2, value: 205, currency: "MAD", value_over_60: 205, aging: { w1: 0, w2: 0, w3: 0, w4: 2 } }; isLive.value = false; }
-  finally { loading.value = false; }
-}
-onMounted(load);
-watch(entityId, load);
-
+const sum = computed(() => (st.extra.value && st.extra.value.summary) || {});
 const agingBars = computed(() => {
   const a = sum.value.aging || {};
   const max = Math.max(a.w1 || 0, a.w2 || 0, a.w3 || 0, a.w4 || 0, 1);
@@ -141,7 +126,7 @@ async function bill(r) {
       toast.success(L("Queued for approval (over 10,000)", "بانتظار الموافقة (فوق 10٬000)", "En attente d'approbation"));
     } else {
       toast.success(L("Invoiced", "تمت الفوترة", "Facturé"));
-      rows.value = rows.value.filter((x) => x.name !== r.name);
+      st.load();
     }
   } catch (err) { toast.error(String((err && err.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
   finally { busy.value = ""; }

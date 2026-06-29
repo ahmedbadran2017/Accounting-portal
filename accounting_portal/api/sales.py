@@ -309,28 +309,38 @@ def list_receipts(company=None, search=None, from_date=None, to_date=None, start
 
 
 @frappe.whitelist()
-def list_credits(company=None, limit=100):
+def list_credits(company=None, search=None, from_date=None, to_date=None,
+                 start=0, page_size=25, sort_field="date", sort_dir="desc"):
     """Returns / credit notes — COD orders returned or in delivery exception.
     There are no per-customer Sales-Invoice returns in this book; the revenue
-    reversal lives on the order, so that's the real credit-note source."""
+    reversal lives on the order, so that's the real credit-note source.
+    Server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
-        return []
+        return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    return frappe.db.sql(
-        """
-        SELECT name, customer,
-               CASE WHEN custom_logistics_status='Returned' OR custom_sales_status='Returned'
-                    THEN 'Returned' ELSE custom_track_shipment_status END AS reason,
-               transaction_date AS date, ROUND(grand_total) AS amount
-        FROM `tabSales Order`
-        WHERE company=%s AND docstatus=1
-          AND (custom_sales_status='Returned' OR custom_logistics_status='Returned'
-               OR custom_track_shipment_status IN ('Delivery Exception','Failed Attempt'))
-        ORDER BY transaction_date DESC, creation DESC LIMIT %s
-        """,
-        (target, min(int(limit or 100), 500)), as_dict=True)
+    conds = ["so.company=%(c)s", "so.docstatus=1",
+             "(so.custom_sales_status='Returned' OR so.custom_logistics_status='Returned'"
+             " OR so.custom_track_shipment_status IN ('Delivery Exception','Failed Attempt'))"]
+    params = {"c": target}
+    if search:
+        conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)"); params["s"] = f"%{search}%"
+    if from_date:
+        conds.append("so.transaction_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("so.transaction_date <= %(td)s"); params["td"] = to_date
+    sort = {"date": "so.transaction_date", "customer": "so.customer", "amount": "so.grand_total", "id": "so.name"}
+    col = sort.get(sort_field, "so.transaction_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, s, ps = _paginate.page_query(
+        "`tabSales Order` so", " AND ".join(conds), params,
+        "so.name, so.customer, "
+        "CASE WHEN so.custom_logistics_status='Returned' OR so.custom_sales_status='Returned' "
+        "THEN 'Returned' ELSE so.custom_track_shipment_status END AS reason, "
+        "so.transaction_date AS date, ROUND(so.grand_total) AS amount",
+        f"{col} {d}, so.creation {d}", start, page_size)
+    return {"rows": rows, "total": total, "start": s, "page_size": ps}
 
 
 @frappe.whitelist()
@@ -494,27 +504,32 @@ def get_invoice(name):
 
 
 @frappe.whitelist()
-def to_bill_queue(company=None, search=None, limit=300):
+def to_bill_queue(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25):
     """Delivered-but-not-invoiced delivery notes — the revenue-recognition gap.
-    Returns the queue + total exposure + aging by days since delivery."""
+    Returns the queue (server-paginated, oldest-first) + total exposure + aging.
+    The summary stays the FULL backlog exposure (page/search/date-invariant)."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
-        return {"rows": [], "summary": {}}
+        return {"rows": [], "total": 0, "summary": {}}
     target = company if (company and company in companies) else companies[0]
     ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
     base = "company=%(c)s AND docstatus=1 AND status='To Bill'"
-    params = {"c": target, "limit": min(int(limit or 300), 1000)}
+    params = {"c": target}
     where = base
     if search:
         where += " AND (name LIKE %(s)s OR customer LIKE %(s)s)"
         params["s"] = f"%{search}%"
-    rows = frappe.db.sql(
-        f"""SELECT name, customer, posting_date AS date, ROUND(base_grand_total) AS value,
-                   DATEDIFF(CURDATE(), posting_date) AS age,
-                   IFNULL(NULLIF(custom_tracking_company,''),'—') AS carrier
-            FROM `tabDelivery Note` WHERE {where}
-            ORDER BY posting_date ASC LIMIT %(limit)s""", params, as_dict=True)
+    if from_date:
+        where += " AND posting_date >= %(fd)s"; params["fd"] = from_date
+    if to_date:
+        where += " AND posting_date <= %(td)s"; params["td"] = to_date
+    rows, total, st_, ps = _paginate.page_query(
+        "`tabDelivery Note`", where, params,
+        "name, customer, posting_date AS date, ROUND(base_grand_total) AS value, "
+        "DATEDIFF(CURDATE(), posting_date) AS age, "
+        "IFNULL(NULLIF(custom_tracking_company,''),'—') AS carrier",
+        "posting_date ASC", start, page_size)
     s = frappe.db.sql(
         f"""SELECT COUNT(*) AS n, ROUND(SUM(base_grand_total)) AS val,
                    SUM(DATEDIFF(CURDATE(),posting_date)<=7) AS w1,
@@ -524,7 +539,7 @@ def to_bill_queue(company=None, search=None, limit=300):
                    ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(),posting_date)>60 THEN base_grand_total ELSE 0 END)) AS val_w4
             FROM `tabDelivery Note` WHERE {base}""", {"c": target}, as_dict=True)[0]
     return {
-        "rows": rows,
+        "rows": rows, "total": total, "start": st_, "page_size": ps,
         "summary": {
             "company": target, "currency": ccy, "count": s.n or 0, "value": flt(s.val),
             "aging": {"w1": s.w1 or 0, "w2": s.w2 or 0, "w3": s.w3 or 0, "w4": s.w4 or 0},
