@@ -573,6 +573,10 @@ def carrier_aging(company=None):
     target = _target(company)
     if not target:
         return {"carriers": []}
+    ck = f"ap_carrier_aging:{target}"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
     rows = frappe.db.sql(
         f"""SELECT IFNULL(NULLIF(so.custom_tracking_company,''),'—') AS carrier,
                    ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(),so.transaction_date)<=3 THEN so.grand_total ELSE 0 END)) AS d0_3,
@@ -591,5 +595,10 @@ def carrier_aging(company=None):
             r[k] = flt(r[k])
         r["avg_days"] = flt(r["avg_days"])
         r["alert"] = (flt(r["d8_14"]) + flt(r["d15p"])) > 0.2 * max(1, flt(r["total"]))
-    return {"carriers": rows, "total": sum(r["total"] for r in rows),
-            "aged": sum(flt(r["d8_14"]) + flt(r["d15p"]) for r in rows)}
+    result = {"carriers": rows, "total": sum(r["total"] for r in rows),
+              "aged": sum(flt(r["d8_14"]) + flt(r["d15p"]) for r in rows)}
+    try:
+        frappe.cache().set_value(ck, result, expires_in_sec=180)
+    except Exception:
+        pass
+    return result

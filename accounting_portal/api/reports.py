@@ -527,6 +527,10 @@ def cash_forecast(company=None):
     target = _target(company)
     if not target:
         return {}
+    ck = f"ap_cashfc:{target}"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return cached
     ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
     cash = flt(frappe.db.sql(
         """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
@@ -562,13 +566,18 @@ def cash_forecast(company=None):
         pass
     proj_7 = cash + carrier_float * 0.4 - cheques_7 - bills_due * 0.5
     proj_30 = cash + carrier_float - cheques_out - bills_due
-    return {
+    result = {
         "company": target, "currency": ccy, "as_of": nowdate(),
         "cash": round(cash), "carrier_float": round(carrier_float), "runrate_30d": round(runrate),
         "cheques_7d": round(cheques_7), "cheques_out": round(cheques_out), "bills_due": round(bills_due),
         "proj_7d": round(proj_7), "proj_30d": round(proj_30),
         "liquidity_7d_ok": (cash - cheques_7 - bills_due * 0.5) > 0,
     }
+    try:
+        frappe.cache().set_value(ck, result, expires_in_sec=180)
+    except Exception:
+        pass
+    return result
 
 
 # ── Full classified financial statements (P&L + Balance Sheet + Cash Flow) ──
