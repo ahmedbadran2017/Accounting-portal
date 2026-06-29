@@ -79,49 +79,74 @@ def _order_state(row):
     return "placed"
 
 
+# SQL mirror of _order_state so the list can filter / sort / count / paginate on
+# state server-side, instead of pulling everything and bucketing in the browser.
+_STATE_CASE = """CASE
+  WHEN (so.custom_sales_status IN ('Cancelled','Duplicated') OR so.status='Cancelled') THEN 'cancelled'
+  WHEN so.custom_track_shipment_status IN ('Delivery Exception','Failed Attempt') THEN 'undelivered'
+  WHEN (so.custom_logistics_status='Delivered' OR so.custom_track_shipment_status='Delivered')
+       THEN (CASE WHEN so.status IN ('Completed','Closed') THEN 'settled' ELSE 'delivered' END)
+  WHEN so.custom_logistics_status='Shipped' THEN 'transit'
+  WHEN so.custom_sales_status='Confirmed' THEN 'confirmed'
+  ELSE 'placed' END"""
+
+_SORT_COLS = {"date": "so.transaction_date", "value": "so.grand_total",
+              "customer": "so.customer", "id": "so.name"}
+
+
 @frappe.whitelist()
-def list_orders(company=None, state=None, search=None, limit=100, customer=None):
-    """COD sales orders for one company (newest first), excluding cancelled docs.
-    Optional `state` filters by the mapped portal state; `search` matches the
-    order id or customer; `customer` restricts to one customer exactly."""
+def list_orders(company=None, state=None, search=None, customer=None, active=0,
+                start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """Server-paginated COD sales orders. Returns one page (start/page_size) plus
+    the total count and per-state counts for the pipeline strip — so the UI pages
+    through the full set at high speed instead of capping at a client-side 500."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
-        return []
+        return {"rows": [], "total": 0, "state_counts": {}}
     target = company if (company and company in companies) else companies[0]
-    limit = min(int(limit or 100), 500)
+    start = max(0, int(start or 0))
+    page_size = min(max(1, int(page_size or 25)), 100)
 
     conds = ["so.company = %(company)s", "so.docstatus < 2"]
-    params = {"company": target, "limit": limit}
+    params = {"company": target}
     if customer:
-        conds.append("so.customer = %(customer)s")
-        params["customer"] = customer
+        conds.append("so.customer = %(customer)s"); params["customer"] = customer
     if search:
-        conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)")
-        params["s"] = f"%{search}%"
+        conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)"); params["s"] = f"%{search}%"
+    base_where = " AND ".join(conds)
+
+    state_where = base_where
+    if state:
+        state_where += f" AND {_STATE_CASE} = %(state)s"; params["state"] = state
+    elif int(active or 0):
+        state_where += f" AND {_STATE_CASE} NOT IN ('placed','cancelled')"
+
+    total = frappe.db.sql(f"SELECT COUNT(*) FROM `tabSales Order` so WHERE {state_where}", params)[0][0]
+    state_counts = {r[0]: r[1] for r in frappe.db.sql(
+        f"SELECT {_STATE_CASE} st, COUNT(*) FROM `tabSales Order` so WHERE {base_where} GROUP BY st", params)}
+
+    col = _SORT_COLS.get(sort_field, "so.transaction_date")
+    direction = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    params["ps"] = page_size
+    params["st"] = start
     rows = frappe.db.sql(
-        f"""
-        SELECT so.name, so.customer, so.grand_total AS value, so.status,
-               so.transaction_date AS date, so.custom_sales_status,
-               so.custom_logistics_status, so.custom_track_shipment_status,
-               so.custom_tracking_company AS carrier, so.custom_shipping_city AS city
-        FROM `tabSales Order` so
-        WHERE {' AND '.join(conds)}
-        ORDER BY so.transaction_date DESC, so.creation DESC
-        LIMIT %(limit)s
-        """,
-        params, as_dict=True,
-    )
-    # The order's own custom_shipping_city is ~empty; backfill from the
-    # customer's most-recent Address (one bulk query) so the City column is real.
+        f"""SELECT so.name, so.customer, so.grand_total AS value, so.status,
+                   so.transaction_date AS date, so.custom_sales_status,
+                   so.custom_logistics_status, so.custom_track_shipment_status,
+                   so.custom_tracking_company AS carrier, so.custom_shipping_city AS city,
+                   {_STATE_CASE} AS state
+            FROM `tabSales Order` so WHERE {state_where}
+            ORDER BY {col} {direction}, so.creation {direction}
+            LIMIT %(ps)s OFFSET %(st)s""", params, as_dict=True)
+
+    # Per-page backfill (only this page's rows): city from the customer Address,
+    # carrier/track from the linked Delivery Note when the order's own are empty.
     from accounting_portal.api.customers import _cities_for
     missing = list({r["customer"] for r in rows if not (r.get("city") or "").strip()})
     cities = _cities_for(missing) if missing else {}
-    # Carrier + track status from the linked Delivery Note when the order's own
-    # fields are empty (an order gets these on shipment; some only on the DN).
     ship = _dn_shipment_for([r["name"] for r in rows])
     for r in rows:
-        r["state"] = _order_state(r)
         r["value"] = flt(r["value"])
         if not (r.get("city") or "").strip():
             r["city"] = cities.get(r["customer"]) or ""
@@ -131,9 +156,8 @@ def list_orders(company=None, state=None, search=None, limit=100, customer=None)
                 r["carrier"] = s.get("carrier") or r.get("carrier")
             if not (r.get("custom_track_shipment_status") or "").strip():
                 r["custom_track_shipment_status"] = s.get("track") or r.get("custom_track_shipment_status")
-    if state:
-        rows = [r for r in rows if r["state"] == state]
-    return rows
+    return {"rows": rows, "total": total, "start": start, "page_size": page_size,
+            "state_counts": state_counts}
 
 
 def _dn_shipment_for(order_names):

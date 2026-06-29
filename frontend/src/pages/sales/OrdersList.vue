@@ -1,19 +1,17 @@
 <template>
   <div class="space-y-3.5">
-    <!-- CFO summary strip — GMV, AOV, realised value, backlog, RTO (month-to-date) -->
+    <!-- CFO summary strip (month-to-date) -->
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       <StatCard v-for="m in summaryCards" :key="m.label" :label="m.label" :value="m.value" :sub="m.sub" :icon="m.icon" :color="m.color" :glow="m.glow" :tint="m.tint" :value-color="m.color" />
     </div>
 
-    <!-- State-machine strip (connected, click to filter) -->
+    <!-- State-machine strip — LIVE counts, click to filter server-side -->
     <div class="bg-white border border-line rounded-[14px] p-3.5 shadow-card overflow-x-auto">
       <div class="flex items-center gap-1 min-w-[680px]">
-        <template v-for="(st, i) in MACHINE" :key="st">
-          <button class="flex flex-col items-start flex-1 px-3 py-1.5 rounded-lg"
-                  :class="filterState === st ? 'bg-app-warm' : 'hover:bg-app-warm/60'"
-                  @click="filterState = filterState === st ? null : st">
-            <span class="text-[18px] font-bold tnum leading-none" :style="{ color: filterState === st ? STATE_META[st].fg : '#1c1917' }">{{ machineCounts[st].toLocaleString() }}</span>
-            <span class="text-[10.5px] font-semibold mt-[3px]" :class="filterState === st ? 'text-accent-dark' : 'text-ink-3'">{{ stateLabel(st, locale) }}</span>
+        <template v-for="(s, i) in MACHINE" :key="s">
+          <button class="flex flex-col items-start flex-1 px-3 py-1.5 rounded-lg" :class="filterState === s ? 'bg-app-warm' : 'hover:bg-app-warm/60'" @click="toggleState(s)">
+            <span class="text-[18px] font-bold tnum leading-none" :style="{ color: filterState === s ? STATE_META[s].fg : '#1c1917' }">{{ (stateCounts[s] || 0).toLocaleString() }}</span>
+            <span class="text-[10.5px] font-semibold mt-[3px]" :class="filterState === s ? 'text-accent-dark' : 'text-ink-3'">{{ stateLabel(s, locale) }}</span>
           </button>
           <Icon v-if="i < MACHINE.length - 1" name="chev" :size="15" color="#d6d3d1" class="flex-shrink-0 rtl:rotate-180" />
         </template>
@@ -21,28 +19,21 @@
     </div>
 
     <!-- Toolbar -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 flex-wrap">
       <div class="relative flex-1 max-w-xs">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-        <input v-model.trim="tt.search.value" :placeholder="t('module.search')"
-               class="w-full h-9 bg-white border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40" />
+        <input v-model.trim="st.search.value" :placeholder="t('module.search')" class="w-full h-9 bg-white border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40" />
       </div>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
-            :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">
-        {{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}
-      </span>
-      <div class="flex items-center gap-1 bg-app-warm/60 rounded-chip p-0.5" :title="lbl('Active = confirmed onward (the accounting cycle)','النشطة = من التأكيد فصاعدًا (الدورة المحاسبية)','Actives = à partir de la confirmation')">
-        <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="activeOnly = true">{{ lbl("Active","النشطة","Actives") }}</button>
-        <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="!activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="activeOnly = false">{{ lbl("All","الكل","Toutes") }}</button>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? lbl("Live","مباشر","Live") : lbl("Sample","عيّنة","Échant.") }}</span>
+      <div class="flex items-center gap-1 bg-app-warm/60 rounded-chip p-0.5" :title="lbl('Active = confirmed onward','النشطة = من التأكيد فصاعدًا','Actives = à partir de la confirmation')">
+        <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="setActive(true)">{{ lbl("Active","النشطة","Actives") }}</button>
+        <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="!activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="setActive(false)">{{ lbl("All","الكل","Toutes") }}</button>
       </div>
-      <span v-if="filterState" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-chip"
-            :style="{ background: STATE_META[filterState].bg, color: STATE_META[filterState].fg }">
-        {{ stateLabel(filterState, locale) }}
-        <button class="opacity-70 hover:opacity-100" @click="filterState = null"><Icon name="close" :size="12" /></button>
+      <span v-if="filterState" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-chip" :style="{ background: STATE_META[filterState].bg, color: STATE_META[filterState].fg }">
+        {{ stateLabel(filterState, locale) }}<button class="opacity-70 hover:opacity-100" @click="toggleState(filterState)"><Icon name="close" :size="12" /></button>
       </span>
       <span v-if="customerFilter" class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-chip" style="background:#eff6ff;color:#0369a1">
-        <Icon name="user" :size="12" />{{ customerFilter }}
-        <button class="opacity-70 hover:opacity-100" @click="clearCustomer"><Icon name="close" :size="12" /></button>
+        <Icon name="user" :size="12" />{{ customerFilter }}<button class="opacity-70 hover:opacity-100" @click="clearCustomer"><Icon name="close" :size="12" /></button>
       </span>
       <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand ms-auto" @click="$emit('new')">
         <Icon name="plus" :size="14" />{{ t("module.new") }}
@@ -51,123 +42,115 @@
 
     <!-- Table -->
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
-      <TableToolbar :t="tt" filename="sales-orders" />
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
-              <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
-              <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
-                  class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none cursor-pointer hover:text-ink-2"
-                  :class="c.align === 'e' ? 'text-end' : 'text-start'"
-                  @click="tt.toggleSort(c.key)">
+              <th v-for="c in cols" :key="c.key" class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none" :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
-                  <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
+                  <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
               </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="o in tt.pageRows.value" :key="o.id"
-                class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer"
-                :class="tt.isSelected(o) ? 'bg-accent/5' : ''"
-                @click="open(o.id)">
-              <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(o)" @change="tt.toggleRow(o)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
-              <td v-show="!tt.hidden.value.has('id')" class="px-4 py-2.5 font-mono font-semibold text-ink whitespace-nowrap">{{ o.id }}</td>
-              <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date || "—" }}</td>
-              <td v-show="!tt.hidden.value.has('customer')" class="px-4 py-2.5">
-                <span class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold flex-shrink-0"
-                        :style="{ background: AV[o.av] }">{{ o.initials }}</span>
-                  <span class="truncate max-w-[160px]">{{ o.customer }}</span>
-                </span>
-              </td>
-              <td v-show="!tt.hidden.value.has('city')" class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.city }}</td>
-              <td v-show="!tt.hidden.value.has('carrier')" class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.carrier }}</td>
-              <td v-show="!tt.hidden.value.has('trackStatus')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.trackStatus }}</td>
-              <td v-show="!tt.hidden.value.has('state')" class="px-4 py-2.5">
-                <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border"
-                      :style="{ background: STATE_META[o.state].bg, color: STATE_META[o.state].fg, borderColor: STATE_META[o.state].bd }">
-                  {{ stateLabel(o.state, locale) }}
-                </span>
-              </td>
-              <td v-show="!tt.hidden.value.has('posting')" class="px-4 py-2.5">
-                <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border"
-                      :style="postingInfo(o.state, locale).posted ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#f5f5f4;color:#a8a29e;border-color:#e7e5e4'">
-                  {{ postingInfo(o.state, locale).label }}
-                </span>
-              </td>
-              <td v-show="!tt.hidden.value.has('value')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ o.value }}</td>
+            <tr v-for="o in displayRows" :key="o.id" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.id)">
+              <td class="px-4 py-2.5 font-mono font-semibold text-ink whitespace-nowrap">{{ o.id }}</td>
+              <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date || "—" }}</td>
+              <td class="px-4 py-2.5"><span class="flex items-center gap-2"><span class="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold flex-shrink-0" :style="{ background: AV[o.av] }">{{ o.initials }}</span><span class="truncate max-w-[160px]">{{ o.customer }}</span></span></td>
+              <td class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.city || "—" }}</td>
+              <td class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.carrier || "—" }}</td>
+              <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.trackStatus }}</td>
+              <td class="px-4 py-2.5"><span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border" :style="{ background: STATE_META[o.state].bg, color: STATE_META[o.state].fg, borderColor: STATE_META[o.state].bd }">{{ stateLabel(o.state, locale) }}</span></td>
+              <td class="px-4 py-2.5"><span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border" :style="postingInfo(o.state, locale).posted ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#f5f5f4;color:#a8a29e;border-color:#e7e5e4'">{{ postingInfo(o.state, locale).label }}</span></td>
+              <td class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ fmtMAD(o.value) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <TableLoading v-if="loading" />
-      <div v-else-if="!tt.sorted.value.length" class="py-14 text-center text-[12px] text-ink-muted">{{ lbl("No orders match your filters.", "لا توجد طلبات مطابقة.", "Aucune commande.") }}</div>
-      <TablePager :t="tt" />
-    </div>
+      <TableLoading v-if="st.loading.value" />
+      <div v-else-if="!displayRows.length" class="py-14 text-center text-[12px] text-ink-muted">{{ lbl("No orders match your filters.", "لا توجد طلبات مطابقة.", "Aucune commande.") }}</div>
 
-    <BulkBar :t="tt" filename="orders-selected" :actions="bulkActions" />
+      <!-- Server pager -->
+      <div class="flex items-center justify-between px-4 py-3 border-t border-line-hair text-[12px]">
+        <span class="text-ink-muted">{{ lbl("Showing","عرض","Affichage") }} <b>{{ st.rangeStart.value }}–{{ st.rangeEnd.value }}</b> {{ lbl("of","من","sur") }} <b>{{ st.total.value.toLocaleString() }}</b></span>
+        <div class="flex items-center gap-1.5">
+          <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-semibold border border-line-2 disabled:opacity-40 inline-flex items-center gap-1" :disabled="st.page.value <= 1 || st.loading.value" @click="st.prev()"><Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ lbl("Prev","السابق","Préc.") }}</button>
+          <span class="text-ink-3 px-1">{{ st.page.value }} / {{ st.totalPages.value }}</span>
+          <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-semibold border border-line-2 disabled:opacity-40 inline-flex items-center gap-1" :disabled="st.page.value >= st.totalPages.value || st.loading.value" @click="st.next()">{{ lbl("Next","التالي","Suiv.") }}<Icon name="arrow" :size="12" class="rotate-180 rtl:rotate-0" /></button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { ORDERS, STATE_META, stateLabel, MACHINE, machineCounts, AV, postingInfo } from "@/data/orders";
-import { useCreated } from "@/composables/useCreated";
-import { liveOrSample, avFor, iniOf, currentCompany } from "@/composables/useLive";
+import { STATE_META, stateLabel, MACHINE, AV, postingInfo } from "@/data/orders";
+import { avFor, iniOf, currentCompany } from "@/composables/useLive";
 import { fmtMAD } from "@/composables/useReconciliation";
+import { useServerTable } from "@/composables/useServerTable";
+import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
-import TableToolbar from "@/components/TableToolbar.vue";
-import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import StatCard from "@/components/StatCard.vue";
-import { useTableTools } from "@/composables/useTableTools";
-import BulkBar from "@/components/BulkBar.vue";
-import { useBulkDocActions } from "@/composables/useBulkActions";
 
 defineEmits(["new"]);
 const { t, locale } = useI18n();
 const router = useRouter();
 const route = useRoute();
-const { createdOrders } = useCreated();
+const { entityId } = useUi();
+const lbl = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+
 const customerFilter = ref(route.query.customer || null);
-function clearCustomer() { customerFilter.value = null; router.replace({ path: "/accounting/sales/orders" }); }
+function clearCustomer() { customerFilter.value = null; router.replace({ path: "/accounting/sales/orders" }); st.setFilters({ customer: undefined }); }
 
+const activeOnly = ref(true);
 const filterState = ref(null);
-
-// Live ERPNext orders (fallback to the June sample); merged with in-session creations.
-const loaded = ref([]);
 const isLive = ref(null);
-const loading = ref(true);
-const summary = ref(null);
-async function load() {
-  loading.value = true;
-  try {
-    const res = await liveOrSample(
-      "accounting_portal.api.sales.list_orders", { company: currentCompany(), limit: 500, customer: customerFilter.value || undefined }, () => ORDERS,
-      (rows) => rows.map((r, i) => ({
-        id: r.name, customer: r.customer, date: String(r.date || ""), city: r.city || "—", carrier: r.carrier || "—",
-        trackStatus: r.custom_track_shipment_status || "Pending", state: r.state,
-        value: r.value, initials: iniOf(r.customer), av: avFor(i),
-      })),
-    );
-    loaded.value = res.data;
-    isLive.value = res.live;
-  } finally { loading.value = false; }
-  try { summary.value = await api.call("accounting_portal.api.sales.orders_summary", { company: currentCompany() }); } catch { /* sample */ }
-}
-onMounted(load);
 
-// CFO month-to-date metrics (live; sample headline until the endpoint lands).
-const SUMMARY_SAMPLE = { gmv: 1525056, orders: 7553, aov: 202, delivered_value: 547566, delivery_rate: 36.8, pending: 4092, exceptions: 92, rto_rate: 1.2 };
+// Server-side paginated orders.
+const st = useServerTable(
+  (params) => api.call("accounting_portal.api.sales.list_orders", { company: currentCompany(), customer: customerFilter.value || undefined, active: activeOnly.value ? 1 : 0, state: filterState.value || undefined, ...params }).then((r) => { isLive.value = true; return r; }),
+  { pageSize: 25, sortField: "date", sortDir: "desc" },
+);
+st.load();
+watch(entityId, () => { filterState.value = null; activeOnly.value = true; st.page.value = 1; st.load(); });
+
+function setActive(v) { activeOnly.value = v; if (v) filterState.value = null; st.setFilters({ active: v ? 1 : 0, state: undefined }); }
+function toggleState(s) {
+  filterState.value = filterState.value === s ? null : s;
+  if (filterState.value) activeOnly.value = false;
+  st.setFilters({ state: filterState.value || undefined, active: filterState.value ? 0 : (activeOnly.value ? 1 : 0) });
+}
+
+const stateCounts = computed(() => (st.extra.value && st.extra.value.state_counts) || {});
+const displayRows = computed(() => (st.rows.value || []).map((r, i) => ({
+  id: r.name, customer: r.customer, date: String(r.date || ""), city: r.city, carrier: r.carrier,
+  trackStatus: r.custom_track_shipment_status || "Pending", state: r.state || "placed", value: r.value,
+  initials: iniOf(r.customer), av: avFor(i),
+})));
+
+const cols = [
+  { key: "id", label: lbl("Order", "الطلب", "Commande"), sort: "id" },
+  { key: "date", label: lbl("Date", "التاريخ", "Date"), sort: "date" },
+  { key: "customer", label: lbl("Customer", "العميل", "Client"), sort: "customer" },
+  { key: "city", label: lbl("City", "المدينة", "Ville") },
+  { key: "carrier", label: lbl("Carrier", "الناقل", "Transporteur") },
+  { key: "trackStatus", label: lbl("Shipment", "الشحن", "Expédition") },
+  { key: "state", label: lbl("State", "الحالة", "État") },
+  { key: "posting", label: lbl("Posting", "الترحيل", "Passation") },
+  { key: "value", label: lbl("Value", "القيمة", "Valeur"), align: "e", sort: "value" },
+];
+
+// CFO month-to-date metrics.
+const summary = ref(null);
+api.call("accounting_portal.api.sales.orders_summary", { company: currentCompany() }).then((r) => { summary.value = r; }).catch(() => {});
 const SUMMARY_ZERO = { gmv: 0, orders: 0, aov: 0, delivered_value: 0, delivery_rate: 0, pending: 0, exceptions: 0, rto_rate: 0 };
 const summaryCards = computed(() => {
-  // Live summary when we have it; sample only when the table itself is sample.
-  // Live rows + a failed summary call must NOT show fabricated constants.
-  const d = summary.value && summary.value.company ? summary.value : (isLive.value ? SUMMARY_ZERO : SUMMARY_SAMPLE);
+  const d = summary.value && summary.value.company ? summary.value : SUMMARY_ZERO;
   return [
     { label: lbl("GMV (MTD)", "إجمالي المبيعات", "GMV (mois)"), value: fmtMAD(d.gmv), color: "#1c1917", glow: "#a8a29e", tint: "#fafaf9", icon: "cart", sub: `${(d.orders || 0).toLocaleString()} ${lbl("orders", "طلب", "commandes")}` },
     { label: lbl("Avg order", "متوسط الطلب", "Panier moyen"), value: fmtMAD(d.aov), color: "#0369a1", glow: "#38bdf8", tint: "#eff6ff", icon: "scale", sub: "AOV · MAD" },
@@ -176,40 +159,6 @@ const summaryCards = computed(() => {
     { label: "RTO", value: `${d.rto_rate}%`, color: "#be123c", glow: "#f87171", tint: "#fef2f2", icon: "refresh", sub: `${d.exceptions} ${lbl("exceptions", "استثناء", "exceptions")}` },
   ];
 });
-
-function lbl(en, ar, fr) { return locale.value === "ar" ? ar : locale.value === "fr" ? fr : en; }
-const cols = [
-  { key: "id", label: lbl("Order", "الطلب", "Commande") },
-  { key: "date", label: lbl("Date", "التاريخ", "Date") },
-  { key: "customer", label: lbl("Customer", "العميل", "Client") },
-  { key: "city", label: lbl("City", "المدينة", "Ville") },
-  { key: "carrier", label: lbl("Carrier", "الناقل", "Transporteur") },
-  { key: "trackStatus", label: lbl("Shipment", "الشحن", "Expédition") },
-  { key: "state", label: lbl("State", "الحالة", "État") },
-  { key: "posting", label: lbl("Posting", "الترحيل", "Passation") },
-  { key: "value", label: lbl("Value", "القيمة", "Valeur"), align: "e" },
-];
-
-// Accounting cares about orders from confirmation onward (they get invoiced /
-// delivered / collected / returned). "Placed" = pre-financial Shopify leads and
-// "cancelled" = noise, so the default view hides them; toggle to see All.
-const activeOnly = ref(true);
-const IGNORED = ["placed", "cancelled"];
-const baseRows = computed(() => {
-  let r = [...createdOrders, ...loaded.value];
-  if (filterState.value) r = r.filter((o) => o.state === filterState.value);
-  else if (activeOnly.value) r = r.filter((o) => !IGNORED.includes(o.state));
-  return r;
-});
-const tt = useTableTools(baseRows, cols, { storeKey: "orders",
-  keyField: "id", dateKey: "date", defaultSort: "date", defaultDir: -1,
-  facets: [
-    { key: "carrier", label: lbl("carrier", "ناقل", "transp.") },
-    { key: "city", label: lbl("city", "مدينة", "ville") },
-    { key: "state", label: lbl("state", "حالة", "état"), format: (v) => stateLabel(v, locale.value) },
-  ],
-});
-const bulkActions = useBulkDocActions("Sales Order", { keyField: "id", onDone: () => { tt.clearSelection(); load(); }, L: lbl });
 
 function open(id) { router.push({ path: "/accounting/sales/orders", query: { id } }); }
 </script>
