@@ -171,7 +171,11 @@ _TRANSIT = "('In Transit','Out For Delivery','Picked up')"
 _INV_JOIN = (
     "LEFT JOIN (SELECT sii.sales_order so, MAX(si.custom_reference_number) ref "
     "FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` si ON si.name=sii.parent "
-    "WHERE si.company=%(c)s AND si.docstatus=1 "
+    # docstatus<2 (not just submitted): a carrier remittance ref is stamped on the
+    # invoice when the carrier pays — that means COLLECTED regardless of whether the
+    # invoice has been submitted yet. Requiring docstatus=1 left ~4.4k collected
+    # orders (ref on a still-draft invoice) stuck in the 'delivered' bucket.
+    "WHERE si.company=%(c)s AND si.docstatus<2 "
     "AND " + _ref_present("si.custom_reference_number") + " "
     "AND IFNULL(sii.sales_order,'')!='' GROUP BY sii.sales_order) inv ON inv.so=so.name")
 _COLLECTED = "(" + _ref_present("so.custom_reference_number") + " OR inv.so IS NOT NULL)"
