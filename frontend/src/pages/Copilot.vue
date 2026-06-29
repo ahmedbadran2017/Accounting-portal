@@ -77,7 +77,10 @@
         <div v-for="(m, i) in messages" :key="i" class="flex gap-[11px]" :class="m.role === 'user' ? 'justify-end' : 'items-start'">
           <span v-if="m.role !== 'user'" class="w-[30px] h-[30px] rounded-[9px] grid place-items-center text-white flex-shrink-0 self-start" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)"><Icon name="shield" :size="16" color="#fff" /></span>
           <div :class="m.role === 'user' ? 'max-w-[82%]' : 'max-w-[80%]'">
-            <div class="rounded-[14px] px-3.5 py-2.5 text-[13px] leading-relaxed" :class="m.role === 'user' ? 'bg-accent text-white' : 'bg-white border border-line text-ink'">{{ m.text }}</div>
+            <div class="rounded-[14px] px-3.5 py-2.5 text-[13px] leading-relaxed" :class="m.role === 'user' ? 'bg-accent text-white whitespace-pre-wrap' : 'bg-white border border-line text-ink ap-md'">
+              <template v-if="m.role === 'user'">{{ m.text }}</template>
+              <div v-else v-html="renderMarkdown(m.text)"></div>
+            </div>
 
             <!-- Proposed-journal action card -->
             <div v-if="m.proposal" class="mt-2.5 rounded-[12px] overflow-hidden" style="border:1px solid #e9d5ff;background:#faf7ff">
@@ -132,6 +135,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { SEV_META, sevLabel, seedMessages, replyTo } from "@/data/copilot";
 import { loadControls, feedFrom, toFeedItem } from "@/composables/useAuditor";
+import { renderMarkdown } from "@/composables/useMarkdown";
 import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
