@@ -805,7 +805,28 @@ def _anomaly_findings(target, mat=None):
                   "recommendation": "Reconcile carrier remittances (Banking → COD) and clear the residual to fees/receivable.",
                   "drill": {"module": "banking", "sub": "cod", "label": "COD reconciliation"}})
 
-    # 8) Benford first-digit test on journal amounts (forensic distribution check).
+    # 8) Collected (carrier remitted the cash) BUT the goods were also returned —
+    # a contradiction: the customer's money was taken yet the order came back, so a
+    # refund / collection-reversal is usually owed.
+    cr = frappe.db.sql(
+        """SELECT so.name, ROUND(MAX(so.grand_total)) amt
+           FROM `tabSales Order` so
+           JOIN `tabDelivery Note Item` dni ON dni.against_sales_order=so.name
+           JOIN `tabDelivery Note` dn ON dn.name=dni.parent AND dn.docstatus=1 AND dn.is_return=1
+           WHERE so.company=%s AND so.docstatus=1
+             AND (so.custom_reference_number LIKE 'CATH%%' OR so.custom_reference_number LIKE 'RDF%%')
+           GROUP BY so.name ORDER BY MAX(so.grand_total) DESC LIMIT 50""", (target,), as_dict=True)
+    if cr:
+        f.append({"id": "anom_collected_returned", "severity": "medium", "metric": "COD / carrier",
+                  "title": f"{len(cr)} orders collected but also returned",
+                  "detail": "These orders carry a carrier remittance reference (cash collected) yet have a "
+                            "submitted return — the customer was charged but the goods came back: "
+                            + ", ".join(f"{c.name} ({flt(c.amt):,.0f})" for c in cr[:6]),
+                  "amount": sum(flt(c.amt) for c in cr), "account": None,
+                  "recommendation": "Review each — a refund or a collection reversal is usually owed to the customer.",
+                  "drill": {"module": "sales", "sub": "returned", "label": "Returned"}})
+
+    # 9) Benford first-digit test on journal amounts (forensic distribution check).
     ben = frappe.db.sql(
         """SELECT LEFT(CAST(ROUND(total_debit) AS CHAR),1) d, COUNT(*) c FROM `tabJournal Entry`
            WHERE company=%s AND docstatus=1 AND total_debit>=10
