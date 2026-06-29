@@ -305,7 +305,8 @@ def mark_bank_cleared(company=None, entries=None, clearance_date=None):
 
 
 @frappe.whitelist()
-def get_bank_account(company=None, account=None, from_date=None, to_date=None, limit=60):
+def get_bank_account(company=None, account=None, from_date=None, to_date=None,
+                     start=0, page_size=60, limit=None):
     """One bank/cash account — header, balance, period in/out, uncleared, and the
     recent ledger with a running balance."""
     assert_portal_access()
@@ -329,23 +330,46 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None, l
            FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
            WHERE je.company=%s AND je.docstatus=1 AND jea.account=%s AND je.clearance_date IS NULL""",
         (target, account), as_dict=True)[0]
+    # Server-paginated ledger (one page at a time) + optional date window.
+    start = max(0, int(start or 0))
+    page_size = min(max(1, int(page_size or limit or 60)), 200)
+    lconds = ["account=%(acc)s", "is_cancelled=0"]
+    lp = {"acc": account}
+    if from_date:
+        lconds.append("posting_date >= %(fd)s"); lp["fd"] = from_date
+    if to_date:
+        lconds.append("posting_date <= %(td)s"); lp["td"] = to_date
+    lwhere = " AND ".join(lconds)
+    ledger_total = frappe.db.sql(f"SELECT COUNT(*) FROM `tabGL Entry` WHERE {lwhere}", lp)[0][0]
     ledger = frappe.db.sql(
-        """SELECT posting_date AS date, voucher_type AS type, voucher_no AS voucher,
-                  IFNULL(against,'') AS against, ROUND(debit,2) AS debit, ROUND(credit,2) AS credit
-           FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0
-           ORDER BY posting_date DESC, creation DESC LIMIT %s""", (account, min(int(limit or 60), 200)), as_dict=True)
-    running = balance
-    for e in ledger:
-        e["debit"] = flt(e["debit"]); e["credit"] = flt(e["credit"])
-        e["balance"] = round(running, 2)
-        e["date"] = str(e.get("date") or "")
-        running -= (e["debit"] - e["credit"])
+        f"""SELECT posting_date AS date, voucher_type AS type, voucher_no AS voucher,
+                   IFNULL(against,'') AS against, ROUND(debit,2) AS debit, ROUND(credit,2) AS credit, creation
+            FROM `tabGL Entry` WHERE {lwhere}
+            ORDER BY posting_date DESC, creation DESC LIMIT %(ps)s OFFSET %(st)s""",
+        {**lp, "ps": page_size, "st": start}, as_dict=True)
+    if ledger:
+        # The first (newest) row's running balance = the account's true balance minus
+        # the net of every entry NEWER than it (regardless of the date filter), so the
+        # Balance column is the real account balance at each row, on any page.
+        f0 = ledger[0]
+        newer = flt(frappe.db.sql(
+            """SELECT SUM(debit-credit) FROM `tabGL Entry`
+               WHERE account=%s AND is_cancelled=0
+                 AND (posting_date > %s OR (posting_date = %s AND creation > %s))""",
+            (account, f0["date"], f0["date"], f0["creation"]))[0][0])
+        running = balance - newer
+        for e in ledger:
+            e["debit"] = flt(e["debit"]); e["credit"] = flt(e["credit"])
+            e["balance"] = round(running, 2)
+            e["date"] = str(e.get("date") or "")
+            e.pop("creation", None)
+            running -= (e["debit"] - e["credit"])
     return {
         "account": account, "name": a.account_name, "type": a.account_type,
         "currency": a.account_currency or "MAD", "balance": balance,
         "inflow": flt(fl.inflow), "outflow": flt(fl.outflow),
         "uncleared_n": (pe.n or 0) + (je.n or 0), "uncleared_v": flt(pe.v) + flt(je.v),
-        "ledger": ledger,
+        "ledger": ledger, "ledger_total": ledger_total, "start": start, "page_size": page_size,
     }
 
 
