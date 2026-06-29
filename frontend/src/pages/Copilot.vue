@@ -28,6 +28,7 @@
                 <span class="text-[12px] font-bold">{{ a.title(locale) }}</span>
                 <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge border" :style="{ background: sev(a).bg, color: sev(a).fg, borderColor: sev(a).bd }">{{ sevLabel(a.sev, locale) }}</span>
                 <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge" :style="catTag(a.category)">{{ catLabel(a.category) }}</span>
+                <span v-if="a.score" class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge bg-app-warm text-ink-3 inline-flex items-center gap-0.5" :title="L('Priority score — magnitude vs materiality × severity','أولوية — الحجم مقابل الأهمية × الخطورة','Priorité')"><Icon name="trend" :size="9" />{{ a.score }}</span>
                 <span v-if="assigned[a.id]" class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge bg-success-soft text-success-dark inline-flex items-center gap-0.5"><Icon name="check" :size="9" />{{ shortUser(assigned[a.id]) }}</span>
               </div>
               <div class="text-[11px] text-ink-3 mt-[3px] leading-snug">{{ a.desc(locale) }}</div>
@@ -160,12 +161,13 @@ const CATS = [
   { key: "control", label: () => L("Books", "الدفاتر", "Livres") },
   { key: "entry", label: () => L("Entries", "القيود", "Écritures") },
   { key: "report", label: () => L("Reports", "التقارير", "Rapports") },
+  { key: "anomaly", label: () => L("Anomalies", "شذوذ", "Anomalies") },
 ];
 const filteredFeed = computed(() => (catFilter.value === "all" ? feed.value : feed.value.filter((a) => a.category === catFilter.value)));
 const catCount = (k) => (k === "all" ? feed.value.length : feed.value.filter((a) => a.category === k).length);
-const CAT_LABEL = { control: () => L("Books", "دفاتر", "Livres"), entry: () => L("Entry", "قيد", "Écriture"), report: () => L("Report", "تقرير", "Rapport") };
+const CAT_LABEL = { control: () => L("Books", "دفاتر", "Livres"), entry: () => L("Entry", "قيد", "Écriture"), report: () => L("Report", "تقرير", "Rapport"), anomaly: () => L("Anomaly", "شذوذ", "Anomalie") };
 const catLabel = (k) => (CAT_LABEL[k] ? CAT_LABEL[k]() : k);
-const catTag = (k) => ({ control: "background:#eef2ff;color:#4338ca", entry: "background:#f0fdf4;color:#15803d", report: "background:#fff7ed;color:#c2410c" }[k] || "background:#f5f5f4;color:#57534e");
+const catTag = (k) => ({ control: "background:#eef2ff;color:#4338ca", entry: "background:#f0fdf4;color:#15803d", report: "background:#fff7ed;color:#c2410c", anomaly: "background:#fdf2f8;color:#a21caf" }[k] || "background:#f5f5f4;color:#57534e");
 
 // ── CFO task board ──
 const view = usePersistedRef("ap_copilot_view", "findings");

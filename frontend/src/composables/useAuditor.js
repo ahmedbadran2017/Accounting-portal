@@ -21,7 +21,7 @@ export async function loadControls() {
 }
 
 const ICON = { stock_cogs: "box", unmatched_cod: "coins", correction_pile: "ledger", negative_cash: "bank", grni_gap: "truck", payables_load: "doc" };
-const CAT_ICON = { entry: "ledger", report: "scale", control: "shield" };
+const CAT_ICON = { entry: "ledger", report: "scale", control: "shield", anomaly: "alert" };
 
 // Map a backend finding into the Copilot anomaly-feed item shape.
 export function toFeedItem(f) {
@@ -33,7 +33,7 @@ export function toFeedItem(f) {
     ref: f.account || f.metric || "",
     go: f.drill || null,
     cta: () => (f.drill && f.drill.label) || "Open",
-    amount: f.amount, recommendation: f.recommendation,
+    amount: f.amount, recommendation: f.recommendation, score: f.score || 0,
   };
 }
 

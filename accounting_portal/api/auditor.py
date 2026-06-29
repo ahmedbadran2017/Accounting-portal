@@ -11,6 +11,7 @@ on top of these findings (server-side key, added when wired); the findings
 themselves are fully real and update every time the controls run.
 """
 import json
+import math
 
 import frappe
 from frappe.utils import add_days, flt, nowdate
@@ -20,6 +21,8 @@ from accounting_portal.api.permissions import (
 )
 
 SEV_WEIGHT = {"high": 3, "medium": 2, "low": 1}
+# Account-name fragments that make a finding riskier regardless of size.
+SENSITIVE_HINT = ("correction", "suspense", "clearing", "cash", "bank", "cathadis", "cathedis")
 
 
 def _target(company):
@@ -54,6 +57,40 @@ def _pick(named, needle):
         if needle.lower() in name.lower():
             return name, bal
     return None, 0.0
+
+
+# ── Materiality + severity scoring (replaces magic-number ranking) ───────────
+def _materiality(target):
+    """A materiality base for the company — ~0.5% of annual revenue, floored.
+    Anomaly thresholds scale to this instead of hard-coded numbers, and every
+    finding gets a score relative to it so the feed ranks consistently.
+    (Revenue, not assets: Justyol's asset base is distorted by the 685M stock
+    pathology, which would otherwise inflate the bar and mask real issues.)"""
+    rev = abs(flt(frappe.db.sql(
+        "SELECT COALESCE(SUM(g.credit-g.debit),0) FROM `tabGL Entry` g "
+        "JOIN `tabAccount` a ON a.name=g.account "
+        "WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type='Income'", (target,))[0][0]))
+    return {"revenue": rev, "base": max(0.005 * rev, 25_000.0)}
+
+
+def _score(fnd, base):
+    """Rank score: log-scaled magnitude (in materiality units) × severity weight
+    × a sensitivity bump for cash/correction/clearing accounts. Count-based
+    findings (amount is a row count) simply rank by their severity."""
+    mag = abs(flt(fnd.get("amount"))) / base if base else 0
+    sev = SEV_WEIGHT.get(fnd.get("severity"), 1)
+    hay = " ".join(str(fnd.get(k) or "") for k in ("account", "title", "metric")).lower()
+    sens = 1.4 if any(h in hay for h in SENSITIVE_HINT) else 1.0
+    return round((1 + math.log10(1 + mag)) * sev * sens, 2)
+
+
+def _rank(findings, target):
+    """Attach a materiality-relative score to each finding and sort by it."""
+    mat = _materiality(target)
+    for x in findings:
+        x["score"] = _score(x, mat["base"])
+    findings.sort(key=lambda x: (x.get("score", 0), SEV_WEIGHT.get(x.get("severity"), 0)), reverse=True)
+    return mat
 
 
 @frappe.whitelist()
@@ -636,6 +673,168 @@ def _report_findings(target):
     return f
 
 
+# ── Transaction-level forensic anomaly scan ─────────────────────────────────
+# These mine the postings themselves (statistical + structural), not aggregate
+# balances — so the auditor surfaces problems the balance controls can't see.
+# Every query here was validated against the live books before shipping; two
+# candidates (after-hours postings, missing-tax-id) were dropped as noise for an
+# automated COD dropship model.
+def _anomaly_findings(target, mat=None):
+    base = (mat or _materiality(target))["base"]
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    f = []
+
+    # 1) Foreign-currency lines booked at exchange rate 1.0 → reporting value wrong.
+    fx = frappe.db.sql(
+        """SELECT g.voucher_no, a.account_name, a.account_currency, ROUND(g.debit-g.credit) bal
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0
+             AND a.account_currency IS NOT NULL AND a.account_currency<>%s
+             AND (g.debit<>0 OR g.credit<>0)
+             AND ROUND(g.debit,2)=ROUND(g.debit_in_account_currency,2)
+             AND ROUND(g.credit,2)=ROUND(g.credit_in_account_currency,2)
+           ORDER BY ABS(g.debit-g.credit) DESC LIMIT 50""", (target, ccy), as_dict=True)
+    if fx:
+        f.append({"id": "anom_fx_rate1", "severity": "high", "metric": "FX integrity",
+                  "title": f"{len(fx)} foreign-currency lines booked at rate 1.0",
+                  "detail": f"Lines on non-{ccy} accounts where the {ccy} amount equals the foreign amount — "
+                            f"the exchange rate was left at 1.0, so the {ccy} value is understated: "
+                            + ", ".join(f"{r.voucher_no} ({r.account_currency})" for r in fx[:6]),
+                  "amount": sum(abs(flt(r.bal)) for r in fx), "account": fx[0].account_name,
+                  "recommendation": "Re-book with the correct rate (see the multi-currency JE workaround); these distort the account and the FX exposure.",
+                  "drill": {"module": "accountant", "sub": "journals", "label": "Journals"}})
+
+    # 2) Negative on-hand inventory.
+    ni = frappe.db.sql(
+        """SELECT b.item_code, b.actual_qty FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
+           WHERE w.company=%s AND b.actual_qty<0 ORDER BY b.actual_qty ASC LIMIT 50""", (target,), as_dict=True)
+    if ni:
+        f.append({"id": "anom_negative_stock", "severity": "medium", "metric": "Inventory",
+                  "title": f"{len(ni)} items with negative on-hand quantity",
+                  "detail": "Stock went negative (issued more than received) — breaks valuation and COGS: "
+                            + ", ".join(f"{r.item_code} ({flt(r.actual_qty):g})" for r in ni[:6]),
+                  "amount": len(ni), "account": None,
+                  "recommendation": "Post the missing receipts or a stock reconciliation so on-hand ≥ 0.",
+                  "drill": {"module": "items", "sub": "inventory", "label": "Inventory"}})
+
+    # 3) Stock control (GL) vs warehouse valuation (Bin) — perpetual-inventory tie-out.
+    gl_stock = flt(frappe.db.sql(
+        "SELECT IFNULL(ROUND(SUM(g.debit-g.credit)),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
+        "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Stock'", (target,))[0][0])
+    bin_val = flt(frappe.db.sql(
+        "SELECT IFNULL(ROUND(SUM(b.stock_value)),0) FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse "
+        "WHERE w.company=%s", (target,))[0][0])
+    sdiff = round(gl_stock - bin_val)
+    if abs(sdiff) > max(base, 100_000):
+        f.append({"id": "anom_stock_gl_vs_bin", "severity": "high", "metric": "Inventory",
+                  "title": "Stock ledger doesn't tie to warehouse valuation",
+                  "detail": f"GL stock control = {gl_stock:,.0f}; warehouse valuation (Bin) = {bin_val:,.0f}; "
+                            f"off by {sdiff:,.0f} {ccy}. Perpetual inventory and the GL have diverged.",
+                  "amount": sdiff, "account": "Stock control",
+                  "recommendation": "Run Repost Item Valuation / a stock reconciliation; the stock account must equal warehouse valuation.",
+                  "drill": {"module": "reports", "sub": "statements", "label": "Balance sheet"}})
+
+    # 4) Same-day equal-and-opposite postings on one account (reversal / round-trip suspects).
+    rev = flt(frappe.db.sql(
+        """SELECT COUNT(*) FROM (
+             SELECT jea.account, je.posting_date,
+                    ROUND(ABS(jea.debit_in_account_currency-jea.credit_in_account_currency),2) amt
+             FROM `tabJournal Entry Account` jea JOIN `tabJournal Entry` je ON je.name=jea.parent
+             WHERE je.company=%s AND je.docstatus=1
+               AND (jea.debit_in_account_currency+jea.credit_in_account_currency)>1000
+             GROUP BY jea.account, je.posting_date,
+                      ROUND(ABS(jea.debit_in_account_currency-jea.credit_in_account_currency),2)
+             HAVING SUM(CASE WHEN jea.debit_in_account_currency>0 THEN 1 ELSE 0 END)>0
+                AND SUM(CASE WHEN jea.credit_in_account_currency>0 THEN 1 ELSE 0 END)>0) z""", (target,))[0][0])
+    if rev > 0:
+        f.append({"id": "anom_same_day_reversal", "severity": "medium", "metric": "Journal entries",
+                  "title": f"{int(rev)} same-day reversal patterns",
+                  "detail": f"{int(rev)} cases where one account took an equal debit and credit on the same day "
+                            "(>1,000) — usually a correction round-trip, sometimes window-dressing.",
+                  "amount": rev, "account": None,
+                  "recommendation": "Spot-check a sample — confirm each pair is a legitimate correction.",
+                  "drill": {"module": "accountant", "sub": "journals", "label": "Journals"}})
+
+    # 5) Large round-thousand manual journals (estimate / plug smell).
+    rnd = frappe.db.sql(
+        """SELECT name, total_debit FROM `tabJournal Entry`
+           WHERE company=%s AND docstatus=1 AND voucher_type='Journal Entry'
+             AND total_debit>=%s AND MOD(ROUND(total_debit),1000)=0
+           ORDER BY total_debit DESC LIMIT 50""", (target, max(base, 25_000)), as_dict=True)
+    if len(rnd) >= 3:
+        f.append({"id": "anom_round_numbers", "severity": "low", "metric": "Journal entries",
+                  "title": f"{len(rnd)} large round-number manual entries",
+                  "detail": "Manual JEs for exact thousands above materiality — often estimates/plugs rather than "
+                            "document-backed amounts: " + ", ".join(f"{r.name} ({flt(r.total_debit):,.0f})" for r in rnd[:6]),
+                  "amount": sum(flt(r.total_debit) for r in rnd), "account": None,
+                  "recommendation": "Confirm each is supported by a document, not a rounded estimate.",
+                  "drill": {"module": "accountant", "sub": "journals", "label": "Journals"}})
+
+    # 6) Duplicate party master data (same name booked more than once).
+    dups = frappe.db.sql(
+        """SELECT name_norm, kind, n FROM (
+             SELECT LOWER(TRIM(supplier_name)) name_norm, 'supplier' kind, COUNT(*) n
+             FROM `tabSupplier` GROUP BY LOWER(TRIM(supplier_name)) HAVING COUNT(*)>1
+             UNION ALL
+             SELECT LOWER(TRIM(customer_name)) name_norm, 'customer' kind, COUNT(*) n
+             FROM `tabCustomer` GROUP BY LOWER(TRIM(customer_name)) HAVING COUNT(*)>1
+           ) d ORDER BY n DESC LIMIT 30""", as_dict=True)
+    if dups:
+        f.append({"id": "anom_duplicate_master", "severity": "low", "metric": "Master data",
+                  "title": f"{len(dups)} duplicate customer/supplier names",
+                  "detail": "Parties recorded more than once split their balance and history: "
+                            + ", ".join(f"{d.name_norm} ×{d.n} ({d.kind})" for d in dups[:6]),
+                  "amount": len(dups), "account": None,
+                  "recommendation": "Merge the duplicates so each party has a single ledger.",
+                  "drill": {"module": "sales", "sub": "customers", "label": "Customers"}})
+
+    # 7) Carrier clearing / fee accounts carrying large balances.
+    carr = frappe.db.sql(
+        """SELECT a.account_name, ROUND(SUM(g.debit-g.credit)) bal
+           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+           WHERE g.company=%s AND g.is_cancelled=0
+             AND (a.account_name LIKE '%%athadis%%' OR a.account_name LIKE '%%athedis%%' OR a.account_name LIKE '%%learing%%')
+           GROUP BY a.name HAVING ABS(SUM(g.debit-g.credit))>%s
+           ORDER BY ABS(SUM(g.debit-g.credit)) DESC LIMIT 10""", (target, max(base, 100_000)), as_dict=True)
+    if carr:
+        f.append({"id": "anom_carrier_clearing", "severity": "medium", "metric": "COD / carrier",
+                  "title": f"{len(carr)} carrier/clearing accounts carrying large balances",
+                  "detail": "Clearing/fee accounts should net out as remittances are matched; these are sitting on balances: "
+                            + ", ".join(f"{c.account_name} {flt(c.bal):,.0f}" for c in carr[:6]),
+                  "amount": sum(abs(flt(c.bal)) for c in carr), "account": carr[0].account_name,
+                  "recommendation": "Reconcile carrier remittances (Banking → COD) and clear the residual to fees/receivable.",
+                  "drill": {"module": "banking", "sub": "cod", "label": "COD reconciliation"}})
+
+    # 8) Benford first-digit test on journal amounts (forensic distribution check).
+    ben = frappe.db.sql(
+        """SELECT LEFT(CAST(ROUND(total_debit) AS CHAR),1) d, COUNT(*) c FROM `tabJournal Entry`
+           WHERE company=%s AND docstatus=1 AND total_debit>=10
+           GROUP BY LEFT(CAST(ROUND(total_debit) AS CHAR),1)""", (target,), as_dict=True)
+    obs = {x.d: int(x.c) for x in ben if x.d in "123456789"}
+    n = sum(obs.values())
+    if n >= 300:
+        chi, worst_d, worst_gap = 0.0, 1, 0.0
+        for d in range(1, 10):
+            exp_p = math.log10(1 + 1.0 / d)
+            exp = exp_p * n
+            o = obs.get(str(d), 0)
+            if exp > 0:
+                chi += (o - exp) ** 2 / exp
+            if (o / n) - exp_p > worst_gap:
+                worst_gap, worst_d = (o / n) - exp_p, d
+        if chi > 30:  # well past the 0.05 critical value (15.5 at 8 dof)
+            f.append({"id": "anom_benford", "severity": "low", "metric": "Forensic",
+                      "title": "Journal amounts deviate from Benford's law",
+                      "detail": f"First-digit spread over {n} entries is far from expected (χ²={chi:,.0f}); leading digit "
+                                f"{worst_d} is over-represented ({obs.get(str(worst_d),0)/n*100:.0f}% vs "
+                                f"{math.log10(1+1.0/worst_d)*100:.0f}% expected). Often benign (round COD amounts) but a "
+                                "classic manipulation flag — worth a look.",
+                      "amount": n, "account": None,
+                      "recommendation": "Sample the over-represented band; confirm the clustering has a business reason.",
+                      "drill": {"module": "accountant", "sub": "journals", "label": "Journals"}})
+    return f
+
+
 def _audit(target, kind):
     ck = f"ap_audit_{kind}:{target}"
     hit = frappe.cache().get_value(ck)
@@ -674,9 +873,37 @@ def audit_reports(company=None):
 
 
 @frappe.whitelist()
+def audit_anomalies(company=None):
+    """Transaction-level forensic anomaly scan — FX rate=1, negative stock, stock
+    tie-out vs warehouse valuation, same-day reversals, round-number plugs,
+    duplicate parties, carrier-clearing balances, Benford's law."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"findings": [], "summary": {}}
+    ck = f"ap_audit_anomalies:{target}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
+    findings = _anomaly_findings(target)
+    findings.sort(key=lambda x: SEV_WEIGHT.get(x["severity"], 0), reverse=True)
+    out = {"company": target, "findings": findings,
+           "summary": {"high": sum(1 for x in findings if x["severity"] == "high"),
+                       "medium": sum(1 for x in findings if x["severity"] == "medium"),
+                       "low": sum(1 for x in findings if x["severity"] == "low"),
+                       "count": len(findings)}}
+    try:
+        frappe.cache().set_value(ck, out, expires_in_sec=300)
+    except Exception:
+        pass
+    return out
+
+
+@frappe.whitelist()
 def full_findings(company=None):
-    """Everything the auditor sees — balance controls + entry-level + report tie-outs
-    — merged into one ranked feed, each tagged with its category."""
+    """Everything the auditor sees — balance controls + entry-level + report
+    tie-outs + transaction anomalies — merged into one feed, scored against the
+    company's materiality and ranked, each tagged with its category."""
     assert_portal_access()
     target = _target(company)
     if not target:
@@ -684,14 +911,17 @@ def full_findings(company=None):
     out = []
     for cat, data in (("control", run_controls(target)),
                       ("entry", audit_entries(target)),
-                      ("report", audit_reports(target))):
+                      ("report", audit_reports(target)),
+                      ("anomaly", audit_anomalies(target))):
         for x in (data.get("findings") or []):
             out.append({**x, "category": cat})
-    out.sort(key=lambda x: SEV_WEIGHT.get(x["severity"], 0), reverse=True)
+    mat = _rank(out, target)  # attach materiality-relative score + sort by it
     return {"company": target, "generated_on": nowdate(), "findings": out,
+            "materiality": {"revenue": round(mat["revenue"]), "base": round(mat["base"])},
             "summary": {"high": sum(1 for x in out if x["severity"] == "high"),
                         "medium": sum(1 for x in out if x["severity"] == "medium"),
                         "low": sum(1 for x in out if x["severity"] == "low"),
                         "count": len(out),
+                        "exposure": sum(abs(x["amount"]) for x in out if x["severity"] == "high"),
                         "by_category": {k: sum(1 for x in out if x["category"] == k)
-                                        for k in ("control", "entry", "report")}}}
+                                        for k in ("control", "entry", "report", "anomaly")}}}
