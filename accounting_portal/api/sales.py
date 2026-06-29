@@ -96,7 +96,8 @@ _SORT_COLS = {"date": "so.transaction_date", "value": "so.grand_total",
 
 @frappe.whitelist()
 def list_orders(company=None, state=None, search=None, customer=None, active=0,
-                start=0, page_size=25, sort_field="date", sort_dir="desc"):
+                from_date=None, to_date=None, start=0, page_size=25,
+                sort_field="date", sort_dir="desc"):
     """Server-paginated COD sales orders. Returns one page (start/page_size) plus
     the total count and per-state counts for the pipeline strip — so the UI pages
     through the full set at high speed instead of capping at a client-side 500."""
@@ -114,6 +115,10 @@ def list_orders(company=None, state=None, search=None, customer=None, active=0,
         conds.append("so.customer = %(customer)s"); params["customer"] = customer
     if search:
         conds.append("(so.name LIKE %(s)s OR so.customer LIKE %(s)s)"); params["s"] = f"%{search}%"
+    if from_date:
+        conds.append("so.transaction_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("so.transaction_date <= %(td)s"); params["td"] = to_date
     base_where = " AND ".join(conds)
 
     state_where = base_where

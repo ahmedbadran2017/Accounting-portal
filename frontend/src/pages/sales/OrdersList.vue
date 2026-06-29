@@ -40,6 +40,17 @@
       </button>
     </div>
 
+    <!-- Date filter (by order date) -->
+    <div class="flex items-center gap-1.5 flex-wrap -mt-1">
+      <Icon name="clock" :size="13" color="#a8a29e" />
+      <button v-for="p in DATE_PRESETS" :key="p.key" @click="setDatePreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>
+      <template v-if="datePreset === 'range'">
+        <input type="date" v-model="dateFrom" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        <span class="text-ink-muted text-[11px]">→</span>
+        <input type="date" v-model="dateTo" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+      </template>
+    </div>
+
     <!-- Table -->
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
       <div class="overflow-x-auto">
@@ -92,6 +103,7 @@ import { STATE_META, stateLabel, MACHINE, AV, postingInfo } from "@/data/orders"
 import { avFor, iniOf, currentCompany } from "@/composables/useLive";
 import { fmtMAD } from "@/composables/useReconciliation";
 import { useServerTable } from "@/composables/useServerTable";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 import TableLoading from "@/components/TableLoading.vue";
@@ -111,12 +123,40 @@ const activeOnly = ref(true);
 const filterState = ref(null);
 const isLive = ref(null);
 
+// Date filter (by order date) — persisted, applied server-side so the pipeline
+// counts + totals all reflect the chosen window.
+const DATE_PRESETS = [
+  { key: "all", label: () => lbl("All time", "كل الوقت", "Tout") },
+  { key: "month", label: () => lbl("This month", "هذا الشهر", "Ce mois") },
+  { key: "lastmonth", label: () => lbl("Last month", "الشهر الماضي", "Mois dern.") },
+  { key: "quarter", label: () => lbl("This quarter", "هذا الربع", "Trimestre") },
+  { key: "year", label: () => lbl("This year", "هذه السنة", "Année") },
+  { key: "range", label: () => lbl("Range", "نطاق", "Plage") },
+];
+const datePreset = usePersistedRef("ap_orders_preset", "all");
+const dateFrom = usePersistedRef("ap_orders_from", "");
+const dateTo = usePersistedRef("ap_orders_to", "");
+function dateBounds(key) {
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  if (key === "month") return [iso(new Date(y, m, 1)), iso(now)];
+  if (key === "lastmonth") return [iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))];
+  if (key === "quarter") { const q = Math.floor(m / 3) * 3; return [iso(new Date(y, q, 1)), iso(now)]; }
+  if (key === "year") return [iso(new Date(y, 0, 1)), iso(now)];
+  if (key === "range") return [dateFrom.value || null, dateTo.value || null];
+  return [null, null];
+}
+function dateFilter() { const [fd, td] = dateBounds(datePreset.value); return { from_date: fd || undefined, to_date: td || undefined }; }
+
 // Server-side paginated orders.
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_orders", { company: currentCompany(), customer: customerFilter.value || undefined, active: activeOnly.value ? 1 : 0, state: filterState.value || undefined, ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: dateFilter() },
 );
 st.load();
+
+function setDatePreset(k) { datePreset.value = k; if (k !== "range") st.setFilters(dateFilter()); }
+function applyRange() { if (dateFrom.value && dateTo.value) st.setFilters(dateFilter()); }
 watch(entityId, () => { filterState.value = null; activeOnly.value = true; st.page.value = 1; st.load(); });
 
 function setActive(v) { activeOnly.value = v; if (v) filterState.value = null; st.setFilters({ active: v ? 1 : 0, state: undefined }); }
