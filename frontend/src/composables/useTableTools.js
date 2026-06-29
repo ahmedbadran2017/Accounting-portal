@@ -74,7 +74,8 @@ export function useTableTools(rowsRef, cols, opts = {}) {
   });
 
   const faceted = computed(() => {
-    const active = Object.entries(facetActive.value).filter(([, v]) => v);
+    const fa = facetActive.value && typeof facetActive.value === "object" ? facetActive.value : {};
+    const active = Object.entries(fa).filter(([, v]) => v);
     if (!active.length) return rowsRef.value;
     return rowsRef.value.filter((r) => active.every(([k, v]) => String(accessor(r, k) ?? "").trim() === v));
   });
