@@ -17,13 +17,17 @@
 
       <!-- Findings -->
       <div v-if="view === 'findings'" class="flex-1 overflow-y-auto min-h-0 p-3 flex flex-col gap-2.5">
-        <div v-for="a in feed" :key="a.id" class="border border-line rounded-[12px] p-3 bg-white shadow-card">
+        <div class="flex items-center gap-1 flex-wrap -mt-0.5">
+          <button v-for="cf in CATS" :key="cf.key" @click="catFilter = cf.key" class="text-[10px] font-bold px-2 py-0.5 rounded-full border transition" :class="catFilter === cf.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2'">{{ cf.label() }}<span v-if="catCount(cf.key)" class="ms-1 opacity-70">{{ catCount(cf.key) }}</span></button>
+        </div>
+        <div v-for="a in filteredFeed" :key="a.id" class="border border-line rounded-[12px] p-3 bg-white shadow-card">
           <div class="flex items-start gap-2.5">
             <span class="w-7 h-7 rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: sev(a).bg }"><Icon :name="a.icon" :size="14" :color="sev(a).fg" /></span>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-[12px] font-bold">{{ a.title(locale) }}</span>
                 <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge border" :style="{ background: sev(a).bg, color: sev(a).fg, borderColor: sev(a).bd }">{{ sevLabel(a.sev, locale) }}</span>
+                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge" :style="catTag(a.category)">{{ catLabel(a.category) }}</span>
                 <span v-if="assigned[a.id]" class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge bg-success-soft text-success-dark inline-flex items-center gap-0.5"><Icon name="check" :size="9" />{{ shortUser(assigned[a.id]) }}</span>
               </div>
               <div class="text-[11px] text-ink-3 mt-[3px] leading-snug">{{ a.desc(locale) }}</div>
@@ -117,7 +121,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, onMounted } from "vue";
+import { ref, reactive, computed, nextTick, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -148,6 +152,20 @@ async function loadFeed() {
   live.value = r.live;
   feed.value = feedFrom(r.data && r.data.findings);
 }
+
+// Category filter: balance controls / entry-level / report tie-outs.
+const catFilter = ref("all");
+const CATS = [
+  { key: "all", label: () => L("All", "الكل", "Tout") },
+  { key: "control", label: () => L("Books", "الدفاتر", "Livres") },
+  { key: "entry", label: () => L("Entries", "القيود", "Écritures") },
+  { key: "report", label: () => L("Reports", "التقارير", "Rapports") },
+];
+const filteredFeed = computed(() => (catFilter.value === "all" ? feed.value : feed.value.filter((a) => a.category === catFilter.value)));
+const catCount = (k) => (k === "all" ? feed.value.length : feed.value.filter((a) => a.category === k).length);
+const CAT_LABEL = { control: () => L("Books", "دفاتر", "Livres"), entry: () => L("Entry", "قيد", "Écriture"), report: () => L("Report", "تقرير", "Rapport") };
+const catLabel = (k) => (CAT_LABEL[k] ? CAT_LABEL[k]() : k);
+const catTag = (k) => ({ control: "background:#eef2ff;color:#4338ca", entry: "background:#f0fdf4;color:#15803d", report: "background:#fff7ed;color:#c2410c" }[k] || "background:#f5f5f4;color:#57534e");
 
 // ── CFO task board ──
 const view = usePersistedRef("ap_copilot_view", "findings");

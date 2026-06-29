@@ -325,7 +325,7 @@ def ask_auditor(question=None, company=None):
     if not (question or "").strip():
         frappe.throw("Ask a question")
     target = _target(company)
-    data = run_controls(target)
+    data = full_findings(target)  # balance controls + entry-level + report tie-outs
     ctx = _context_text(data)
     try:
         board = remediation_board(target)
@@ -468,3 +468,230 @@ def close_task(task=None):
     todo.save(ignore_permissions=True)
     frappe.db.commit()
     return {"task": task, "status": "Closed"}
+
+
+# ── Entry-level audit (forensic tests on individual journal entries) ─────────
+_SAMPLE = 6  # how many entry names to show in a finding's detail
+
+
+def _entry_findings(target):
+    f = []
+    je = "`tabJournal Entry`"
+
+    # 1) Unbalanced submitted JEs — debits must equal credits.
+    rows = frappe.db.sql(
+        f"SELECT name, ROUND(total_debit-total_credit,2) d FROM {je} "
+        "WHERE company=%s AND docstatus=1 AND ABS(total_debit-total_credit)>0.01 "
+        "ORDER BY ABS(total_debit-total_credit) DESC LIMIT 50", (target,), as_dict=True)
+    if rows:
+        f.append({"id": "ent_unbalanced", "severity": "high", "metric": "Journal entries",
+                  "title": f"{len(rows)} unbalanced journal entries",
+                  "detail": "Submitted JEs where debits ≠ credits: "
+                            + ", ".join(f"{r.name} (Δ{r.d})" for r in rows[:_SAMPLE]),
+                  "amount": sum(abs(flt(r.d)) for r in rows), "account": None,
+                  "recommendation": "Open each and correct it — a submitted entry must balance.",
+                  "drill": {"module": "accountant", "sub": "journals", "label": "Journals"},
+                  "entries": [r.name for r in rows[:50]]})
+
+    # 2) Posted into a locked period (≤ Accounts Frozen Upto).
+    frozen = frappe.db.get_single_value("Accounts Settings", "acc_frozen_upto")
+    if frozen and str(frozen) > "1901-01-01":
+        rows = frappe.db.sql(
+            f"SELECT name, posting_date FROM {je} WHERE company=%s AND docstatus=1 AND posting_date<=%s "
+            "ORDER BY posting_date DESC LIMIT 50", (target, frozen), as_dict=True)
+        if rows:
+            f.append({"id": "ent_locked_period", "severity": "high", "metric": "Journal entries",
+                      "title": f"{len(rows)} entries posted into a locked period",
+                      "detail": f"Entries dated on/before the lock ({frozen}): "
+                                + ", ".join(r.name for r in rows[:_SAMPLE]),
+                      "amount": len(rows), "account": None,
+                      "recommendation": "Investigate — postings into a closed period break the audit trail.",
+                      "drill": {"module": "accountant", "sub": "journals", "label": "Journals"},
+                      "entries": [r.name for r in rows[:50]]})
+
+    # 3) Large manual JEs to sensitive accounts (cash / bank / correction / suspense).
+    rows = frappe.db.sql(
+        f"""SELECT DISTINCT je.name, je.total_debit FROM {je} je
+            JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
+            JOIN `tabAccount` a ON a.name=jea.account
+            WHERE je.company=%s AND je.docstatus=1 AND je.voucher_type='Journal Entry'
+              AND je.total_debit>50000
+              AND (a.account_type IN ('Bank','Cash') OR a.account_name LIKE '%%Correction%%'
+                   OR a.account_name LIKE '%%Suspense%%')
+            ORDER BY je.total_debit DESC LIMIT 50""", (target,), as_dict=True)
+    if rows:
+        f.append({"id": "ent_sensitive_manual", "severity": "high", "metric": "Journal entries",
+                  "title": f"{len(rows)} large manual entries to cash/correction accounts",
+                  "detail": "Manual JEs over 50,000 touching cash/bank/correction/suspense — high-risk, review each: "
+                            + ", ".join(f"{r.name} ({flt(r.total_debit):,.0f})" for r in rows[:_SAMPLE]),
+                  "amount": sum(flt(r.total_debit) for r in rows), "account": None,
+                  "recommendation": "Verify each has support and a valid business reason; these are the riskiest manual postings.",
+                  "drill": {"module": "accountant", "sub": "journals", "label": "Journals"},
+                  "entries": [r.name for r in rows[:50]]})
+
+    # 4) Strict duplicate-suspects: same date + same amount (>1000), more than once.
+    dup = frappe.db.sql(
+        f"""SELECT posting_date, ROUND(total_debit,2) amt, COUNT(*) n,
+                   GROUP_CONCAT(name ORDER BY name SEPARATOR ', ') names
+            FROM {je} WHERE company=%s AND docstatus=1 AND voucher_type='Journal Entry' AND total_debit>1000
+            GROUP BY posting_date, ROUND(total_debit,2) HAVING COUNT(*)>1
+            ORDER BY total_debit DESC LIMIT 30""", (target,), as_dict=True)
+    if dup:
+        ents = []
+        for d in dup:
+            ents += (d.names or "").split(", ")
+        f.append({"id": "ent_duplicate", "severity": "medium", "metric": "Journal entries",
+                  "title": f"{len(dup)} possible duplicate journal entries",
+                  "detail": "Same date + same amount posted more than once (>1,000): "
+                            + "; ".join(f"{flt(d.amt):,.0f} ×{d.n} on {d.posting_date}" for d in dup[:_SAMPLE]),
+                  "amount": sum(flt(d.amt) for d in dup), "account": None,
+                  "recommendation": "Compare each pair — cancel the duplicate if it's a genuine double-post.",
+                  "drill": {"module": "accountant", "sub": "journals", "label": "Journals"},
+                  "entries": ents[:50]})
+
+    # 5) Manual JEs missing a remark (audit-trail gap).
+    n = flt(frappe.db.sql(
+        f"SELECT COUNT(*) FROM {je} WHERE company=%s AND docstatus=1 AND voucher_type='Journal Entry' "
+        "AND IFNULL(user_remark,'')=''", (target,))[0][0])
+    if n > 10:
+        f.append({"id": "ent_no_remark", "severity": "low", "metric": "Journal entries",
+                  "title": f"{int(n)} manual entries with no description",
+                  "detail": f"{int(n)} manual JEs were posted without a memo/remark — weak audit trail.",
+                  "amount": n, "account": None,
+                  "recommendation": "Add a description to each (or going forward) so the reason is on record.",
+                  "drill": {"module": "accountant", "sub": "journals", "label": "Journals"}})
+    return f
+
+
+# ── Report-level audit (tie-outs: do the reports reconcile to the GL?) ───────
+def _report_findings(target):
+    f = []
+
+    def root_bal(rt, sign="dr"):
+        col = "debit-credit" if sign == "dr" else "credit-debit"
+        return flt(frappe.db.sql(
+            f"SELECT COALESCE(SUM({col}),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
+            "WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type=%s", (target, rt))[0][0])
+
+    def type_bal(at, sign="dr"):
+        col = "debit-credit" if sign == "dr" else "credit-debit"
+        return flt(frappe.db.sql(
+            f"SELECT COALESCE(SUM({col}),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
+            "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type=%s", (target, at))[0][0])
+
+    def tie(fid, title, gl, sub, sub_label, rec, drill, tol=1.0):
+        diff = round(gl - sub)
+        if abs(diff) > tol:
+            f.append({"id": fid, "severity": "high" if abs(diff) > 100_000 else "medium",
+                      "metric": "Report tie-out", "title": title,
+                      "detail": f"GL control = {round(gl):,.0f}; {sub_label} = {round(sub):,.0f}; "
+                                f"difference {diff:,.0f} MAD. The report doesn't reconcile to the ledger.",
+                      "amount": diff, "account": None, "recommendation": rec, "drill": drill})
+
+    # 1) Trial balance: total debits must equal total credits.
+    tb = frappe.db.sql(
+        """SELECT ROUND(SUM(GREATEST(bal,0))) dr, ROUND(SUM(GREATEST(-bal,0))) cr FROM
+             (SELECT SUM(g.debit-g.credit) bal FROM `tabGL Entry` g
+              WHERE g.company=%s AND g.is_cancelled=0 GROUP BY g.account) x""", (target,), as_dict=True)[0]
+    if abs(flt(tb.dr) - flt(tb.cr)) > 1:
+        f.append({"id": "rpt_tb_balance", "severity": "high", "metric": "Report tie-out",
+                  "title": "Trial balance doesn't balance",
+                  "detail": f"Total debits {flt(tb.dr):,.0f} ≠ total credits {flt(tb.cr):,.0f} "
+                            f"(off by {flt(tb.dr)-flt(tb.cr):,.0f}). The ledger itself is out of balance.",
+                  "amount": flt(tb.dr) - flt(tb.cr), "account": None,
+                  "recommendation": "Find the one-sided/orphan posting; the GL must be balanced before any report is trusted.",
+                  "drill": {"module": "accountant", "sub": "trial", "label": "Trial balance"}})
+
+    # 2) Balance sheet: assets = liabilities + equity (+ unclosed P&L).
+    assets = root_bal("Asset", "dr")
+    liab = root_bal("Liability", "cr")
+    eq = root_bal("Equity", "cr")
+    inc = root_bal("Income", "cr")
+    exp = root_bal("Expense", "dr")
+    bs_diff = round(assets - (liab + eq + (inc - exp)))
+    if abs(bs_diff) > 1:
+        f.append({"id": "rpt_bs_balance", "severity": "high", "metric": "Report tie-out",
+                  "title": "Balance sheet doesn't balance",
+                  "detail": f"Assets {round(assets):,.0f} ≠ liabilities {round(liab):,.0f} + equity {round(eq):,.0f} "
+                            f"+ retained P&L {round(inc-exp):,.0f}; off by {bs_diff:,.0f}.",
+                  "amount": bs_diff, "account": None,
+                  "recommendation": "Reconcile — usually an unclosed P&L or a misclassified root type.",
+                  "drill": {"module": "reports", "sub": "statements", "label": "Balance sheet"}})
+
+    # 3) AR control vs Sales-Invoice sub-ledger.
+    ar_sub = flt(frappe.db.sql(
+        "SELECT COALESCE(SUM(outstanding_amount),0) FROM `tabSales Invoice` WHERE company=%s AND docstatus=1", (target,))[0][0])
+    tie("rpt_ar_control", "Receivables don't tie to the invoice sub-ledger",
+        type_bal("Receivable", "dr"), ar_sub, "open Sales Invoices",
+        "Reconcile the debtor control to open invoices — usually unapplied COD collections.",
+        {"module": "reports", "sub": "arap", "label": "AR/AP"})
+
+    # 4) AP control vs Purchase-Invoice sub-ledger.
+    ap_sub = flt(frappe.db.sql(
+        "SELECT COALESCE(SUM(outstanding_amount),0) FROM `tabPurchase Invoice` WHERE company=%s AND docstatus=1", (target,))[0][0])
+    tie("rpt_ap_control", "Payables don't tie to the bill sub-ledger",
+        type_bal("Payable", "cr"), ap_sub, "open Purchase Invoices",
+        "Reconcile the creditor control to open bills — check unallocated supplier payments / GRNI.",
+        {"module": "reports", "sub": "arap", "label": "AR/AP"})
+    return f
+
+
+def _audit(target, kind):
+    ck = f"ap_audit_{kind}:{target}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
+    findings = (_entry_findings if kind == "entries" else _report_findings)(target)
+    findings.sort(key=lambda x: SEV_WEIGHT.get(x["severity"], 0), reverse=True)
+    out = {"company": target, "findings": findings,
+           "summary": {"high": sum(1 for x in findings if x["severity"] == "high"),
+                       "medium": sum(1 for x in findings if x["severity"] == "medium"),
+                       "low": sum(1 for x in findings if x["severity"] == "low"),
+                       "count": len(findings)}}
+    try:
+        frappe.cache().set_value(ck, out, expires_in_sec=300)
+    except Exception:
+        pass
+    return out
+
+
+@frappe.whitelist()
+def audit_entries(company=None):
+    """Forensic audit of individual journal entries (unbalanced, locked-period,
+    sensitive manual, duplicates, no-remark)."""
+    assert_portal_access()
+    target = _target(company)
+    return _audit(target, "entries") if target else {"findings": [], "summary": {}}
+
+
+@frappe.whitelist()
+def audit_reports(company=None):
+    """Report tie-out audit — does each report reconcile to the GL (trial balance,
+    balance sheet, AR/AP control vs sub-ledger)."""
+    assert_portal_access()
+    target = _target(company)
+    return _audit(target, "reports") if target else {"findings": [], "summary": {}}
+
+
+@frappe.whitelist()
+def full_findings(company=None):
+    """Everything the auditor sees — balance controls + entry-level + report tie-outs
+    — merged into one ranked feed, each tagged with its category."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"findings": [], "summary": {}}
+    out = []
+    for cat, data in (("control", run_controls(target)),
+                      ("entry", audit_entries(target)),
+                      ("report", audit_reports(target))):
+        for x in (data.get("findings") or []):
+            out.append({**x, "category": cat})
+    out.sort(key=lambda x: SEV_WEIGHT.get(x["severity"], 0), reverse=True)
+    return {"company": target, "generated_on": nowdate(), "findings": out,
+            "summary": {"high": sum(1 for x in out if x["severity"] == "high"),
+                        "medium": sum(1 for x in out if x["severity"] == "medium"),
+                        "low": sum(1 for x in out if x["severity"] == "low"),
+                        "count": len(out),
+                        "by_category": {k: sum(1 for x in out if x["category"] == k)
+                                        for k in ("control", "entry", "report")}}}

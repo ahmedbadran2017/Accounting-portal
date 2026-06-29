@@ -16,15 +16,18 @@ const SAMPLE_FINDINGS = {
 };
 
 export async function loadControls() {
-  return liveOrSample("accounting_portal.api.auditor.run_controls", { company: currentCompany() }, () => SAMPLE_FINDINGS);
+  // Full audit: balance controls + entry-level forensics + report tie-outs.
+  return liveOrSample("accounting_portal.api.auditor.full_findings", { company: currentCompany() }, () => SAMPLE_FINDINGS);
 }
 
 const ICON = { stock_cogs: "box", unmatched_cod: "coins", correction_pile: "ledger", negative_cash: "bank", grni_gap: "truck", payables_load: "doc" };
+const CAT_ICON = { entry: "ledger", report: "scale", control: "shield" };
 
 // Map a backend finding into the Copilot anomaly-feed item shape.
 export function toFeedItem(f) {
   return {
-    id: f.id, sev: f.severity, icon: ICON[f.id] || "alert",
+    id: f.id, sev: f.severity, icon: ICON[f.id] || CAT_ICON[f.category] || "alert",
+    category: f.category || "control",
     title: () => f.title,
     desc: () => f.detail,
     ref: f.account || f.metric || "",
