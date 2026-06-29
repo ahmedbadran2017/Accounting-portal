@@ -201,7 +201,7 @@ const baseRows = computed(() => {
   else if (activeOnly.value) r = r.filter((o) => !IGNORED.includes(o.state));
   return r;
 });
-const tt = useTableTools(baseRows, cols, {
+const tt = useTableTools(baseRows, cols, { storeKey: "orders",
   keyField: "id", dateKey: "date", defaultSort: "date", defaultDir: -1,
   facets: [
     { key: "carrier", label: lbl("carrier", "ناقل", "transp.") },

@@ -121,6 +121,7 @@ import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import { VENDORS } from "@/data/purchases";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useTableTools } from "@/composables/useTableTools";
 import BulkBar from "@/components/BulkBar.vue";
 import api from "@/services/api";
@@ -135,7 +136,7 @@ const ini = (n) => String(n || "?").trim().split(/\s+/).map((w) => w[0]).slice(0
 const PALETTE = ["#2563eb", "#7c3aed", "#0891b2", "#c2410c", "#16a34a", "#be123c", "#a16207", "#4f46e5"];
 const badge = (i) => `linear-gradient(135deg,${PALETTE[i % PALETTE.length]},${PALETTE[(i + 3) % PALETTE.length]})`;
 
-const view = ref("list");
+const view = usePersistedRef("ap_vendors_view", "list");
 const cols = [
   { key: "supplier_name", label: L("Supplier", "المورّد", "Fournisseur"), align: "s" },
   { key: "group", label: L("Group", "المجموعة", "Groupe"), align: "s" },
@@ -147,7 +148,7 @@ const SAMPLE = VENDORS.map((v) => ({ name: v.id, supplier_name: v.name, group: v
 const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const tt = useTableTools(rows, cols, { keyField: "name", defaultSort: "payable", defaultDir: -1, facets: [{ key: "group", label: L("group", "مجموعة", "groupe") }] });
+const tt = useTableTools(rows, cols, { storeKey: "vendors", keyField: "name", defaultSort: "payable", defaultDir: -1, facets: [{ key: "group", label: L("group", "مجموعة", "groupe") }] });
 
 async function load() {
   loading.value = true;

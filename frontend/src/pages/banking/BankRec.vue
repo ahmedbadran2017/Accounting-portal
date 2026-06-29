@@ -107,7 +107,7 @@ const rows = ref([]);
 const live = ref(null);
 const loading = ref(false);
 const srch = ref("");
-const tt = useTableTools(rows, cols, { keyField: "voucher", defaultSort: "date", defaultDir: -1 });
+const tt = useTableTools(rows, cols, { storeKey: "bankrec", keyField: "voucher", defaultSort: "date", defaultDir: -1 });
 const bulkNote = computed(() => { const t = tt.selectedRows.value.reduce((a, r) => a + Math.abs(Number(r.amount) || 0), 0); return t ? fmt(t) + " MAD" : ""; });
 
 const SAMPLE_ACC = [

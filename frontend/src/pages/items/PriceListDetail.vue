@@ -55,6 +55,7 @@
 <script setup>
 import { ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
@@ -68,7 +69,7 @@ const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigit
 
 const d = ref(null);
 const loading = ref(true);
-const search = ref("");
+const search = usePersistedRef("ap_pricelist_search", "");
 let t = null;
 function back() { router.push("/accounting/items/pricelists"); }
 function goItem(code) { router.push({ path: "/accounting/items/items", query: { id: code } }); }

@@ -70,7 +70,7 @@ const SAMPLE = [
 const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const tt = useTableTools(rows, cols, { keyField: "name", dateKey: "date", defaultSort: "date", defaultDir: -1, facets: [{ key: "reason", label: L("reason", "السبب", "motif") }] });
+const tt = useTableTools(rows, cols, { storeKey: "credits", keyField: "name", dateKey: "date", defaultSort: "date", defaultDir: -1, facets: [{ key: "reason", label: L("reason", "السبب", "motif") }] });
 
 async function load() {
   loading.value = true;

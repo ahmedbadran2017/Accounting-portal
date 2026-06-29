@@ -77,6 +77,7 @@ import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
@@ -89,8 +90,8 @@ const rows = ref([]);
 const groups = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const search = ref("");
-const group = ref("");
+const search = usePersistedRef("ap_items_search", "");
+const group = usePersistedRef("ap_items_group", "");
 let t = null;
 
 const SAMPLE = [

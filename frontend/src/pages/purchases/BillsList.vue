@@ -87,7 +87,7 @@ const cols = [
 
 const rows = ref(normalizeSample(BILLS));
 const isLive = ref(null);
-const tt = useTableTools(rows, cols, {
+const tt = useTableTools(rows, cols, { storeKey: "bills",
   keyField: "id", dateKey: "date", defaultSort: "date", defaultDir: -1,
   facets: [
     { key: "status", label: L("status", "حالة", "statut"), format: (v) => billStatusLabel(v, locale.value) },

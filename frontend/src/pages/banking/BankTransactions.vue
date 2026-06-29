@@ -52,6 +52,7 @@ import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import { useTableTools } from "@/composables/useTableTools";
 
@@ -78,8 +79,8 @@ const rows = ref([]);
 const live = ref(null);
 const loading = ref(false);
 const srch = ref("");
-const preset = ref("30d");
-const tt = useTableTools(rows, cols, { defaultSort: "date", defaultDir: -1, accessor: (r, k) => (k === "amount" ? Number(r.amount) || 0 : r[k]) });
+const preset = usePersistedRef("ap_banktx_preset", "30d");
+const tt = useTableTools(rows, cols, { storeKey: "banktx", defaultSort: "date", defaultDir: -1, accessor: (r, k) => (k === "amount" ? Number(r.amount) || 0 : r[k]) });
 
 function bounds() {
   const iso = (d) => d.toISOString().slice(0, 10);

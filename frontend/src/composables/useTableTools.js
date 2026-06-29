@@ -1,4 +1,5 @@
 import { ref, computed, watch } from "vue";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 
 // Shared list mechanics (search · date presets/range · sort · column show/hide ·
 // pagination) for any table. Pass a ref of row objects and a column spec; the
@@ -13,13 +14,17 @@ export function useTableTools(rowsRef, cols, opts = {}) {
   // Lists with a date column open on "This month" by default (focused, not a
   // 500-row dump); date-less lists open on "all".
   const initialPreset = dateKey ? (opts.defaultDate || "month") : "all";
-  const search = ref("");
-  const facetActive = ref({}); // { colKey: selectedValue }
-  const datePreset = ref(initialPreset);
-  const from = ref("");
-  const to = ref("");
-  const sortKey = ref(opts.defaultSort || null);
-  const sortDir = ref(opts.defaultDir || -1);
+  // When a storeKey is given, the list's filters (search · facets · date · sort)
+  // are persisted to localStorage so they survive navigating away / reloading.
+  const sk = opts.storeKey ? (k) => `ap_tt_${opts.storeKey}_${k}` : null;
+  const pref = (k, def) => (sk ? usePersistedRef(sk(k), def) : ref(def));
+  const search = pref("search", "");
+  const facetActive = pref("facets", {}); // { colKey: selectedValue }
+  const datePreset = pref("preset", initialPreset);
+  const from = pref("from", "");
+  const to = pref("to", "");
+  const sortKey = pref("sort", opts.defaultSort || null);
+  const sortDir = pref("dir", opts.defaultDir || -1);
   const hidden = ref(new Set());
   const page = ref(1);
   const pageSize = ref(opts.pageSize || 50);

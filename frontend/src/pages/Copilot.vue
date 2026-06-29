@@ -123,6 +123,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { SEV_META, sevLabel, seedMessages, replyTo } from "@/data/copilot";
 import { loadControls, feedFrom } from "@/composables/useAuditor";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -149,7 +150,7 @@ async function loadFeed() {
 }
 
 // ── CFO task board ──
-const view = ref("findings");
+const view = usePersistedRef("ap_copilot_view", "findings");
 const users = ref([]);
 const board = ref({ tasks: [], summary: {} });
 const assigned = reactive({});

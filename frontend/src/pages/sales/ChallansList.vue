@@ -81,7 +81,7 @@ const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
 const ins = ref(null);
-const tt = useTableTools(rows, cols, { keyField: "name", dateKey: "date", defaultSort: "date", defaultDir: -1, facets: [{ key: "status", label: L("status", "الحالة", "statut") }] });
+const tt = useTableTools(rows, cols, { storeKey: "challans", keyField: "name", dateKey: "date", defaultSort: "date", defaultDir: -1, facets: [{ key: "status", label: L("status", "الحالة", "statut") }] });
 
 async function load() {
   loading.value = true;

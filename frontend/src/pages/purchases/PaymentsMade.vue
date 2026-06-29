@@ -111,7 +111,7 @@ const srch = ref("");
 const datePreset = ref("month");
 const advancesOnly = ref(false);
 const adv = ref({ count: 0, total: 0 });
-const tt = useTableTools(rows, cols, { keyField: "name", defaultSort: "date", defaultDir: -1 });
+const tt = useTableTools(rows, cols, { storeKey: "paymentsmade", keyField: "name", defaultSort: "date", defaultDir: -1 });
 const bulkActions = useBulkDocActions("Payment Entry", { keyField: "name", ops: ["cancel"], onDone: () => { tt.clearSelection(); loadAdv(); load(); }, L });
 
 function bounds() {

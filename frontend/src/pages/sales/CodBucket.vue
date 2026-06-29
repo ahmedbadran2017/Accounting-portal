@@ -174,7 +174,7 @@ const dateFrom = ref("");
 const dateTo = ref("");
 // Date + search are server-side; carrier/city facets + sort/page are client-side
 // over the returned rows (no dateKey, so TableToolbar hides its own date row).
-const tt = useTableTools(rows, cols, { defaultSort: "date", defaultDir: -1, facets: [{ key: "carrier", label: L("carrier", "ناقل", "transp.") }, { key: "city", label: L("city", "مدينة", "ville") }] });
+const tt = useTableTools(rows, cols, { storeKey: "codbucket", defaultSort: "date", defaultDir: -1, facets: [{ key: "carrier", label: L("carrier", "ناقل", "transp.") }, { key: "city", label: L("city", "مدينة", "ville") }] });
 
 const isFiltered = computed(() => datePreset.value !== "all" || !!srch.value || Object.values(tt.facetActive.value).some(Boolean));
 const bulkNote = computed(() => { const tot = tt.selectedRows.value.reduce((a, r) => a + (Number(r.value) || 0), 0); return tot ? fmt(tot) + " MAD" : ""; });

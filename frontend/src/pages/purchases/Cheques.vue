@@ -86,6 +86,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import BulkBar from "@/components/BulkBar.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import { useToast } from "@/composables/useToast";
 import { useTableTools } from "@/composables/useTableTools";
@@ -128,8 +129,8 @@ const sum = ref({});
 const live = ref(null);
 const loading = ref(false);
 const srch = ref("");
-const status = ref("");
-const tt = useTableTools(rows, cols, { keyField: "name", defaultSort: "due", defaultDir: 1 });
+const status = usePersistedRef("ap_cheques_status", "");
+const tt = useTableTools(rows, cols, { storeKey: "cheques", keyField: "name", defaultSort: "due", defaultDir: 1 });
 
 const kpis = computed(() => [
   { key: "out", filter: "outstanding", color: "#b45309", tint: "#fffbeb", icon: "doc", label: () => L("Outstanding", "معلّق", "En cours"), count: sum.value.outstanding_n || 0, value: sum.value.outstanding || 0 },

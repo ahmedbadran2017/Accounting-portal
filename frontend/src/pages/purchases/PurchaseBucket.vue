@@ -223,7 +223,7 @@ const dateFrom = ref("");
 const dateTo = ref("");
 const bucketCount = ref(0);
 const bucketValue = ref(0);
-const tt = useTableTools(rows, cols, { defaultSort: "value", defaultDir: -1, accessor: (r, k) => (k === "info" ? Number(r.progress) || 0 : r[k]) });
+const tt = useTableTools(rows, cols, { storeKey: "purchbucket", defaultSort: "value", defaultDir: -1, accessor: (r, k) => (k === "info" ? Number(r.progress) || 0 : r[k]) });
 
 const dateScope = computed(() => { if (datePreset.value === "all") return ""; const p = DATE_PRESETS.find((x) => x.key === datePreset.value); return p ? p.label() : ""; });
 function cardCount(k) { return (sum.value[k] && sum.value[k].count) || 0; }

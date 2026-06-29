@@ -109,7 +109,7 @@ const sum = ref({});
 const isLive = ref(null);
 const loading = ref(true);
 const busy = ref("");
-const tt = useTableTools(rows, cols, { keyField: "name", defaultSort: "age", defaultDir: -1 });
+const tt = useTableTools(rows, cols, { storeKey: "tobill", keyField: "name", defaultSort: "age", defaultDir: -1 });
 
 async function load() {
   loading.value = true;

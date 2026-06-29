@@ -87,6 +87,7 @@ import TablePager from "@/components/TablePager.vue";
 import { initials, deliveryColor, rtoColor } from "@/data/customers";
 import { AV } from "@/data/orders";
 import { useCustomers } from "@/composables/useCustomers";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useTableTools } from "@/composables/useTableTools";
 import BulkBar from "@/components/BulkBar.vue";
 
@@ -94,7 +95,7 @@ const { locale } = useI18n();
 const router = useRouter();
 const { loadList, live } = useCustomers();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const search = ref("");
+const search = usePersistedRef("ap_customers_search", "");
 const rows = ref([]);
 const loading = ref(true);
 const activeTag = ref(null);
@@ -130,7 +131,7 @@ function accessor(r, k) {
   if (k === "ltv" || k === "credit" || k === "orders") return Number(String(r[k]).replace(/,/g, "")) || 0;
   return r[k];
 }
-const tt = useTableTools(tagged, cols, { keyField: "name", defaultSort: "ltv", defaultDir: -1, accessor });
+const tt = useTableTools(tagged, cols, { storeKey: "customers", keyField: "name", defaultSort: "ltv", defaultDir: -1, accessor });
 
 async function reload() { loading.value = true; try { rows.value = await loadList(search.value); } finally { loading.value = false; tt.clearSelection(); } }
 let timer;

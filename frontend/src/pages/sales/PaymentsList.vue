@@ -100,7 +100,7 @@ const cols = [
 const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const tt = useTableTools(rows, cols, {
+const tt = useTableTools(rows, cols, { storeKey: "paymentsin",
   keyField: "name", dateKey: "date", defaultSort: "date", defaultDir: -1,
   facets: [{ key: "method", label: L("method", "طريقة", "méthode") }],
 });

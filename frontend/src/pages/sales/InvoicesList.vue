@@ -95,7 +95,7 @@ const cols = [
 const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const tt = useTableTools(rows, cols, {
+const tt = useTableTools(rows, cols, { storeKey: "invoices",
   keyField: "id", dateKey: "date", defaultSort: "date", defaultDir: -1,
   facets: [{ key: "status", label: L("status", "حالة", "statut"), format: (v) => invStatusLabel(v, locale.value) }],
 });

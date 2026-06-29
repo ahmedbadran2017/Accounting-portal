@@ -97,7 +97,7 @@ const cols = [
 const accounts = ref([]);
 const live = ref(null);
 const loading = ref(false);
-const tt = useTableTools(accounts, cols, { keyField: "name", defaultSort: "book", defaultDir: -1, accessor: (r, k) => (k === "book" || k === "uncleared_n" ? Number(r[k]) || 0 : r[k]) });
+const tt = useTableTools(accounts, cols, { storeKey: "bankaccts", keyField: "name", defaultSort: "book", defaultDir: -1, accessor: (r, k) => (k === "book" || k === "uncleared_n" ? Number(r[k]) || 0 : r[k]) });
 
 const ins = computed(() => {
   const mad = accounts.value.filter((a) => a.ccy === "MAD");

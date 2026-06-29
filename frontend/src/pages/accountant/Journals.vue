@@ -100,7 +100,7 @@ const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
 const showForm = ref(false);
-const tt = useTableTools(rows, cols, { keyField: "name", dateKey: "date", defaultSort: "date", defaultDir: -1, facets: [{ key: "type", label: L("type", "نوع", "type") }, { key: "status", label: L("status", "حالة", "statut") }] });
+const tt = useTableTools(rows, cols, { storeKey: "journals", keyField: "name", dateKey: "date", defaultSort: "date", defaultDir: -1, facets: [{ key: "type", label: L("type", "نوع", "type") }, { key: "status", label: L("status", "حالة", "statut") }] });
 
 async function load() {
   loading.value = true;

@@ -58,6 +58,7 @@ import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import { useToast } from "@/composables/useToast";
 
@@ -73,12 +74,12 @@ const KINDS = [
   { key: "payments", label: () => L("Payments out", "مدفوعات", "Paiements") },
   { key: "journals", label: () => L("Journals", "قيود", "Écritures") },
 ];
-const kind = ref("bills");
+const kind = usePersistedRef("ap_missingdocs_kind", "bills");
 const rows = ref([]);
 const counts = reactive({});
 const isLive = ref(null);
 const loading = ref(true);
-const search = ref("");
+const search = usePersistedRef("ap_missingdocs_search", "");
 const busy = ref("");
 const doctype = ref("Purchase Invoice");
 let t = null;

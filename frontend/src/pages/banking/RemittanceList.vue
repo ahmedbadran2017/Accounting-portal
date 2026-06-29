@@ -47,6 +47,7 @@ import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
@@ -58,7 +59,7 @@ const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 
 const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const search = ref("");
+const search = usePersistedRef("ap_remit_search", "");
 let t = null;
 const SAMPLE = [{ ref: "CATH0102…0526", carrier: "Cathedis", date: "2026-05-02", orders: 716, expected: 150990, collected: 154153, variance: 3163, status: "over" }];
 async function load() {
