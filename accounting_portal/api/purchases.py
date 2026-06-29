@@ -28,7 +28,7 @@ _BILL_SORT = {"date": "pi.posting_date", "amount": "pi.grand_total", "supplier":
 
 
 @frappe.whitelist()
-def list_bills(company=None, search=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+def list_bills(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
     """Bills for one company with a derived 3-way-match flag, server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
@@ -38,6 +38,10 @@ def list_bills(company=None, search=None, start=0, page_size=25, sort_field="dat
     currency = frappe.db.get_value("Company", target, "default_currency")
     conds = ["pi.company = %(company)s", "pi.docstatus = 1"]
     params = {"company": target}
+    if from_date:
+        conds.append("pi.posting_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("pi.posting_date <= %(td)s"); params["td"] = to_date
     if search:
         conds.append("(pi.name LIKE %(s)s OR pi.supplier LIKE %(s)s OR pi.bill_no LIKE %(s)s)")
         params["s"] = f"%{search}%"

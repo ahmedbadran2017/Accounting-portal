@@ -1,5 +1,7 @@
 <template>
-  <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+  <div class="space-y-3">
+    <DateFilterBar :df="df" />
+    <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
     <!-- Header -->
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="ledger" :size="14" color="#0b5c4f" /></span>
@@ -44,9 +46,9 @@
     </div>
     <div v-if="!st.loading.value && !displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No journals match your filters.", "لا قيود مطابقة.", "Aucune écriture.") }}</div>
     <ServerPager :t="st" />
+    </div>
+    <JournalEntryForm v-if="showForm" @close="showForm = false" @posted="onPosted" />
   </div>
-
-  <JournalEntryForm v-if="showForm" @close="showForm = false" @posted="onPosted" />
 </template>
 
 <script setup>
@@ -60,6 +62,8 @@ import JournalEntryForm from "@/components/JournalEntryForm.vue";
 import { useToast } from "@/composables/useToast";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
+import { useDateFilter } from "@/composables/useDateFilter";
+import DateFilterBar from "@/components/DateFilterBar.vue";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 
@@ -89,9 +93,10 @@ const cols = [
 
 const isLive = ref(null);
 const showForm = ref(false);
+const df = useDateFilter("journals", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.accountant.list_journals", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
 );
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });

@@ -8,6 +8,8 @@
       <StatCard :label="L('Via Cathedis','عبر كاتدييس','Via Cathedis')" :value="kpi.cath.toLocaleString()" :sub="kpi.count ? Math.round(kpi.cath / kpi.count * 100) + '%' : '—'" :tag="filterTag" icon="truck" color="#7c3aed" glow="#a78bfa" tint="#f5f3ff" />
     </div>
 
+    <DateFilterBar :df="df" />
+
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
       <!-- Header -->
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
@@ -66,6 +68,8 @@ import TableLoading from "@/components/TableLoading.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
+import { useDateFilter } from "@/composables/useDateFilter";
+import DateFilterBar from "@/components/DateFilterBar.vue";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 
@@ -87,9 +91,10 @@ const cols = [
 ];
 
 const isLive = ref(null);
+const df = useDateFilter("receipts", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_receipts", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
 );
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });

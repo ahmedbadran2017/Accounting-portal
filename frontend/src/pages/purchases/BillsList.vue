@@ -1,5 +1,7 @@
 <template>
-  <div class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
+  <div class="space-y-3">
+    <DateFilterBar :df="df" />
+    <div class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
     <!-- Header -->
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="doc" :size="14" color="#b45309" /></span>
@@ -50,6 +52,7 @@
     <TableLoading v-if="st.loading.value" />
     <div v-else-if="!displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No bills match your filters.","لا توجد فواتير مطابقة.","Aucune facture.") }}</div>
     <ServerPager :t="st" />
+    </div>
   </div>
 </template>
 
@@ -63,6 +66,8 @@ import ServerPager from "@/components/ServerPager.vue";
 import { MATCH_META, BILL_STATUS, matchLabel, billStatusLabel } from "@/data/purchases";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
+import { useDateFilter } from "@/composables/useDateFilter";
+import DateFilterBar from "@/components/DateFilterBar.vue";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 
@@ -82,9 +87,10 @@ const cols = [
 ];
 
 const isLive = ref(null);
+const df = useDateFilter("bills", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.purchases.list_bills", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
 );
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });

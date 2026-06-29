@@ -8,6 +8,8 @@
       <StatCard :label="L('Overdue','متأخّرة','En retard')" :value="kpi.overdue.toLocaleString()" :sub="L('unpaid','غير مدفوعة','impayées')" :tag="filterTag" icon="alert" color="#be123c" glow="#f87171" tint="#fef2f2" :valueColor="kpi.overdue ? '#be123c' : undefined" />
     </div>
 
+    <DateFilterBar :df="df" />
+
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
       <!-- Header -->
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
@@ -67,6 +69,8 @@ import ServerPager from "@/components/ServerPager.vue";
 import { INV_STATUS, invStatusLabel, invStatusFromRow, fmt2 } from "@/data/invoices";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
+import { useDateFilter } from "@/composables/useDateFilter";
+import DateFilterBar from "@/components/DateFilterBar.vue";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 
@@ -87,9 +91,10 @@ const cols = [
 ];
 
 const isLive = ref(null);
+const df = useDateFilter("invoices", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_invoices", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
 );
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });

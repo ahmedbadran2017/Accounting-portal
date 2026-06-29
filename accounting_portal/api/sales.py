@@ -234,7 +234,7 @@ def challans_summary(company=None):
 
 
 @frappe.whitelist()
-def list_receipts(company=None, search=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+def list_receipts(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
     """COD receipts (Payment Entry · Receive) for one company — the cash landing,
     server-paginated."""
     assert_portal_access()
@@ -244,6 +244,10 @@ def list_receipts(company=None, search=None, start=0, page_size=25, sort_field="
     target = company if (company and company in companies) else companies[0]
     conds = ["pe.company=%(c)s", "pe.docstatus=1", "pe.payment_type='Receive'"]
     params = {"c": target}
+    if from_date:
+        conds.append("pe.posting_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("pe.posting_date <= %(td)s"); params["td"] = to_date
     if search:
         conds.append("(pe.name LIKE %(s)s OR pe.party LIKE %(s)s OR IFNULL(pe.reference_no,'') LIKE %(s)s)")
         params["s"] = f"%{search}%"
@@ -369,7 +373,7 @@ _INV_SORT = {"date": "si.posting_date", "gross": "si.grand_total", "customer": "
 
 
 @frappe.whitelist()
-def list_invoices(company=None, search=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+def list_invoices(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
     """Sales invoices for one company (revenue; VAT 20%), server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
@@ -378,6 +382,10 @@ def list_invoices(company=None, search=None, start=0, page_size=25, sort_field="
     target = company if (company and company in companies) else companies[0]
     conds = ["si.company = %(company)s", "si.docstatus < 2"]
     params = {"company": target}
+    if from_date:
+        conds.append("si.posting_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("si.posting_date <= %(td)s"); params["td"] = to_date
     if search:
         conds.append("(si.name LIKE %(s)s OR si.customer LIKE %(s)s)")
         params["s"] = f"%{search}%"
