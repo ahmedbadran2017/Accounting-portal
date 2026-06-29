@@ -238,8 +238,8 @@
         </div>
       </div>
       <div class="flex items-end gap-3 h-24 mt-4">
-        <div v-for="m in cod.cohort" :key="m.month" class="flex-1 flex flex-col items-center gap-1">
-          <div class="w-full flex items-end justify-center gap-[3px] h-full">
+        <div v-for="m in cod.cohort" :key="m.month" class="flex-1 flex flex-col items-center gap-1 h-full">
+          <div class="w-full flex items-end justify-center gap-[3px] flex-1 min-h-0">
             <div class="w-1/2 rounded-t-[3px] animate-barGrow origin-bottom" :style="{ height: barH(m.invoiced) + '%', background: '#0f766e', minHeight: '2px' }" :title="'Invoiced ' + fmt(m.invoiced)"></div>
             <div class="w-1/2 rounded-t-[3px] animate-barGrow origin-bottom" :style="{ height: barH(m.collected) + '%', background: '#7c3aed', minHeight: '2px' }" :title="'Collected ' + fmt(m.collected)"></div>
           </div>
