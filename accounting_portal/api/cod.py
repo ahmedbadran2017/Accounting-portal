@@ -58,7 +58,7 @@ def cod_remittances(company=None, search=None, variance_only=0, limit=100):
     target = _target(company)
     if not target:
         return []
-    conds = ["company=%(c)s", "docstatus=1", "IFNULL(custom_reference_number,'') LIKE 'CATH%%'"]
+    conds = ["company=%(c)s", "docstatus=1", _ref_present("custom_reference_number")]
     params = {"c": target, "limit": min(int(limit or 100), 500)}
     if search:
         conds.append("(custom_reference_number LIKE %(s)s OR IFNULL(custom_tracking_company,'') LIKE %(s)s)")
@@ -126,12 +126,32 @@ def get_remittance(ref=None, company=None):
     }
 
 
+# Carrier remittance-reference prefixes. Cathedis changed the format from
+# "CATH…" to "RDF-…" in June 2026; both mean "this order's cash was remitted".
+# Keep this the single source of truth — add a prefix here if the carrier changes
+# it again, and parsing + every "is collected" query updates together.
+_REF_PREFIXES = ("CATH", "RDF")
+_REF_RE = re.compile(r"(?:" + "|".join(_REF_PREFIXES) + r")[-\w]+")
+
+
+def _ref_present(col):
+    return "(" + " OR ".join(f"IFNULL({col},'') LIKE '{p}%%'" for p in _REF_PREFIXES) + ")"
+
+
+def _ref_absent(col):
+    return "(" + " AND ".join(f"IFNULL({col},'') NOT LIKE '{p}%%'" for p in _REF_PREFIXES) + ")"
+
+
+def _is_ref(s):
+    return (s or "").upper().startswith(_REF_PREFIXES)
+
+
 # ── bucket classifier (must agree with the SQL conditions below) ──
 # To Return = carrier flagged it back (track) but the goods haven't physically
 # returned. Returned = a submitted return Delivery Note exists (goods back in the
 # warehouse, inventory restocked) — the authoritative physical-return signal.
 def cod_bucket(ref, track, has_return_dn=False):
-    if (ref or "").upper().startswith("CATH"):
+    if _is_ref(ref):
         return "collected"
     if has_return_dn:
         return "returned"
@@ -152,10 +172,10 @@ _INV_JOIN = (
     "LEFT JOIN (SELECT sii.sales_order so, MAX(si.custom_reference_number) ref "
     "FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` si ON si.name=sii.parent "
     "WHERE si.company=%(c)s AND si.docstatus=1 "
-    "AND IFNULL(si.custom_reference_number,'') LIKE 'CATH%%' "
+    "AND " + _ref_present("si.custom_reference_number") + " "
     "AND IFNULL(sii.sales_order,'')!='' GROUP BY sii.sales_order) inv ON inv.so=so.name")
-_COLLECTED = "(IFNULL(so.custom_reference_number,'') LIKE 'CATH%%' OR inv.so IS NOT NULL)"
-_NOTCOLL = "IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' AND inv.so IS NULL"
+_COLLECTED = "(" + _ref_present("so.custom_reference_number") + " OR inv.so IS NOT NULL)"
+_NOTCOLL = "(" + _ref_absent("so.custom_reference_number") + " AND inv.so IS NULL)"
 # Flags orders that have a submitted return Delivery Note (goods physically back).
 # Uses the indexed `return_against` (set iff is_return=1 — verified identical for
 # this book) instead of the unindexed is_return, ~2.5x faster.
@@ -385,7 +405,7 @@ def _num(s):
 
 def parse_remittance_text(text):
     flat = re.sub(r"\s+", " ", text or "")
-    ref_m = re.search(r"CATH\d+", flat)
+    ref_m = _REF_RE.search(flat)
     rows = []
     prev = 0
     for m in _TAIL_RE.finditer(flat):
@@ -477,7 +497,7 @@ def match_remittance(company=None, content_b64=None, filename=None):
         exp = _expected_cash(o)
         r["expected"] = exp
         r["gap"] = round(r["amount"] - exp, 2)
-        if (o.custom_reference_number or "").upper().startswith("CATH"):
+        if _is_ref(o.custom_reference_number):
             r["existing_reference"] = o.custom_reference_number
             already.append(r)
         elif abs(exp - r["amount"]) > 0.5:
