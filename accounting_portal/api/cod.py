@@ -59,7 +59,7 @@ def cod_remittances(company=None, search=None, variance_only=0, limit=100):
     if not target:
         return []
     conds = ["company=%(c)s", "docstatus=1", _ref_present("custom_reference_number")]
-    params = {"c": target, "limit": min(int(limit or 100), 500)}
+    params = {"c": target, "limit": min(int(limit or 100), 2000)}
     if search:
         conds.append("(custom_reference_number LIKE %(s)s OR IFNULL(custom_tracking_company,'') LIKE %(s)s)")
         params["s"] = f"%{search}%"

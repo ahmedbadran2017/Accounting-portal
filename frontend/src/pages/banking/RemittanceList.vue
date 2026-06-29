@@ -64,7 +64,7 @@ let t = null;
 const SAMPLE = [{ ref: "CATH0102…0526", carrier: "Cathedis", date: "2026-05-02", orders: 716, expected: 150990, collected: 154153, variance: 3163, status: "over" }];
 async function load() {
   loading.value = true;
-  try { rows.value = await api.call("accounting_portal.api.cod.cod_remittances", { company: currentCompany(), search: search.value || undefined, limit: 200 }); isLive.value = true; }
+  try { rows.value = await api.call("accounting_portal.api.cod.cod_remittances", { company: currentCompany(), search: search.value || undefined, limit: 2000 }); isLive.value = true; }
   catch { rows.value = SAMPLE; isLive.value = false; }
   finally { loading.value = false; }
 }
