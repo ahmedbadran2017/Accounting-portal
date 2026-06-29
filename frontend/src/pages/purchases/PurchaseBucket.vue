@@ -149,6 +149,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -218,9 +219,9 @@ const sum = ref({});
 const live = ref(null);
 const loading = ref(false);
 const srch = ref("");
-const datePreset = ref("month");
-const dateFrom = ref("");
-const dateTo = ref("");
+const datePreset = usePersistedRef("ap_purchbucket_preset", "month");
+const dateFrom = usePersistedRef("ap_purchbucket_from", "");
+const dateTo = usePersistedRef("ap_purchbucket_to", "");
 const bucketCount = ref(0);
 const bucketValue = ref(0);
 const tt = useTableTools(rows, cols, { storeKey: "purchbucket", defaultSort: "value", defaultDir: -1, accessor: (r, k) => (k === "info" ? Number(r.progress) || 0 : r[k]) });

@@ -68,6 +68,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useServerTable } from "@/composables/useServerTable";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 
 const router = useRouter();
 const { locale } = useI18n();
@@ -97,7 +98,7 @@ const cols = [
 ];
 
 const live = ref(null);
-const datePreset = ref("month");
+const datePreset = usePersistedRef("ap_paymade_preset", "month");
 const advancesOnly = ref(false);
 const adv = ref({ count: 0, total: 0 });
 
@@ -134,5 +135,5 @@ async function loadAdv() {
   try { adv.value = await api.call("accounting_portal.api.payments.payments_advances_summary", { company: currentCompany() }) || { count: 0, total: 0 }; }
   catch { adv.value = { count: 0, total: 0 }; }
 }
-watch(entityId, () => { advancesOnly.value = false; datePreset.value = "month"; const [fd, td] = bounds(); loadAdv(); st.page.value = 1; st.setFilters({ advances_only: undefined, from_date: fd || undefined, to_date: td || undefined }); }, { immediate: true });
+watch(entityId, () => { advancesOnly.value = false; const [fd, td] = bounds(); loadAdv(); st.page.value = 1; st.setFilters({ advances_only: undefined, from_date: fd || undefined, to_date: td || undefined }); }, { immediate: true });
 </script>

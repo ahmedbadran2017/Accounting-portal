@@ -103,6 +103,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -169,9 +170,9 @@ const loading = ref(false);
 const showRecon = ref(false);
 const openRet = ref(null);
 const srch = ref("");
-const datePreset = ref("month");
-const dateFrom = ref("");
-const dateTo = ref("");
+const datePreset = usePersistedRef("ap_codbucket_preset", "month");
+const dateFrom = usePersistedRef("ap_codbucket_from", "");
+const dateTo = usePersistedRef("ap_codbucket_to", "");
 // Date + search are server-side; carrier/city facets + sort/page are client-side
 // over the returned rows (no dateKey, so TableToolbar hides its own date row).
 const tt = useTableTools(rows, cols, { storeKey: "codbucket", defaultSort: "date", defaultDir: -1, facets: [{ key: "carrier", label: L("carrier", "ناقل", "transp.") }, { key: "city", label: L("city", "مدينة", "ville") }] });
