@@ -13,7 +13,7 @@ import json
 import frappe
 from frappe.utils import flt, nowdate
 
-from accounting_portal.api import _actions
+from accounting_portal.api import _actions, _paginate
 from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
 
 
@@ -374,15 +374,16 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None,
 
 
 @frappe.whitelist()
-def bank_transactions(company=None, from_date=None, to_date=None, search=None, limit=400):
+def bank_transactions(company=None, from_date=None, to_date=None, search=None,
+                      start=0, page_size=50, sort_field="date", sort_dir="desc"):
     """Live bank & cash movements (GL entries on Bank/Cash accounts) — the
-    statement-style transactions feed."""
+    statement-style transactions feed, server-paginated."""
     assert_portal_access()
     target = _target(company)
     if not target:
-        return []
+        return {"rows": [], "total": 0}
     conds = ["g.company=%(c)s", "g.is_cancelled=0", "a.account_type IN ('Bank','Cash')"]
-    p = {"c": target, "lim": min(int(limit or 400), 1000)}
+    p = {"c": target}
     if from_date:
         conds.append("g.posting_date>=%(fd)s"); p["fd"] = from_date
     if to_date:
@@ -390,13 +391,14 @@ def bank_transactions(company=None, from_date=None, to_date=None, search=None, l
     if search:
         conds.append("(g.voucher_no LIKE %(s)s OR IFNULL(g.against,'') LIKE %(s)s OR a.account_name LIKE %(s)s OR IFNULL(g.remarks,'') LIKE %(s)s)")
         p["s"] = f"%{search}%"
-    rows = frappe.db.sql(
-        f"""SELECT g.posting_date AS date, g.voucher_type AS type, g.voucher_no AS voucher,
-                   a.account_name AS account, IFNULL(g.against,'') AS against,
-                   ROUND(g.debit - g.credit, 2) AS amount
-            FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-            WHERE {' AND '.join(conds)}
-            ORDER BY g.posting_date DESC, g.creation DESC LIMIT %(lim)s""", p, as_dict=True)
+    sort = {"date": "g.posting_date", "amount": "(g.debit-g.credit)", "voucher": "g.voucher_no", "account": "a.account_name"}
+    col = sort.get(sort_field, "g.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, st_, ps = _paginate.page_query(
+        "`tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account", " AND ".join(conds), p,
+        "g.posting_date AS date, g.voucher_type AS type, g.voucher_no AS voucher, "
+        "a.account_name AS account, IFNULL(g.against,'') AS against, ROUND(g.debit - g.credit, 2) AS amount",
+        f"{col} {d}, g.creation {d}", start, page_size)
     for r in rows:
         r["amount"] = flt(r["amount"]); r["date"] = str(r.get("date") or "")
-    return rows
+    return {"rows": rows, "total": total, "start": st_, "page_size": ps}

@@ -5,7 +5,7 @@ import { usePersistedRef } from "@/composables/usePersistedRef";
 // page (storeKey) and resolved to { from_date, to_date } passed server-side.
 // onApply(filterValue) is called whenever the selection changes — typically
 // `(f) => st.setFilters(f)` to drive a useServerTable.
-export function useDateFilter(storeKey, onApply) {
+export function useDateFilter(storeKey, onApply, defaultPreset = "all") {
   const { locale } = useI18n();
   const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
   const PRESETS = [
@@ -16,7 +16,7 @@ export function useDateFilter(storeKey, onApply) {
     { key: "year", label: () => L("This year", "هذه السنة", "Année") },
     { key: "range", label: () => L("Range", "نطاق", "Plage") },
   ];
-  const preset = usePersistedRef(`ap_${storeKey}_preset`, "all");
+  const preset = usePersistedRef(`ap_${storeKey}_preset`, defaultPreset);
   const from = usePersistedRef(`ap_${storeKey}_from`, "");
   const to = usePersistedRef(`ap_${storeKey}_to`, "");
 
