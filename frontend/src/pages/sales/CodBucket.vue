@@ -173,6 +173,14 @@ const srch = ref("");
 const datePreset = usePersistedRef("ap_codbucket_preset", "month");
 const dateFrom = usePersistedRef("ap_codbucket_from", "");
 const dateTo = usePersistedRef("ap_codbucket_to", "");
+// Deep-link from the Sales & collections report (Outstanding column): ?from&to
+// scopes this bucket to that order-month range. Applied before the immediate
+// load watches so the first fetch already uses it.
+if (route.query.from && route.query.to) {
+  datePreset.value = "range";
+  dateFrom.value = String(route.query.from);
+  dateTo.value = String(route.query.to);
+}
 // Date + search are server-side; carrier/city facets + sort/page are client-side
 // over the returned rows (no dateKey, so TableToolbar hides its own date row).
 const tt = useTableTools(rows, cols, { storeKey: "codbucket", defaultSort: "date", defaultDir: -1, facets: [{ key: "carrier", label: L("carrier", "ناقل", "transp.") }, { key: "city", label: L("city", "مدينة", "ville") }] });

@@ -108,9 +108,20 @@
           <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>{{ t("header.synced") }}
         </span>
 
-        <button class="text-[12px] font-semibold text-ink-3 hover:text-ink px-2 py-1.5 rounded-lg hover:bg-app-warm" @click="cycleLocale">
-          {{ localeLabel }}
-        </button>
+        <div class="relative" v-click-outside="() => (langOpen = false)">
+          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-3 hover:text-ink px-2 py-1.5 rounded-lg hover:bg-app-warm" :aria-label="L('Language','اللغة','Langue')" @click="langOpen = !langOpen">
+            <Icon name="globe" :size="15" />
+            <span>{{ localeLabel }}</span>
+            <Icon name="chevDown" :size="12" class="transition-transform" :class="langOpen ? 'rotate-180' : ''" />
+          </button>
+          <div v-if="langOpen" class="absolute end-0 mt-1 w-40 bg-white rounded-chip border border-line-2 shadow-cardHover p-1 z-50 animate-fadeIn">
+            <button v-for="lc in LOCALES" :key="lc" class="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-start text-[12.5px] hover:bg-app-warm"
+                    :class="locale === lc ? 'font-bold text-accent-dark bg-app-warm/60' : 'text-ink-2'" @click="pickLocale(lc)">
+              <span :dir="lc === 'ar' ? 'rtl' : 'ltr'">{{ LOCALE_NAMES[lc] }}</span>
+              <Icon v-if="locale === lc" name="check" :size="14" color="#0b5c4f" />
+            </button>
+          </div>
+        </div>
 
         <div class="relative" v-click-outside="() => (createMenuOpen = false)">
           <button class="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand" @click="createMenuOpen = !createMenuOpen">
@@ -224,10 +235,14 @@ function goSub(m, s) {
   router.push(s ? `/accounting/${m}/${s}` : `/accounting/${m}`);
 }
 function pickEntity(id) { setEntity(id); entityOpen.value = false; }
-function cycleLocale() {
-  const i = LOCALES.indexOf(locale.value);
-  locale.value = LOCALES[(i + 1) % LOCALES.length];
-  applyLocale(locale.value);
+// Language picker — a dropdown of the three locales in their native names,
+// instead of a blind cycle button (you couldn't tell what tapping it would do).
+const langOpen = ref(false);
+const LOCALE_NAMES = { en: "English", ar: "العربية", fr: "Français" };
+function pickLocale(lc) {
+  locale.value = lc;
+  applyLocale(lc);
+  langOpen.value = false;
 }
 async function onLogout() { await logout(); router.push({ name: "Login" }); }
 </script>

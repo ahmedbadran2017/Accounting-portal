@@ -44,7 +44,10 @@
                   <span class="text-[10.5px] font-bold tnum w-9 text-end" :style="{ color: rateColor(m.collection_rate) }">{{ Math.round(m.collection_rate) }}%</span>
                 </div>
               </td>
-              <td class="px-4 py-2.5 text-end tnum" :class="m.outstanding > 0 ? 'text-sale font-semibold' : 'text-ink-muted'">{{ fmt(m.outstanding) }}</td>
+              <td class="px-4 py-2.5 text-end tnum">
+                <button v-if="m.outstanding > 0" @click="openOutstanding(m)" class="text-sale font-semibold hover:underline inline-flex items-center gap-1" :title="L('Track these orders — delivered, not yet collected','تتبّع هذه الطلبات — مُسلّمة وغير محصّلة','Suivre ces commandes')">{{ fmt(m.outstanding) }}<Icon name="arrow" :size="11" class="rtl:rotate-180 opacity-50" /></button>
+                <span v-else class="text-ink-muted">{{ fmt(m.outstanding) }}</span>
+              </td>
             </tr>
           </tbody>
           <tfoot>
@@ -75,6 +78,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import StatCard from "@/components/StatCard.vue";
@@ -90,6 +94,18 @@ const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const money = (n) => { n = Number(n) || 0; return Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + "M" : Math.abs(n) >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
 const MON = { "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun", "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec" };
 const monthLabel = (m) => { const [y, mm] = String(m).split("-"); return (MON[mm] || mm) + " " + y; };
+
+// Outstanding = delivered cash not yet collected/reconciled for orders PLACED that
+// month. Drill into the COD "delivered" bucket (delivered, not collected) scoped to
+// the month's order dates — exactly those orders, so the team can track them.
+const router = useRouter();
+function openOutstanding(m) {
+  const [y, mo] = String(m.month).split("-").map(Number);
+  const pad = (n) => String(n).padStart(2, "0");
+  const from = `${y}-${pad(mo)}-01`;
+  const to = `${y}-${pad(mo)}-${pad(new Date(y, mo, 0).getDate())}`;
+  router.push({ path: "/accounting/sales/delivered", query: { from, to } });
+}
 function rateColor(r) { return r >= 70 ? "#047857" : r >= 30 ? "#b45309" : "#be123c"; }
 
 const SAMPLE = { months: [
