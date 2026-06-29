@@ -10,7 +10,7 @@ import json
 import frappe
 from frappe.utils import flt, nowdate
 
-from accounting_portal.api import _actions
+from accounting_portal.api import _actions, _paginate
 from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
 
 PE_ACTION = "Record Payment"
@@ -172,16 +172,15 @@ def create_payment_entry(company=None, party=None, amount=None, account=None,
 
 @frappe.whitelist()
 def list_payments_made(company=None, search=None, from_date=None, to_date=None,
-                       advances_only=0, limit=200):
-    """Supplier (Pay) Payment Entries for one company — powers the clickable
-    'Payments made' list. Amount is in the paying account's currency.
+                       advances_only=0, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """Supplier (Pay) Payment Entries for one company, server-paginated.
     advances_only=1 keeps only payments with money still unallocated to bills."""
     assert_portal_access()
     target = _target(company)
     if not target:
-        return []
+        return {"rows": [], "total": 0}
     conds = ["pe.company=%(c)s", "pe.docstatus=1", "pe.payment_type='Pay'", "pe.party_type='Supplier'"]
-    params = {"c": target, "limit": min(int(limit or 200), 500)}
+    params = {"c": target}
     if int(advances_only or 0):
         conds.append("pe.unallocated_amount > 0")
     if from_date:
@@ -191,24 +190,21 @@ def list_payments_made(company=None, search=None, from_date=None, to_date=None,
     if search:
         conds.append("(pe.name LIKE %(s)s OR pe.party LIKE %(s)s OR IFNULL(pe.party_name,'') LIKE %(s)s OR IFNULL(pe.reference_no,'') LIKE %(s)s OR IFNULL(pe.mode_of_payment,'') LIKE %(s)s)")
         params["s"] = f"%{search}%"
-    rows = frappe.db.sql(
-        f"""SELECT pe.name, pe.party, IFNULL(s.supplier_name, pe.party) AS party_name,
-                   pe.posting_date AS date, IFNULL(pe.mode_of_payment,'—') AS method,
-                   pe.paid_amount AS amount, pe.paid_from_account_currency AS currency,
-                   IFNULL(pe.reference_no,'') AS reference_no,
-                   ROUND(pe.unallocated_amount, 2) AS unallocated,
-                   (SELECT COUNT(*) FROM `tabPayment Entry Reference` per
-                      WHERE per.parent=pe.name AND per.reference_doctype='Purchase Invoice') AS n_bills
-            FROM `tabPayment Entry` pe
-            LEFT JOIN `tabSupplier` s ON s.name=pe.party
-            WHERE {' AND '.join(conds)}
-            ORDER BY pe.posting_date DESC, pe.creation DESC LIMIT %(limit)s""",
-        params, as_dict=True)
+    sort = {"date": "pe.posting_date", "amount": "pe.paid_amount", "party": "pe.party", "id": "pe.name"}
+    col = sort.get(sort_field, "pe.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, s, ps = _paginate.page_query(
+        "`tabPayment Entry` pe LEFT JOIN `tabSupplier` s ON s.name=pe.party", " AND ".join(conds), params,
+        "pe.name, pe.party, IFNULL(s.supplier_name, pe.party) AS party_name, pe.posting_date AS date, "
+        "IFNULL(pe.mode_of_payment,'—') AS method, pe.paid_amount AS amount, pe.paid_from_account_currency AS currency, "
+        "IFNULL(pe.reference_no,'') AS reference_no, ROUND(pe.unallocated_amount,2) AS unallocated, "
+        "(SELECT COUNT(*) FROM `tabPayment Entry Reference` per WHERE per.parent=pe.name AND per.reference_doctype='Purchase Invoice') AS n_bills",
+        f"{col} {d}, pe.creation {d}", start, page_size)
     for r in rows:
         r["amount"] = flt(r["amount"])
         r["unallocated"] = flt(r["unallocated"])
         r["date"] = str(r.get("date") or "")
-    return rows
+    return {"rows": rows, "total": total, "start": s, "page_size": ps}
 
 
 @frappe.whitelist()

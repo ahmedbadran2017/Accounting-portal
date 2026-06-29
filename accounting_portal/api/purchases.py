@@ -9,7 +9,7 @@ import json
 import frappe
 from frappe.utils import flt, nowdate
 
-from accounting_portal.api import _actions
+from accounting_portal.api import _actions, _paginate
 from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
 from accounting_portal.api.sales import _voucher_journal
 
@@ -24,36 +24,32 @@ def _bill_status(row):
     return "paid"
 
 
+_BILL_SORT = {"date": "pi.posting_date", "amount": "pi.grand_total", "supplier": "pi.supplier", "id": "pi.name"}
+
+
 @frappe.whitelist()
-def list_bills(company=None, search=None, limit=100):
-    """Bills for one company with a derived 3-way-match flag, excluding cancelled."""
+def list_bills(company=None, search=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """Bills for one company with a derived 3-way-match flag, server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
-        return []
+        return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
     currency = frappe.db.get_value("Company", target, "default_currency")
-    limit = min(int(limit or 100), 500)
     conds = ["pi.company = %(company)s", "pi.docstatus = 1"]
-    params = {"company": target, "limit": limit}
+    params = {"company": target}
     if search:
         conds.append("(pi.name LIKE %(s)s OR pi.supplier LIKE %(s)s OR pi.bill_no LIKE %(s)s)")
         params["s"] = f"%{search}%"
-    rows = frappe.db.sql(
-        f"""
-        SELECT pi.name, pi.supplier, pi.grand_total, pi.base_grand_total,
-               pi.currency AS doc_currency, pi.is_return, pi.status,
-               pi.posting_date AS date, pi.bill_no,
-               (SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name) AS n_items,
-               (SELECT COUNT(*) FROM `tabPurchase Invoice Item` it
-                  WHERE it.parent = pi.name AND IFNULL(it.purchase_order, '') <> '') AS n_po
-        FROM `tabPurchase Invoice` pi
-        WHERE {' AND '.join(conds)}
-        ORDER BY pi.posting_date DESC, pi.creation DESC
-        LIMIT %(limit)s
-        """,
-        params, as_dict=True,
-    )
+    col = _BILL_SORT.get(sort_field, "pi.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, s, ps = _paginate.page_query(
+        "`tabPurchase Invoice` pi", " AND ".join(conds), params,
+        "pi.name, pi.supplier, pi.grand_total, pi.base_grand_total, pi.currency AS doc_currency, "
+        "pi.is_return, pi.status, pi.posting_date AS date, pi.bill_no, "
+        "(SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name) AS n_items, "
+        "(SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name AND IFNULL(it.purchase_order,'')<>'') AS n_po",
+        f"{col} {d}, pi.creation {d}", start, page_size)
     for r in rows:
         # Each bill shows its OWN transaction currency (USD/TRY suppliers), not the
         # company default — otherwise a USD bill reads as "MAD <usd amount>".
@@ -65,7 +61,7 @@ def list_bills(company=None, search=None, limit=100):
         r["amount"] = flt(r["grand_total"]) * (-1 if r["is_return"] else 1)
         # Base-currency amount (company currency) for any cross-bill totals.
         r["base_amount"] = flt(r["base_grand_total"]) * (-1 if r["is_return"] else 1)
-    return rows
+    return {"rows": rows, "total": total, "start": s, "page_size": ps}
 
 
 @frappe.whitelist()

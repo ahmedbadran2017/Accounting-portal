@@ -10,7 +10,7 @@ import json
 import frappe
 from frappe.utils import add_days, flt, getdate, nowdate
 
-from accounting_portal.api import _actions
+from accounting_portal.api import _actions, _paginate
 from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
 
 SO_ACTION = "Create Sales Order"
@@ -229,23 +229,36 @@ def challans_summary(company=None):
 
 
 @frappe.whitelist()
-def list_receipts(company=None, limit=100):
-    """COD receipts (Payment Entry · Receive) for one company — the cash landing."""
+def list_receipts(company=None, search=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """COD receipts (Payment Entry · Receive) for one company — the cash landing,
+    server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
-        return []
+        return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    return frappe.db.sql(
-        """
-        SELECT name, party AS customer, IFNULL(NULLIF(reference_no, ''), '—') AS ref,
-               IFNULL(NULLIF(mode_of_payment, ''), '—') AS method, paid_amount AS collected,
-               posting_date AS date
-        FROM `tabPayment Entry`
-        WHERE company=%s AND docstatus=1 AND payment_type='Receive'
-        ORDER BY posting_date DESC, creation DESC LIMIT %s
-        """,
-        (target, min(int(limit or 100), 500)), as_dict=True)
+    conds = ["pe.company=%(c)s", "pe.docstatus=1", "pe.payment_type='Receive'"]
+    params = {"c": target}
+    if search:
+        conds.append("(pe.name LIKE %(s)s OR pe.party LIKE %(s)s OR IFNULL(pe.reference_no,'') LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    sort = {"date": "pe.posting_date", "collected": "pe.paid_amount", "customer": "pe.party", "id": "pe.name"}
+    col = sort.get(sort_field, "pe.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    where = " AND ".join(conds)
+    rows, total, s, ps = _paginate.page_query(
+        "`tabPayment Entry` pe", where, params,
+        "pe.name, pe.party AS customer, IFNULL(NULLIF(pe.reference_no,''),'—') AS ref, "
+        "IFNULL(NULLIF(pe.mode_of_payment,''),'—') AS method, pe.paid_amount AS collected, pe.posting_date AS date",
+        f"{col} {d}, pe.creation {d}", start, page_size)
+    # KPI totals over the WHOLE filtered set (Received / Avg / via-Cathedis share).
+    summ = frappe.db.sql(
+        f"""SELECT IFNULL(SUM(pe.paid_amount),0) total,
+                   SUM(CASE WHEN pe.mode_of_payment LIKE '%%ath%%' THEN 1 ELSE 0 END) cath
+            FROM `tabPayment Entry` pe WHERE {where}""", params, as_dict=True)[0]
+    return {"rows": rows, "total": total, "start": s, "page_size": ps,
+            "summary": {"count": total, "total": flt(summ.total),
+                        "avg": (flt(summ.total) / total) if total else 0, "cath": int(summ.cath or 0)}}
 
 
 @frappe.whitelist()
@@ -346,33 +359,41 @@ def get_order(name):
     return so
 
 
+_INV_SORT = {"date": "si.posting_date", "gross": "si.grand_total", "customer": "si.customer",
+             "id": "si.name", "outstanding": "si.outstanding_amount"}
+
+
 @frappe.whitelist()
-def list_invoices(company=None, search=None, limit=100):
-    """Sales invoices for one company (revenue; VAT 20%), excluding cancelled."""
+def list_invoices(company=None, search=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """Sales invoices for one company (revenue; VAT 20%), server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
-        return []
+        return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    limit = min(int(limit or 100), 500)
     conds = ["si.company = %(company)s", "si.docstatus < 2"]
-    params = {"company": target, "limit": limit}
+    params = {"company": target}
     if search:
         conds.append("(si.name LIKE %(s)s OR si.customer LIKE %(s)s)")
         params["s"] = f"%{search}%"
-    return frappe.db.sql(
-        f"""
-        SELECT si.name, si.customer, si.net_total AS net,
-               si.total_taxes_and_charges AS vat, si.grand_total AS gross,
-               si.status, si.posting_date AS date, si.due_date, si.outstanding_amount,
-               si.is_return, si.currency, si.docstatus
-        FROM `tabSales Invoice` si
-        WHERE {' AND '.join(conds)}
-        ORDER BY si.posting_date DESC, si.creation DESC
-        LIMIT %(limit)s
-        """,
-        params, as_dict=True,
-    )
+    col = _INV_SORT.get(sort_field, "si.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    where = " AND ".join(conds)
+    rows, total, s, ps = _paginate.page_query(
+        "`tabSales Invoice` si", where, params,
+        "si.name, si.customer, si.net_total AS net, si.total_taxes_and_charges AS vat, "
+        "si.grand_total AS gross, si.status, si.posting_date AS date, si.due_date, "
+        "si.outstanding_amount, si.is_return, si.currency, si.docstatus",
+        f"{col} {d}, si.creation {d}", start, page_size)
+    # KPI totals over the WHOLE filtered set (not just this page).
+    summ = frappe.db.sql(
+        f"""SELECT IFNULL(SUM(si.net_total),0) net, IFNULL(SUM(si.total_taxes_and_charges),0) vat,
+                   SUM(CASE WHEN si.docstatus=1 AND si.outstanding_amount>0
+                            AND si.due_date IS NOT NULL AND si.due_date < CURDATE() THEN 1 ELSE 0 END) overdue
+            FROM `tabSales Invoice` si WHERE {where}""", params, as_dict=True)[0]
+    return {"rows": rows, "total": total, "start": s, "page_size": ps,
+            "summary": {"count": total, "net": flt(summ.net), "vat": flt(summ.vat),
+                        "overdue": int(summ.overdue or 0)}}
 
 
 @frappe.whitelist()

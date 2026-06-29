@@ -4,10 +4,10 @@
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#ecfdf5"><Icon name="wallet" :size="14" color="#047857" /></span>
       <span class="text-[13px] font-bold">{{ L("Payments made", "المدفوعات", "Paiements émis") }}</span>
       <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
-      <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("records", "سجل", "enreg.") }}</span>
+      <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("records", "سجل", "enreg.") }}</span>
       <div class="relative ms-auto">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-        <input v-model.trim="srch" :placeholder="L('Payment / vendor / ref…', 'دفعة / مورّد / مرجع…', 'Paiement / fournisseur…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+        <input v-model.trim="st.search.value" :placeholder="L('Payment / vendor / ref…', 'دفعة / مورّد / مرجع…', 'Paiement / fournisseur…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
       </div>
     </div>
 
@@ -21,61 +21,53 @@
       <Icon name="clock" :size="13" color="#a8a29e" />
       <button v-for="p in DATE_PRESETS" :key="p.key" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
               :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'" @click="setPreset(p.key)">{{ p.label() }}</button>
-      <span v-if="loading" class="ms-2 text-[11px] text-ink-muted inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>{{ L("loading…", "تحميل…", "…") }}</span>
+      <span v-if="st.loading.value" class="ms-2 text-[11px] text-ink-muted inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>{{ L("loading…", "تحميل…", "…") }}</span>
     </div>
 
-    <TableToolbar :t="tt" filename="payments-made" />
-    <div v-if="loading" class="px-1"><TableLoading :rows="5" /></div>
+    <div v-if="st.loading.value" class="px-1"><TableLoading :rows="5" /></div>
     <div v-else class="overflow-x-auto">
       <table class="w-full text-[12px]">
         <thead>
           <tr style="background:#fafaf9">
-            <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
-            <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
-                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
-                :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
+            <th v-for="c in cols" :key="c.key"
+                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
+                :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
               <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
-                <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
+                <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(o) ? 'bg-accent/5' : ''" @click="open(o.name)">
-            <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(o)" @change="tt.toggleRow(o)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
-            <td v-show="!tt.hidden.value.has('name')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}</td>
-            <td v-show="!tt.hidden.value.has('party_name')" class="px-4 py-2.5 truncate max-w-[220px]">{{ o.party_name }}</td>
-            <td v-show="!tt.hidden.value.has('date')" class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
-            <td v-show="!tt.hidden.value.has('method')" class="px-4 py-2.5 whitespace-nowrap">
+          <tr v-for="o in displayRows" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.name)">
+            <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}</td>
+            <td class="px-4 py-2.5 truncate max-w-[220px]">{{ o.party_name }}</td>
+            <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
+            <td class="px-4 py-2.5 whitespace-nowrap">
               <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="methodStyle(o.method)">{{ o.method }}</span>
               <span v-if="o.unallocated > 0" class="ms-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("advance", "مقدّم", "avance") }} {{ fmt(o.unallocated) }}</span>
               <span v-else-if="o.n_bills > 1" class="ms-1.5 text-[10px] text-ink-muted">· {{ o.n_bills }} {{ L("bills", "فاتورة", "factures") }}</span>
             </td>
-            <td v-show="!tt.hidden.value.has('amount')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ o.currency }} {{ fmt(o.amount) }}</td>
+            <td class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ o.currency }} {{ fmt(o.amount) }}</td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-if="!loading && !tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No payments in this period.", "لا مدفوعات في هذه الفترة.", "Aucun paiement.") }}</div>
-    <TablePager :t="tt" />
-
-    <BulkBar :t="tt" filename="payments-made-selected" :actions="bulkActions" />
+    <div v-if="!st.loading.value && !displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No payments in this period.", "لا مدفوعات في هذه الفترة.", "Aucun paiement.") }}</div>
+    <ServerPager :t="st" />
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import TableToolbar from "@/components/TableToolbar.vue";
-import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import ServerPager from "@/components/ServerPager.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
-import { useTableTools } from "@/composables/useTableTools";
-import BulkBar from "@/components/BulkBar.vue";
-import { useBulkDocActions } from "@/composables/useBulkActions";
+import { useServerTable } from "@/composables/useServerTable";
 
 const router = useRouter();
 const { locale } = useI18n();
@@ -97,22 +89,17 @@ const DATE_PRESETS = [
   { key: "month", label: () => L("This month", "هذا الشهر", "Ce mois") },
 ];
 const cols = [
-  { key: "name", label: L("Payment", "الدفعة", "Paiement"), align: "s" },
-  { key: "party_name", label: L("Vendor", "المورّد", "Fournisseur"), align: "s" },
-  { key: "date", label: L("Date", "التاريخ", "Date"), align: "s" },
+  { key: "name", label: L("Payment", "الدفعة", "Paiement"), align: "s", sort: "id" },
+  { key: "party_name", label: L("Vendor", "المورّد", "Fournisseur"), align: "s", sort: "party" },
+  { key: "date", label: L("Date", "التاريخ", "Date"), align: "s", sort: "date" },
   { key: "method", label: L("Method", "الطريقة", "Méthode"), align: "s" },
-  { key: "amount", label: L("Amount", "المبلغ", "Montant"), align: "e" },
+  { key: "amount", label: L("Amount", "المبلغ", "Montant"), align: "e", sort: "amount" },
 ];
 
-const rows = ref([]);
 const live = ref(null);
-const loading = ref(false);
-const srch = ref("");
 const datePreset = ref("month");
 const advancesOnly = ref(false);
 const adv = ref({ count: 0, total: 0 });
-const tt = useTableTools(rows, cols, { storeKey: "paymentsmade", keyField: "name", defaultSort: "date", defaultDir: -1 });
-const bulkActions = useBulkDocActions("Payment Entry", { keyField: "name", ops: ["cancel"], onDone: () => { tt.clearSelection(); loadAdv(); load(); }, L });
 
 function bounds() {
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -122,28 +109,30 @@ function bounds() {
   if (datePreset.value === "month") return [iso(new Date(now.getFullYear(), now.getMonth(), 1)), iso(now)];
   return [null, null];
 }
-const SAMPLE = [
-  { name: "PE-9912", party_name: "Meta / Facebook Ads", date: "2026-06-20", method: "BMCE Bank", amount: 44800, currency: "MAD", n_bills: 1 },
-  { name: "PE-9910", party_name: "TOMMYLIFE", date: "2026-06-12", method: "Kuveyt Türk", amount: 200000, currency: "TRY", n_bills: 1 },
-];
-async function load() {
-  loading.value = true;
+const [fd0, td0] = bounds();
+const st = useServerTable(
+  (params) => api.call("accounting_portal.api.payments.list_payments_made", { company: currentCompany(), ...params }).then((r) => { live.value = true; return r; }),
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: { from_date: fd0 || undefined, to_date: td0 || undefined } },
+);
+// initial load is triggered by the immediate entityId watch below (loadAdv + setFilters)
+
+const displayRows = computed(() => (st.rows.value || []).map((r) => ({
+  name: r.name, party_name: r.party_name, date: String(r.date || ""), method: r.method,
+  amount: Number(r.amount) || 0, currency: r.currency || "MAD", unallocated: Number(r.unallocated) || 0, n_bills: r.n_bills,
+})));
+
+function setPreset(k) { datePreset.value = k; const [fd, td] = bounds(); st.setFilters({ from_date: fd || undefined, to_date: td || undefined }); }
+function toggleAdvances() {
+  advancesOnly.value = !advancesOnly.value;
+  if (advancesOnly.value) datePreset.value = "all";
   const [fd, td] = bounds();
-  try {
-    rows.value = await api.call("accounting_portal.api.payments.list_payments_made", { company: currentCompany(), search: srch.value || undefined, from_date: fd || undefined, to_date: td || undefined, advances_only: advancesOnly.value ? 1 : undefined, limit: 300 }) || [];
-    live.value = true;
-  } catch { rows.value = SAMPLE; live.value = false; }
-  finally { loading.value = false; }
+  st.setFilters({ advances_only: advancesOnly.value ? 1 : undefined, from_date: fd || undefined, to_date: td || undefined });
 }
-async function loadAdv() {
-  try { adv.value = await api.call("accounting_portal.api.payments.payments_advances_summary", { company: currentCompany() }) || { count: 0, total: 0 }; }
-  catch { adv.value = { count: 2, total: 3775135 }; }
-}
-function setPreset(k) { datePreset.value = k; load(); }
-function toggleAdvances() { advancesOnly.value = !advancesOnly.value; if (advancesOnly.value) datePreset.value = "all"; load(); }
 function open(name) { router.push({ path: "/accounting/purchases/payments", query: { id: name } }); }
 
-let timer;
-watch(entityId, () => { advancesOnly.value = false; tt.clearSelection(); loadAdv(); load(); }, { immediate: true });
-watch(srch, () => { clearTimeout(timer); timer = setTimeout(load, 300); });
+async function loadAdv() {
+  try { adv.value = await api.call("accounting_portal.api.payments.payments_advances_summary", { company: currentCompany() }) || { count: 0, total: 0 }; }
+  catch { adv.value = { count: 0, total: 0 }; }
+}
+watch(entityId, () => { advancesOnly.value = false; datePreset.value = "month"; const [fd, td] = bounds(); loadAdv(); st.page.value = 1; st.setFilters({ advances_only: undefined, from_date: fd || undefined, to_date: td || undefined }); }, { immediate: true });
 </script>

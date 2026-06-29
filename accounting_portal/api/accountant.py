@@ -11,7 +11,7 @@ import json
 import frappe
 from frappe.utils import flt, nowdate
 
-from accounting_portal.api import _actions
+from accounting_portal.api import _actions, _paginate
 from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
 
 JE_ACTION = "Post Correction"
@@ -191,16 +191,17 @@ def create_journal_entry(company=None, posting_date=None, lines=None, remark=Non
 
 
 @frappe.whitelist()
-def list_journals(company=None, search=None, from_date=None, to_date=None, limit=200):
-    """Journal Entries for one company — powers the live Journals table (with
-    bulk Submit/Cancel). Includes drafts (docstatus 0) so they can be submitted."""
+def list_journals(company=None, search=None, from_date=None, to_date=None,
+                  start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """Journal Entries for one company, server-paginated. Includes drafts
+    (docstatus 0) so they can be submitted."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
-        return []
+        return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
     conds = ["je.company=%(c)s", "je.docstatus<2"]
-    params = {"c": target, "limit": min(int(limit or 200), 500)}
+    params = {"c": target}
     if from_date:
         conds.append("je.posting_date >= %(fd)s"); params["fd"] = from_date
     if to_date:
@@ -208,19 +209,19 @@ def list_journals(company=None, search=None, from_date=None, to_date=None, limit
     if search:
         conds.append("(je.name LIKE %(s)s OR IFNULL(je.user_remark,'') LIKE %(s)s OR IFNULL(je.cheque_no,'') LIKE %(s)s OR je.voucher_type LIKE %(s)s)")
         params["s"] = f"%{search}%"
-    rows = frappe.db.sql(
-        f"""SELECT je.name, je.posting_date AS date, je.voucher_type AS type,
-                   ROUND(je.total_debit, 2) AS amount, IFNULL(je.user_remark,'') AS remark,
-                   je.docstatus, IFNULL(je.cheque_no,'') AS reference
-            FROM `tabJournal Entry` je
-            WHERE {' AND '.join(conds)}
-            ORDER BY je.posting_date DESC, je.creation DESC LIMIT %(limit)s""",
-        params, as_dict=True)
+    sort = {"date": "je.posting_date", "amount": "je.total_debit", "id": "je.name", "type": "je.voucher_type"}
+    col = sort.get(sort_field, "je.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, s, ps = _paginate.page_query(
+        "`tabJournal Entry` je", " AND ".join(conds), params,
+        "je.name, je.posting_date AS date, je.voucher_type AS type, ROUND(je.total_debit,2) AS amount, "
+        "IFNULL(je.user_remark,'') AS remark, je.docstatus, IFNULL(je.cheque_no,'') AS reference",
+        f"{col} {d}, je.creation {d}", start, page_size)
     for r in rows:
         r["amount"] = flt(r["amount"])
         r["date"] = str(r.get("date") or "")
         r["status"] = ["draft", "submitted", "cancelled"][r["docstatus"]] if r["docstatus"] < 3 else "—"
-    return rows
+    return {"rows": rows, "total": total, "start": s, "page_size": ps}
 
 
 @frappe.whitelist()
