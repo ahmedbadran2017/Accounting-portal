@@ -27,6 +27,7 @@ from accounting_portal.api.permissions import (
     assert_portal_access, assert_super_admin, resolve_companies)
 
 SET_COST_ACTION = "Set item cost"
+BULK_COST_ACTION = "Set item costs (bulk)"
 
 # Inbound, capitalisable freight/customs — but NOT the last-mile carriers, whose
 # "cargo fee" is the cost of delivering to the end customer (a selling expense).
@@ -375,3 +376,83 @@ def _set_cost_poster(action):
 
 
 _actions.register_poster(SET_COST_ACTION, _set_cost_poster)
+
+
+def _bulk_corrected_costs(target, include_freight):
+    """For every purchased item, the FX-corrected weighted-average unit cost (plus
+    optional freight/kg). Used by the bulk write-back."""
+    lines = frappe.db.sql(
+        """SELECT pii.item_code ic, pi.currency cur, pi.posting_date dt,
+                  pii.qty, pii.rate rate_fc, pii.base_rate rate_book
+           FROM `tabPurchase Invoice Item` pii
+           JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+           JOIN `tabItem` it ON it.name=pii.item_code AND it.is_stock_item=1
+           WHERE pi.company=%s AND pi.docstatus=1 AND IFNULL(pii.item_code,'')!=''""",
+        (target,), as_dict=True)
+    fxc, agg = {}, {}
+    for ln in lines:
+        lf = _live_fx(ln.cur, ln.dt, fxc)
+        rate = flt(ln.rate_fc) * lf if (ln.cur != "MAD" and lf > 0) else flt(ln.rate_book)
+        a = agg.setdefault(ln.ic, [0.0, 0.0])
+        a[0] += flt(ln.qty); a[1] += rate * flt(ln.qty)
+    fpk = _suggested_freight_per_kg(target) if int(include_freight or 0) else 0.0
+    weights = {}
+    if agg and fpk:
+        for r in frappe.db.sql(
+                "SELECT name, weight_per_unit w FROM `tabItem` WHERE name IN %(it)s",
+                {"it": tuple(agg.keys())}, as_dict=True):
+            weights[r.name] = flt(r.w)
+    out = []
+    for ic, (q, c) in agg.items():
+        if q <= 0:
+            continue
+        cost = c / q + (fpk * weights.get(ic, 0.0) if fpk else 0.0)
+        if cost > 0:
+            out.append({"item": ic, "cost": round(cost, 4)})
+    return out
+
+
+@frappe.whitelist()
+def set_item_costs_bulk(company=None, include_freight=0, dry_run=1):
+    """Establish valuation_rate for every purchased item at once from its FX-corrected
+    weighted-average purchase cost (optionally + inbound freight/kg). Super-admin only;
+    one audited, reversible write-gateway action; master-data only (no GL). Most of
+    these items currently have no cost at all — this gives COGS a real basis."""
+    assert_super_admin()
+    target = _target(company)
+    if not target:
+        frappe.throw("No company in scope")
+    pairs = _bulk_corrected_costs(target, include_freight)
+    total = round(sum(p["cost"] for p in pairs))
+    # sample with current value for the preview
+    sample = []
+    for p in pairs[:12]:
+        old = flt(frappe.db.get_value("Item", p["item"], "valuation_rate"))
+        nm = frappe.db.get_value("Item", p["item"], "item_name")
+        sample.append({"item": p["item"], "name": nm, "old": old, "new": p["cost"]})
+    preview = {"count": len(pairs), "total": total, "include_freight": int(include_freight or 0), "sample": sample}
+    if int(dry_run or 0):
+        return {"dry_run": True, **preview}
+    if not pairs:
+        return {"dry_run": False, "count": 0}
+    key = f"bulk_cost:{target}:{len(pairs)}:{total}:{int(include_freight or 0)}"
+    res = _actions.execute(
+        BULK_COST_ACTION, target, key,
+        payload={"pairs": pairs},
+        amount=total, notes=f"Set valuation_rate on {len(pairs)} items (freight={int(include_freight or 0)})")
+    return {"dry_run": False, **preview, "result": res}
+
+
+def _bulk_cost_poster(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    done = 0
+    for it in (p.get("pairs") or []):
+        ic, cost = it.get("item"), flt(it.get("cost"))
+        if ic and cost > 0 and frappe.db.exists("Item", ic):
+            frappe.db.set_value("Item", ic, {"valuation_rate": cost}, update_modified=True)
+            done += 1
+    return {"voucher_type": "Item", "voucher_no": f"{done} items costed", "result": "bulk cost set"}
+
+
+_actions.register_poster(BULK_COST_ACTION, _bulk_cost_poster)

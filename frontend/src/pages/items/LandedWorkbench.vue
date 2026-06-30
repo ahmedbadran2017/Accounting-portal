@@ -21,11 +21,14 @@
         <div class="text-[20px] font-extrabold mt-1 tnum" style="color:#0369a1">{{ (def.suggested_freight_per_kg||0).toLocaleString() }}</div>
         <div class="text-[10.5px] text-ink-muted mt-0.5">{{ ccy }} / {{ L("kg suggested","كجم مقترح","kg") }}</div>
       </div>
-      <div class="col-span-2 bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center">
-        <div class="text-[11.5px] text-ink-2 leading-relaxed">
+      <div class="col-span-2 bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center gap-3">
+        <div class="text-[11.5px] text-ink-2 leading-relaxed flex-1">
           <Icon name="alert" :size="13" color="#b45309" class="inline" />
           {{ L("Costs are re-priced at the correct exchange rate per purchase date, then inbound freight is allocated by weight. Click any item to open its cost card.","التكلفة بتتسعّر بسعر الصرف الصح بتاريخ الشراء، وبعدين الشحن الداخل يتوزّع بالوزن. اضغط أي صنف لكارت التكلفة.","Recalculé au bon taux de change puis fret réparti au poids.") }}
         </div>
+        <button v-if="canWrite" type="button" :disabled="bulkBusy" class="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60" @click="bulkSetCosts">
+          <Icon :name="bulkBusy ? 'clock' : 'check'" :size="14" />{{ bulkBusy ? L("Working…","جارٍ…","…") : L("Set all costs","حفظ كل التكاليف","Tout définir") }}
+        </button>
       </div>
     </div>
 
@@ -98,6 +101,8 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
@@ -134,4 +139,30 @@ watch(entityId, () => { loadDefaults(); st.page.value = 1; st.setFilters({ _scop
 
 function setScope(k) { if (k === scope.value) return; scope.value = k; st.page.value = 1; st.setFilters({ _scope: k }); }
 function open(code) { router.push({ path: "/accounting/items/costing", query: { item: code } }); }
+
+const { can } = useAuth();
+const toast = useToast();
+const canWrite = computed(() => can("manage_users"));
+const bulkBusy = ref(false);
+async function bulkSetCosts() {
+  if (bulkBusy.value) return;
+  bulkBusy.value = true;
+  try {
+    const freight = window.confirm(L(
+      "Include inbound freight in the cost? OK = product cost + freight/kg. Cancel = product cost only (recommended).",
+      "أضيف الشحن الداخل للتكلفة؟ موافق = تكلفة المنتج + شحن/كجم. إلغاء = تكلفة المنتج فقط (موصى).",
+      "Inclure le fret ? OK = produit + fret. Annuler = produit seul.")) ? 1 : 0;
+    const pv = await api.call("accounting_portal.api.landed_engine.set_item_costs_bulk", { company: currentCompany(), include_freight: freight, dry_run: 1 });
+    if (!pv?.count) { toast.info(L("Nothing to cost", "لا شيء", "Rien")); return; }
+    if (!window.confirm(L(
+      `Set the cost (valuation rate) on ${pv.count} stock items${freight ? " incl. freight" : ""}? Logged in the audit trail; reversible.`,
+      `تعيين التكلفة لـ ${pv.count} صنف مخزون${freight ? " شامل الشحن" : ""}؟ مسجّل في سجل التدقيق وقابل للتراجع.`,
+      `Définir le coût sur ${pv.count} articles ?`))) return;
+    const r = await api.call("accounting_portal.api.landed_engine.set_item_costs_bulk", { company: currentCompany(), include_freight: freight, dry_run: 0 });
+    toast.success(L(`Costed ${r?.count || 0} items`, `تم تكليف ${r?.count || 0} صنف`, `${r?.count || 0} coûtés`));
+    loadDefaults(); st.load();
+  } catch (e) {
+    toast.error(L("Failed", "فشل", "Échec") + ": " + String(e?.message || e).slice(0, 120));
+  } finally { bulkBusy.value = false; }
+}
 </script>
