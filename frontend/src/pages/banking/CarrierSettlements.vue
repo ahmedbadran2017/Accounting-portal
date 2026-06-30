@@ -10,7 +10,8 @@
       <button type="button" class="text-start rounded-card transition focus:outline-none" :class="mode === 'sweeps' && !carrier ? 'ring-2 ring-sky-500/50' : 'hover:ring-2 hover:ring-sky-500/20'" @click="setMode('sweeps', null)">
         <StatCard :label="L('Swept to your bank','نزل بنككم','Versé en banque')" :value="money(swept)" :sub="ccy + ' · ' + L('view transfers','اعرض التحويلات','voir virements')" icon="bank" color="#0369a1" glow="#85b7eb" tint="#eff6ff" valueColor="#0369a1" />
       </button>
-      <StatCard :label="L('Still with carriers','لسه مع الشحن','Encore chez transp.')" :value="money(s.total_held)" :sub="L('not yet remitted','لم تُحوَّل بعد','non versé')" icon="clock" color="#b45309" glow="#f59e0b" tint="#fffbeb" :valueColor="s.total_held ? '#b45309' : undefined" />
+      <StatCard v-if="heldNeg" :label="L('Over-remitted','محوّل بالزيادة','Sur-versé')" :value="money(s.total_held)" :sub="L('swept &gt; collected · reconcile','حُوّل أكثر مما حُصّل · راجع','versé &gt; encaissé · à rapprocher')" icon="alert" color="#dc2626" glow="#f87171" tint="#fef2f2" valueColor="#dc2626" />
+      <StatCard v-else :label="L('Still with carriers','لسه مع الشحن','Encore chez transp.')" :value="money(s.total_held)" :sub="L('not yet remitted','لم تُحوَّل بعد','non versé')" icon="clock" color="#b45309" glow="#f59e0b" tint="#fffbeb" :valueColor="s.total_held ? '#b45309' : undefined" />
       <StatCard :label="L('Carriers','شركات الشحن','Transporteurs')" :value="(s.by_carrier || []).length.toLocaleString()" :sub="topCarrier" icon="layers" color="#7c3aed" glow="#a78bfa" tint="#f5f3ff" />
     </div>
 
@@ -33,7 +34,7 @@
             <td class="px-4 py-2.5 font-semibold">{{ carrierLabel(c.carrier) }}<Icon v-if="carrier === c.carrier" name="check" :size="11" color="#0b5c4f" class="inline ms-1" /></td>
             <td class="px-4 py-2.5 text-end tnum font-bold text-success-dark cursor-pointer hover:underline" :title="L('View deposits','اعرض الإيداعات','Voir dépôts')" @click="setMode('deposits', c.carrier)">{{ fmt(c.collected) }}</td>
             <td class="px-4 py-2.5 text-end tnum cursor-pointer hover:underline" :class="mode === 'sweeps' && carrier === c.carrier ? 'text-sky-700 font-semibold' : 'text-ink-2'" :title="L('View transfers to bank','اعرض التحويلات للبنك','Voir virements')" @click="setMode('sweeps', c.carrier)">{{ fmt(c.swept) }}</td>
-            <td class="px-4 py-2.5 text-end tnum" :class="c.held > 0 ? 'text-amber-700 font-semibold' : 'text-ink-muted'">{{ fmt(c.held) }}</td>
+            <td class="px-4 py-2.5 text-end tnum" :class="c.held < 0 ? 'text-rose-600 font-bold' : c.held > 0 ? 'text-amber-700 font-semibold' : 'text-ink-muted'" :title="c.held < 0 ? L('Over-remitted — swept more than collected; needs reconciliation','محوّل بالزيادة — حُوّل أكثر مما حُصّل؛ يحتاج تسوية','Sur-versé — à rapprocher') : ''">{{ fmt(c.held) }}<Icon v-if="c.held < 0" name="alert" :size="11" color="#e11d48" class="inline ms-1" /></td>
             <td class="px-4 py-2.5 text-end text-ink-3 text-[11px] whitespace-nowrap">{{ c.last_date || "—" }}</td>
           </tr>
           <tr v-if="!loadingSum && !(s.by_carrier || []).length"><td colspan="5" class="px-4 py-8 text-center text-ink-muted text-[12px]">{{ L("No carrier settlements in this period.","لا تحصيلات شحن في هذه الفترة.","Aucun règlement.") }}</td></tr>
@@ -110,6 +111,7 @@ const carrier = ref(null);
 const mode = ref("deposits"); // 'deposits' = COD into carrier accounts · 'sweeps' = carrier → your bank
 const ccy = computed(() => s.value.currency || "MAD");
 const isSweeps = computed(() => mode.value === "sweeps");
+const heldNeg = computed(() => (s.value.total_held || 0) < 0);
 const swept = computed(() => s.value.total_swept || 0);
 const topCarrier = computed(() => { const c = (s.value.by_carrier || [])[0]; return c ? carrierLabel(c.carrier) : ""; });
 
