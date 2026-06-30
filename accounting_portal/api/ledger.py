@@ -152,7 +152,17 @@ def chart_of_accounts(company=None):
         for r in rows:
             r["bal"] = flt(r.bal)
             debit_nature = r.root_type in ("Asset", "Expense")
-            r["anomaly"] = bool((debit_nature and r["bal"] < 0) or abs(r["bal"]) >= 50_000_000)
+            wrong_sign = (debit_nature and r["bal"] < 0) or (not debit_nature and r["bal"] > 0)
+            oversized = abs(r["bal"]) >= 50_000_000
+            # Keep the historical flag (debit-nature credit balances + oversized) but
+            # also surface credit-nature debit balances — both are real sign anomalies.
+            r["anomaly"] = bool(wrong_sign or oversized)
+            if oversized:
+                r["anomaly_reason"] = "oversized"
+            elif wrong_sign:
+                r["anomaly_reason"] = "credit_balance" if debit_nature else "debit_balance"
+            else:
+                r["anomaly_reason"] = None
         return rows
 
     return _cache.cached(f"ap_coa:{target}", 180, _build)
