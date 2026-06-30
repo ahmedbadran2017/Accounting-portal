@@ -22,7 +22,7 @@ export const SUBTABS = {
     ["tobuy", "sub.tobuy"], ["received", "sub.received"], ["billed", "sub.billed"], ["topay", "sub.topay"], ["paid", "sub.paid"],
     ["bills", "sub.bills"], ["payments", "sub.payments_out"], ["cheques", "sub.cheques"],
   ],
-  items: [["items", "sub.items"], ["pricelists", "sub.pricelists"], ["landed", "sub.landed"]],
+  items: [["items", "sub.items"], ["costing", "sub.costing"], ["pricelists", "sub.pricelists"], ["landed", "sub.landed"]],
   banking: [
     ["accounts", "sub.accounts"], ["transactions", "sub.transactions"],
     ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["settlements", "sub.settlements"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"],

@@ -22,7 +22,7 @@
     "invoices": "Factures", "receipts": "Reçus", "payments_in": "Paiements reçus", "credits": "Avoirs",
     "vendors": "Fournisseurs", "tobuy": "À acheter", "received": "Reçu", "billed": "Facturé", "topay": "À payer", "paid": "Payé", "pos": "Bons de commande", "bills": "Factures", "expenses": "Dépenses",
     "recurring": "Récurrent", "payments_out": "Paiements émis", "cheques": "Chèques", "vcredits": "Avoirs fourn.",
-    "items": "Articles", "pricelists": "Listes de prix", "landed": "Coût de revient",
+    "items": "Articles", "costing": "Coûts", "pricelists": "Listes de prix", "landed": "Coût de revient",
     "accounts": "Comptes", "transactions": "Transactions", "rules": "Règles",
     "remittance": "Encaissement COD", "variance": "File écarts", "settlements": "Règlements transp.", "aging": "Ancienneté", "bankrec": "Rappr. bancaire",
     "journals": "Écritures", "coa": "Plan comptable", "gl": "Grand livre", "trial": "Balance",

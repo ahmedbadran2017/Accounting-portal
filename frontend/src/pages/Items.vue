@@ -49,6 +49,8 @@
     <PriceListsList v-else-if="activeSub === 'pricelists'" />
     <LandedCostDetail v-else-if="activeSub === 'landed' && route.query.id" />
     <LandedCost v-else-if="activeSub === 'landed'" />
+    <ItemCostCard v-else-if="activeSub === 'costing' && route.query.item" />
+    <LandedWorkbench v-else-if="activeSub === 'costing'" />
     <ScaffoldTable v-else />
   </div>
 </template>
@@ -62,6 +64,8 @@ import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import LandedCost from "@/pages/items/LandedCost.vue";
 import LandedCostDetail from "@/pages/items/LandedCostDetail.vue";
+import LandedWorkbench from "@/pages/items/LandedWorkbench.vue";
+import ItemCostCard from "@/pages/items/ItemCostCard.vue";
 import ItemsList from "@/pages/items/ItemsList.vue";
 import ItemDetail from "@/pages/items/ItemDetail.vue";
 import PriceListsList from "@/pages/items/PriceListsList.vue";

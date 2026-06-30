@@ -22,7 +22,7 @@
     "invoices": "Invoices", "receipts": "Sales receipts", "payments_in": "Payments received", "credits": "Credit notes",
     "vendors": "Vendors", "tobuy": "To buy", "received": "Received", "billed": "Billed", "topay": "To pay", "paid": "Paid", "pos": "Purchase orders", "bills": "Bills", "expenses": "Expenses",
     "recurring": "Recurring", "payments_out": "Payments made", "cheques": "Cheques", "vcredits": "Vendor credits",
-    "items": "Items", "pricelists": "Price lists", "landed": "Landed cost",
+    "items": "Items", "costing": "Costing", "pricelists": "Price lists", "landed": "Landed cost",
     "accounts": "Bank accounts", "transactions": "Bank transactions", "rules": "Bank rules",
     "remittance": "COD remittance", "variance": "Variance queue", "settlements": "Carrier settlements", "aging": "Carrier aging", "bankrec": "Bank reconciliation",
     "journals": "Journals", "coa": "Chart of accounts", "gl": "General ledger", "trial": "Trial balance",
