@@ -26,6 +26,7 @@
     <FxRevaluation v-else-if="activeSub === 'fx'" />
     <OpeningEntry v-else-if="activeSub === 'opening'" />
     <PeriodClose v-else-if="activeSub === 'close'" />
+    <AccountantDetail v-else-if="activeSub === 'team' && route.query.user" />
     <TeamPerformance v-else-if="activeSub === 'team'" />
     <ScaffoldTable v-else />
   </div>
@@ -49,6 +50,7 @@ import FxRevaluation from "@/pages/accountant/FxRevaluation.vue";
 import OpeningEntry from "@/pages/accountant/OpeningEntry.vue";
 import PeriodClose from "@/pages/accountant/PeriodClose.vue";
 import TeamPerformance from "@/pages/accountant/TeamPerformance.vue";
+import AccountantDetail from "@/pages/accountant/AccountantDetail.vue";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { SUBTABS, defaultSub } from "@/data/nav";

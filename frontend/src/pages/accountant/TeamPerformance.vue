@@ -56,7 +56,7 @@
               <th class="px-4 py-2 text-end hidden lg:table-cell">{{ L("Value","القيمة","Valeur") }}</th>
             </tr></thead>
             <tbody>
-              <tr v-for="(m, i) in members" :key="m.user" class="border-t border-line-hair" :class="m.flagged ? 'bg-rose-50/40' : 'hover:bg-app-warm/40'">
+              <tr v-for="(m, i) in members" :key="m.user" class="border-t border-line-hair cursor-pointer" :class="m.flagged ? 'bg-rose-50/40 hover:bg-rose-50' : 'hover:bg-app-warm/40'" @click="openMember(m)">
                 <!-- identity -->
                 <td class="px-4 py-2.5">
                   <div class="flex items-center gap-2.5">
@@ -106,6 +106,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
@@ -117,6 +118,8 @@ import { useDateFilter } from "@/composables/useDateFilter";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const router = useRouter();
+const openMember = (m) => router.push({ path: "/accounting/accountant/team", query: { user: m.user } });
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? (a / 1e3).toFixed(0) + "K" : Math.round(a).toLocaleString()); };
 

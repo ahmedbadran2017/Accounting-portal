@@ -136,3 +136,79 @@ def team_performance(company=None, from_date=None, to_date=None):
            "doctypes": [{"code": c, "label": dt} for dt, _, c in _DOCTYPES]}
     frappe.cache().set_value(ck, out, expires_in_sec=300)
     return out
+
+
+@frappe.whitelist()
+def accountant_detail(company=None, user=None, from_date=None, to_date=None):
+    """Deep scorecard for one accountant: per-doctype quality breakdown, a monthly
+    created/submitted/cancelled trend, recent documents, and how they compare to the
+    team. Super-admin only. Reuses team_performance (cached) for the headline +
+    ranking so the two screens always agree."""
+    assert_super_admin()
+    target = _target(company)
+    if not target or not user:
+        return {}
+    if not (from_date and to_date):
+        from_date, to_date = add_days(nowdate(), -90), nowdate()
+    end = str(to_date) + " 23:59:59"
+    currency = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+
+    team = team_performance(target, from_date, to_date)
+    members = team.get("members", [])
+    me = next((m for m in members if m["user"] == user), None)
+    rank = next((i + 1 for i, m in enumerate(members) if m["user"] == user), None)
+    team_avg_per_day = round(sum(m["per_day"] for m in members) / len(members), 1) if members else 0.0
+
+    # per-doctype quality breakdown
+    by_doctype = []
+    for dt, vf, code in _DOCTYPES:
+        r = frappe.db.sql(
+            f"""SELECT COUNT(*) c, SUM(docstatus=1) sub, SUM(docstatus=2) can, SUM(docstatus=0) dft,
+                       ROUND(SUM(CASE WHEN docstatus=1 THEN {vf} ELSE 0 END)) val
+                FROM `tab{dt}` WHERE company=%s AND owner=%s AND creation BETWEEN %s AND %s""",
+            (target, user, from_date, end), as_dict=True)[0]
+        if r.c:
+            created = r.c
+            by_doctype.append({
+                "code": code, "label": dt, "created": created,
+                "submitted": int(r.sub or 0), "cancelled": int(r.can or 0), "draft": int(r.dft or 0),
+                "value": flt(r.val),
+                "rework_pct": round(int(r.can or 0) / created * 100, 1) if created else 0.0})
+
+    # monthly created / submitted / cancelled trend (last 12 buckets)
+    union = " UNION ALL ".join(
+        f"SELECT DATE_FORMAT(creation,'%%Y-%%m') m, docstatus ds FROM `tab{dt}` "
+        f"WHERE company=%s AND owner=%s AND creation BETWEEN %s AND %s" for dt, _, _ in _DOCTYPES)
+    params = []
+    for _ in _DOCTYPES:
+        params += [target, user, from_date, end]
+    monthly = [
+        {"m": x.m, "created": x.created, "submitted": int(x.sub or 0), "cancelled": int(x.can or 0)}
+        for x in frappe.db.sql(
+            f"SELECT m, COUNT(*) created, SUM(ds=1) sub, SUM(ds=2) can FROM ({union}) t "
+            "GROUP BY m ORDER BY m DESC LIMIT 12", params, as_dict=True)][::-1]
+
+    # recent documents across the accounting doctypes
+    runion = " UNION ALL ".join(
+        f"SELECT '{code}' code, name, creation, docstatus, {vf} amt FROM `tab{dt}` "
+        f"WHERE company=%s AND owner=%s AND creation BETWEEN %s AND %s" for dt, vf, code in _DOCTYPES)
+    recent = [
+        {"code": x.code, "name": x.name, "date": str(x.d), "docstatus": x.docstatus, "amount": flt(x.amt)}
+        for x in frappe.db.sql(
+            f"SELECT code, name, DATE(creation) d, docstatus, ROUND(amt) amt FROM ({runion}) t "
+            "ORDER BY creation DESC LIMIT 15", params, as_dict=True)]
+
+    urow = frappe.db.get_value(
+        "User", user, ["full_name", "enabled", "user_image", "last_active"], as_dict=True) or {}
+
+    return {
+        "company": target, "currency": currency,
+        "from_date": str(from_date), "to_date": str(to_date),
+        "user": user, "name": urow.get("full_name") or (me or {}).get("name") or user,
+        "image": urow.get("user_image") or "", "enabled": int(urow.get("enabled") or 0),
+        "rank": rank, "members": len(members),
+        "summary": me or {},
+        "by_doctype": by_doctype, "monthly": monthly, "recent": recent,
+        "team": {"rework_pct": team.get("totals", {}).get("rework_pct", 0.0),
+                 "avg_per_day": team_avg_per_day},
+    }
