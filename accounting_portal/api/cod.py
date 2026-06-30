@@ -730,3 +730,40 @@ def list_carrier_deposits(company=None, carrier=None, search=None, from_date=Non
         "IFNULL(NULLIF(pe.reference_no,''),'—') AS reference, ROUND(pe.paid_amount,2) AS amount",
         f"{col} {d}, pe.creation {d}", start, page_size)
     return {"rows": rows, "total": total, "start": s, "page_size": ps}
+
+
+@frappe.whitelist()
+def list_carrier_sweeps(company=None, carrier=None, search=None, from_date=None, to_date=None,
+                        start=0, page_size=25, sort_field="date", sort_dir="desc"):
+    """The sweep transactions that moved cash OUT of a carrier holding account
+    INTO the real operating bank — i.e. GL entries that CREDIT the carrier account
+    ('X Transactions'). The destination bank is the non-carrier bank debited in the
+    same voucher. This is what 'Swept to your bank' drills into."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": [], "total": 0}
+    conds = ["g.company=%(c)s", "g.is_cancelled=0", "g.credit>0",
+             "a.account_type='Bank'", "a.account_name LIKE '%%Transaction%%'"]
+    params = {"c": target}
+    if carrier:
+        conds.append("a.account_name=%(car)s"); params["car"] = carrier
+    if from_date:
+        conds.append("g.posting_date>=%(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("g.posting_date<=%(td)s"); params["td"] = to_date
+    if search:
+        conds.append("(g.voucher_no LIKE %(s)s OR IFNULL(g.against,'') LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    sort = {"date": "g.posting_date", "amount": "g.credit", "id": "g.voucher_no", "carrier": "a.account_name"}
+    col = sort.get(sort_field, "g.posting_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, s, ps = _paginate.page_query(
+        "`tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account", " AND ".join(conds), params,
+        "g.voucher_no AS name, g.voucher_type AS type, g.posting_date AS date, "
+        "a.account_name AS carrier, ROUND(g.credit) AS amount, "
+        "(SELECT a2.account_name FROM `tabGL Entry` g2 JOIN `tabAccount` a2 ON a2.name=g2.account "
+        " WHERE g2.voucher_no=g.voucher_no AND g2.debit>0 AND a2.account_type='Bank' "
+        "   AND a2.account_name NOT LIKE '%%Transaction%%' ORDER BY g2.debit DESC LIMIT 1) AS bank",
+        f"{col} {d}, g.creation {d}", start, page_size)
+    return {"rows": rows, "total": total, "start": s, "page_size": ps}
