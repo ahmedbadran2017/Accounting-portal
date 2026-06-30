@@ -34,11 +34,19 @@ _NO_GATE = {"Collect COD"}
 
 # action_type -> poster(action_doc) -> {"voucher_type", "voucher_no", "result"}
 _POSTERS = {}
+# action_type -> reverter(action_doc) -> dict. Restores the prior values captured
+# in the action's payload (master-data writes only; not GL postings).
+_REVERTERS = {}
 
 
 def register_poster(action_type, fn):
     """Pillars call this (at import) to wire posting logic to an action_type."""
     _POSTERS[action_type] = fn
+
+
+def register_reverter(action_type, fn):
+    """Wire an undo function to an action_type (for reversible master-data writes)."""
+    _REVERTERS[action_type] = fn
 
 
 def _ensure_posters():
@@ -52,6 +60,7 @@ def _ensure_posters():
     import accounting_portal.api.bulk         # noqa: F401 — Bulk Submit/Cancel posters
     import accounting_portal.api.docops       # noqa: F401 — Amend Document poster
     import accounting_portal.api.reconciliation  # noqa: F401 — Clear Bank Entry poster
+    import accounting_portal.api.landed_engine   # noqa: F401 — cost/weight posters + reverters
 
 
 def _existing(dedupe_key):
@@ -150,6 +159,41 @@ def reject_action(name, reason=None):
 
 
 @frappe.whitelist()
+def revert_action(name):
+    """Undo a posted action by restoring the prior values captured in its payload.
+    Super-admin only; only actions with a registered reverter (master-data writes
+    like item cost / weight / reference stamping) can be undone."""
+    if not can_manage_users():
+        frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
+    doc = frappe.get_doc(APA, name)
+    if doc.status != "Posted":
+        frappe.throw("Only a posted action can be reverted")
+    rev = _REVERTERS.get(doc.action_type)
+    if not rev:
+        _ensure_posters()
+        rev = _REVERTERS.get(doc.action_type)
+    if not rev:
+        frappe.throw(f"Action '{doc.action_type}' can't be auto-reverted")
+    out = rev(doc) or {}
+    doc.db_set("status", "Reverted")
+    doc.db_set("result", json.dumps({"reverted": out}, default=str)[:4000])
+    frappe.db.commit()
+    try:
+        from accounting_portal.api import _cache
+        _cache.bust_report_caches(doc.get("company"))
+    except Exception:
+        pass
+    return doc.as_dict()
+
+
+def revertable_types():
+    """Action types that have a registered reverter (so the UI can show Undo)."""
+    if not _REVERTERS:
+        _ensure_posters()
+    return set(_REVERTERS.keys())
+
+
+@frappe.whitelist()
 def list_actions(company=None, status=None, limit=50):
     """The audit feed for Settings → Activity."""
     assert_portal_access()
@@ -158,9 +202,13 @@ def list_actions(company=None, status=None, limit=50):
         filters["company"] = company
     if status:
         filters["status"] = status
-    return frappe.get_all(
+    rows = frappe.get_all(
         APA, filters=filters,
         fields=["name", "action_type", "status", "company", "amount", "voucher_type",
                 "voucher_no", "proposed_by", "approved_by", "posted_on", "creation", "notes", "_assign"],
         order_by="creation desc", limit=min(int(limit or 50), 200),
     )
+    rtypes = revertable_types()
+    for r in rows:
+        r["revertable"] = bool(r.get("status") == "Posted" and r.get("action_type") in rtypes)
+    return rows

@@ -18,6 +18,7 @@
           <div class="text-[10.5px] text-ink-muted mt-0.5">{{ d.item_group }}<span v-if="d.country"> · {{ d.country }}</span><span v-if="d.brand"> · {{ d.brand }}</span></div>
         </div>
         <div class="ms-auto flex items-center gap-2 flex-wrap">
+          <span v-if="d.flags.not_stock" class="text-[10px] font-bold text-ink-muted bg-app-warm border border-line-2 rounded-chip px-2 py-1">{{ L("service / non-stock","خدمة / غير مخزون","service") }}</span>
           <span v-if="d.flags.no_purchase" class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-chip px-2 py-1">{{ L("no purchase invoice","لا فاتورة شراء","sans facture") }}</span>
           <span v-if="d.flags.fx_off" class="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-chip px-2 py-1 inline-flex items-center gap-1"><Icon name="alert" :size="10" />{{ L("FX rate off","سعر الصرف خطأ","change erroné") }}</span>
         </div>
@@ -32,7 +33,7 @@
               <div class="text-[28px] font-extrabold tnum leading-none mt-1" style="color:#0f766e">{{ fmt(landed) }} <span class="text-[13px] text-ink-muted font-bold">{{ ccy }}</span></div>
               <div class="text-[10.5px] text-ink-muted mt-1">{{ L("current item cost","تكلفة الصنف الحالية","coût actuel") }}: <b class="tnum">{{ Number(d.valuation_rate)>0 ? fmt(d.valuation_rate) : "—" }}</b></div>
             </div>
-            <button v-if="canWrite && landed>0" type="button" :disabled="saving" class="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60 self-center" @click="saveCost">
+            <button v-if="canWrite && landed>0 && !d.flags.not_stock" type="button" :disabled="saving" class="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60 self-center" @click="saveCost">
               <Icon :name="saving ? 'clock' : 'check'" :size="14" />{{ saving ? L("Saving…","جارٍ…","…") : L("Set as item cost","حفظ كتكلفة","Définir") }}
             </button>
             <div v-if="bookLanded && Math.abs(bookLanded-landed)>0.5" class="text-[11px]">

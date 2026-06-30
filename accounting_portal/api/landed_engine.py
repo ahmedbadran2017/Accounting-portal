@@ -124,7 +124,7 @@ def item_landed_cost(company=None, item_code=None, freight_per_kg=None, fx_mode=
         "Item", item_code,
         ["name", "item_name", "custom_sku", "image", "item_group", "stock_uom",
          "weight_per_unit", "weight_uom", "valuation_rate", "last_purchase_rate",
-         "variant_of", "country_of_origin", "brand"], as_dict=True)
+         "variant_of", "country_of_origin", "brand", "is_stock_item"], as_dict=True)
     if not i:
         frappe.throw("Item not found")
     weight = flt(i.weight_per_unit)
@@ -196,6 +196,7 @@ def item_landed_cost(company=None, item_code=None, freight_per_kg=None, fx_mode=
             "fx_off": fx_flag,
             "fx_unverified": any(p.get("fx_unverified") for p in purchases),
             "no_cost": not (flt(i.valuation_rate) > 0),
+            "not_stock": not int(i.is_stock_item or 0),
         },
     }
 
@@ -287,8 +288,10 @@ def landed_workbench_list(company=None, search=None, scope="purchased",
     start = int(start or 0); page_size = min(int(page_size or 25), 100)
 
     if scope == "purchased":
-        # one row per item that has been bought, with its latest purchase line.
-        conds = ["pi.company=%(c)s", "pi.docstatus=1"]
+        # one row per *stock* item that has been bought, with its latest purchase line.
+        # Service/freight lines (e.g. a logistics invoice) are excluded — their
+        # lump-sum "unit cost" is not a product cost and would mislead.
+        conds = ["pi.company=%(c)s", "pi.docstatus=1", "i.is_stock_item=1"]
         params = {"c": target}
         if search:
             conds.append("(pii.item_code LIKE %(s)s OR i.item_name LIKE %(s)s OR IFNULL(i.custom_sku,'') LIKE %(s)s)")
@@ -449,6 +452,12 @@ def set_item_costs_bulk(company=None, include_freight=0, dry_run=1):
         return {"dry_run": True, **preview}
     if not pairs:
         return {"dry_run": False, "count": 0}
+    # capture prior valuation in one query so the action is reversible (undo)
+    old_map = {r.name: flt(r.valuation_rate) for r in frappe.db.sql(
+        "SELECT name, valuation_rate FROM `tabItem` WHERE name IN %(it)s",
+        {"it": tuple(p["item"] for p in pairs)}, as_dict=True)}
+    for p in pairs:
+        p["old"] = old_map.get(p["item"], 0.0)
     key = f"bulk_cost:{target}:{len(pairs)}:{total}:{int(include_freight or 0)}"
     res = _actions.execute(
         BULK_COST_ACTION, target, key,
@@ -469,7 +478,32 @@ def _bulk_cost_poster(action):
     return {"voucher_type": "Item", "voucher_no": f"{done} items costed", "result": "bulk cost set"}
 
 
+def _restore_field(action, doctype, field):
+    """Generic reverter: restore <field> to the 'old' captured per pair."""
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    done = 0
+    for it in (p.get("pairs") or []):
+        ic = it.get("item")
+        if ic and "old" in it and frappe.db.exists(doctype, ic):
+            frappe.db.set_value(doctype, ic, {field: flt(it.get("old"))}, update_modified=True)
+            done += 1
+    return {"restored": done, "field": field}
+
+
+def _set_cost_reverter(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    ic = p.get("item_code")
+    if ic and frappe.db.exists("Item", ic):
+        frappe.db.set_value("Item", ic, {"valuation_rate": flt(p.get("old"))}, update_modified=True)
+        return {"restored": 1, "item": ic}
+    return {"restored": 0}
+
+
 _actions.register_poster(BULK_COST_ACTION, _bulk_cost_poster)
+_actions.register_reverter(BULK_COST_ACTION, lambda a: _restore_field(a, "Item", "valuation_rate"))
+_actions.register_reverter(SET_COST_ACTION, _set_cost_reverter)
 
 
 WEIGHT_FIX_ACTION = "Fix weight units"
@@ -541,3 +575,4 @@ def _weight_fix_poster(action):
 
 
 _actions.register_poster(WEIGHT_FIX_ACTION, _weight_fix_poster)
+_actions.register_reverter(WEIGHT_FIX_ACTION, lambda a: _restore_field(a, "Item", "weight_per_unit"))

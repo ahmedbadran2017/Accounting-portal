@@ -51,7 +51,8 @@
         </table>
         <div v-if="(fx.unverified||[]).length" class="px-4 py-2.5 text-[11px] text-ink-2 border-t border-line-hair bg-app-warm/30">
           <Icon name="alert" :size="11" color="#9a8f86" class="inline" />
-          {{ (fx.unverified||[]).length }} {{ L("foreign invoice(s) can't be verified — no exchange rate on file for","فاتورة أجنبية مش متأكّد منها — لا سعر صرف مسجّل لـ","facture(s) non vérifiables —") }} {{ unverifiedCurrencies }}. {{ L("Add the rates in Settings → Currencies to check them.","أضف الأسعار في الإعدادات للتحقق.","Ajoutez les taux.") }}
+          {{ (fx.unverified||[]).length }} {{ L("foreign invoice(s) can't be verified — no exchange rate on file for","فاتورة أجنبية مش متأكّد منها — لا سعر صرف مسجّل لـ","facture(s) non vérifiables —") }} {{ unverifiedCurrencies }}.
+          <button type="button" class="font-semibold text-accent-dark hover:underline" @click="router.push('/accounting/settings/currencies')">{{ L("Add the rates →","أضف الأسعار ←","Ajouter les taux →") }}</button>
         </div>
       </div>
 
@@ -89,6 +90,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
@@ -97,6 +99,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
 const emit = defineEmits(["drill"]);
+const router = useRouter();
 const { locale } = useI18n();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

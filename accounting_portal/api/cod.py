@@ -686,7 +686,24 @@ def _stamp_pe_ref_poster(action):
     return {"voucher_type": "Sales Order", "voucher_no": f"{done} orders stamped", "result": "stamped"}
 
 
+def _stamp_pe_ref_reverter(action):
+    """Undo a ref stamp: clear the reference we wrote, but only if it still holds the
+    value we set (don't clobber a later, legitimate value)."""
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    done = 0
+    for it in (p.get("pairs") or []):
+        so, si, ref = it.get("so"), it.get("si"), it.get("ref")
+        if so and frappe.db.get_value("Sales Order", so, "custom_reference_number") == ref:
+            frappe.db.set_value("Sales Order", so, {"custom_reference_number": ""}, update_modified=True)
+            done += 1
+        if si and frappe.db.get_value("Sales Invoice", si, "custom_reference_number") == ref:
+            frappe.db.set_value("Sales Invoice", si, {"custom_reference_number": ""}, update_modified=True)
+    return {"restored": done}
+
+
 _actions.register_poster(STAMP_PE_REF_ACTION, _stamp_pe_ref_poster)
+_actions.register_reverter(STAMP_PE_REF_ACTION, _stamp_pe_ref_reverter)
 
 
 @frappe.whitelist()

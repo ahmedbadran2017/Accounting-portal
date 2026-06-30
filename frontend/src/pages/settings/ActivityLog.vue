@@ -50,6 +50,7 @@
                 </span>
                 <button v-if="a.status === 'Proposed'" @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
                 <button v-if="a.status === 'Proposed'" @click="reject(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm">{{ L("Reject", "رفض", "Rejeter") }}</button>
+                <button v-if="a.status === 'Posted' && a.revertable && canManage" @click="revert(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1"><Icon name="arrow" :size="11" class="rotate-180" />{{ L("Undo", "تراجع", "Annuler") }}</button>
               </span>
             </td>
           </tr>
@@ -66,6 +67,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
 import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useToast } from "@/composables/useToast";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
@@ -73,6 +75,8 @@ import { money0 } from "@/composables/useReports";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const { can } = useAuth();
+const canManage = computed(() => can("manage_users"));
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const FILTERS = ["", "Proposed", "Posted", "Rejected"];
@@ -128,6 +132,16 @@ async function reject(a) {
   catch (e) { toast.error(L("Failed", "فشل", "Échec")); }
   finally { busy.value = false; }
 }
+async function revert(a) {
+  if (!window.confirm(L(
+    `Undo "${a.action_type}"? This restores the values it changed.`,
+    `تراجع عن "${a.action_type}"؟ هيرجّع القيم اللي اتغيّرت.`,
+    `Annuler « ${a.action_type} » ?`))) return;
+  busy.value = true;
+  try { await api.call("accounting_portal.api._actions.revert_action", { name: a.name }); toast.success(L("Reverted", "تم التراجع", "Annulé")); load(); }
+  catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
+  finally { busy.value = false; }
+}
 
 const PALETTE = {
   Posted: "background:#ecfdf5;color:#047857;border-color:#a7f3d0",
@@ -135,6 +149,7 @@ const PALETTE = {
   Proposed: "background:#fffbeb;color:#b45309;border-color:#fde68a",
   Rejected: "background:#fef2f2;color:#b91c1c;border-color:#fecaca",
   Failed: "background:#fef2f2;color:#b91c1c;border-color:#fecaca",
+  Reverted: "background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe",
 };
 const badge = (s) => PALETTE[s] || "background:#f5f5f4;color:#57534e;border-color:#e7e5e4";
 const shortUser = (u) => (u ? String(u).split("@")[0] : "—");
