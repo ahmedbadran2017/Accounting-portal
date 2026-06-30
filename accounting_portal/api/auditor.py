@@ -853,6 +853,39 @@ def _anomaly_findings(target, mat=None):
                       "amount": n, "account": None,
                       "recommendation": "Sample the over-represented band; confirm the clustering has a business reason.",
                       "drill": {"module": "accountant", "sub": "journals", "label": "Journals"}})
+
+    # 10) Collected via Payment Entry ONLY — the carrier remittance reference lives
+    # on a submitted carrier Payment Entry but was never stamped back on the order or
+    # its invoice. The cash IS collected, but every ref-based view (buckets, Sales &
+    # collections) misses it, so the order sits wrongly in Delivered. Manual COD
+    # payments skip the stamping the bulk matcher does — a recurring data-entry gap.
+    peo = frappe.db.sql(
+        """SELECT so.name, ROUND(MAX(so.grand_total)) amt
+           FROM `tabPayment Entry` pe
+           JOIN `tabPayment Entry Reference` per ON per.parent=pe.name AND per.reference_doctype='Sales Invoice'
+           JOIN `tabSales Invoice` si ON si.name=per.reference_name
+           JOIN `tabSales Invoice Item` sii ON sii.parent=si.name
+           JOIN `tabSales Order` so ON so.name=sii.sales_order
+           JOIN `tabAccount` a ON a.name=pe.paid_to
+           WHERE pe.company=%s AND pe.docstatus=1 AND so.docstatus=1
+             AND (pe.reference_no LIKE 'CATH%%' OR pe.reference_no LIKE 'RDF%%')
+             AND a.account_name LIKE '%%Transaction%%'
+             AND IFNULL(sii.sales_order,'')!=''
+             AND IFNULL(si.custom_reference_number,'') NOT LIKE 'CATH%%' AND IFNULL(si.custom_reference_number,'') NOT LIKE 'RDF%%'
+             AND IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' AND IFNULL(so.custom_reference_number,'') NOT LIKE 'RDF%%'
+           GROUP BY so.name ORDER BY MAX(so.grand_total) DESC LIMIT 200""", (target,), as_dict=True)
+    if peo:
+        f.append({"id": "anom_collected_pe_only", "severity": "medium", "metric": "COD / carrier",
+                  "title": f"{len(peo)} orders collected via Payment Entry only (ref not on order/invoice)",
+                  "detail": "These orders have a submitted carrier Payment Entry carrying a CATH/RDF reference "
+                            "(cash collected) but the reference was never stamped on the Sales Order or its "
+                            "invoice — so they show as uncollected (stuck in Delivered) everywhere. Usually "
+                            "manual COD payments that skipped the reference stamp: "
+                            + ", ".join(f"{c.name} ({flt(c.amt):,.0f})" for c in peo[:6]),
+                  "amount": sum(flt(c.amt) for c in peo), "account": None,
+                  "recommendation": "Stamp the carrier reference from the Payment Entry back onto the order/invoice "
+                                    "(or enforce it at manual-payment entry) so they reconcile and count as collected.",
+                  "drill": {"module": "banking", "sub": "settlements", "label": "Carrier settlements"}})
     return f
 
 
