@@ -139,9 +139,19 @@ def item_landed_cost(company=None, item_code=None, freight_per_kg=None, fx_mode=
     for p in purchases:
         p["rate_fc"] = flt(p["rate_fc"]); p["rate_book"] = flt(p["rate_book"]); p["qty"] = flt(p["qty"])
         p["book_fx"] = flt(p["book_fx"])
-        p["live_fx"] = _live_fx(p["cur"], p["dt"], fxc)
-        p["rate_live"] = round(p["rate_fc"] * p["live_fx"], 3) if p["cur"] != "MAD" else p["rate_fc"]
-        p["fx_off"] = bool(p["live_fx"] and p["book_fx"] and abs(p["book_fx"] - p["live_fx"]) / p["live_fx"] > _FX_TOL)
+        lf = _live_fx(p["cur"], p["dt"], fxc)
+        p["live_fx"] = lf
+        # Only correct when we actually have a live rate for this currency. With no
+        # Currency Exchange record (lf=0 — e.g. TRY→MAD isn't maintained), keep the
+        # booked rate rather than zeroing the cost; flag it as unverifiable instead.
+        if p["cur"] == "MAD" or lf <= 0:
+            p["rate_live"] = p["rate_book"]
+            p["fx_off"] = False
+            p["fx_unverified"] = p["cur"] != "MAD" and lf <= 0
+        else:
+            p["rate_live"] = round(p["rate_fc"] * lf, 3)
+            p["fx_off"] = bool(p["book_fx"] and abs(p["book_fx"] - lf) / lf > _FX_TOL)
+            p["fx_unverified"] = False
         fx_flag = fx_flag or p["fx_off"]
         tot_qty += p["qty"]; tot_book += p["rate_book"] * p["qty"]; tot_live += p["rate_live"] * p["qty"]
         p["dt"] = str(p["dt"])
@@ -179,8 +189,81 @@ def item_landed_cost(company=None, item_code=None, freight_per_kg=None, fx_mode=
             "weight_outlier": weight > _WEIGHT_HI or (0 < weight < _WEIGHT_LO),
             "no_purchase": not purchases,
             "fx_off": fx_flag,
+            "fx_unverified": any(p.get("fx_unverified") for p in purchases),
             "no_cost": not (flt(i.valuation_rate) > 0),
         },
+    }
+
+
+@frappe.whitelist()
+def costing_health(company=None):
+    """Read-only costing data-quality cockpit: weight gaps, FX anomalies (with the
+    COGS overstatement they cause), catalogue coverage, and the un-capitalised
+    inbound freight pool. Surfaces exactly what corrupts COGS before any fix."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    currency = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+
+    w = frappe.db.sql(
+        """SELECT COUNT(*) n, SUM(IFNULL(weight_per_unit,0)=0) missing,
+                  SUM(weight_per_unit>%s) heavy, SUM(weight_per_unit>0 AND weight_per_unit<%s) light
+           FROM `tabItem` WHERE is_stock_item=1""", (_WEIGHT_HI, _WEIGHT_LO), as_dict=True)[0]
+    worst_groups = frappe.db.sql(
+        """SELECT item_group g, COUNT(*) n, SUM(IFNULL(weight_per_unit,0)=0) missing
+           FROM `tabItem` WHERE is_stock_item=1 GROUP BY item_group
+           HAVING missing>0 ORDER BY missing DESC LIMIT 6""", as_dict=True)
+
+    purchased = frappe.db.sql(
+        """SELECT COUNT(DISTINCT pii.item_code) FROM `tabPurchase Invoice Item` pii
+           JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+           WHERE pi.company=%s AND pi.docstatus=1""", (target,))[0][0]
+    catalogue = frappe.db.count("Item", {"is_stock_item": 1})
+    costed = frappe.db.count("Item", {"is_stock_item": 1, "valuation_rate": [">", 0]})
+
+    # FX anomalies — only the foreign invoices, re-priced at the live rate.
+    fxc = {}
+    foreign = frappe.db.sql(
+        """SELECT pi.name doc, pi.currency cur, pi.posting_date dt, pi.conversion_rate book_fx,
+                  ROUND(SUM(pii.base_amount)) booked, SUM(pii.amount) amt_fc
+           FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+           WHERE pi.company=%s AND pi.docstatus=1 AND pi.currency!='MAD'
+           GROUP BY pi.name ORDER BY pi.posting_date DESC""", (target,), as_dict=True)
+    wrong, unverified, overstate = [], [], 0.0
+    for r in foreign:
+        lf = _live_fx(r["cur"], r["dt"], fxc)
+        if lf <= 0:
+            unverified.append({"doc": r["doc"], "cur": r["cur"], "booked": flt(r["booked"])})
+            continue
+        corrected = flt(r["amt_fc"]) * lf
+        if flt(r["book_fx"]) and abs(flt(r["book_fx"]) - lf) / lf > _FX_TOL:
+            over = flt(r["booked"]) - corrected
+            overstate += over
+            wrong.append({"doc": r["doc"], "cur": r["cur"], "book_fx": round(flt(r["book_fx"]), 3),
+                          "live_fx": lf, "booked": round(flt(r["booked"])), "corrected": round(corrected),
+                          "overstatement": round(over), "date": str(r["dt"])})
+    wrong.sort(key=lambda x: -x["overstatement"])
+
+    pool = frappe.db.sql(
+        f"""SELECT a.account_name nm, ROUND(SUM(g.debit-g.credit)) bal FROM `tabGL Entry` g
+            JOIN `tabAccount` a ON a.name=g.account
+            WHERE g.company=%s AND g.is_cancelled=0 AND {_INBOUND}
+            GROUP BY a.account_name HAVING ABS(SUM(g.debit-g.credit))>0
+            ORDER BY ABS(SUM(g.debit-g.credit)) DESC LIMIT 10""", (target,), as_dict=True)
+    for p in pool:
+        p["bal"] = flt(p["bal"])
+
+    return {
+        "company": target, "currency": currency,
+        "weight": {"total": int(w.n or 0), "missing": int(w.missing or 0),
+                   "heavy": int(w.heavy or 0), "light": int(w.light or 0),
+                   "worst_groups": [{"group": g.g, "items": g.n, "missing": int(g.missing or 0)} for g in worst_groups]},
+        "coverage": {"catalogue": int(catalogue or 0), "purchased": int(purchased or 0), "costed": int(costed or 0)},
+        "fx": {"foreign_invoices": len(foreign), "wrong": wrong, "unverified": unverified,
+               "overstatement": round(overstate)},
+        "freight": {"accounts": pool, "pool": round(sum(p["bal"] for p in pool)),
+                    "suggested_per_kg": _suggested_freight_per_kg(target)},
     }
 
 

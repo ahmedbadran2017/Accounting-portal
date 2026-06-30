@@ -1,5 +1,14 @@
 <template>
   <div class="space-y-3.5">
+    <!-- Items / Health view toggle -->
+    <div class="flex gap-1 bg-white border border-line rounded-chip p-1 w-fit shadow-card">
+      <button v-for="v in VIEWS" :key="v.k" class="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5" :class="view === v.k ? 'bg-app-warm text-accent-dark shadow-card' : 'text-ink-3 hover:text-ink'" @click="view = v.k">
+        <Icon :name="v.icon" :size="13" />{{ v.label() }}
+      </button>
+    </div>
+
+    <CostingHealth v-if="view === 'health'" />
+    <template v-else>
     <!-- context strip -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
@@ -73,6 +82,7 @@
       <div v-else-if="!st.rows.value.length" class="py-10 text-center text-[12px] text-ink-muted">{{ L("No items.","لا أصناف.","Aucun.") }}</div>
       <ServerPager :t="st" />
     </div>
+    </template>
   </div>
 </template>
 
@@ -83,6 +93,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import CostingHealth from "@/pages/items/CostingHealth.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
@@ -96,6 +107,11 @@ const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (a >= 1
 
 const def = ref({});
 const ccy = computed(() => def.value.currency || "MAD");
+const view = ref("items");
+const VIEWS = [
+  { k: "items", icon: "wallet", label: () => L("Item costs", "تكاليف الأصناف", "Coûts") },
+  { k: "health", icon: "alert", label: () => L("Costing health", "صحة التكلفة", "Santé") },
+];
 const scope = ref("purchased");
 const SCOPES = [
   { k: "purchased", label: () => L("Purchased", "المشتراة", "Achetés") },

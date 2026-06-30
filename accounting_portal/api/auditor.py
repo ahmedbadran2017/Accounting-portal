@@ -886,6 +886,37 @@ def _anomaly_findings(target, mat=None):
                   "recommendation": "Stamp the carrier reference from the Payment Entry back onto the order/invoice "
                                     "(or enforce it at manual-payment entry) so they reconcile and count as collected.",
                   "drill": {"module": "banking", "sub": "settlements", "label": "Carrier settlements"}})
+
+    # 11) Foreign purchase invoices booked at the wrong FX — inflates inventory/COGS.
+    try:
+        from accounting_portal.api.landed_engine import _live_fx
+        _fxc = {}
+        fxwrong, over = [], 0.0
+        for r in frappe.db.sql(
+                """SELECT pi.name doc, pi.currency cur, pi.posting_date dt, pi.conversion_rate book_fx,
+                          ROUND(SUM(pii.base_amount)) booked, SUM(pii.amount) amt_fc
+                   FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.company=%s AND pi.docstatus=1 AND pi.currency!='MAD'
+                   GROUP BY pi.name""", (target,), as_dict=True):
+            lf = _live_fx(r.cur, r.dt, _fxc)
+            if lf > 0 and flt(r.book_fx) and abs(flt(r.book_fx) - lf) / lf > 0.10:
+                o = flt(r.booked) - flt(r.amt_fc) * lf
+                over += o
+                fxwrong.append((r.doc, r.cur, flt(r.book_fx), lf, o))
+        if fxwrong:
+            fxwrong.sort(key=lambda x: -x[4])
+            f.append({"id": "anom_purchase_fx", "severity": "high", "metric": "Inventory / COGS",
+                      "title": f"{len(fxwrong)} purchase invoice(s) booked at the wrong exchange rate",
+                      "detail": "Foreign-currency purchases stamped with a conversion rate far from the market "
+                                "rate on their own date — inventory and COGS are overstated by ~"
+                                f"{over:,.0f}. Worst: "
+                                + ", ".join(f"{d} ({c} @{bf:g} vs {lf:g})" for d, c, bf, lf, _ in fxwrong[:5]),
+                      "amount": round(over), "account": None,
+                      "recommendation": "Re-price these at the Currency Exchange rate on the invoice date "
+                                        "(Items → Costing shows booked vs corrected) and post the adjustment.",
+                      "drill": {"module": "items", "sub": "costing", "label": "Costing"}})
+    except Exception:
+        pass
     return f
 
 
