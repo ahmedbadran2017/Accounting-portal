@@ -100,7 +100,10 @@
             </tr></thead>
             <tbody>
               <tr v-for="(p,i) in d.purchases" :key="i" class="border-t border-line-hair" :class="p.fx_off ? 'bg-rose-50/40' : ''">
-                <td class="px-4 py-2 font-mono text-[11px]">{{ p.doc }}<div class="text-[10px] text-ink-muted">{{ p.dt }}</div></td>
+                <td class="px-4 py-2 font-mono text-[11px]">
+                  <button type="button" class="font-semibold text-accent-dark hover:underline inline-flex items-center gap-1" @click="openBill(p.doc)">{{ p.doc }}<Icon name="arrow" :size="10" /></button>
+                  <div class="text-[10px] text-ink-muted">{{ p.dt }}</div>
+                </td>
                 <td class="px-3 py-2 text-ink-2 hidden sm:table-cell truncate max-w-[140px]">{{ p.supplier }}</td>
                 <td class="px-3 py-2 text-end tnum">{{ p.qty }}</td>
                 <td class="px-3 py-2 text-end tnum whitespace-nowrap">{{ p.rate_fc }} {{ p.cur }}</td>
@@ -178,6 +181,7 @@ const weightBad = computed(() => !(Number(weight.value) > 0) || Number(weight.va
 const pct = (v) => { const t = productCost.value + freightUnit.value; return t > 0 ? Math.round((Number(v) || 0) / t * 100) : 0; };
 
 function back() { router.push({ path: "/accounting/items/costing" }); }
+function openBill(doc) { if (doc) router.push({ path: "/accounting/purchases/bills", query: { id: doc } }); }
 
 async function saveCost() {
   if (saving.value || !(landed.value > 0)) return;
