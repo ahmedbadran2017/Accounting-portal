@@ -145,7 +145,7 @@ function setMode(m, c) {
 }
 function open(name) {
   // Sweeps are Journal Entries; deposits are Payment Entries.
-  if (mode.value === "sweeps") router.push({ path: "/accounting/journals", query: { id: name } });
+  if (mode.value === "sweeps") router.push({ path: "/accounting/accountant/journals", query: { id: name } });
   else router.push({ path: "/accounting/sales/payments", query: { id: name } });
 }
 </script>
