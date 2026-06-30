@@ -9,11 +9,11 @@
           <div class="text-[20px] font-extrabold mt-1 tnum">{{ (cov.costed||0).toLocaleString() }}</div>
           <div class="text-[10.5px] text-ink-muted mt-0.5">{{ L("of","من","sur") }} {{ (cov.catalogue||0).toLocaleString() }} · {{ pct(cov.costed,cov.catalogue) }}%</div>
         </div>
-        <div class="bg-white rounded-card border shadow-card px-4 py-3" :class="w.missing ? 'border-rose-200' : 'border-line'">
+        <button type="button" class="text-start bg-white rounded-card border shadow-card px-4 py-3 transition hover:ring-2 hover:ring-rose-400/20" :class="w.missing ? 'border-rose-200' : 'border-line'" @click="emit('drill','noweight')">
           <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="w.missing ? 'text-rose-600' : 'text-ink-muted'"><Icon name="scale" :size="13" :color="w.missing ? '#e11d48' : '#94a3b8'" />{{ L("Missing weight","وزن ناقص","Poids manquant") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" :class="w.missing ? 'text-rose-600' : ''">{{ (w.missing||0).toLocaleString() }}</div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ pct(w.missing,w.total) }}% · {{ (w.heavy||0)+(w.light||0) }} {{ L("outliers","شاذة","aberrants") }}</div>
-        </div>
+          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ pct(w.missing,w.total) }}% · <span class="text-amber-700 font-semibold underline cursor-pointer" @click.stop="emit('drill','outliers')">{{ (w.heavy||0)+(w.light||0) }} {{ L("outliers","شاذة","aberrants") }}</span></div>
+        </button>
         <div class="bg-white rounded-card border shadow-card px-4 py-3" :class="fx.overstatement>0 ? 'border-amber-200' : 'border-line'">
           <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="fx.overstatement>0 ? 'text-amber-700' : 'text-ink-muted'"><Icon name="alert" :size="13" :color="fx.overstatement>0 ? '#b45309' : '#94a3b8'" />{{ L("FX overstatement","تضخّم الصرف","Surévaluation FX") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" :class="fx.overstatement>0 ? 'text-amber-700' : ''">{{ money(fx.overstatement) }}</div>
@@ -61,7 +61,7 @@
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Weight gaps by group","فجوات الوزن بالمجموعة","Poids par groupe") }}</span></div>
           <table class="w-full text-[12px]">
             <tbody>
-              <tr v-for="g in (w.worst_groups||[])" :key="g.group" class="border-t border-line-hair first:border-t-0">
+              <tr v-for="g in (w.worst_groups||[])" :key="g.group" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40 cursor-pointer" @click="emit('drill','noweight')">
                 <td class="px-4 py-2 truncate max-w-[220px]">{{ g.group }}</td>
                 <td class="px-3 py-2 text-end tnum text-ink-muted">{{ g.items.toLocaleString() }}</td>
                 <td class="px-4 py-2 text-end tnum font-bold text-rose-600">{{ g.missing.toLocaleString() }} {{ L("missing","ناقص","manquant") }}</td>
@@ -96,6 +96,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
+const emit = defineEmits(["drill"]);
 const { locale } = useI18n();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

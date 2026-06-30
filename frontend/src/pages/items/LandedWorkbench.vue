@@ -7,8 +7,9 @@
       </button>
     </div>
 
-    <CostingHealth v-if="view === 'health'" />
+    <CostingHealth v-if="view === 'health'" @drill="onDrill" />
     <template v-else>
+    <DateFilterBar :df="df" />
     <!-- context strip -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
@@ -39,6 +40,9 @@
           <button v-for="sc in SCOPES" :key="sc.k" class="px-2.5 py-1 rounded-lg text-[11.5px] font-semibold whitespace-nowrap" :class="scope === sc.k ? 'bg-white shadow-card text-accent-dark' : 'text-ink-3 hover:text-ink'" @click="setScope(sc.k)">{{ sc.label() }}</button>
         </div>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("items","صنف","articles") }}</span>
+        <button v-if="canWrite && scope==='outliers' && st.total.value" type="button" :disabled="wBusy" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="fixWeights">
+          <Icon :name="wBusy ? 'clock' : 'scale'" :size="13" />{{ wBusy ? L("Working…","جارٍ…","…") : L("Fix grams→kg","صحّح جرام→كجم","Corriger g→kg") }}
+        </button>
         <div class="ms-auto relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="st.search.value" :placeholder="L('SKU / name…','SKU / اسم…','SKU / nom…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
@@ -96,10 +100,12 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import DateFilterBar from "@/components/DateFilterBar.vue";
 import CostingHealth from "@/pages/items/CostingHealth.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
+import { useDateFilter } from "@/composables/useDateFilter";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
@@ -120,9 +126,13 @@ const VIEWS = [
 const scope = ref("purchased");
 const SCOPES = [
   { k: "purchased", label: () => L("Purchased", "المشتراة", "Achetés") },
-  { k: "noweight", label: () => L("Weight issues", "مشاكل وزن", "Poids") },
+  { k: "noweight", label: () => L("No weight", "بلا وزن", "Sans poids") },
+  { k: "outliers", label: () => L("Weight outliers", "أوزان شاذة", "Poids aberrants") },
   { k: "all", label: () => L("All", "الكل", "Tous") },
 ];
+
+const df = useDateFilter("landedwb", () => { st.page.value = 1; st.setFilters(filtersNow()); }, "all");
+function filtersNow() { return { _scope: scope.value, ...df.filterValue() }; }
 
 async function loadDefaults() {
   try { def.value = await api.call("accounting_portal.api.landed_engine.landed_defaults", { company: currentCompany() }) || {}; }
@@ -131,19 +141,41 @@ async function loadDefaults() {
 
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.landed_engine.landed_workbench_list", { company: currentCompany(), scope: scope.value, ...params }),
-  { pageSize: 25, sortField: "value", sortDir: "desc", filters: {} },
+  { pageSize: 25, sortField: "value", sortDir: "desc", filters: filtersNow() },
 );
 loadDefaults();
 st.load();
-watch(entityId, () => { loadDefaults(); st.page.value = 1; st.setFilters({ _scope: scope.value }); });
+watch(entityId, () => { loadDefaults(); st.page.value = 1; st.setFilters(filtersNow()); });
 
-function setScope(k) { if (k === scope.value) return; scope.value = k; st.page.value = 1; st.setFilters({ _scope: k }); }
+function setScope(k) { if (k === scope.value) return; scope.value = k; st.page.value = 1; st.setFilters(filtersNow()); }
 function open(code) { router.push({ path: "/accounting/items/costing", query: { item: code } }); }
+function onDrill(k) { view.value = "items"; setScope(k); }
 
 const { can } = useAuth();
 const toast = useToast();
 const canWrite = computed(() => can("manage_users"));
 const bulkBusy = ref(false);
+const wBusy = ref(false);
+
+async function fixWeights() {
+  if (wBusy.value) return;
+  wBusy.value = true;
+  try {
+    const d = df.filterValue();
+    const pv = await api.call("accounting_portal.api.landed_engine.fix_weight_units", { company: currentCompany(), ...d, dry_run: 1 });
+    if (!pv?.count) { toast.info(L("Nothing to fix", "لا شيء", "Rien")); return; }
+    const eg = (pv.sample || []).slice(0, 3).map((x) => `${x.old}→${x.new}kg`).join(", ");
+    if (!window.confirm(L(
+      `Divide weight by 1000 (grams→kg) on ${pv.count} items? e.g. ${eg}. Logged; reversible.`,
+      `قسمة الوزن ÷1000 (جرام→كجم) لـ ${pv.count} صنف؟ مثلاً ${eg}. مسجّل وقابل للتراجع.`,
+      `Diviser le poids par 1000 sur ${pv.count} articles ?`))) return;
+    const r = await api.call("accounting_portal.api.landed_engine.fix_weight_units", { company: currentCompany(), ...d, dry_run: 0 });
+    toast.success(L(`Fixed ${r?.count || 0} weights`, `تم تصحيح ${r?.count || 0} وزن`, `${r?.count || 0} corrigés`));
+    st.load();
+  } catch (e) {
+    toast.error(L("Failed", "فشل", "Échec") + ": " + String(e?.message || e).slice(0, 120));
+  } finally { wBusy.value = false; }
+}
 async function bulkSetCosts() {
   if (bulkBusy.value) return;
   bulkBusy.value = true;

@@ -274,9 +274,11 @@ def costing_health(company=None):
 
 @frappe.whitelist()
 def landed_workbench_list(company=None, search=None, scope="purchased",
+                          from_date=None, to_date=None,
                           start=0, page_size=25, sort_field="value", sort_dir="desc"):
-    """Items to cost, server-paginated. scope: 'purchased' (has a PI line — the
-    real cost basis), 'noweight' (missing/implausible weight), 'all'."""
+    """Items to cost, server-paginated. scope: 'purchased' (has a PI line — the real
+    cost basis), 'noweight' (zero weight), 'outliers' (implausible weight), 'all'.
+    from_date/to_date scope to items sold in that range (the cohort workflow)."""
     assert_portal_access()
     target = _target(company)
     if not target:
@@ -314,12 +316,24 @@ def landed_workbench_list(company=None, search=None, scope="purchased",
             r["last_dt"] = str(r.get("last_dt") or "")[:10]
         return {"rows": rows, "total": total, "start": s, "page_size": ps}
 
-    # scope = noweight / all : straight off the Item master
+    # scope = noweight / outliers / all : straight off the Item master, optionally
+    # scoped to items active (sold) in a date range — the cohort-by-period workflow.
     conds = ["i.is_stock_item=1"]
     params = {}
     if scope == "noweight":
-        conds.append("(IFNULL(i.weight_per_unit,0)=0 OR i.weight_per_unit>%(hi)s OR (i.weight_per_unit>0 AND i.weight_per_unit<%(lo)s))")
+        conds.append("IFNULL(i.weight_per_unit,0)=0")
+    elif scope == "outliers":
+        conds.append("(i.weight_per_unit>%(hi)s OR (i.weight_per_unit>0 AND i.weight_per_unit<%(lo)s))")
         params["hi"] = _WEIGHT_HI; params["lo"] = _WEIGHT_LO
+    if from_date or to_date:
+        dc = ["soi.item_code=i.name", "so.company=%(c)s", "so.docstatus=1"]
+        params["c"] = target
+        if from_date:
+            dc.append("so.transaction_date>=%(fd)s"); params["fd"] = from_date
+        if to_date:
+            dc.append("so.transaction_date<=%(td)s"); params["td"] = to_date
+        conds.append("EXISTS(SELECT 1 FROM `tabSales Order Item` soi "
+                     "JOIN `tabSales Order` so ON so.name=soi.parent WHERE " + " AND ".join(dc) + ")")
     if search:
         conds.append("(i.name LIKE %(s)s OR i.item_name LIKE %(s)s OR IFNULL(i.custom_sku,'') LIKE %(s)s)")
         params["s"] = f"%{search}%"
@@ -456,3 +470,74 @@ def _bulk_cost_poster(action):
 
 
 _actions.register_poster(BULK_COST_ACTION, _bulk_cost_poster)
+
+
+WEIGHT_FIX_ACTION = "Fix weight units"
+
+
+def _weight_unit_suspects(target, from_date=None, to_date=None):
+    """Stock items whose weight is implausibly high (>_WEIGHT_HI kg) — almost always
+    grams typed into the kg field. Optionally scoped to items sold in a date range.
+    Returns {item, name, old, new} where new = old/1000."""
+    conds = ["i.is_stock_item=1", "i.weight_per_unit>%(hi)s"]
+    params = {"hi": _WEIGHT_HI}
+    if from_date or to_date:
+        dc = ["soi.item_code=i.name", "so.company=%(c)s", "so.docstatus=1"]
+        params["c"] = target
+        if from_date:
+            dc.append("so.transaction_date>=%(fd)s"); params["fd"] = from_date
+        if to_date:
+            dc.append("so.transaction_date<=%(td)s"); params["td"] = to_date
+        conds.append("EXISTS(SELECT 1 FROM `tabSales Order Item` soi "
+                     "JOIN `tabSales Order` so ON so.name=soi.parent WHERE " + " AND ".join(dc) + ")")
+    rows = frappe.db.sql(
+        f"""SELECT i.name AS item, i.item_name AS name, i.weight_per_unit AS old
+            FROM `tabItem` i WHERE {' AND '.join(conds)}
+            ORDER BY i.weight_per_unit DESC""", params, as_dict=True)
+    out = []
+    for r in rows:
+        old = flt(r["old"])
+        new = round(old / 1000.0, 4)
+        # only propose where the /1000 result is itself sensible (<_WEIGHT_HI)
+        if 0 < new < _WEIGHT_HI:
+            out.append({"item": r["item"], "name": r["name"], "old": old, "new": new})
+    return out
+
+
+@frappe.whitelist()
+def fix_weight_units(company=None, from_date=None, to_date=None, dry_run=1):
+    """Bulk-correct grams-entered-as-kg: divide weight by 1000 for stock items whose
+    weight is implausibly high. Optionally scope to items sold in a date range (clean
+    up cohort by cohort, e.g. one year at a time). Super-admin only; one audited,
+    reversible write-gateway action; master-data only."""
+    assert_super_admin()
+    target = _target(company)
+    if not target:
+        frappe.throw("No company in scope")
+    suspects = _weight_unit_suspects(target, from_date, to_date)
+    preview = {"count": len(suspects), "sample": suspects[:15]}
+    if int(dry_run or 0):
+        return {"dry_run": True, **preview}
+    if not suspects:
+        return {"dry_run": False, "count": 0}
+    key = f"fix_weight:{target}:{from_date or ''}:{to_date or ''}:{len(suspects)}"
+    res = _actions.execute(
+        WEIGHT_FIX_ACTION, target, key,
+        payload={"pairs": [{"item": s["item"], "new": s["new"], "old": s["old"]} for s in suspects]},
+        amount=len(suspects), notes=f"grams→kg on {len(suspects)} items ({from_date or 'all'}..{to_date or 'all'})")
+    return {"dry_run": False, **preview, "result": res}
+
+
+def _weight_fix_poster(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    done = 0
+    for it in (p.get("pairs") or []):
+        ic, new = it.get("item"), flt(it.get("new"))
+        if ic and new > 0 and frappe.db.exists("Item", ic):
+            frappe.db.set_value("Item", ic, {"weight_per_unit": new}, update_modified=True)
+            done += 1
+    return {"voucher_type": "Item", "voucher_no": f"{done} weights fixed", "result": "weight units fixed"}
+
+
+_actions.register_poster(WEIGHT_FIX_ACTION, _weight_fix_poster)
