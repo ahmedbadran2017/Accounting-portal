@@ -22,7 +22,11 @@ Landed Cost Voucher / correcting entry) is a later phase, behind the write gatew
 import frappe
 from frappe.utils import flt
 
-from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+from accounting_portal.api import _actions
+from accounting_portal.api.permissions import (
+    assert_portal_access, assert_super_admin, resolve_companies)
+
+SET_COST_ACTION = "Set item cost"
 
 # Inbound, capitalisable freight/customs — but NOT the last-mile carriers, whose
 # "cargo fee" is the cost of delivering to the end customer (a selling expense).
@@ -330,3 +334,44 @@ def landed_workbench_list(company=None, search=None, scope="purchased",
         r["no_weight"] = w <= 0
         r["weight_outlier"] = w > _WEIGHT_HI or (0 < w < _WEIGHT_LO)
     return {"rows": rows, "total": total, "start": s, "page_size": ps}
+
+
+@frappe.whitelist()
+def set_item_cost(company=None, item_code=None, cost=None, dry_run=1):
+    """Write a computed landed cost back as the item's valuation_rate (the standard
+    cost reference). Super-admin only; routed through the write gateway for the
+    audit trail; reversible (the prior value is captured). Master-data only — it
+    does NOT post a GL correction for historical stock; that is a later phase that
+    needs the target accounts confirmed."""
+    assert_super_admin()
+    target = _target(company)
+    if not target or not item_code:
+        frappe.throw("Item required")
+    if not frappe.db.exists("Item", item_code):
+        frappe.throw("Item not found")
+    cost = flt(cost)
+    if cost <= 0:
+        frappe.throw("Cost must be positive")
+    old = flt(frappe.db.get_value("Item", item_code, "valuation_rate"))
+    preview = {"item_code": item_code, "old": old, "new": round(cost, 2)}
+    if int(dry_run or 0):
+        return {"dry_run": True, **preview}
+    key = f"set_cost:{target}:{item_code}:{round(cost, 2)}"
+    res = _actions.execute(
+        SET_COST_ACTION, target, key,
+        payload={"item_code": item_code, "cost": round(cost, 4), "old": old},
+        amount=cost, notes=f"Set {item_code} valuation_rate {old:g} -> {cost:g}")
+    return {"dry_run": False, **preview, "result": res}
+
+
+def _set_cost_poster(action):
+    """Set Item.valuation_rate to the proposed cost (master data)."""
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    item_code, cost = p.get("item_code"), flt(p.get("cost"))
+    if item_code and cost > 0:
+        frappe.db.set_value("Item", item_code, {"valuation_rate": cost}, update_modified=True)
+    return {"voucher_type": "Item", "voucher_no": item_code, "result": "cost set"}
+
+
+_actions.register_poster(SET_COST_ACTION, _set_cost_poster)

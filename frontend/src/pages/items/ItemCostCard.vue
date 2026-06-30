@@ -30,7 +30,11 @@
             <div>
               <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Landed unit cost","تكلفة الوحدة المحمّلة","Coût unitaire") }}</div>
               <div class="text-[28px] font-extrabold tnum leading-none mt-1" style="color:#0f766e">{{ fmt(landed) }} <span class="text-[13px] text-ink-muted font-bold">{{ ccy }}</span></div>
+              <div class="text-[10.5px] text-ink-muted mt-1">{{ L("current item cost","تكلفة الصنف الحالية","coût actuel") }}: <b class="tnum">{{ Number(d.valuation_rate)>0 ? fmt(d.valuation_rate) : "—" }}</b></div>
             </div>
+            <button v-if="canWrite && landed>0" type="button" :disabled="saving" class="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60 self-center" @click="saveCost">
+              <Icon :name="saving ? 'clock' : 'check'" :size="14" />{{ saving ? L("Saving…","جارٍ…","…") : L("Set as item cost","حفظ كتكلفة","Définir") }}
+            </button>
             <div v-if="bookLanded && Math.abs(bookLanded-landed)>0.5" class="text-[11px]">
               <div class="text-ink-muted">{{ L("as booked","كما هو مسجّل","au livre") }}</div>
               <div class="tnum font-bold text-rose-500 line-through">{{ fmt(bookLanded) }}</div>
@@ -126,9 +130,15 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const { can } = useAuth();
+const toast = useToast();
+const canWrite = computed(() => can("manage_users"));
+const saving = ref(false);
 const route = useRoute();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -168,4 +178,21 @@ const weightBad = computed(() => !(Number(weight.value) > 0) || Number(weight.va
 const pct = (v) => { const t = productCost.value + freightUnit.value; return t > 0 ? Math.round((Number(v) || 0) / t * 100) : 0; };
 
 function back() { router.push({ path: "/accounting/items/costing" }); }
+
+async function saveCost() {
+  if (saving.value || !(landed.value > 0)) return;
+  const old = Number(d.value.valuation_rate) || 0;
+  if (!window.confirm(L(
+    `Set this item's cost (valuation rate) to ${fmt(landed.value)} ${ccy.value}? (was ${fmt(old)}). Logged in the audit trail; reversible.`,
+    `تعيين تكلفة الصنف (valuation rate) إلى ${fmt(landed.value)} ${ccy.value}؟ (كانت ${fmt(old)}). مسجّل في سجل التدقيق وقابل للتراجع.`,
+    `Définir le coût à ${fmt(landed.value)} ${ccy.value} ?`))) return;
+  saving.value = true;
+  try {
+    await api.call("accounting_portal.api.landed_engine.set_item_cost", { company: currentCompany(), item_code: d.value.item_code, cost: landed.value, dry_run: 0 });
+    d.value.valuation_rate = landed.value;
+    toast.success(L("Cost saved", "تم حفظ التكلفة", "Coût enregistré"));
+  } catch (e) {
+    toast.error(L("Save failed", "فشل الحفظ", "Échec") + ": " + String(e?.message || e).slice(0, 120));
+  } finally { saving.value = false; }
+}
 </script>
