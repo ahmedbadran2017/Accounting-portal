@@ -167,6 +167,12 @@ def cod_bucket(ref, track, has_return_dn=False):
 
 _RETURNISH = "('Return','Returned','Return Issued','Delivery Exception','Failed Attempt')"
 _TRANSIT = "('In Transit','Out For Delivery','Picked up')"
+# A return signal = the clean logistics field says Returned, OR the carrier track
+# status is return-ish. The logistics field is authoritative (e.g. ~330 orders read
+# logistics='Returned' while their track still says 'Delivered'/'Pending' — they
+# belong in To-return, not Delivered).
+_RET_SIGNAL = f"(so.custom_logistics_status='Returned' OR so.custom_track_shipment_status IN {_RETURNISH})"
+_NOT_RET_LOG = "IFNULL(so.custom_logistics_status,'')!='Returned'"
 # Collected = the Cathedis remittance reference is present on EITHER the Sales
 # Order OR its Sales Invoice. The book's matching process stamps the invoice
 # (~47.5k), the portal's reconcile stamps the order — both count.
@@ -193,9 +199,9 @@ _RET_JOIN = (
 _COND = {
     "collected": _COLLECTED,
     "returned": f"{_NOTCOLL} AND ret.so IS NOT NULL",
-    "toreturn": f"{_NOTCOLL} AND ret.so IS NULL AND so.custom_track_shipment_status IN {_RETURNISH}",
-    "delivered": f"{_NOTCOLL} AND ret.so IS NULL AND so.custom_track_shipment_status='Delivered'",
-    "todeliver": f"{_NOTCOLL} AND ret.so IS NULL "
+    "toreturn": f"{_NOTCOLL} AND ret.so IS NULL AND {_RET_SIGNAL}",
+    "delivered": f"{_NOTCOLL} AND ret.so IS NULL AND {_NOT_RET_LOG} AND so.custom_track_shipment_status='Delivered'",
+    "todeliver": f"{_NOTCOLL} AND ret.so IS NULL AND {_NOT_RET_LOG} "
                  f"AND so.custom_track_shipment_status NOT IN {_RETURNISH} "
                  f"AND so.custom_track_shipment_status!='Delivered' "
                  f"AND (so.per_billed > 0 OR so.custom_track_shipment_status IN {_TRANSIT})",
@@ -234,7 +240,7 @@ def cod_summary(company=None, from_date=None, to_date=None):
     case = (
         f"CASE WHEN {_COLLECTED} THEN 'collected' "
         "WHEN ret.so IS NOT NULL THEN 'returned' "
-        f"WHEN so.custom_track_shipment_status IN {_RETURNISH} THEN 'toreturn' "
+        f"WHEN {_RET_SIGNAL} THEN 'toreturn' "
         "WHEN so.custom_track_shipment_status='Delivered' THEN 'delivered' "
         f"WHEN (so.per_billed>0 OR so.custom_track_shipment_status IN {_TRANSIT}) THEN 'todeliver' "
         "ELSE 'other' END")
@@ -705,7 +711,7 @@ def carrier_aging(company=None):
                    ROUND(AVG(DATEDIFF(CURDATE(),so.transaction_date)),1) AS avg_days
             FROM `tabSales Order` so {_INV_JOIN}
             WHERE so.company=%(c)s AND so.docstatus=1
-              AND so.custom_track_shipment_status='Delivered' AND {_NOTCOLL}
+              AND so.custom_track_shipment_status='Delivered' AND {_NOT_RET_LOG} AND {_NOTCOLL}
             GROUP BY carrier HAVING total>0 ORDER BY total DESC LIMIT 20""",
         {"c": target}, as_dict=True)
     for r in rows:
