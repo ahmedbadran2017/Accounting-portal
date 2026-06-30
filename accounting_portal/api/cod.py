@@ -681,10 +681,27 @@ def carrier_settlements(company=None, from_date=None, to_date=None):
                    WHERE company=%(c)s AND is_cancelled=0 AND account IN %(accts)s GROUP BY account""",
                 {"c": target, "accts": tuple(r["account"] for r in rows)}, as_dict=True):
             held[h.account] = flt(h.bal)
+    # swept = the ACTUAL transfers out of each carrier account to the real bank this
+    # period (GL credits on the holding account) — same source list_carrier_sweeps
+    # drills into, so the 'Swept to bank' figure always ties to clickable vouchers.
+    # (Previously derived as collected−held, which mixed a period flow with a
+    # point-in-time stock and showed money that was never actually transferred.)
+    swept_map = {}
+    sweep_conds = ["g.company=%(c)s", "g.is_cancelled=0", "g.credit>0",
+                   "a.account_type='Bank'", "a.account_name LIKE '%%Transaction%%'"]
+    if from_date:
+        sweep_conds.append("g.posting_date>=%(fd)s")
+    if to_date:
+        sweep_conds.append("g.posting_date<=%(td)s")
+    for sw in frappe.db.sql(
+            f"""SELECT g.account, ROUND(SUM(g.credit)) swept FROM `tabGL Entry` g
+                JOIN `tabAccount` a ON a.name=g.account
+                WHERE {' AND '.join(sweep_conds)} GROUP BY g.account""", params, as_dict=True):
+        swept_map[sw.account] = flt(sw.swept)
     for r in rows:
         r["collected"] = flt(r["collected"])
         r["held"] = held.get(r["account"], 0.0)
-        r["swept"] = round(r["collected"] - r["held"], 0)  # left the carrier account → bank
+        r["swept"] = swept_map.get(r["account"], 0.0)
         r["last_date"] = str(r.get("last_date") or "")
     by_month = frappe.db.sql(
         f"""SELECT DATE_FORMAT(pe.posting_date,'%%Y-%%m') ym, ROUND(SUM(pe.paid_amount)) collected
@@ -697,6 +714,7 @@ def carrier_settlements(company=None, from_date=None, to_date=None):
         "by_carrier": rows, "by_month": list(reversed(by_month)),
         "total_collected": sum(r["collected"] for r in rows),
         "total_held": sum(r["held"] for r in rows),
+        "total_swept": round(sum(swept_map.values())),
         "deposits": sum(r["deposits"] for r in rows),
     }
 

@@ -74,7 +74,7 @@
         </table>
       </div>
       <TableLoading v-if="st.loading.value" :rows="6" />
-      <div v-else-if="!st.rows.value.length" class="py-10 text-center text-[12px] text-ink-muted">{{ isSweeps ? L("No transfers.","لا تحويلات.","Aucun virement.") : L("No deposits.","لا إيداعات.","Aucun dépôt.") }}</div>
+      <div v-else-if="!st.rows.value.length" class="py-10 text-center text-[12px] text-ink-muted">{{ isSweeps ? L("No carrier→bank transfers in this period. Try a wider date range.","لا تحويلات من الناقل للبنك في هذه الفترة. جرّب مدى تواريخ أوسع.","Aucun virement transporteur→banque sur cette période. Élargissez la plage.") : L("No deposits.","لا إيداعات.","Aucun dépôt.") }}</div>
       <ServerPager :t="st" />
     </div>
   </div>
@@ -110,7 +110,7 @@ const carrier = ref(null);
 const mode = ref("deposits"); // 'deposits' = COD into carrier accounts · 'sweeps' = carrier → your bank
 const ccy = computed(() => s.value.currency || "MAD");
 const isSweeps = computed(() => mode.value === "sweeps");
-const swept = computed(() => (s.value.total_collected || 0) - (s.value.total_held || 0));
+const swept = computed(() => s.value.total_swept || 0);
 const topCarrier = computed(() => { const c = (s.value.by_carrier || [])[0]; return c ? carrierLabel(c.carrier) : ""; });
 
 const df = useDateFilter("carriersettle", () => { loadSummary(); st.setFilters(filtersNow()); });
