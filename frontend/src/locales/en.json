@@ -26,7 +26,7 @@
     "accounts": "Bank accounts", "transactions": "Bank transactions", "rules": "Bank rules",
     "remittance": "COD remittance", "variance": "Variance queue", "settlements": "Carrier settlements", "aging": "Carrier aging", "bankrec": "Bank reconciliation",
     "journals": "Journals", "coa": "Chart of accounts", "gl": "General ledger", "trial": "Trial balance",
-    "assets": "Fixed assets", "fx": "Base currency adj.", "opening": "Opening balance", "close": "Period close", "triage": "Remediation",
+    "assets": "Fixed assets", "fx": "Base currency adj.", "opening": "Opening balance", "close": "Period close", "team": "Team performance", "triage": "Remediation",
     "salescol": "Sales & collections", "arap": "Receivables & Payables", "forecast": "Cash forecast", "missingdocs": "Missing docs", "statements": "Financial statements", "taxreports": "Tax & dimension", "dd": "Verified DD", "dataroom": "Data room",
     "orgs": "Organizations", "users": "Users & roles", "taxconf": "Taxes", "currencies": "Currencies",
     "locations": "Locations", "tags": "Reporting tags", "custom": "Custom modules", "integrations": "Integrations", "anomrules": "Anomaly rules", "activity": "Activity & audit"

@@ -16,6 +16,7 @@ _PREFIXES = (
     "ap_carrier_aging:", "ap_sales_cohort:", "ap_arap_recon:", "ap_purch_summary:",
     # page-invariant list count/summary caches (short TTL, bust so a new doc shows at once)
     "ap_orders_sc:", "ap_orders_tot:", "ap_inv_sum:", "ap_rcpt_sum:",
+    "ap_team_perf:",
 )
 
 

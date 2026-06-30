@@ -26,6 +26,7 @@
     <FxRevaluation v-else-if="activeSub === 'fx'" />
     <OpeningEntry v-else-if="activeSub === 'opening'" />
     <PeriodClose v-else-if="activeSub === 'close'" />
+    <TeamPerformance v-else-if="activeSub === 'team'" />
     <ScaffoldTable v-else />
   </div>
 </template>
@@ -47,19 +48,24 @@ import FixedAssets from "@/pages/accountant/FixedAssets.vue";
 import FxRevaluation from "@/pages/accountant/FxRevaluation.vue";
 import OpeningEntry from "@/pages/accountant/OpeningEntry.vue";
 import PeriodClose from "@/pages/accountant/PeriodClose.vue";
+import TeamPerformance from "@/pages/accountant/TeamPerformance.vue";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { entityId, entities } = useUi();
+const { can } = useAuth();
 
-const subs = SUBTABS.accountant;
+// The Team-performance tab holds sensitive employee-evaluation data — show it to
+// the Super Admin only (same gate the backend enforces). Others never see it.
+const subs = computed(() => SUBTABS.accountant.filter((s) => s[0] !== "team" || can("manage_users")));
 const activeSub = computed(() => route.params.sub || defaultSub("accountant"));
 const entityName = computed(() => (entities.find((e) => e.id === entityId.value) || entities[0]).name);
 const title = computed(() => {
-  const found = subs.find((s) => s[0] === activeSub.value);
+  const found = subs.value.find((s) => s[0] === activeSub.value);
   return found ? t(found[1]) : t("nav.accountant");
 });
 function goSub(s) { router.push(`/accounting/accountant/${s}`); }

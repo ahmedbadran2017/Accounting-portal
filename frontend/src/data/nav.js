@@ -29,7 +29,7 @@ export const SUBTABS = {
   ],
   accountant: [
     ["journals", "sub.journals"], ["triage", "sub.triage"], ["coa", "sub.coa"], ["gl", "sub.gl"], ["trial", "sub.trial"],
-    ["assets", "sub.assets"], ["fx", "sub.fx"], ["opening", "sub.opening"], ["close", "sub.close"],
+    ["assets", "sub.assets"], ["fx", "sub.fx"], ["opening", "sub.opening"], ["close", "sub.close"], ["team", "sub.team"],
   ],
   reports: [["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["missingdocs", "sub.missingdocs"], ["statements", "sub.statements"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"], ["dataroom", "sub.dataroom"]],
   settings: [
