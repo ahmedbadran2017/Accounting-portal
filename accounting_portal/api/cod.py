@@ -23,9 +23,11 @@ import frappe
 from frappe.utils import flt, getdate, nowdate
 
 from accounting_portal.api import _actions, _paginate
-from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies
+from accounting_portal.api.permissions import (
+    assert_can_write, assert_portal_access, assert_super_admin, resolve_companies)
 
 COLLECT_ACTION = "Collect COD"
+STAMP_PE_REF_ACTION = "Stamp PE carrier ref"
 RETURN_TRACK = ("Return", "Returned", "Return Issued", "Delivery Exception", "Failed Attempt")
 TRANSIT_TRACK = ("In Transit", "Out For Delivery", "Picked up", "Pending")
 BUCKETS = ("todeliver", "delivered", "collected", "toreturn", "returned")
@@ -599,6 +601,86 @@ def apply_remittance(company=None, reference=None, orders=None, amount=0, dedupe
         amount=flt(amount), notes=f"Cathedis {reference}: {len(orders)} orders collected")
     _bust_summary_cache(target)  # bucket counts changed
     return res
+
+
+def _pe_only_pairs(target, orders=None):
+    """Orders whose carrier ref lives only on a submitted carrier Payment Entry,
+    not on the order or its invoice (see auditor anom_collected_pe_only). Returns
+    {so, si, ref, amt} so we can stamp the ref back where the ref-based views read it."""
+    cond = ""
+    params = {"c": target}
+    if orders:
+        cond = " AND so.name IN %(orders)s"
+        params["orders"] = tuple(orders)
+    return frappe.db.sql(
+        f"""SELECT so.name AS so, MAX(si.name) AS si, MAX(pe.reference_no) AS ref,
+                   ROUND(MAX(so.grand_total)) AS amt
+            FROM `tabPayment Entry` pe
+            JOIN `tabPayment Entry Reference` per ON per.parent=pe.name AND per.reference_doctype='Sales Invoice'
+            JOIN `tabSales Invoice` si ON si.name=per.reference_name
+            JOIN `tabSales Invoice Item` sii ON sii.parent=si.name
+            JOIN `tabSales Order` so ON so.name=sii.sales_order
+            JOIN `tabAccount` a ON a.name=pe.paid_to
+            WHERE pe.company=%(c)s AND pe.docstatus=1 AND so.docstatus=1
+              AND (pe.reference_no LIKE 'CATH%%' OR pe.reference_no LIKE 'RDF%%')
+              AND a.account_name LIKE '%%Transaction%%' AND IFNULL(sii.sales_order,'')!=''
+              AND IFNULL(si.custom_reference_number,'') NOT LIKE 'CATH%%' AND IFNULL(si.custom_reference_number,'') NOT LIKE 'RDF%%'
+              AND IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' AND IFNULL(so.custom_reference_number,'') NOT LIKE 'RDF%%'
+              {cond}
+            GROUP BY so.name ORDER BY MAX(so.grand_total) DESC LIMIT 500""", params, as_dict=True)
+
+
+@frappe.whitelist()
+def backfill_pe_refs(company=None, orders=None, dry_run=1):
+    """Fix orders collected via Payment Entry only: copy the carrier reference from
+    the Payment Entry onto the Sales Order + its invoice, so the ref-based views
+    (buckets, Sales & collections) count them as collected instead of leaving them
+    stuck in Delivered. Super-admin only (bulk correction on submitted docs);
+    audited through the write gateway; idempotent (fixed orders stop matching)."""
+    assert_super_admin()
+    target = _target(company)
+    if not target:
+        frappe.throw("No company in scope")
+    if isinstance(orders, str):
+        import json
+        orders = json.loads(orders)
+    orders = [o for o in (orders or []) if o] or None
+    pairs = _pe_only_pairs(target, orders)
+    preview = {"count": len(pairs), "value": sum(flt(p["amt"]) for p in pairs),
+               "rows": [{"order": p["so"], "invoice": p["si"], "ref": p["ref"], "amount": flt(p["amt"])} for p in pairs]}
+    if int(dry_run or 0):
+        return {"dry_run": True, **preview}
+    if not pairs:
+        return {"dry_run": False, "count": 0, "applied": 0, "rows": []}
+    key = f"stamp_pe_ref:{target}:{','.join(sorted(p['so'] for p in pairs))[:120]}"
+    res = _actions.execute(
+        STAMP_PE_REF_ACTION, target, key,
+        payload={"pairs": [{"so": p["so"], "si": p["si"], "ref": p["ref"]} for p in pairs]},
+        amount=preview["value"], notes=f"Stamped carrier ref on {len(pairs)} PE-only collected orders")
+    _bust_summary_cache(target)
+    return {"dry_run": False, **preview, "result": res}
+
+
+def _stamp_pe_ref_poster(action):
+    """Stamp the carrier reference from each Payment Entry onto its order + invoice."""
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    done = 0
+    for it in (p.get("pairs") or []):
+        so, si, ref = it.get("so"), it.get("si"), it.get("ref")
+        if not (so and ref):
+            continue
+        # Defense-in-depth: only touch docs in this action's company.
+        if frappe.db.get_value("Sales Order", so, "company") != action.company:
+            continue
+        frappe.db.set_value("Sales Order", so, {"custom_reference_number": ref}, update_modified=True)
+        if si and frappe.db.get_value("Sales Invoice", si, "company") == action.company:
+            frappe.db.set_value("Sales Invoice", si, {"custom_reference_number": ref}, update_modified=True)
+        done += 1
+    return {"voucher_type": "Sales Order", "voucher_no": f"{done} orders stamped", "result": "stamped"}
+
+
+_actions.register_poster(STAMP_PE_REF_ACTION, _stamp_pe_ref_poster)
 
 
 @frappe.whitelist()

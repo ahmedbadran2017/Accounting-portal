@@ -2,6 +2,19 @@
   <div class="space-y-3.5">
     <DateFilterBar :df="df" />
 
+    <!-- Super-admin only: orders collected via a Payment Entry whose carrier ref was
+         never stamped on the order/invoice — fix stamps it so they count as collected. -->
+    <div v-if="canFix && fixable.count" class="flex items-center gap-3 px-4 py-2.5 rounded-card border border-amber-200 bg-amber-50/70">
+      <Icon name="alert" :size="16" color="#b45309" class="shrink-0" />
+      <div class="min-w-0 text-[12px]">
+        <span class="font-bold text-amber-800">{{ fixable.count }} {{ L('orders collected but unstamped','أوردر محصّل بدون ختم','commandes encaissées non tamponnées') }}</span>
+        <span class="text-amber-700"> · {{ fmt(fixable.value) }} {{ ccy }} · {{ L('carrier ref is only on the payment, not the order','المرجع على الدفعة فقط مش الأوردر','réf. uniquement sur le paiement') }}</span>
+      </div>
+      <button type="button" :disabled="fixing" class="ms-auto shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="applyFix">
+        <Icon :name="fixing ? 'clock' : 'check'" :size="13" />{{ fixing ? L('Fixing…','جارٍ…','…') : L('Stamp & fix','اختم وصلّح','Corriger') }}
+      </button>
+    </div>
+
     <!-- Headline cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <button type="button" class="text-start rounded-card transition focus:outline-none" :class="mode === 'deposits' && !carrier ? 'ring-2 ring-teal-500/50' : 'hover:ring-2 hover:ring-teal-500/20'" @click="setMode('deposits', null)">
@@ -95,6 +108,8 @@ import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
 import { useDateFilter } from "@/composables/useDateFilter";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
@@ -118,11 +133,41 @@ const topCarrier = computed(() => { const c = (s.value.by_carrier || [])[0]; ret
 const df = useDateFilter("carriersettle", () => { loadSummary(); st.setFilters(filtersNow()); });
 function filtersNow() { return { ...df.filterValue(), carrier: carrier.value || undefined }; }
 
+const { can } = useAuth();
+const toast = useToast();
+const canFix = computed(() => can("manage_users"));
+const fixable = ref({ count: 0, value: 0 });
+const fixing = ref(false);
+
 async function loadSummary() {
   loadingSum.value = true;
   try { s.value = await api.call("accounting_portal.api.cod.carrier_settlements", { company: currentCompany(), ...df.filterValue() }) || {}; }
   catch { s.value = {}; }
   finally { loadingSum.value = false; }
+  loadFixable();
+}
+
+async function loadFixable() {
+  if (!canFix.value) return;
+  try { fixable.value = await api.call("accounting_portal.api.cod.backfill_pe_refs", { company: currentCompany(), dry_run: 1 }) || { count: 0, value: 0 }; }
+  catch { fixable.value = { count: 0, value: 0 }; }
+}
+
+async function applyFix() {
+  if (fixing.value || !fixable.value.count) return;
+  if (!window.confirm(L(
+    `Stamp the carrier reference onto ${fixable.value.count} order(s) and their invoices so they count as collected? This is logged in the audit trail.`,
+    `هل تختم المرجع على ${fixable.value.count} أوردر وفواتيرهم ليُحتسبوا محصّلين؟ مسجّل في سجل التدقيق.`,
+    `Tamponner la référence sur ${fixable.value.count} commande(s) ?`))) return;
+  fixing.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.cod.backfill_pe_refs", { company: currentCompany(), dry_run: 0 });
+    toast.success(L(`Stamped ${r?.count || 0} orders`, `تم ختم ${r?.count || 0} أوردر`, `${r?.count || 0} corrigés`));
+    fixable.value = { count: 0, value: 0 };
+    loadSummary();
+  } catch (e) {
+    toast.error(L("Fix failed", "فشل التصحيح", "Échec") + ": " + String(e?.message || e).slice(0, 120));
+  } finally { fixing.value = false; }
 }
 
 const st = useServerTable(
