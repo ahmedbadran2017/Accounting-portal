@@ -75,10 +75,10 @@
             <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="cart" :size="14" color="#b45309" /><span class="text-[12px] font-bold">{{ L("Recent purchases","مشتريات حديثة","Achats récents") }}</span></div>
             <table class="w-full text-[12px]">
               <tbody>
-                <tr v-for="(p, i) in d.purchases" :key="i" class="border-t border-line-hair">
-                  <td class="px-4 py-2 font-mono text-[10.5px]">{{ p.doc }}</td>
+                <tr v-for="(p, i) in d.purchases" :key="i" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer group" @click="openPO(p.doc)">
+                  <td class="px-4 py-2 font-mono text-[10.5px] group-hover:text-accent-dark">{{ p.doc }}</td>
                   <td class="px-4 py-2 text-ink-3 truncate max-w-[120px]">{{ p.supplier }}</td>
-                  <td class="px-4 py-2 text-end tnum">{{ p.qty }} × {{ fmt(p.rate) }}</td>
+                  <td class="px-4 py-2 text-end tnum">{{ p.qty }} × {{ fmt(p.rate) }}<Icon name="arrow" :size="11" color="#cbd5e1" class="inline ms-1 opacity-0 group-hover:opacity-100" /></td>
                 </tr>
                 <tr v-if="!d.purchases.length"><td colspan="3" class="px-4 py-4 text-center text-ink-muted">{{ L("No purchase orders.","لا مشتريات.","Aucun achat.") }}</td></tr>
               </tbody>
@@ -110,6 +110,7 @@ const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigit
 const d = ref(null);
 const loading = ref(true);
 function back() { router.push("/accounting/items/items"); }
+function openPO(doc) { if (doc) router.push({ path: "/accounting/purchases/tobuy", query: { id: doc } }); }
 async function load() {
   const id = route.query.id;
   if (!id) { loading.value = false; return; }
