@@ -743,21 +743,28 @@ def list_cheques(company=None, search=None, status=None, from_date=None, to_date
 
 def _clear_cheque_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    names, date = p["names"], p.get("date") or nowdate()
+    names = p["names"]
+    dates = p.get("dates") or {}          # per-cheque actual bank clearance date
+    default = p.get("date") or nowdate()  # fallback for any cheque without its own date
+    applied = {}
     for n in names:
-        frappe.db.set_value("Payment Entry", n, "clearance_date", date)
+        d = dates.get(n) or default
+        frappe.db.set_value("Payment Entry", n, "clearance_date", d)
+        applied[n] = d
     frappe.db.commit()
     return {"voucher_type": "Payment Entry", "voucher_no": (names[0] if names else None),
-            "result": {"cleared": names, "date": date, "n": len(names)}}
+            "result": {"cleared": applied, "n": len(names)}}
 
 
 def _clear_cheque_reverter(action):
     """Undo a cheque clearing: remove the clearance_date — only where it still holds
     the date this action set (don't wipe a later re-clear)."""
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    set_date = p.get("date")
+    dates = p.get("dates") or {}
+    default = p.get("date")
     done = 0
     for n in (p.get("names") or []):
+        set_date = dates.get(n) or default
         cur = frappe.db.get_value("Payment Entry", n, "clearance_date")
         if cur and (not set_date or str(cur) == str(set_date)):
             frappe.db.set_value("Payment Entry", n, "clearance_date", None)
@@ -771,13 +778,18 @@ _actions.register_reverter(CLEAR_CHQ_ACTION, _clear_cheque_reverter)
 
 
 @frappe.whitelist()
-def mark_cheques_cleared(company=None, names=None, clearance_date=None):
+def mark_cheques_cleared(company=None, names=None, clearance_date=None, dates=None):
     """Stamp the bank clearance date on the selected cheques (a reconciliation
-    marker — no GL impact). Audited; one batch action."""
+    marker — no GL impact). Audited; one batch action.
+
+    `dates`: optional JSON map {payment_entry_name: 'YYYY-MM-DD'} so each cheque
+    gets its real bank-clearing date. `clearance_date` is the fallback for any
+    cheque not in the map (and the whole batch if `dates` is omitted)."""
     assert_can_write()
     target = _target(company)
     names = names if isinstance(names, list) else json.loads(names or "[]")
     names = [n for n in names if n]
+    dates = dates if isinstance(dates, dict) else (json.loads(dates) if dates else {})
     if not target or not names:
         frappe.throw("No cheques selected")
     rows = frappe.db.sql("SELECT name, company FROM `tabPayment Entry` WHERE name IN %(n)s",
@@ -788,10 +800,12 @@ def mark_cheques_cleared(company=None, names=None, clearance_date=None):
         if r.company != target:
             frappe.throw(f"{r.name} belongs to another company")
     date = clearance_date or nowdate()
-    key = "clrchq:" + frappe.generate_hash("".join(sorted(names)) + date, 16)
+    dates = {n: d for n, d in dates.items() if n in names and d}
+    sig = "".join(f"{n}:{dates.get(n, date)}" for n in sorted(names))
+    key = "clrchq:" + frappe.generate_hash(sig, 16)
     res = _actions.execute(CLEAR_CHQ_ACTION, target, key,
-                           payload={"names": sorted(names), "date": date}, amount=0,
-                           notes=f"Cleared {len(names)} cheque(s) on {date}")
+                           payload={"names": sorted(names), "date": date, "dates": dates}, amount=0,
+                           notes=f"Cleared {len(names)} cheque(s)")
     _bust_purch_cache()
     return res
 

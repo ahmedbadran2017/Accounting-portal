@@ -86,6 +86,7 @@
     </div>
 
     <BulkBar :t="tt" filename="cheques-selected" :note="bulkNote" :actions="bulkActions" />
+    <ClearChequesModal v-if="showClear" :rows="clearRows" @close="showClear = false" @done="doClear" />
   </div>
 </template>
 
@@ -99,6 +100,7 @@ import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import BulkBar from "@/components/BulkBar.vue";
+import ClearChequesModal from "@/components/ClearChequesModal.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { usePersistedRef } from "@/composables/usePersistedRef";
@@ -176,17 +178,19 @@ async function loadRows() {
 }
 function setStatus(s) { status.value = s; tt.clearSelection(); loadRows(); }
 
+const showClear = ref(false);
+const clearRows = ref([]);
 const bulkActions = computed(() => [{
   key: "clear", label: L("Mark cleared", "علّم تصرّف", "Encaisser"), icon: "check", color: "#047857",
-  confirm: (r) => L(`Mark ${r.length} cheque(s) cleared today (${today})?`, `علّم ${r.length} شيك كمتصرّف اليوم؟`, `Marquer ${r.length} chèque(s) encaissé(s) ?`),
-  run: async (r) => {
-    try {
-      await api.call("accounting_portal.api.purchases.mark_cheques_cleared", { company: currentCompany(), names: r.map((x) => x.name), clearance_date: today });
-      toast.success(L("Cheques marked cleared", "تم تعليم الشيكات", "Chèques encaissés"));
-      tt.clearSelection(); loadSummary(); loadRows();
-    } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
-  },
+  run: (r) => { clearRows.value = r.slice(); showClear.value = true; },
 }]);
+async function doClear({ names, dates }) {
+  try {
+    await api.call("accounting_portal.api.purchases.mark_cheques_cleared", { company: currentCompany(), names, dates });
+    toast.success(L("Cheques marked cleared", "تم تعليم الشيكات", "Chèques encaissés"));
+    showClear.value = false; tt.clearSelection(); loadSummary(); loadRows();
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
+}
 
 let timer;
 watch(entityId, () => { tt.clearSelection(); loadSummary(); loadRows(); }, { immediate: true });
