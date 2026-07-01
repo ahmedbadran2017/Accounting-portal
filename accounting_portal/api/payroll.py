@@ -12,7 +12,7 @@ import json
 import frappe
 from frappe.utils import flt, add_months, nowdate, getdate, get_last_day
 
-from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
 
 
 def _m(v):
