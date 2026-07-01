@@ -55,7 +55,10 @@
               <td v-show="!tt.hidden.value.has('account_type')" class="px-4 py-2.5"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="o.account_type === 'Cash' ? 'background:#fffbeb;color:#b45309' : 'background:#eff6ff;color:#0369a1'">{{ o.account_type }}</span></td>
               <td v-show="!tt.hidden.value.has('ccy')" class="px-4 py-2.5 text-ink-3">{{ o.ccy }}</td>
               <td v-show="!tt.hidden.value.has('uncleared_n')" class="px-4 py-2.5 text-end tnum" :class="o.uncleared_n ? 'text-brand font-semibold' : 'text-ink-muted'">{{ o.uncleared_n || "—" }}</td>
-              <td v-show="!tt.hidden.value.has('book')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap" :class="o.book < 0 ? 'text-sale' : ''">{{ fmt(o.book) }}</td>
+              <td v-show="!tt.hidden.value.has('book')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap" :class="(o.period ? o.closing : o.book) < 0 ? 'text-sale' : ''">
+                {{ fmt(o.period ? o.closing : o.book) }}
+                <div v-if="o.period" class="text-[9.5px] font-normal text-ink-muted tnum">{{ fmt(o.opening) }} <span class="text-teal-600">+{{ fmt(o.period_in) }}</span> <span class="text-rose-500">−{{ fmt(o.period_out) }}</span></div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -78,11 +81,13 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import { useFiscalYear } from "@/composables/useFiscalYear";
 import { useTableTools } from "@/composables/useTableTools";
 
 const { locale } = useI18n();
 const router = useRouter();
 const { entityId } = useUi();
+const fyc = useFiscalYear();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const money = (n) => fmtAmount(n);
@@ -121,11 +126,12 @@ const SAMPLE = [
 ];
 async function load() {
   loading.value = true;
-  try { accounts.value = await api.call("accounting_portal.api.reconciliation.bank_rec_accounts", { company: currentCompany() }) || []; live.value = true; }
+  try { accounts.value = await api.call("accounting_portal.api.reconciliation.bank_rec_accounts", { company: currentCompany(), ...fyc.filterValue() }) || []; live.value = true; }
   catch { accounts.value = SAMPLE; live.value = false; }
   finally { loading.value = false; }
 }
 function open(name) { router.push({ path: "/accounting/banking/accounts", query: { id: name } }); }
 function goRec() { router.push("/accounting/banking/bankrec"); }
 watch(entityId, load, { immediate: true });
+watch(fyc.selected, load);
 </script>

@@ -185,14 +185,33 @@ CLEAR_BANK_ACTION = "Clear Bank Entry"
 
 
 @frappe.whitelist()
-def bank_rec_accounts(company=None):
-    """Bank/cash accounts with book balance + how much is still unreconciled
-    (book entries with no clearance date)."""
+def fiscal_years(company=None):
+    """ERPNext Fiscal Years (newest first) + which one covers today — drives the
+    year filter on the banking screens."""
+    assert_portal_access()
+    from frappe.utils import nowdate
+    rows = frappe.db.sql(
+        """SELECT name, year_start_date start, year_end_date `end` FROM `tabFiscal Year`
+           WHERE disabled=0 ORDER BY year_start_date DESC LIMIT 12""", as_dict=True)
+    for r in rows:
+        r["start"] = str(r["start"]); r["end"] = str(r["end"])
+    today = nowdate()
+    current = next((r["name"] for r in rows if r["start"] <= today <= r["end"]),
+                   rows[0]["name"] if rows else None)
+    return {"years": rows, "current": current}
+
+
+@frappe.whitelist()
+def bank_rec_accounts(company=None, from_date=None, to_date=None):
+    """Bank/cash accounts with balance + unreconciled count. When a period (fiscal
+    year) is given, each account also carries opening → in/out → closing, so the
+    year's movement is isolated from the carried-forward balance."""
     assert_portal_access()
     target = _target(company)
     if not target:
         return []
-    ck = f"ap_bankrec_acc:{target}"
+    period = bool(from_date or to_date)
+    ck = f"ap_bankrec_acc:{target}:{from_date}:{to_date}"
     cached = frappe.cache().get_value(ck)
     if cached is not None:
         return cached
@@ -202,7 +221,26 @@ def bank_rec_accounts(company=None):
            FROM `tabAccount` a JOIN `tabGL Entry` g ON g.account=a.name AND g.is_cancelled=0
            WHERE a.company=%(c)s AND a.is_group=0 AND a.account_type IN ('Bank','Cash')
            GROUP BY a.name HAVING COUNT(*) > 0
-           ORDER BY ABS(SUM(g.debit - g.credit)) DESC LIMIT 30""", {"c": target}, as_dict=True)
+           ORDER BY ABS(SUM(g.debit - g.credit)) DESC LIMIT 40""", {"c": target}, as_dict=True)
+    names = tuple(r.name for r in accts) or ("",)
+    opening, pin, pout, pn = {}, {}, {}, {}
+    if from_date:
+        for r in frappe.db.sql(
+                """SELECT account, SUM(debit-credit) v FROM `tabGL Entry`
+                   WHERE company=%(c)s AND is_cancelled=0 AND account IN %(n)s AND posting_date < %(fd)s
+                   GROUP BY account""", {"c": target, "n": names, "fd": from_date}, as_dict=True):
+            opening[r.account] = flt(r.v)
+    if period:
+        conds = ["company=%(c)s", "is_cancelled=0", "account IN %(n)s"]
+        p = {"c": target, "n": names}
+        if from_date:
+            conds.append("posting_date >= %(fd)s"); p["fd"] = from_date
+        if to_date:
+            conds.append("posting_date <= %(td)s"); p["td"] = to_date
+        for r in frappe.db.sql(
+                f"""SELECT account, SUM(debit) i, SUM(credit) o, COUNT(*) n FROM `tabGL Entry`
+                    WHERE {' AND '.join(conds)} GROUP BY account""", p, as_dict=True):
+            pin[r.account] = flt(r.i); pout[r.account] = flt(r.o); pn[r.account] = r.n
     for r in accts:
         pe = frappe.db.sql(
             """SELECT COUNT(*) n, ROUND(SUM(ABS(paid_amount))) v FROM `tabPayment Entry`
@@ -217,9 +255,14 @@ def bank_rec_accounts(company=None):
             (target, r.name), as_dict=True)[0]
         r["book"] = flt(r["book"])
         r["uncleared_n"] = (pe.n or 0) + (je.n or 0)
-        # Include uncleared Journal Entries, not just Payment Entries, so the value
-        # matches the count (was understated whenever bank JEs were uncleared).
         r["uncleared_v"] = flt(pe.v) + flt(je.v)
+        op, i, o = opening.get(r.name, 0.0), pin.get(r.name, 0.0), pout.get(r.name, 0.0)
+        r["opening"] = round(op)
+        r["period_in"] = round(i)
+        r["period_out"] = round(o)
+        r["period_n"] = pn.get(r.name, 0)
+        r["closing"] = round(op + i - o) if period else flt(r["book"])
+        r["period"] = period
     frappe.cache().set_value(ck, accts, expires_in_sec=180)
     return accts
 
@@ -333,10 +376,23 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None,
         frappe.throw("Account not found")
     balance = flt(frappe.db.sql(
         "SELECT SUM(debit-credit) FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0", account)[0][0])
+    # Opening (carried forward) = balance before the period start; the period's own
+    # in/out; closing = opening + in − out. Falls back to last 30 days if no period.
+    opening = flt(frappe.db.sql(
+        "SELECT SUM(debit-credit) FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0 AND posting_date < %s",
+        (account, from_date))[0][0]) if from_date else None
+    fconds = ["account=%(acc)s", "is_cancelled=0"]
+    fp = {"acc": account}
+    if from_date:
+        fconds.append("posting_date >= %(fd)s"); fp["fd"] = from_date
+    if to_date:
+        fconds.append("posting_date <= %(td)s"); fp["td"] = to_date
+    if not (from_date or to_date):
+        fconds.append("posting_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")
     fl = frappe.db.sql(
-        """SELECT ROUND(SUM(debit)) inflow, ROUND(SUM(credit)) outflow, COUNT(*) n
-           FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0
-           AND posting_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)""", account, as_dict=True)[0]
+        f"""SELECT ROUND(SUM(debit)) inflow, ROUND(SUM(credit)) outflow, COUNT(*) n
+            FROM `tabGL Entry` WHERE {' AND '.join(fconds)}""", fp, as_dict=True)[0]
+    closing = round(flt(opening) + flt(fl.inflow) - flt(fl.outflow)) if from_date else balance
     pe = frappe.db.sql(
         """SELECT COUNT(*) n, ROUND(SUM(ABS(paid_amount))) v FROM `tabPayment Entry`
            WHERE company=%s AND docstatus=1 AND (paid_to=%s OR paid_from=%s) AND clearance_date IS NULL""",
@@ -384,7 +440,8 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None,
     return {
         "account": account, "name": a.account_name, "type": a.account_type,
         "currency": a.account_currency or "MAD", "balance": balance,
-        "inflow": flt(fl.inflow), "outflow": flt(fl.outflow),
+        "inflow": flt(fl.inflow), "outflow": flt(fl.outflow), "period_n": fl.n or 0,
+        "opening": (round(flt(opening)) if opening is not None else None), "closing": closing,
         "uncleared_n": (pe.n or 0) + (je.n or 0), "uncleared_v": flt(pe.v) + flt(je.v),
         "ledger": ledger, "ledger_total": ledger_total, "start": start, "page_size": page_size,
     }

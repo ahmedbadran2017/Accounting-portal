@@ -9,7 +9,12 @@
           <span class="w-8 h-8 rounded-[10px] grid place-items-center" :style="{ background: a.account_type === 'Cash' ? '#fffbeb' : '#eff6ff' }"><Icon :name="a.account_type === 'Cash' ? 'coins' : 'bank'" :size="15" :color="a.account_type === 'Cash' ? '#b45309' : '#0369a1'" /></span>
           <span class="text-[11px] font-bold text-ink-2 truncate flex-1">{{ a.account_name }}</span>
         </div>
-        <div class="text-[18px] font-extrabold tnum mt-2" :class="a.book < 0 ? 'text-sale' : ''">{{ money(a.book) }} <span class="text-[10px] text-ink-muted">{{ a.ccy }}</span></div>
+        <div class="text-[18px] font-extrabold tnum mt-2" :class="(a.period ? a.closing : a.book) < 0 ? 'text-sale' : ''">{{ money(a.period ? a.closing : a.book) }} <span class="text-[10px] text-ink-muted">{{ a.ccy }}</span></div>
+        <div v-if="a.period" class="text-[10px] text-ink-muted mt-1 tnum leading-tight">
+          <span :title="L('carried forward','مُرحّل','reporté')">{{ money(a.opening) }}</span>
+          <span class="text-teal-600 font-semibold"> +{{ money(a.period_in) }}</span>
+          <span class="text-rose-500 font-semibold"> −{{ money(a.period_out) }}</span>
+        </div>
         <div class="text-[10.5px] mt-1" :class="a.uncleared_n ? 'text-brand font-semibold' : 'text-ink-muted'">{{ a.uncleared_n }} {{ L("uncleared", "غير مُسوّى", "non rapprochés") }}</div>
       </button>
       <div v-if="!accounts.length && !loadingAcc" class="text-[12px] text-ink-muted py-8">{{ L("No bank accounts.", "لا حسابات بنكية.", "Aucun compte.") }}</div>
@@ -84,9 +89,12 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useToast } from "@/composables/useToast";
 import { useTableTools } from "@/composables/useTableTools";
+import { useFiscalYear } from "@/composables/useFiscalYear";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const fyc = useFiscalYear();
+const fyFilter = () => fyc.filterValue();
 const toast = useToast();
 const router = useRouter();
 function open(o) {
@@ -129,7 +137,7 @@ const SAMPLE_ROWS = [
 
 async function loadAccounts() {
   loadingAcc.value = true;
-  try { accounts.value = await api.call("accounting_portal.api.reconciliation.bank_rec_accounts", { company: currentCompany() }) || []; }
+  try { accounts.value = await api.call("accounting_portal.api.reconciliation.bank_rec_accounts", { company: currentCompany(), ...fyFilter() }) || []; }
   catch { accounts.value = SAMPLE_ACC; }
   finally { loadingAcc.value = false; }
   if (accounts.value.length && !sel.value) pick(accounts.value[0]);
@@ -157,5 +165,6 @@ const bulkActions = computed(() => [{
 
 let timer;
 watch(entityId, () => { sel.value = ""; tt.clearSelection(); loadAccounts(); }, { immediate: true });
+watch(fyc.selected, () => { loadAccounts(); });
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
 </script>

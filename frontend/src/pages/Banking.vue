@@ -16,6 +16,8 @@
               @click="goSub(s[0])">{{ t(s[1]) }}</button>
     </div>
 
+    <FiscalYearBar v-if="['accounts','bankrec'].includes(activeSub)" />
+
     <BankAccountDetail v-if="activeSub === 'accounts' && route.query.id" />
     <BankAccounts v-else-if="activeSub === 'accounts'" />
     <BankTransactions v-else-if="activeSub === 'transactions'" />
@@ -36,6 +38,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
+import FiscalYearBar from "@/components/FiscalYearBar.vue";
 import BankAccounts from "@/pages/banking/BankAccounts.vue";
 import BankAccountDetail from "@/pages/banking/BankAccountDetail.vue";
 import BankTransactions from "@/pages/banking/BankTransactions.vue";

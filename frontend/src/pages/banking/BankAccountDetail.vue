@@ -21,7 +21,15 @@
             <div class="text-[26px] font-extrabold tnum" :class="h.balance < 0 ? 'text-sale' : ''">{{ fmt(h.balance) }}<span class="text-[12px] text-ink-muted ms-1">{{ h.currency }}</span></div>
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-line-hair">
+        <!-- Fiscal-year view: opening (carried forward) → in/out → closing -->
+        <div v-if="h.opening != null" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-3 border-t border-line-hair">
+          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Opening", "افتتاحي", "Ouverture") }}</div><div class="text-[14px] font-bold tnum mt-0.5" :class="h.opening < 0 ? 'text-sale' : ''">{{ fmt(h.opening) }}</div></div>
+          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("In", "وارد", "Entrées") }}</div><div class="text-[14px] font-bold tnum text-success-dark mt-0.5">+{{ money(h.inflow) }}</div></div>
+          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Out", "صادر", "Sorties") }}</div><div class="text-[14px] font-bold tnum text-sale mt-0.5">−{{ money(h.outflow) }}</div></div>
+          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Closing", "ختامي", "Clôture") }}</div><div class="text-[14px] font-extrabold tnum mt-0.5" :class="h.closing < 0 ? 'text-sale' : 'text-accent-dark'">{{ fmt(h.closing) }}</div></div>
+          <button @click="goRec" class="text-start"><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Unreconciled", "غير مُسوّى", "Non rappr.") }}</div><div class="text-[14px] font-bold tnum mt-0.5" :class="h.uncleared_n ? 'text-brand' : 'text-ink-muted'">{{ h.uncleared_n }} <Icon v-if="h.uncleared_n" name="arrow" :size="11" color="#c2562f" class="inline rtl:rotate-180" /></div></button>
+        </div>
+        <div v-else class="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-line-hair">
           <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("In (30d)", "وارد (30ي)", "Entrées 30j") }}</div><div class="text-[15px] font-bold tnum text-success-dark mt-0.5">+{{ money(h.inflow) }}</div></div>
           <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Out (30d)", "صادر (30ي)", "Sorties 30j") }}</div><div class="text-[15px] font-bold tnum text-sale mt-0.5">−{{ money(h.outflow) }}</div></div>
           <button @click="goRec" class="text-start"><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Unreconciled", "غير مُسوّى", "Non rappr.") }}</div><div class="text-[15px] font-bold tnum mt-0.5" :class="h.uncleared_n ? 'text-brand' : 'text-ink-muted'">{{ h.uncleared_n }} <Icon v-if="h.uncleared_n" name="arrow" :size="11" color="#c2562f" class="inline rtl:rotate-180" /></div></button>
@@ -82,6 +90,8 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
 import { usePersistedRef } from "@/composables/usePersistedRef";
+import { useFiscalYear } from "@/composables/useFiscalYear";
+const fyc = useFiscalYear();
 
 const route = useRoute();
 const router = useRouter();
@@ -119,7 +129,14 @@ function dateBounds(key) {
   if (key === "range") return [dateFrom.value || null, dateTo.value || null];
   return [null, null];
 }
-function dateFilter() { const [fd, td] = dateBounds(datePreset.value); return { from_date: fd || undefined, to_date: td || undefined }; }
+// When a fiscal year is selected in the shared bar it drives the period (opening →
+// in/out → closing); otherwise the local preset applies.
+function dateFilter() {
+  const f = fyc.fy.value;
+  if (f.from) return { from_date: f.from, to_date: f.to };
+  const [fd, td] = dateBounds(datePreset.value);
+  return { from_date: fd || undefined, to_date: td || undefined };
+}
 
 // Server-paginated ledger — running balance is computed correctly per page.
 const st = useServerTable(
@@ -133,4 +150,5 @@ function setDatePreset(k) { datePreset.value = k; if (k !== "range") st.setFilte
 function applyRange() { if (dateFrom.value && dateTo.value) st.setFilters(dateFilter()); }
 
 watch(() => [route.query.id, currentCompany()], () => { st.page.value = 1; st.load(); }, { immediate: true });
+watch(fyc.selected, () => { st.setFilters(dateFilter()); });
 </script>
