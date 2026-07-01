@@ -254,7 +254,7 @@ def purchases_summary(company=None, from_date=None, to_date=None):
                           params, as_dict=True)[0]
         out[b] = {"count": r.n or 0, "value": flt(r.val)}
     out["currency"] = frappe.db.get_value("Company", target, "default_currency") or "MAD"
-    frappe.cache().set_value(ck, out, expires_in_sec=300)
+    frappe.cache().set_value(ck, out, expires_in_sec=600)
     return out
 
 

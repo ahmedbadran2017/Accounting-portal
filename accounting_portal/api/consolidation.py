@@ -101,7 +101,7 @@ def consolidated_financials(base=None):
         "entities": len(rows),
     }
     try:
-        frappe.cache().set_value(ck, result, expires_in_sec=300)
+        frappe.cache().set_value(ck, result, expires_in_sec=600)
     except Exception:
         pass
     return result

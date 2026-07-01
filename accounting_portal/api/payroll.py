@@ -122,7 +122,7 @@ def payroll_cockpit(company=None, from_date=None, to_date=None):
         "monthly": monthly, "by_department": by_dept,
         "last_month": last_m, "missing_slips": int(missing or 0), "no_structure": int(no_structure or 0),
     }
-    frappe.cache().set_value(ck, out, expires_in_sec=300)
+    frappe.cache().set_value(ck, out, expires_in_sec=600)
     return out
 
 

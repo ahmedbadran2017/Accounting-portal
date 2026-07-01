@@ -79,7 +79,7 @@ def team_performance(company=None, from_date=None, to_date=None):
         out = {"company": target, "from_date": str(from_date), "to_date": str(to_date),
                "currency": currency, "members": [], "totals": {},
                "doctypes": [{"code": c, "label": dt} for dt, _, c in _DOCTYPES]}
-        frappe.cache().set_value(ck, out, expires_in_sec=300)
+        frappe.cache().set_value(ck, out, expires_in_sec=600)
         return out
 
     # Distinct active days across all accounting doctypes — one owner+date pair is
@@ -134,7 +134,7 @@ def team_performance(company=None, from_date=None, to_date=None):
     out = {"company": target, "from_date": str(from_date), "to_date": str(to_date),
            "currency": currency, "members": members, "totals": totals,
            "doctypes": [{"code": c, "label": dt} for dt, _, c in _DOCTYPES]}
-    frappe.cache().set_value(ck, out, expires_in_sec=300)
+    frappe.cache().set_value(ck, out, expires_in_sec=600)
     return out
 
 

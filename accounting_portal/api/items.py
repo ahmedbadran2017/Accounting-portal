@@ -124,7 +124,7 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
         r["true_margin"] = round(base * (1 - r["rto_pct"] / 100), 2) if r["avg_sold"] else 0
         r["true_margin_pct"] = round(r["true_margin"] / r["avg_sold"] * 100, 1) if r["avg_sold"] else 0
     try:
-        frappe.cache().set_value(ck, rows, expires_in_sec=300)
+        frappe.cache().set_value(ck, rows, expires_in_sec=600)
     except Exception:
         pass
     return rows

@@ -953,7 +953,7 @@ def _audit(target, kind):
                        "low": sum(1 for x in findings if x["severity"] == "low"),
                        "count": len(findings)}}
     try:
-        frappe.cache().set_value(ck, out, expires_in_sec=300)
+        frappe.cache().set_value(ck, out, expires_in_sec=600)
     except Exception:
         pass
     return out
@@ -998,7 +998,7 @@ def audit_anomalies(company=None):
                        "low": sum(1 for x in findings if x["severity"] == "low"),
                        "count": len(findings)}}
     try:
-        frappe.cache().set_value(ck, out, expires_in_sec=300)
+        frappe.cache().set_value(ck, out, expires_in_sec=600)
     except Exception:
         pass
     return out

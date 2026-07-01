@@ -252,7 +252,7 @@ def cod_summary(company=None, from_date=None, to_date=None):
     for r in rows:
         if r.bucket in out:
             out[r.bucket] = {"count": r.n or 0, "value": flt(r.val)}
-    frappe.cache().set_value(ck, out, expires_in_sec=300)
+    frappe.cache().set_value(ck, out, expires_in_sec=600)
     return out
 
 
@@ -335,7 +335,7 @@ def list_bucket(company=None, bucket="delivered", search=None, from_date=None, t
         r["returned_on"] = ri.get("date") or ""
     result = {"count": tot_n or 0, "value": flt(tot_val), "rows": rows}
     if ck:
-        frappe.cache().set_value(ck, result, expires_in_sec=300)
+        frappe.cache().set_value(ck, result, expires_in_sec=600)
     return result
 
 

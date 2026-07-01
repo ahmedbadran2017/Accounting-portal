@@ -185,7 +185,7 @@ def inventory_health(company=None):
         "healthy": abs(stock) < 50_000_000,
     }
     try:
-        frappe.cache().set_value(invh_key, result, expires_in_sec=300)
+        frappe.cache().set_value(invh_key, result, expires_in_sec=600)
     except Exception:
         pass
     return result
@@ -386,7 +386,7 @@ def ar_ap_reconciliation(company=None):
         "ar_aging": _aging("Sales Invoice", target),
         "ap_aging": _aging("Purchase Invoice", target),
     }
-    frappe.cache().set_value(ck, out, expires_in_sec=300)
+    frappe.cache().set_value(ck, out, expires_in_sec=600)
     return out
 
 
@@ -862,7 +862,7 @@ def verified_dd(company=None):
         "checklist": checklist, "score": score, "total": len(checklist),
     }
     try:
-        frappe.cache().set_value(ck, result, expires_in_sec=300)
+        frappe.cache().set_value(ck, result, expires_in_sec=600)
     except Exception:
         pass
     return result

@@ -144,7 +144,7 @@ def expense_cockpit(company=None, from_date=None, to_date=None):
         "by_account": by_account, "months": months,
         "cat_order": _ORDER, "cat_color": _COLOR,
     }
-    frappe.cache().set_value(ck, out, expires_in_sec=300)
+    frappe.cache().set_value(ck, out, expires_in_sec=600)
     return out
 
 
