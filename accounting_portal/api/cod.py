@@ -574,7 +574,32 @@ def _collect_poster(action):
     return {"voucher_type": "Sales Order", "voucher_no": f"{reference} ({done})", "result": "collected"}
 
 
+def _collect_reverter(action):
+    """Undo a COD collection: clear the remittance reference (and Fully-Received
+    flag) on each order — but only where the reference still matches, so a later
+    re-reconcile isn't clobbered. Orders drop back out of Collected."""
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    reference = p.get("reference")
+    orders = p.get("orders") or []
+    has_pc = frappe.get_meta("Sales Order").has_field("custom_payment_collection")
+    done = 0
+    for nm in orders:
+        if frappe.db.get_value("Sales Order", nm, "company") != action.company:
+            continue
+        if frappe.db.get_value("Sales Order", nm, "custom_reference_number") != reference:
+            continue
+        vals = {"custom_reference_number": ""}
+        if has_pc:
+            vals["custom_payment_collection"] = ""
+        frappe.db.set_value("Sales Order", nm, vals, update_modified=True)
+        done += 1
+    _bust_summary_cache(action.company)
+    return {"restored": done}
+
+
 _actions.register_poster(COLLECT_ACTION, _collect_poster)
+_actions.register_reverter(COLLECT_ACTION, _collect_reverter)
 
 
 @frappe.whitelist()
