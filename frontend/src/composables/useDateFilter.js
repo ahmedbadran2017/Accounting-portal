@@ -10,6 +10,8 @@ export function useDateFilter(storeKey, onApply, defaultPreset = "all") {
   const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
   const PRESETS = [
     { key: "all", label: () => L("All time", "كل الوقت", "Tout") },
+    { key: "today", label: () => L("Today", "اليوم", "Auj.") },
+    { key: "yesterday", label: () => L("Yesterday", "أمس", "Hier") },
     { key: "month", label: () => L("This month", "هذا الشهر", "Ce mois") },
     { key: "lastmonth", label: () => L("Last month", "الشهر الماضي", "Mois dern.") },
     { key: "quarter", label: () => L("This quarter", "هذا الربع", "Trimestre") },
@@ -23,6 +25,8 @@ export function useDateFilter(storeKey, onApply, defaultPreset = "all") {
   function bounds(k) {
     const iso = (d) => d.toISOString().slice(0, 10);
     const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+    if (k === "today") return [iso(now), iso(now)];
+    if (k === "yesterday") { const yd = new Date(y, m, now.getDate() - 1); return [iso(yd), iso(yd)]; }
     if (k === "month") return [iso(new Date(y, m, 1)), iso(now)];
     if (k === "lastmonth") return [iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))];
     if (k === "quarter") { const q = Math.floor(m / 3) * 3; return [iso(new Date(y, q, 1)), iso(now)]; }

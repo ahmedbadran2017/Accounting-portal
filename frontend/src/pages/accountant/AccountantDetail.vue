@@ -86,12 +86,12 @@
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Recent documents","آخر المستندات","Documents récents") }}</span></div>
         <table class="w-full text-[12px]">
           <tbody>
-            <tr v-for="(r,i) in d.recent" :key="i" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40">
+            <tr v-for="(r,i) in d.recent" :key="i" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40 cursor-pointer group" @click="openDoc(r)">
               <td class="px-4 py-2 w-px"><span class="text-[10px] font-bold rounded px-1.5 py-0.5 tnum" :style="`background:${tint(r.code)};color:${ink(r.code)}`">{{ r.code }}</span></td>
-              <td class="px-2 py-2 font-mono text-[11px]">{{ r.name }}</td>
+              <td class="px-2 py-2 font-mono text-[11px] group-hover:text-accent-dark">{{ r.name }}</td>
               <td class="px-3 py-2 text-ink-3 whitespace-nowrap">{{ r.date }}</td>
               <td class="px-3 py-2"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="statusClass(r.docstatus)">{{ statusLabel(r.docstatus) }}</span></td>
-              <td class="px-4 py-2 text-end tnum text-ink-2 whitespace-nowrap">{{ money(r.amount) }}</td>
+              <td class="px-4 py-2 text-end tnum text-ink-2 whitespace-nowrap">{{ money(r.amount) }}<Icon name="arrow" :size="11" color="#cbd5e1" class="inline ms-1 opacity-0 group-hover:opacity-100" /></td>
             </tr>
             <tr v-if="!d.recent || !d.recent.length"><td colspan="5" class="px-4 py-8 text-center text-ink-muted">{{ L("No documents.","لا مستندات.","Aucun.") }}</td></tr>
           </tbody>
@@ -149,6 +149,8 @@ watch(user, load);
 watch(entityId, () => router.push({ path: "/accounting/accountant/team" }));
 
 function back() { router.push({ path: "/accounting/accountant/team" }); }
+const DOC_ROUTE = { JE: "/accounting/accountant/journals", PE: "/accounting/sales/payments", PI: "/accounting/purchases/bills", SI: "/accounting/sales/invoices" };
+function openDoc(r) { const p = DOC_ROUTE[r.code]; if (p && r.name) router.push({ path: p, query: { id: r.name } }); }
 
 const maxCreated = computed(() => Math.max(1, ...(d.value.monthly || []).map((m) => m.created)));
 const barH = (n) => Math.round((Number(n) || 0) / maxCreated.value * 100);
