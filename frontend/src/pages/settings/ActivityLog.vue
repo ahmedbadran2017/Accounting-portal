@@ -48,7 +48,8 @@
                     <div v-if="!users.length" class="px-3 py-2 text-[11px] text-ink-muted">{{ L("No users","لا مستخدمين","Aucun") }}</div>
                   </div>
                 </span>
-                <button v-if="a.status === 'Proposed'" @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
+                <button v-if="a.status === 'Proposed' && !isMine(a)" @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
+                <span v-else-if="a.status === 'Proposed'" class="text-[10px] text-ink-muted italic px-1" :title="L('You proposed this — another approver must approve it', 'أنت اقترحته — لازم موافِق آخر', 'Un autre approbateur est requis')">{{ L("awaiting another approver", "بانتظار موافِق آخر", "en attente d'un autre approbateur") }}</span>
                 <button v-if="a.status === 'Proposed'" @click="reject(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm">{{ L("Reject", "رفض", "Rejeter") }}</button>
                 <button v-if="a.status === 'Posted' && a.revertable && canManage" @click="revert(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1"><Icon name="arrow" :size="11" class="rotate-180" />{{ L("Undo", "تراجع", "Annuler") }}</button>
               </span>
@@ -75,8 +76,11 @@ import { money0 } from "@/composables/useReports";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
-const { can } = useAuth();
+const { can, user } = useAuth();
 const canManage = computed(() => can("manage_users"));
+// Segregation of duties: you can't approve what you proposed — so hide Approve on
+// your own proposals (the backend enforces it too; this stops the raw error).
+const isMine = (a) => !!(a.proposed_by && user.value && a.proposed_by === user.value);
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const FILTERS = ["", "Proposed", "Posted", "Rejected"];

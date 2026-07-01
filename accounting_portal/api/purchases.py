@@ -416,6 +416,18 @@ def _pay_bill_poster(action):
     if p.get("reference_no"):
         pe.reference_no = p["reference_no"]
         pe.reference_date = p.get("reference_date") or nowdate()
+    # Overriding paid_from (different account / currency) can wipe the amounts
+    # get_payment_entry computed → "Paid Amount is mandatory". Recompute, then
+    # backstop from the allocated reference amount so it's never blank.
+    try:
+        pe.set_amounts()
+    except Exception:
+        pass
+    alloc = sum(flt(r.allocated_amount) for r in (pe.get("references") or []))
+    if not flt(pe.paid_amount):
+        pe.paid_amount = flt(pe.received_amount) or alloc
+    if not flt(pe.received_amount):
+        pe.received_amount = flt(pe.paid_amount) or alloc
     pe.flags.ignore_permissions = True
     pe.insert()
     pe.reload()
