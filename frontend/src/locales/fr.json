@@ -96,7 +96,8 @@
     "custom": "Modules perso.",
     "integrations": "Intégrations",
     "anomrules": "Règles d’anomalie",
-    "activity": "Activité & audit"
+    "activity": "Activité & audit",
+    "payroll": "Paie"
   },
   "jonly": {
     "cod": "Encaissement COD",

@@ -917,6 +917,26 @@ def _anomaly_findings(target, mat=None):
                       "drill": {"module": "items", "sub": "costing", "label": "Costing"}})
     except Exception:
         pass
+
+    # 12) Payroll completeness — active employees with no salary slip for the latest
+    # run month (a missed-pay control) and active employees with no salary structure.
+    last_m = frappe.db.sql(
+        "SELECT DATE_FORMAT(MAX(start_date),'%%Y-%%m') FROM `tabSalary Slip` WHERE company=%s AND docstatus=1",
+        (target,))[0][0]
+    if last_m:
+        miss = frappe.db.sql(
+            """SELECT e.employee_name FROM `tabEmployee` e WHERE e.company=%s AND e.status='Active'
+               AND NOT EXISTS(SELECT 1 FROM `tabSalary Slip` s WHERE s.employee=e.name AND s.docstatus=1
+                              AND DATE_FORMAT(s.start_date,'%%Y-%%m')=%s) LIMIT 50""", (target, last_m), as_dict=True)
+        if miss:
+            f.append({"id": "anom_missing_slips", "severity": "medium", "metric": "Payroll",
+                      "title": f"{len(miss)} active employees have no {last_m} salary slip",
+                      "detail": "These active employees were not paid in the latest payroll run — a missed-pay "
+                                "or off-cycle case worth confirming: "
+                                + ", ".join(m.employee_name for m in miss[:8]),
+                      "amount": len(miss), "account": None,
+                      "recommendation": "Confirm they left, are on unpaid leave, or run their slip.",
+                      "drill": {"module": "accountant", "sub": "payroll", "label": "Payroll"}})
     return f
 
 

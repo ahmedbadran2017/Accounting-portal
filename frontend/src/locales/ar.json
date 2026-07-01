@@ -96,7 +96,8 @@
     "custom": "الوحدات المخصّصة",
     "integrations": "التكاملات",
     "anomrules": "قواعد الشذوذ",
-    "activity": "النشاط والتدقيق"
+    "activity": "النشاط والتدقيق",
+    "payroll": "الرواتب"
   },
   "jonly": {
     "cod": "تحصيل COD",

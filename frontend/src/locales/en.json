@@ -96,7 +96,8 @@
     "custom": "Custom modules",
     "integrations": "Integrations",
     "anomrules": "Anomaly rules",
-    "activity": "Activity & audit"
+    "activity": "Activity & audit",
+    "payroll": "Payroll"
   },
   "jonly": {
     "cod": "COD remittance",
