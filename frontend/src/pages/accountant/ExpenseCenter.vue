@@ -1,5 +1,13 @@
 <template>
   <div class="space-y-3.5">
+    <div class="flex gap-1 bg-white border border-line rounded-chip p-1 w-fit shadow-card">
+      <button v-for="v in VIEWS" :key="v.k" class="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5" :class="view === v.k ? 'bg-app-warm text-accent-dark shadow-card' : 'text-ink-3 hover:text-ink'" @click="view = v.k">
+        <Icon :name="v.icon" :size="13" />{{ v.label() }}<span v-if="v.k==='recurring' && dueBadge" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">{{ dueBadge }}</span>
+      </button>
+    </div>
+
+    <RecurringExpenses v-if="view === 'recurring'" @counts="onCounts" />
+    <template v-else>
     <DateFilterBar :df="df" />
 
     <TableLoading v-if="loading" :rows="6" />
@@ -73,6 +81,7 @@
         </div>
       </div>
     </template>
+    </template>
   </div>
 </template>
 
@@ -82,6 +91,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
+import RecurringExpenses from "@/pages/accountant/RecurringExpenses.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
@@ -89,6 +99,13 @@ import { useDateFilter } from "@/composables/useDateFilter";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const view = ref("breakdown");
+const dueBadge = ref(0);
+const VIEWS = [
+  { k: "breakdown", icon: "list", label: () => L("Breakdown", "التفصيل", "Répartition") },
+  { k: "recurring", icon: "clock", label: () => L("Recurring & due", "المتكرّر والمستحق", "Récurrent") },
+];
+const onCounts = (c) => { dueBadge.value = (c.due || 0) + (c.overdue || 0); };
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
 
@@ -113,6 +130,15 @@ async function load() {
 }
 load();
 watch(entityId, load);
+
+// fetch the due/overdue count once so the "Recurring" tab shows a reminder badge
+// even before the user opens it.
+async function loadBadge() {
+  try { const r = await api.call("accounting_portal.api.recurring.recurring_overview", { company: currentCompany() }); dueBadge.value = (r?.due || 0) + (r?.overdue || 0); }
+  catch { /* ignore */ }
+}
+loadBadge();
+watch(entityId, loadBadge);
 
 const maxCat = computed(() => Math.max(1, ...(data.value.categories || []).map((c) => Math.abs(c.amount))));
 const bar = (v) => Math.max(2, Math.round(Math.abs(Number(v) || 0) / maxCat.value * 100));

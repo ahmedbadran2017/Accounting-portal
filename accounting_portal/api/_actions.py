@@ -35,7 +35,7 @@ _NO_GATE = {"Collect COD",
             # reversible, so they post straight through instead of stranding a lone
             # super-admin at the propose→approve gate (proposer ≠ approver).
             "Set item cost", "Set item costs (bulk)", "Fix weight units",
-            "Stamp PE carrier ref"}
+            "Stamp PE carrier ref", "Create recurring draft"}
 
 # action_type -> poster(action_doc) -> {"voucher_type", "voucher_no", "result"}
 _POSTERS = {}
@@ -66,6 +66,7 @@ def _ensure_posters():
     import accounting_portal.api.docops       # noqa: F401 — Amend Document poster
     import accounting_portal.api.reconciliation  # noqa: F401 — Clear Bank Entry poster
     import accounting_portal.api.landed_engine   # noqa: F401 — cost/weight posters + reverters
+    import accounting_portal.api.recurring        # noqa: F401 — recurring-draft poster + reverter
 
 
 def _existing(dedupe_key):
