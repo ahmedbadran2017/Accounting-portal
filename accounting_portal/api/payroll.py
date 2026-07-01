@@ -280,7 +280,8 @@ def salary_slip_detail(company=None, slip=None):
     s = frappe.db.get_value(
         "Salary Slip", slip,
         ["name", "employee_name", "employee", "start_date", "end_date", "posting_date",
-         "gross_pay", "total_deduction", "net_pay", "status", "department"], as_dict=True)
+         "gross_pay", "total_deduction", "net_pay", "status", "department", "designation",
+         "bank_name", "bank_account_no"], as_dict=True)
     if not s:
         frappe.throw("Slip not found")
     lines = frappe.db.sql(
