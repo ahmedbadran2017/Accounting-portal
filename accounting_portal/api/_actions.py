@@ -68,6 +68,7 @@ def _ensure_posters():
     import accounting_portal.api.landed_engine   # noqa: F401 — cost/weight posters + reverters
     import accounting_portal.api.recurring        # noqa: F401 — recurring-draft poster + reverter
     import accounting_portal.api.payroll          # noqa: F401 — payroll month-close poster + reverter
+    import accounting_portal.api.expenses         # noqa: F401 — record-expense poster + reverter
 
 
 def _existing(dedupe_key):
