@@ -27,6 +27,7 @@
     <CarrierSettlements v-else-if="activeSub === 'settlements'" />
     <CarrierAging v-else-if="activeSub === 'aging'" />
     <BankRec v-else-if="activeSub === 'bankrec'" />
+    <CashBankReview v-else-if="activeSub === 'cleanup'" />
     <ScaffoldTable v-else />
   </div>
 </template>
@@ -39,6 +40,7 @@ import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import FiscalYearBar from "@/components/FiscalYearBar.vue";
+import CashBankReview from "@/pages/banking/CashBankReview.vue";
 import BankAccounts from "@/pages/banking/BankAccounts.vue";
 import BankAccountDetail from "@/pages/banking/BankAccountDetail.vue";
 import BankTransactions from "@/pages/banking/BankTransactions.vue";

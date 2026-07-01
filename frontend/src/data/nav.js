@@ -25,7 +25,7 @@ export const SUBTABS = {
   items: [["items", "sub.items"], ["costing", "sub.costing"], ["pricelists", "sub.pricelists"], ["landed", "sub.landed"]],
   banking: [
     ["accounts", "sub.accounts"], ["transactions", "sub.transactions"],
-    ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["settlements", "sub.settlements"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"],
+    ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["settlements", "sub.settlements"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"], ["cleanup", "sub.cleanup"],
   ],
   accountant: [
     ["journals", "sub.journals"], ["triage", "sub.triage"], ["coa", "sub.coa"], ["gl", "sub.gl"], ["trial", "sub.trial"],

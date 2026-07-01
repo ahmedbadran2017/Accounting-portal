@@ -72,6 +72,7 @@
     "settlements": "Carrier settlements",
     "aging": "Carrier aging",
     "bankrec": "Bank reconciliation",
+    "cleanup": "Cash & bank cleanup",
     "journals": "Journals",
     "coa": "Chart of accounts",
     "gl": "General ledger",

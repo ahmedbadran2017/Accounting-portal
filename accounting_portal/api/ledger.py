@@ -273,3 +273,133 @@ def _disable_acct_reverter(action):
 
 _actions.register_poster(DISABLE_ACCT_ACTION, _disable_acct_poster)
 _actions.register_reverter(DISABLE_ACCT_ACTION, _disable_acct_reverter)
+
+
+# ── Cash & Bank hygiene: the CoA is polluted with credit cards, carrier clearing,
+# personal petty cash and junk all typed as Bank/Cash — which distorts the cash
+# picture. This classifies every Bank/Cash account and drives the cleanup. ───────
+
+RECLASS_ACTION = "Reclassify account"
+
+
+def _cb_classify(name, typ):
+    """Heuristic bucket + suggestion for a Bank/Cash account by its name."""
+    s = (name or "").lower()
+    if "credite card" in s or "credit card" in s or "kredi" in s:
+        return "credit_card", "Credit card → move to Liability (not cash)"
+    if "transaction" in s or any(k in s for k in ("cathadis", "cathedis", "aramex", "cash plus",
+                                                  "trendyol", "payzone", "deposite", "3rd part")):
+        return "clearing", "Carrier / clearing account → not cash"
+    if any(k in s for k in ("delete after", "write off", "who paid unknown", "clean this",
+                            "only tax", "personal temporary")):
+        return "junk", "Junk → close (disable)"
+    if any(k in s for k in ("exchange office", "intermediary", "transfer from", "istanbul exchange", "bisfor")):
+        return "interco", "Intercompany / FX clearing → not cash"
+    if any(k in s for k in ("advance", "injection", "promisses", "non official net wage")):
+        return "advance", "Advance / other → not cash"
+    if "petty cash" in s or "safe " in s or " safe" in s or "wise" in s:
+        return "petty", "Petty / personal cash"
+    return ("bank", "Bank account") if typ == "Bank" else ("petty", "Cash account")
+
+
+@frappe.whitelist()
+def cash_bank_review(company=None):
+    """Every Bank/Cash-typed account with balance, activity and a suggested
+    classification — so the mislabelled ones (credit cards, carrier clearing,
+    intercompany, junk, dead) can be cleaned up."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT a.name, a.account_number num, a.account_name nm, a.account_type typ,
+                  a.account_currency ccy, a.disabled,
+                  ROUND(COALESCE((SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g
+                                  WHERE g.account=a.name AND g.is_cancelled=0),0)) bal,
+                  (SELECT COUNT(*) FROM `tabGL Entry` g WHERE g.account=a.name AND g.is_cancelled=0) n,
+                  (SELECT MAX(g.posting_date) FROM `tabGL Entry` g WHERE g.account=a.name AND g.is_cancelled=0) last
+           FROM `tabAccount` a
+           WHERE a.company=%s AND a.is_group=0 AND a.account_type IN ('Bank','Cash')
+           ORDER BY a.account_type, a.account_number""", (target,), as_dict=True)
+    out = []
+    for r in rows:
+        bucket, suggestion = _cb_classify(r.nm, r.typ)
+        r["bal"] = flt(r["bal"]); r["n"] = int(r["n"] or 0)
+        r["last"] = str(r["last"] or "")[:10]
+        r["disabled"] = int(r["disabled"] or 0)
+        r["bucket"] = bucket
+        r["suggestion"] = suggestion
+        r["dead"] = (r["bal"] == 0 and r["n"] == 0)
+        r["neg_cash"] = (r["typ"] == "Cash" and r["bal"] < 0)
+        r["misclassified"] = bucket not in ("bank", "petty")
+        out.append(r)
+    summary = {
+        "total": len(out),
+        "dead": sum(1 for x in out if x["dead"] and not x["disabled"]),
+        "misclassified": sum(1 for x in out if x["misclassified"] and not x["dead"]),
+        "negative_cash": sum(1 for x in out if x["neg_cash"]),
+        "real_bank": sum(1 for x in out if x["bucket"] == "bank"),
+    }
+    return {"company": target, "rows": out, "summary": summary}
+
+
+@frappe.whitelist()
+def reclassify_account(company=None, account=None, account_type=None):
+    """Change an account's type (e.g. take a credit card / clearing account out of
+    the Bank/Cash cash picture). Super-admin only; audited; reversible."""
+    assert_super_admin()
+    target = _target(company)
+    if not (target and account):
+        frappe.throw("Account required")
+    acc = frappe.db.get_value("Account", account, ["company", "is_group", "account_type"], as_dict=True)
+    if not acc or acc.company != target:
+        frappe.throw("Account not in this company")
+    if acc.is_group:
+        frappe.throw("Can't reclassify a group account")
+    new = (account_type or "").strip()
+    key = f"reclass_acct:{target}:{account}:{new}"
+    return _actions.execute(
+        RECLASS_ACTION, target, key,
+        payload={"account": account, "to": new, "old": acc.account_type or ""},
+        amount=0, notes=f"Reclassify {account} → {new or 'none'}")
+
+
+def _reclass_poster(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    frappe.db.set_value("Account", p["account"], {"account_type": (p.get("to") or None)}, update_modified=True)
+    return {"voucher_type": "Account", "voucher_no": p["account"], "result": p.get("to") or "cleared"}
+
+
+def _reclass_reverter(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    frappe.db.set_value("Account", p["account"], {"account_type": (p.get("old") or None)}, update_modified=True)
+    return {"restored": p["account"]}
+
+
+_actions.register_poster(RECLASS_ACTION, _reclass_poster)
+_actions.register_reverter(RECLASS_ACTION, _reclass_reverter)
+
+
+@frappe.whitelist()
+def disable_dead_accounts(company=None):
+    """One-click cleanup: disable every Bank/Cash account with zero ledger activity
+    (each an audited, individually-reversible action)."""
+    assert_super_admin()
+    target = _target(company)
+    if not target:
+        frappe.throw("company required")
+    accts = frappe.db.sql(
+        """SELECT a.name FROM `tabAccount` a
+           WHERE a.company=%s AND a.is_group=0 AND a.account_type IN ('Bank','Cash') AND a.disabled=0
+             AND NOT EXISTS(SELECT 1 FROM `tabGL Entry` g WHERE g.account=a.name AND g.is_cancelled=0)""",
+        (target,), pluck=True)
+    done = []
+    for acc in accts:
+        try:
+            set_account_disabled(target, acc, 1, 0)
+            done.append(acc)
+        except Exception:
+            frappe.clear_last_message()
+    return {"disabled": len(done), "accounts": done}
