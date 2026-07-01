@@ -30,7 +30,12 @@ MATERIAL_THRESHOLD = 10000.0
 # exempt from the approval gate regardless of magnitude — a daily Cathedis
 # remittance is large by nature but doesn't post to the ledger, so making the
 # accountant chase an approver for every batch is wrong. Still fully audited.
-_NO_GATE = {"Collect COD"}
+_NO_GATE = {"Collect COD",
+            # Master-data corrections (no GL posting) — already super-admin-gated and
+            # reversible, so they post straight through instead of stranding a lone
+            # super-admin at the propose→approve gate (proposer ≠ approver).
+            "Set item cost", "Set item costs (bulk)", "Fix weight units",
+            "Stamp PE carrier ref"}
 
 # action_type -> poster(action_doc) -> {"voucher_type", "voucher_no", "result"}
 _POSTERS = {}

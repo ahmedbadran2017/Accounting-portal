@@ -32,7 +32,7 @@
         <KpiCard :label="L('Submitted','معتمدة','Validés')" :value="(sm.submitted||0).toLocaleString()" :sub="(sm.created||0).toLocaleString() + ' ' + L('created','منشأة','créés')" icon="check" color="#0369a1" />
         <KpiCard :label="L('Rework rate','معدل إعادة العمل','Reprise')" :value="(sm.rework_pct||0)+'%'" :sub="(sm.cancelled||0).toLocaleString()+' '+L('cancelled','ملغاة','annulés')+' · '+L('team','الفريق','équipe')+' '+(d.team.rework_pct||0)+'%'" icon="alert" :color="reworkHex(sm.rework_pct)" :valueClass="reworkColor(sm.rework_pct)" />
         <KpiCard :label="L('Active days','أيام نشطة','Jours actifs')" :value="(sm.active_days||0)" :sub="(sm.per_day||0)+' / '+L('day','يوم','jour')+' · '+L('team','الفريق','équipe')+' '+(d.team.avg_per_day||0)" icon="clock" color="#0f766e" />
-        <KpiCard :label="L('Value moved','القيمة','Valeur')" :value="money(sm.value)" :sub="ccy + ' · ' + (sm.draft||0)+' '+L('drafts','مسودّات','brouillons')" icon="wallet" color="#7c3aed" :valueClass="sm.draft>0 ? '' : ''" />
+        <KpiCard :label="L('Value moved','القيمة','Valeur')" :value="money(sm.value)" :sub="ccy + ' · ' + (sm.draft||0)+' '+L('drafts','مسودّات','brouillons')" icon="wallet" color="#7c3aed" />
       </div>
 
       <!-- by doctype -->

@@ -738,12 +738,16 @@ def _clear_cheque_poster(action):
 
 
 def _clear_cheque_reverter(action):
-    """Undo a cheque clearing: remove the clearance_date from each Payment Entry."""
+    """Undo a cheque clearing: remove the clearance_date — only where it still holds
+    the date this action set (don't wipe a later re-clear)."""
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    set_date = p.get("date")
     done = 0
     for n in (p.get("names") or []):
-        frappe.db.set_value("Payment Entry", n, "clearance_date", None)
-        done += 1
+        cur = frappe.db.get_value("Payment Entry", n, "clearance_date")
+        if cur and (not set_date or str(cur) == str(set_date)):
+            frappe.db.set_value("Payment Entry", n, "clearance_date", None)
+            done += 1
     frappe.db.commit()
     return {"uncleared": done}
 

@@ -23,7 +23,7 @@
       <button type="button" class="text-start rounded-card transition focus:outline-none" :class="mode === 'sweeps' && !carrier ? 'ring-2 ring-sky-500/50' : 'hover:ring-2 hover:ring-sky-500/20'" @click="setMode('sweeps', null)">
         <StatCard :label="L('Swept to your bank','نزل بنككم','Versé en banque')" :value="money(swept)" :sub="ccy + ' · ' + L('view transfers','اعرض التحويلات','voir virements')" icon="bank" color="#0369a1" glow="#85b7eb" tint="#eff6ff" valueColor="#0369a1" />
       </button>
-      <StatCard v-if="heldNeg" :label="L('Over-remitted','محوّل بالزيادة','Sur-versé')" :value="money(s.total_held)" :sub="L('swept &gt; collected · reconcile','حُوّل أكثر مما حُصّل · راجع','versé &gt; encaissé · à rapprocher')" icon="alert" color="#dc2626" glow="#f87171" tint="#fef2f2" valueColor="#dc2626" />
+      <StatCard v-if="heldNeg" :label="L('Over-remitted','محوّل بالزيادة','Sur-versé')" :value="money(s.total_held)" :sub="L('swept > collected · reconcile','حُوّل أكثر مما حُصّل · راجع','versé > encaissé · à rapprocher')" icon="alert" color="#dc2626" glow="#f87171" tint="#fef2f2" valueColor="#dc2626" />
       <StatCard v-else :label="L('Still with carriers','لسه مع الشحن','Encore chez transp.')" :value="money(s.total_held)" :sub="L('not yet remitted','لم تُحوَّل بعد','non versé')" icon="clock" color="#b45309" glow="#f59e0b" tint="#fffbeb" :valueColor="s.total_held ? '#b45309' : undefined" />
       <StatCard :label="L('Carriers','شركات الشحن','Transporteurs')" :value="(s.by_carrier || []).length.toLocaleString()" :sub="topCarrier" icon="layers" color="#7c3aed" glow="#a78bfa" tint="#f5f3ff" />
     </div>
@@ -182,7 +182,6 @@ loadSummary();
 st.load();
 watch(entityId, () => { carrier.value = null; mode.value = "deposits"; loadSummary(); st.page.value = 1; st.setFilters(filtersNow()); });
 
-function toggleCarrier(c) { carrier.value = carrier.value === c ? null : c; st.page.value = 1; st.setFilters(filtersNow()); }
 function setMode(m, c) {
   // c === undefined keeps the current carrier scope; null clears it; a value sets it.
   if (c !== undefined) carrier.value = c;

@@ -33,7 +33,7 @@
               <div class="text-[28px] font-extrabold tnum leading-none mt-1" style="color:#0f766e">{{ fmt(landed) }} <span class="text-[13px] text-ink-muted font-bold">{{ ccy }}</span></div>
               <div class="text-[10.5px] text-ink-muted mt-1">{{ L("current item cost","تكلفة الصنف الحالية","coût actuel") }}: <b class="tnum">{{ Number(d.valuation_rate)>0 ? fmt(d.valuation_rate) : "—" }}</b></div>
             </div>
-            <button v-if="canWrite && landed>0 && !d.flags.not_stock" type="button" :disabled="saving" class="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60 self-center" @click="saveCost">
+            <button v-if="isSuperAdmin && landed>0 && !d.flags.not_stock" type="button" :disabled="saving" class="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60 self-center" @click="saveCost">
               <Icon :name="saving ? 'clock' : 'check'" :size="14" />{{ saving ? L("Saving…","جارٍ…","…") : L("Set as item cost","حفظ كتكلفة","Définir") }}
             </button>
             <div v-if="bookLanded && Math.abs(bookLanded-landed)>0.5" class="text-[11px]">
@@ -75,7 +75,7 @@
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center justify-between">{{ L("Freight / kg","شحن / كجم","Fret / kg") }}
-              <button class="text-[10px] font-semibold text-accent-dark hover:underline" @click="freightPerKg = d.suggested_freight_per_kg">{{ L("suggest","اقتراح","suggéré") }} {{ d.suggested_freight_per_kg }}</button>
+              <button class="text-[10px] font-semibold text-accent-dark hover:underline" @click="freightPerKg = d.suggested_freight_per_kg">{{ L("suggest","اقتراح","suggéré") }} {{ fmt(d.suggested_freight_per_kg) }}</button>
             </label>
             <input v-model.number="freightPerKg" type="number" step="0.1" min="0" class="w-full h-9 mt-1 bg-app-warm/40 border border-line-2 rounded-[10px] px-3 text-[13px] tnum focus:outline-none focus:border-accent/40 focus:bg-white" />
           </div>
@@ -141,7 +141,7 @@ const { locale } = useI18n();
 const { entityId } = useUi();
 const { can } = useAuth();
 const toast = useToast();
-const canWrite = computed(() => can("manage_users"));
+const isSuperAdmin = computed(() => can("manage_users"));
 const saving = ref(false);
 const route = useRoute();
 const router = useRouter();

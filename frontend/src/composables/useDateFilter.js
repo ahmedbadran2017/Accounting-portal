@@ -23,7 +23,9 @@ export function useDateFilter(storeKey, onApply, defaultPreset = "all") {
   const to = usePersistedRef(`ap_${storeKey}_to`, "");
 
   function bounds(k) {
-    const iso = (d) => d.toISOString().slice(0, 10);
+    // Format in LOCAL time — toISOString() is UTC, which rolls the date forward in
+    // the evening for users west of UTC and broke Today/Yesterday (and month edges).
+    const iso = (d) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); };
     const now = new Date(), y = now.getFullYear(), m = now.getMonth();
     if (k === "today") return [iso(now), iso(now)];
     if (k === "yesterday") { const yd = new Date(y, m, now.getDate() - 1); return [iso(yd), iso(yd)]; }

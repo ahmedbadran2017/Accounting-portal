@@ -76,7 +76,9 @@ def _suggested_freight_per_kg(target):
            JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
            JOIN `tabItem` it ON it.name=pii.item_code
            WHERE pi.company=%s AND pi.docstatus=1""", (target,))[0][0]
-    return round(flt(pool) / flt(kg), 2) if flt(kg) else 0.0
+    # Clamp to ≥0: if the freight accounts net a credit balance (pool < 0), a
+    # negative per-kg rate would silently *reduce* landed cost — don't feed that in.
+    return max(0.0, round(flt(pool) / flt(kg), 2)) if flt(kg) else 0.0
 
 
 @frappe.whitelist()
@@ -479,13 +481,19 @@ def _bulk_cost_poster(action):
 
 
 def _restore_field(action, doctype, field):
-    """Generic reverter: restore <field> to the 'old' captured per pair."""
+    """Generic reverter: restore <field> to the captured 'old' — but only where the
+    field STILL holds the value this action set (key 'new' for weight, 'cost' for
+    cost), so a legitimate later change isn't clobbered by a stale undo."""
     import json
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     done = 0
     for it in (p.get("pairs") or []):
         ic = it.get("item")
-        if ic and "old" in it and frappe.db.exists(doctype, ic):
+        if not (ic and "old" in it and frappe.db.exists(doctype, ic)):
+            continue
+        set_val = it.get("new", it.get("cost"))
+        cur = flt(frappe.db.get_value(doctype, ic, field))
+        if set_val is None or abs(cur - flt(set_val)) < 0.005:
             frappe.db.set_value(doctype, ic, {field: flt(it.get("old"))}, update_modified=True)
             done += 1
     return {"restored": done, "field": field}
@@ -495,10 +503,14 @@ def _set_cost_reverter(action):
     import json
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     ic = p.get("item_code")
-    if ic and frappe.db.exists("Item", ic):
+    if not (ic and frappe.db.exists("Item", ic)):
+        return {"restored": 0}
+    # only restore if the cost we set is still there (don't undo a newer change)
+    cur = flt(frappe.db.get_value("Item", ic, "valuation_rate"))
+    if abs(cur - flt(p.get("cost"))) < 0.005:
         frappe.db.set_value("Item", ic, {"valuation_rate": flt(p.get("old"))}, update_modified=True)
         return {"restored": 1, "item": ic}
-    return {"restored": 0}
+    return {"restored": 0, "skipped": "changed since"}
 
 
 _actions.register_poster(BULK_COST_ACTION, _bulk_cost_poster)

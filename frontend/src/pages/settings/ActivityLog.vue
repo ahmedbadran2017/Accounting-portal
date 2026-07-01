@@ -97,7 +97,8 @@ const rows = ref([]);
 async function load() {
   const r = await liveOrSample("accounting_portal.api._actions.list_actions", { company: currentCompany(), limit: 100 }, () => SAMPLE);
   live.value = r.live;
-  rows.value = Array.isArray(r.data) ? r.data : SAMPLE;
+  // Only ever show demo rows when NOT live — never mask a real (empty/failed) audit feed.
+  rows.value = r.live ? (Array.isArray(r.data) ? r.data : []) : SAMPLE;
 }
 onMounted(() => { load(); loadUsers(); });
 watch(entityId, load);

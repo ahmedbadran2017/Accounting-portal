@@ -1,6 +1,11 @@
 <template>
   <div class="space-y-3.5">
     <TableLoading v-if="loading" :rows="6" />
+    <div v-else-if="err" class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-10 text-center">
+      <Icon name="alert" :size="20" color="#e11d48" class="inline-block mb-2" />
+      <p class="text-[12.5px] text-ink-2">{{ L("Couldn't load costing health.","تعذّر تحميل صحة التكلفة.","Échec du chargement.") }}</p>
+      <button type="button" class="mt-2 h-8 px-3 rounded-chip border border-line-2 text-[12px] font-semibold hover:bg-app-warm" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button>
+    </div>
     <template v-else>
       <!-- top stat cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -9,11 +14,11 @@
           <div class="text-[20px] font-extrabold mt-1 tnum">{{ (cov.costed||0).toLocaleString() }}</div>
           <div class="text-[10.5px] text-ink-muted mt-0.5">{{ L("of","من","sur") }} {{ (cov.catalogue||0).toLocaleString() }} · {{ pct(cov.costed,cov.catalogue) }}%</div>
         </div>
-        <button type="button" class="text-start bg-white rounded-card border shadow-card px-4 py-3 transition hover:ring-2 hover:ring-rose-400/20" :class="w.missing ? 'border-rose-200' : 'border-line'" @click="emit('drill','noweight')">
+        <div role="button" tabindex="0" class="text-start cursor-pointer bg-white rounded-card border shadow-card px-4 py-3 transition hover:ring-2 hover:ring-rose-400/20 focus:outline-none focus:ring-2 focus:ring-rose-400/40" :class="w.missing ? 'border-rose-200' : 'border-line'" @click="emit('drill','noweight')" @keydown.enter="emit('drill','noweight')">
           <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="w.missing ? 'text-rose-600' : 'text-ink-muted'"><Icon name="scale" :size="13" :color="w.missing ? '#e11d48' : '#94a3b8'" />{{ L("Missing weight","وزن ناقص","Poids manquant") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" :class="w.missing ? 'text-rose-600' : ''">{{ (w.missing||0).toLocaleString() }}</div>
           <div class="text-[10.5px] text-ink-muted mt-0.5">{{ pct(w.missing,w.total) }}% · <span class="text-amber-700 font-semibold underline cursor-pointer" @click.stop="emit('drill','outliers')">{{ (w.heavy||0)+(w.light||0) }} {{ L("outliers","شاذة","aberrants") }}</span></div>
-        </button>
+        </div>
         <div class="bg-white rounded-card border shadow-card px-4 py-3" :class="fx.overstatement>0 ? 'border-amber-200' : 'border-line'">
           <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="fx.overstatement>0 ? 'text-amber-700' : 'text-ink-muted'"><Icon name="alert" :size="13" :color="fx.overstatement>0 ? '#b45309' : '#94a3b8'" />{{ L("FX overstatement","تضخّم الصرف","Surévaluation FX") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" :class="fx.overstatement>0 ? 'text-amber-700' : ''">{{ money(fx.overstatement) }}</div>
@@ -112,6 +117,7 @@ const pct = (a, b) => (Number(b) ? Math.round(Number(a) / Number(b) * 100) : 0);
 
 const data = ref({});
 const loading = ref(true);
+const err = ref(false);
 const ccy = computed(() => data.value.currency || "MAD");
 const w = computed(() => data.value.weight || {});
 const cov = computed(() => data.value.coverage || {});
@@ -123,9 +129,9 @@ const unverifiedCurrencies = computed(() => {
 });
 
 async function load() {
-  loading.value = true;
+  loading.value = true; err.value = false;
   try { data.value = await api.call("accounting_portal.api.landed_engine.costing_health", { company: currentCompany() }) || {}; }
-  catch { data.value = {}; }
+  catch { data.value = {}; err.value = true; }
   finally { loading.value = false; }
 }
 load();

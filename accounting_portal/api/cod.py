@@ -643,8 +643,10 @@ def _pe_only_pairs(target, orders=None):
     if orders:
         cond = " AND so.name IN %(orders)s"
         params["orders"] = tuple(orders)
+    # Group by (order, invoice) so we stamp the ACTUAL invoice the carrier PE settled
+    # (per.reference_name), not an arbitrary MAX(si.name) of the order's invoices.
     return frappe.db.sql(
-        f"""SELECT so.name AS so, MAX(si.name) AS si, MAX(pe.reference_no) AS ref,
+        f"""SELECT so.name AS so, si.name AS si, MAX(pe.reference_no) AS ref,
                    ROUND(MAX(so.grand_total)) AS amt
             FROM `tabPayment Entry` pe
             JOIN `tabPayment Entry Reference` per ON per.parent=pe.name AND per.reference_doctype='Sales Invoice'
@@ -658,7 +660,7 @@ def _pe_only_pairs(target, orders=None):
               AND IFNULL(si.custom_reference_number,'') NOT LIKE 'CATH%%' AND IFNULL(si.custom_reference_number,'') NOT LIKE 'RDF%%'
               AND IFNULL(so.custom_reference_number,'') NOT LIKE 'CATH%%' AND IFNULL(so.custom_reference_number,'') NOT LIKE 'RDF%%'
               {cond}
-            GROUP BY so.name ORDER BY MAX(so.grand_total) DESC LIMIT 500""", params, as_dict=True)
+            GROUP BY so.name, si.name ORDER BY MAX(so.grand_total) DESC LIMIT 500""", params, as_dict=True)
 
 
 @frappe.whitelist()
@@ -677,17 +679,25 @@ def backfill_pe_refs(company=None, orders=None, dry_run=1):
         orders = json.loads(orders)
     orders = [o for o in (orders or []) if o] or None
     pairs = _pe_only_pairs(target, orders)
-    preview = {"count": len(pairs), "value": sum(flt(p["amt"]) for p in pairs),
-               "rows": [{"order": p["so"], "invoice": p["si"], "ref": p["ref"], "amount": flt(p["amt"])} for p in pairs]}
+    # pairs are (order, invoice) rows — an order can span invoices, so count/value
+    # are by distinct order, not by row.
+    by_so = {}
+    for p in pairs:
+        by_so.setdefault(p["so"], flt(p["amt"]))
+    preview = {"count": len(by_so), "value": sum(by_so.values()),
+               "rows": [{"order": p["so"], "invoice": p["si"], "ref": p["ref"], "amount": flt(p["amt"])} for p in pairs[:200]]}
     if int(dry_run or 0):
         return {"dry_run": True, **preview}
     if not pairs:
         return {"dry_run": False, "count": 0, "applied": 0, "rows": []}
-    key = f"stamp_pe_ref:{target}:{','.join(sorted(p['so'] for p in pairs))[:120]}"
+    # Dedupe key hashes the FULL (order|invoice) set — never truncate the identifying
+    # set, or two different batches sharing a prefix would collide and be skipped.
+    sig = ",".join(sorted(f"{p['so']}|{p['si']}" for p in pairs))
+    key = f"stamp_pe_ref:{target}:{frappe.generate_hash(sig, 16)}"
     res = _actions.execute(
         STAMP_PE_REF_ACTION, target, key,
         payload={"pairs": [{"so": p["so"], "si": p["si"], "ref": p["ref"]} for p in pairs]},
-        amount=preview["value"], notes=f"Stamped carrier ref on {len(pairs)} PE-only collected orders")
+        amount=preview["value"], notes=f"Stamped carrier ref on {len(by_so)} PE-only collected orders")
     _bust_summary_cache(target)
     return {"dry_run": False, **preview, "result": res}
 

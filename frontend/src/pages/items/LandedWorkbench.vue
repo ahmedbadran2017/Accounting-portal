@@ -27,7 +27,7 @@
           <Icon name="alert" :size="13" color="#b45309" class="inline" />
           {{ L("Costs are re-priced at the correct exchange rate per purchase date, then inbound freight is allocated by weight. Click any item to open its cost card.","التكلفة بتتسعّر بسعر الصرف الصح بتاريخ الشراء، وبعدين الشحن الداخل يتوزّع بالوزن. اضغط أي صنف لكارت التكلفة.","Recalculé au bon taux de change puis fret réparti au poids.") }}
         </div>
-        <button v-if="canWrite" type="button" :disabled="bulkBusy" class="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60" @click="bulkSetCosts">
+        <button v-if="isSuperAdmin" type="button" :disabled="bulkBusy" class="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60" @click="bulkSetCosts">
           <Icon :name="bulkBusy ? 'clock' : 'check'" :size="14" />{{ bulkBusy ? L("Working…","جارٍ…","…") : L("Set all costs","حفظ كل التكاليف","Tout définir") }}
         </button>
       </div>
@@ -40,7 +40,7 @@
           <button v-for="sc in SCOPES" :key="sc.k" class="px-2.5 py-1 rounded-lg text-[11.5px] font-semibold whitespace-nowrap" :class="scope === sc.k ? 'bg-white shadow-card text-accent-dark' : 'text-ink-3 hover:text-ink'" @click="setScope(sc.k)">{{ sc.label() }}</button>
         </div>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("items","صنف","articles") }}</span>
-        <button v-if="canWrite && scope==='outliers' && st.total.value" type="button" :disabled="wBusy" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="fixWeights">
+        <button v-if="isSuperAdmin && scope==='outliers' && st.total.value" type="button" :disabled="wBusy" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="fixWeights">
           <Icon :name="wBusy ? 'clock' : 'scale'" :size="13" />{{ wBusy ? L("Working…","جارٍ…","…") : L("Fix grams→kg","صحّح جرام→كجم","Corriger g→kg") }}
         </button>
         <div class="ms-auto relative">
@@ -153,7 +153,7 @@ function onDrill(k) { view.value = "items"; setScope(k); }
 
 const { can } = useAuth();
 const toast = useToast();
-const canWrite = computed(() => can("manage_users"));
+const isSuperAdmin = computed(() => can("manage_users"));
 const bulkBusy = ref(false);
 const wBusy = ref(false);
 
