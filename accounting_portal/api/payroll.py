@@ -412,11 +412,20 @@ def payroll_close_status(company=None, month=None):
         return {}
     currency = _ccy(target)
     # months that have any slip activity, newest first
-    months = [r[0] for r in frappe.db.sql(
+    slip_months = [r[0] for r in frappe.db.sql(
         """SELECT DISTINCT DATE_FORMAT(start_date,'%%Y-%%m') m FROM `tabSalary Slip`
            WHERE company=%s AND docstatus<2 ORDER BY m DESC LIMIT 24""", (target,)) if r[0]]
+    # Also offer the recent CALENDAR months (incl. the current one) even when they
+    # have no slips yet — so a fresh month can be started/closed (the team begins
+    # the new month's payroll near month-end).
+    cal_months, d = [], getdate(nowdate()).replace(day=1)
+    for _ in range(14):
+        cal_months.append(str(d)[:7])
+        d = getdate(add_months(d, -1))
+    months = sorted(set(slip_months) | set(cal_months), reverse=True)
     if not month:
-        month = months[0] if months else str(getdate(nowdate()))[:7]
+        # default to the latest month that actually has slips, else the current month
+        month = slip_months[0] if slip_months else str(getdate(nowdate()))[:7]
 
     active = frappe.db.count("Employee", {"company": target, "status": "Active"})
     sub = frappe.db.sql(
