@@ -65,13 +65,15 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import { fmtMoney } from "@/utils/helpers";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
 const route = useRoute();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
+// Accounting precision: exact, grouped, 2 decimals — no K/M abbreviation.
+const money = (n) => fmtMoney(n);
 const Kpi = (p) => h("div", { class: "bg-white rounded-card border border-line shadow-card px-4 py-3" }, [
   h("div", { class: "text-[10px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
   h("div", { class: "text-[19px] font-extrabold mt-1 tnum", style: `color:${p.color}` }, p.value),
