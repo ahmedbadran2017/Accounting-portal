@@ -13,18 +13,32 @@
       <div v-if="optLoad" class="p-8 text-center text-ink-muted text-[12px]">{{ L("Loading…", "جارٍ التحميل…", "…") }}</div>
       <template v-else>
         <div class="p-5 space-y-3.5">
-          <!-- expense account -->
-          <label class="block">
+          <!-- expense account — single searchable combobox -->
+          <div class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Expense account", "حساب المصروف", "Compte de charge") }}</span>
-            <input v-model.trim="acctFilter" :placeholder="L('filter accounts…','تصفية الحسابات…','filtrer…')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-1.5 text-[11.5px] focus:outline-none focus:border-accent/40" />
-            <select v-model="expenseAccount" size="1" class="mt-1.5 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
-              <option value="">—</option>
-              <option v-for="a in filteredAccounts" :key="a.name" :value="a.name">{{ a.num ? a.num + " · " : "" }}{{ a.nm }}{{ a.ccy && a.ccy !== opt.currency ? " · " + a.ccy : "" }}</option>
-            </select>
-            <div v-if="selectedAccount" class="mt-1 flex items-center gap-1.5">
+            <div class="relative mt-1" v-click-outside="() => (acctOpen = false)">
+              <input v-model="acctQuery" @focus="acctOpen = true" @input="onAcctInput"
+                     :placeholder="L('search by name, number or category…','ابحث بالاسم أو الرقم أو الفئة…','rechercher…')"
+                     class="w-full border border-line-2 rounded-chip ps-3 pe-8 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <span class="absolute top-1/2 -translate-y-1/2 end-3 text-ink-muted pointer-events-none flex"><Icon :name="acctOpen ? 'search' : 'chev'" :size="14" /></span>
+              <div v-if="acctOpen" class="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-line rounded-[12px] shadow-cardHover">
+                <button v-for="a in filteredAccounts" :key="a.name" type="button"
+                        class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60"
+                        :class="a.name === expenseAccount ? 'bg-accent-soft' : ''" @click="pickAccount(a)">
+                  <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="`background:${catColor(a.category)}`"></span>
+                  <span class="min-w-0 flex-1">
+                    <span class="text-[12px] font-semibold truncate block">{{ a.nm }}</span>
+                    <span class="text-[10px] text-ink-muted">{{ a.num || "—" }} · {{ a.category }}{{ a.ccy && a.ccy !== opt.currency ? " · " + a.ccy : "" }}</span>
+                  </span>
+                  <Icon v-if="a.name === expenseAccount" name="check" :size="13" color="#047857" class="shrink-0" />
+                </button>
+                <div v-if="!filteredAccounts.length" class="px-3 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun compte.") }}</div>
+              </div>
+            </div>
+            <div v-if="selectedAccount && !acctOpen" class="mt-1 flex items-center gap-1.5">
               <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-chip" :style="`background:${catColor(selectedAccount.category)}20;color:${catColor(selectedAccount.category)}`">{{ selectedAccount.category }}</span>
             </div>
-          </label>
+          </div>
 
           <div class="grid grid-cols-2 gap-3">
             <label class="block">
@@ -110,7 +124,8 @@ const catColor = (c) => (opt.value.cat_color && opt.value.cat_color[c]) || CAT_C
 
 const opt = ref({ expense_accounts: [], pay_accounts: [], suppliers: [], currency: "MAD", threshold: 10000 });
 const optLoad = ref(true);
-const acctFilter = ref("");
+const acctQuery = ref("");
+const acctOpen = ref(false);
 const expenseAccount = ref("");
 const amount = ref(null);
 const postingDate = ref(new Date().toISOString().slice(0, 10));
@@ -127,7 +142,11 @@ onMounted(async () => {
     // Prefill from a recurring expense (supplier · account · typical amount).
     const p = props.prefill;
     if (p) {
-      if (p.expense_account) expenseAccount.value = p.expense_account;
+      if (p.expense_account) {
+        expenseAccount.value = p.expense_account;
+        const a = (opt.value.expense_accounts || []).find((x) => x.name === p.expense_account);
+        if (a) acctQuery.value = acctLabel(a);
+      }
       if (p.amount) amount.value = Number(p.amount);
       if (p.description) description.value = p.description;
       if (p.party) party.value = p.party;
@@ -136,13 +155,17 @@ onMounted(async () => {
   finally { optLoad.value = false; }
 });
 
-const filteredAccounts = computed(() => {
-  const q = acctFilter.value.toLowerCase();
-  const list = opt.value.expense_accounts || [];
-  if (!q) return list.slice(0, 400);
-  return list.filter((a) => (a.num || "").toLowerCase().includes(q) || (a.nm || "").toLowerCase().includes(q) || (a.category || "").toLowerCase().includes(q)).slice(0, 400);
-});
+const acctLabel = (a) => (a.num ? a.num + " · " : "") + a.nm;
 const selectedAccount = computed(() => (opt.value.expense_accounts || []).find((a) => a.name === expenseAccount.value) || null);
+const filteredAccounts = computed(() => {
+  const list = opt.value.expense_accounts || [];
+  const q = acctQuery.value.trim().toLowerCase();
+  // When the query is empty, or still shows the picked account's label, show all.
+  if (!q || (selectedAccount.value && q === acctLabel(selectedAccount.value).toLowerCase())) return list.slice(0, 500);
+  return list.filter((a) => (a.num || "").toLowerCase().includes(q) || (a.nm || "").toLowerCase().includes(q) || (a.category || "").toLowerCase().includes(q)).slice(0, 500);
+});
+function onAcctInput() { acctOpen.value = true; if (expenseAccount.value) expenseAccount.value = ""; }
+function pickAccount(a) { expenseAccount.value = a.name; acctQuery.value = acctLabel(a); acctOpen.value = false; }
 const payMap = computed(() => Object.fromEntries((opt.value.pay_accounts || []).map((a) => [a.name, a])));
 const isPayable = computed(() => payMap.value[payAccount.value]?.typ === "Payable");
 const canPreview = computed(() => expenseAccount.value && payAccount.value && Number(amount.value) > 0);
