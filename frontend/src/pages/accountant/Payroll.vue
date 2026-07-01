@@ -6,7 +6,7 @@
           <Icon :name="v.icon" :size="13" />{{ v.label() }}
         </button>
       </div>
-      <DateFilterBar v-if="view==='cockpit' || view==='components'" :df="df" class="ms-auto" />
+      <DateFilterBar v-if="['cockpit','components','accounting'].includes(view)" :df="df" class="ms-auto" />
     </div>
 
     <!-- ── COCKPIT ── -->
@@ -110,6 +110,40 @@
       </table>
     </div>
 
+    <!-- ── ACCOUNTING (GL reconciliation) ── -->
+    <template v-else-if="view==='accounting'">
+      <TableLoading v-if="gLoad" :rows="6" />
+      <template v-else>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Kpi :label="L('Expected (slips)','المتوقّع (المسيّرات)','Attendu')" :value="money(gl.total_expected)" icon="scale" color="#0369a1" :sub="ccy" />
+          <Kpi :label="L('Actual (GL)','الفعلي (الأستاذ)','Réel')" :value="money(gl.total_actual)" icon="check" color="#0f766e" :sub="ccy" />
+          <Kpi :label="L('Variance','الفرق','Écart')" :value="money(gl.total_variance)" icon="alert" :color="Math.abs(gl.total_variance||0)>1 ? '#e11d48' : '#047857'" :sub="L('GL − slips','الأستاذ − المسيّرات','GL − paie')" />
+          <Kpi :label="L('Mismatched','غير مطابقة','Non concordés')" :value="gl.mismatched || 0" icon="alert" :color="gl.mismatched ? '#b45309' : '#94a3b8'" :sub="L('accounts','حساب','comptes')" />
+        </div>
+        <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Payroll → GL reconciliation','مطابقة الرواتب بالأستاذ','Rapprochement paie → GL') }}</span><span class="text-[10px] text-ink-muted">{{ L('slip totals vs the account they post to','إجمالي المسيّرات مقابل حسابها','par compte') }}</span></div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-[12px]">
+              <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                <th class="px-4 py-2 text-start">{{ L('Account','الحساب','Compte') }}</th>
+                <th class="px-3 py-2 text-end">{{ L('Expected','المتوقّع','Attendu') }}</th>
+                <th class="px-3 py-2 text-end">{{ L('Actual','الفعلي','Réel') }}</th>
+                <th class="px-4 py-2 text-end">{{ L('Variance','الفرق','Écart') }}</th>
+              </tr></thead>
+              <tbody>
+                <tr v-for="r in gl.rows" :key="r.account" class="border-t border-line-hair" :class="r.tied ? '' : 'bg-rose-50/40'">
+                  <td class="px-4 py-2.5"><span class="font-mono text-[10px] text-ink-muted">{{ r.num }}</span> {{ r.name }}</td>
+                  <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ money(r.expected) }}</td>
+                  <td class="px-3 py-2.5 text-end tnum">{{ money(r.actual) }}</td>
+                  <td class="px-4 py-2.5 text-end tnum font-bold" :class="r.tied ? 'text-success-dark' : 'text-rose-600'">{{ r.tied ? '✓' : money(r.variance) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </template>
+
     <!-- ── COMPONENTS ── -->
     <template v-else-if="view==='components'">
       <TableLoading v-if="kLoad" :rows="8" />
@@ -159,24 +193,27 @@ const VIEWS = [
   { k: "employees", icon: "layers", label: () => L("Employees", "الموظفون", "Employés") },
   { k: "runs", icon: "list", label: () => L("Runs", "التشغيلات", "Exécutions") },
   { k: "components", icon: "scale", label: () => L("Components", "المكوّنات", "Composants") },
+  { k: "accounting", icon: "check", label: () => L("Accounting", "المحاسبة", "Compta") },
 ];
 
 const c = ref({}), cLoad = ref(true);
 const emps = ref([]), eLoad = ref(true), empSearch = ref("");
 const runs = ref([]), rLoad = ref(true);
 const k = ref({}), kLoad = ref(true);
+const gl = ref({}), gLoad = ref(true);
 const ccy = computed(() => c.value.currency || "MAD");
-const df = useDateFilter("payroll", () => { loadCockpit(); loadComponents(); }, "year");
+const df = useDateFilter("payroll", () => { loadCockpit(); loadComponents(); if (view.value === "accounting") loadGL(); }, "year");
 
 async function loadCockpit() { cLoad.value = true; try { c.value = await api.call("accounting_portal.api.payroll.payroll_cockpit", { company: currentCompany(), ...df.filterValue() }) || {}; } catch { c.value = {}; } finally { cLoad.value = false; } }
 async function loadEmps() { eLoad.value = true; try { const r = await api.call("accounting_portal.api.payroll.payroll_employees", { company: currentCompany(), search: empSearch.value }); emps.value = r?.rows || []; } catch { emps.value = []; } finally { eLoad.value = false; } }
 async function loadRuns() { rLoad.value = true; try { const r = await api.call("accounting_portal.api.payroll.payroll_runs", { company: currentCompany() }); runs.value = r?.runs || []; } catch { runs.value = []; } finally { rLoad.value = false; } }
 async function loadComponents() { kLoad.value = true; try { k.value = await api.call("accounting_portal.api.payroll.payroll_components", { company: currentCompany(), ...df.filterValue() }) || {}; } catch { k.value = {}; } finally { kLoad.value = false; } }
+async function loadGL() { gLoad.value = true; try { gl.value = await api.call("accounting_portal.api.payroll.payroll_gl_recon", { company: currentCompany(), ...df.filterValue() }) || {}; } catch { gl.value = {}; } finally { gLoad.value = false; } }
 
 loadCockpit();
-watch(view, (v) => { if (v === "employees" && !emps.value.length) loadEmps(); if (v === "runs" && !runs.value.length) loadRuns(); if (v === "components" && !k.value.earnings) loadComponents(); });
+watch(view, (v) => { if (v === "employees" && !emps.value.length) loadEmps(); if (v === "runs" && !runs.value.length) loadRuns(); if (v === "components" && !k.value.earnings) loadComponents(); if (v === "accounting" && !gl.value.rows) loadGL(); });
 let t; watch(empSearch, () => { clearTimeout(t); t = setTimeout(loadEmps, 300); });
-watch(entityId, () => { c.value = {}; emps.value = []; runs.value = []; k.value = {}; loadCockpit(); if (view.value === "employees") loadEmps(); if (view.value === "runs") loadRuns(); if (view.value === "components") loadComponents(); });
+watch(entityId, () => { c.value = {}; emps.value = []; runs.value = []; k.value = {}; gl.value = {}; loadCockpit(); if (view.value === "employees") loadEmps(); if (view.value === "runs") loadRuns(); if (view.value === "components") loadComponents(); if (view.value === "accounting") loadGL(); });
 
 const maxNet = computed(() => Math.max(1, ...(c.value.monthly || []).map((m) => m.net)));
 const mBar = (v) => Math.round((Number(v) || 0) / maxNet.value * 100);

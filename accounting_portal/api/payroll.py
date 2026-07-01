@@ -263,3 +263,55 @@ def payroll_components(company=None, from_date=None, to_date=None):
             "earnings": earnings, "deductions": deductions,
             "earning_total": round(sum(x["total"] for x in earnings)),
             "deduction_total": round(sum(x["total"] for x in deductions))}
+
+
+@frappe.whitelist()
+def payroll_gl_recon(company=None, from_date=None, to_date=None):
+    """Tie each salary component's slip total to its mapped GL account's actual
+    movement in the period — surfaces payroll that didn't post cleanly (manual
+    adjustments, mis-postings). Earnings count +, deductions −."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    fd, td = _period(from_date, to_date)
+    currency = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    acct = {r.parent: r.account for r in frappe.db.sql(
+        "SELECT parent, account FROM `tabSalary Component Account` WHERE company=%s", (target,), as_dict=True)}
+    # expected per account from the slips
+    exp, aname = {}, {}
+    for r in frappe.db.sql(
+            """SELECT sd.salary_component comp, sd.parentfield typ, SUM(sd.amount) amt
+               FROM `tabSalary Detail` sd JOIN `tabSalary Slip` ss ON ss.name=sd.parent
+               WHERE ss.company=%s AND ss.docstatus=1 AND ss.start_date BETWEEN %s AND %s
+               GROUP BY sd.salary_component, sd.parentfield""", (target, fd, td), as_dict=True):
+        a = acct.get(r.comp)
+        if not a:
+            continue
+        exp[a] = exp.get(a, 0.0) + (flt(r.amt) if r.typ == "earnings" else -flt(r.amt))
+    if not exp:
+        return {"company": target, "currency": currency, "from_date": str(fd), "to_date": str(td),
+                "rows": [], "total_expected": 0, "total_actual": 0, "total_variance": 0, "mismatched": 0}
+    # actual GL per those accounts
+    accts = tuple(exp.keys())
+    gl = {r.account: flt(r.bal) for r in frappe.db.sql(
+        """SELECT account, SUM(debit-credit) bal FROM `tabGL Entry`
+           WHERE company=%(c)s AND is_cancelled=0 AND account IN %(a)s
+             AND posting_date BETWEEN %(fd)s AND %(td)s GROUP BY account""",
+        {"c": target, "a": accts, "fd": fd, "td": td}, as_dict=True)}
+    for a in accts:
+        aname[a] = frappe.db.get_value("Account", a, "account_name") or a
+    rows = []
+    for a, e in exp.items():
+        actual = gl.get(a, 0.0)
+        var = round(actual - e)
+        rows.append({"account": a, "num": a.split(" - ")[0], "name": aname.get(a, a),
+                     "expected": round(e), "actual": round(actual), "variance": var,
+                     "tied": abs(var) < 1})
+    rows.sort(key=lambda x: -abs(x["variance"]))
+    return {"company": target, "currency": currency, "from_date": str(fd), "to_date": str(td),
+            "rows": rows,
+            "total_expected": round(sum(r["expected"] for r in rows)),
+            "total_actual": round(sum(r["actual"] for r in rows)),
+            "total_variance": round(sum(r["variance"] for r in rows)),
+            "mismatched": sum(1 for r in rows if not r["tied"])}
