@@ -20,6 +20,7 @@
     <Journals v-else-if="activeSub === 'journals'" />
     <Remediation v-else-if="activeSub === 'triage'" />
     <ChartOfAccounts v-else-if="activeSub === 'coa'" />
+    <CoaAudit v-else-if="activeSub === 'coaaudit'" />
     <GeneralLedger v-else-if="activeSub === 'gl'" />
     <TrialBalance v-else-if="activeSub === 'trial'" />
     <FixedAssets v-else-if="activeSub === 'assets'" />
@@ -43,6 +44,7 @@ import Journals from "@/pages/accountant/Journals.vue";
 import JournalDetail from "@/pages/accountant/JournalDetail.vue";
 import Remediation from "@/pages/accountant/Remediation.vue";
 import ChartOfAccounts from "@/pages/accountant/ChartOfAccounts.vue";
+import CoaAudit from "@/pages/accountant/CoaAudit.vue";
 import GeneralLedger from "@/pages/accountant/GeneralLedger.vue";
 import TrialBalance from "@/pages/accountant/TrialBalance.vue";
 import FixedAssets from "@/pages/accountant/FixedAssets.vue";

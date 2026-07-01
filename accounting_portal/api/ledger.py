@@ -405,6 +405,134 @@ _actions.register_poster(RECLASS_ACTION, _reclass_poster)
 _actions.register_reverter(RECLASS_ACTION, _reclass_reverter)
 
 
+# ── Chart-of-Accounts audit (per company + across all companies) ──────────────
+
+_JUNK_KW = ("delete after", "write off", "who paid unknown", "clean this",
+            "only tax purpose", "personal temporary", "test account", "dont use", "don't use")
+TRIM_ACTION = "Trim account name"
+
+
+def _coa_scan(company, detail=True):
+    """Run the CoA checks for one company. Returns counts (+ capped detail lists)."""
+    accts = frappe.db.sql(
+        """SELECT a.name, a.account_number num, a.account_name nm, a.root_type rt, a.account_type at,
+                  a.is_group ig, a.disabled dis, a.account_currency ccy,
+                  ROUND(COALESCE((SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g
+                                  WHERE g.account=a.name AND g.is_cancelled=0),0)) bal,
+                  (SELECT COUNT(*) FROM `tabGL Entry` g WHERE g.account=a.name AND g.is_cancelled=0) n
+           FROM `tabAccount` a WHERE a.company=%s ORDER BY a.account_number""", (company,), as_dict=True)
+    dead, sign, junk, spaces, miscash, outliers, grpgl = [], [], [], [], [], [], []
+    byname = {}
+    for a in accts:
+        nm, num = (a.nm or ""), (a.num or "")
+        rec = {"account": a.name, "num": num, "nm": nm, "root": a.rt, "typ": a.at,
+               "ccy": a.ccy, "bal": flt(a.bal), "n": int(a.n or 0), "disabled": int(a.dis or 0)}
+        if nm != nm.strip() or num != num.strip():
+            spaces.append(rec)
+        if a.ig:
+            if int(a.n or 0) > 0:
+                grpgl.append(rec)
+            continue
+        low = nm.lower()
+        if rec["n"] == 0 and not rec["disabled"]:
+            dead.append(rec)
+        debit_nat = a.rt in ("Asset", "Expense")
+        if (debit_nat and rec["bal"] < -100) or (not debit_nat and rec["bal"] > 100):
+            sign.append({**rec, "expected": "debit" if debit_nat else "credit"})
+        for kw in _JUNK_KW:
+            if kw in low:
+                junk.append(rec); break
+        if a.at in ("Bank", "Cash"):
+            bucket, suggestion = _cb_classify(nm, a.at)
+            if bucket not in ("bank", "petty"):
+                miscash.append({**rec, "bucket": bucket, "suggestion": suggestion})
+        if abs(rec["bal"]) >= 50_000_000:
+            outliers.append(rec)
+        key = "".join(ch for ch in low if ch.isalnum())
+        if key:
+            byname.setdefault(key, []).append({"account": a.name, "num": num, "root": a.rt})
+    dups = [{"name": v[0]["num"], "accounts": v} for k, v in byname.items() if len(v) > 1]
+    checks = {"dead": dead, "sign": sign, "junk": junk, "spaces": spaces,
+              "miscash": miscash, "outliers": outliers, "group_with_gl": grpgl, "duplicates": dups}
+    counts = {k: len(v) for k, v in checks.items()}
+    # weighted health score (100 = clean)
+    score = 100
+    score -= min(25, counts["sign"] * 2)
+    score -= min(20, counts["group_with_gl"] * 10)
+    score -= min(15, counts["miscash"])
+    score -= min(10, counts["junk"] * 3)
+    score -= min(10, counts["duplicates"])
+    score -= min(8, counts["spaces"] // 6)
+    score -= min(7, counts["dead"] // 100)
+    score = max(0, score)
+    out = {"company": company, "total": len(accts), "counts": counts, "score": score,
+           "currency": frappe.db.get_value("Company", company, "default_currency") or "MAD"}
+    if detail:
+        out["checks"] = {k: (v[:80] if k != "duplicates" else v[:60]) for k, v in checks.items()}
+    return out
+
+
+@frappe.whitelist()
+def coa_audit(company=None):
+    """Full Chart-of-Accounts audit for one company: findings per check + score."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    return _coa_scan(target, detail=True)
+
+
+@frappe.whitelist()
+def coa_audit_all():
+    """Per-company CoA health across every company the user can see (summary only)."""
+    assert_portal_access()
+    comps = resolve_companies() or []
+    return {"companies": [_coa_scan(c, detail=False) for c in comps]}
+
+
+@frappe.whitelist()
+def trim_account(company=None, account=None):
+    """Strip stray leading/trailing spaces from an account's name/number. Super-admin;
+    audited; reversible."""
+    assert_super_admin()
+    target = _target(company)
+    if not (target and account):
+        frappe.throw("Account required")
+    acc = frappe.db.get_value("Account", account, ["company", "account_name", "account_number"], as_dict=True)
+    if not acc or acc.company != target:
+        frappe.throw("Account not in this company")
+    new_nm = (acc.account_name or "").strip()
+    new_num = (acc.account_number or "").strip()
+    if new_nm == (acc.account_name or "") and new_num == (acc.account_number or ""):
+        frappe.throw("Nothing to trim")
+    key = f"trim_acct:{target}:{account}"
+    return _actions.execute(
+        TRIM_ACTION, target, key,
+        payload={"account": account, "new_nm": new_nm, "new_num": new_num,
+                 "old_nm": acc.account_name or "", "old_num": acc.account_number or ""},
+        amount=0, notes=f"Trim {account}")
+
+
+def _trim_poster(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    frappe.db.set_value("Account", p["account"],
+                        {"account_name": p.get("new_nm"), "account_number": p.get("new_num")}, update_modified=True)
+    return {"voucher_type": "Account", "voucher_no": p["account"], "result": "trimmed"}
+
+
+def _trim_reverter(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    frappe.db.set_value("Account", p["account"],
+                        {"account_name": p.get("old_nm"), "account_number": p.get("old_num")}, update_modified=True)
+    return {"restored": p["account"]}
+
+
+_actions.register_poster(TRIM_ACTION, _trim_poster)
+_actions.register_reverter(TRIM_ACTION, _trim_reverter)
+
+
 @frappe.whitelist()
 def disable_dead_accounts(company=None):
     """One-click cleanup: disable every Bank/Cash account with zero ledger activity

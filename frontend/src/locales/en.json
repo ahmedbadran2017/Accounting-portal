@@ -75,6 +75,7 @@
     "cleanup": "Cash & bank cleanup",
     "journals": "Journals",
     "coa": "Chart of accounts",
+    "coaaudit": "CoA audit",
     "gl": "General ledger",
     "trial": "Trial balance",
     "assets": "Fixed assets",

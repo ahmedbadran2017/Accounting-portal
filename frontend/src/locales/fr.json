@@ -75,6 +75,7 @@
     "cleanup": "Nettoyage caisse & banque",
     "journals": "Écritures",
     "coa": "Plan comptable",
+    "coaaudit": "Audit du plan",
     "gl": "Grand livre",
     "trial": "Balance",
     "assets": "Immobilisations",
