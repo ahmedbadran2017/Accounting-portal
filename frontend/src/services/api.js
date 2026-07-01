@@ -19,7 +19,7 @@ const READ_TTL_MS = 12000;
 // A method is a cacheable read if its function name starts with a read verb or
 // carries a read token. Everything else (create/post/mark/clear/revert/close/…)
 // is treated as a write: never cached, and it flushes the cache first.
-const READ_RE = /(^|\.)(get|list|search|whoami)[a-z_]*$|(cockpit|summary|overview|trial|balance|aging|forecast|statement|recon|health|breakdown|transactions|digest|feed|report|options|settlements|remittance|ledger|detail|history|status|fixable|revertable|employees|runs|components|consolidated)/i;
+const READ_RE = /(^|\.)(get|list|search|whoami)[a-z_]*$|(cockpit|summary|overview|trial|balance|aging|forecast|statement|recon|health|breakdown|transactions|digest|feed|report|options|settlements|remittance|ledger|detail|history|status|fixable|revertable|employees|runs|components|consolidated|preview)/i;
 
 const _cache = new Map();    // key → { ts, value }
 const _inflight = new Map(); // key → Promise

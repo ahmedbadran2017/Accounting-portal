@@ -92,6 +92,46 @@
           <Kpi :label="L('Cost to company','تكلفة الشركة','Coût total')" :value="money(cl.cost_to_company)" icon="wallet" color="#0f766e" :sub="ccy" />
         </div>
 
+        <!-- ── RUN PAYROLL: generate → submit → pay, all from here ── -->
+        <div v-if="can('post_entries') && !cl.closed" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Run payroll','تشغيل الرواتب','Exécuter la paie') }}</span><span class="text-[10px] text-ink-muted">{{ L('generate → submit → pay','إنشاء ← اعتماد ← دفع','générer → soumettre → payer') }}</span></div>
+          <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- 1. Generate -->
+            <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-bold text-white bg-ink">1</span><span class="text-[12px] font-bold">{{ L('Generate slips','إنشاء المسيّرات','Générer') }}</span></div>
+              <div class="text-[11px] text-ink-muted flex-1">{{ pv.eligible_count || 0 }} {{ L('eligible staff with no slip yet','موظف مؤهّل بلا مسيّر','éligibles sans bulletin') }}</div>
+              <button type="button" :disabled="runBusy || !(pv.eligible_count>0)" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-40" @click="doGenerate">
+                <Icon :name="runBusy==='gen' ? 'clock' : 'plus'" :size="12" class="inline -mt-0.5 me-1" />{{ pv.eligible_count>0 ? L('Generate','إنشاء','Générer')+' '+pv.eligible_count : L('None eligible','لا مؤهّلين','Aucun') }}
+              </button>
+            </div>
+            <!-- 2. Submit -->
+            <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-bold text-white bg-ink">2</span><span class="text-[12px] font-bold">{{ L('Submit slips','اعتماد المسيّرات','Soumettre') }}</span></div>
+              <div class="text-[11px] text-ink-muted flex-1">{{ pv.draft_count || 0 }} {{ L('draft slips → posts the accrual','مسودّة ← ترحيل الاستحقاق','brouillons → comptabilise') }}</div>
+              <button type="button" :disabled="runBusy || !(pv.draft_count>0)" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-sky-700 hover:bg-sky-800 disabled:opacity-40" @click="doSubmitSlips">
+                <Icon :name="runBusy==='sub' ? 'clock' : 'check'" :size="12" class="inline -mt-0.5 me-1" />{{ pv.draft_count>0 ? L('Submit','اعتماد','Soumettre')+' '+pv.draft_count : L('No drafts','لا مسودّات','Aucun') }}
+              </button>
+            </div>
+            <!-- 3. Pay -->
+            <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-bold text-white bg-ink">3</span><span class="text-[12px] font-bold">{{ L('Pay salaries','دفع الرواتب','Payer') }}</span></div>
+              <div class="text-[11px] text-ink-muted flex-1">{{ money(pv.to_pay_net) }} {{ ccy }} · {{ pv.to_pay_count || 0 }} {{ L('unpaid','غير مدفوع','non payés') }}</div>
+              <div class="flex gap-1.5">
+                <select v-model="payBank" class="h-8 min-w-0 flex-1 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none">
+                  <option value="">{{ L('bank…','البنك…','banque…') }}</option>
+                  <option v-for="b in pv.banks || []" :key="b.name" :value="b.name">{{ b.nm }}</option>
+                </select>
+                <button type="button" :disabled="runBusy || !(pv.to_pay_count>0) || !payBank" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" @click="doPay">
+                  <Icon :name="runBusy==='pay' ? 'clock' : 'wallet'" :size="12" class="inline -mt-0.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+            <Icon name="shield" :size="11" color="#9a8f86" />{{ L('Submit & Pay are gated for material amounts and fully reversible (Undo in Activity).','الاعتماد والدفع مبوّبان بالموافقة للمبالغ الكبيرة وقابلان للتراجع بالكامل.','Soumettre & Payer sont contrôlés et réversibles.') }}
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <!-- checklist -->
           <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
@@ -316,6 +356,7 @@ const runs = ref([]), rLoad = ref(true);
 const k = ref({}), kLoad = ref(true);
 const gl = ref({}), gLoad = ref(true);
 const cl = ref({ months: [], missing: [], runs: [], checklist: [] }), clLoad = ref(true), clMonth = ref(""), clBusy = ref(false);
+const pv = ref({}), payBank = ref(""), runBusy = ref("");
 const ccy = computed(() => c.value.currency || cl.value.currency || "MAD");
 const df = useDateFilter("payroll", () => { loadCockpit(); loadComponents(); if (view.value === "accounting") loadGL(); }, "year");
 
@@ -331,6 +372,36 @@ async function loadClose() {
     clMonth.value = cl.value.month || clMonth.value;
   } catch { cl.value = { months: [], missing: [], runs: [], checklist: [] }; }
   finally { clLoad.value = false; }
+  loadPreview();
+}
+async function loadPreview() {
+  if (!clMonth.value) { pv.value = {}; return; }
+  try { pv.value = await api.call("accounting_portal.api.payroll.payroll_run_preview", { company: currentCompany(), month: clMonth.value }, { fresh: true }) || {}; }
+  catch { pv.value = {}; }
+}
+async function runStep(kind, method, extra) {
+  if (runBusy.value) return;
+  runBusy.value = kind;
+  try {
+    const res = await api.call(method, { company: currentCompany(), month: clMonth.value, ...(extra || {}) });
+    if (res && res.status === "Proposed") toast.success(L("Sent for approval", "أُرسل للموافقة", "Envoyé pour approbation"));
+    else toast.success(L("Done", "تم", "Terminé"));
+    await loadClose();
+  } catch (e) { toast.error(L("Failed", "فشل", "Échec") + ": " + String(e?.message || e).slice(0, 160)); }
+  finally { runBusy.value = ""; }
+}
+function doGenerate() {
+  if (!window.confirm(L(`Generate salary slips for ${pv.value.eligible_count} employee(s) for ${clMonth.value}? (drafts — no ledger impact yet)`, `إنشاء مسيّرات لـ ${pv.value.eligible_count} موظف لشهر ${clMonth.value}؟ (مسودّات بدون أثر على الأستاذ)`, `Générer les bulletins ?`))) return;
+  runStep("gen", "accounting_portal.api.payroll.payroll_generate");
+}
+function doSubmitSlips() {
+  if (!window.confirm(L(`Submit ${pv.value.draft_count} draft slip(s) for ${clMonth.value}? This posts the salary accrual to the ledger.`, `اعتماد ${pv.value.draft_count} مسيّر مسودّة لشهر ${clMonth.value}؟ ده بيرحّل استحقاق الرواتب للأستاذ.`, `Soumettre les bulletins ?`))) return;
+  runStep("sub", "accounting_portal.api.payroll.payroll_submit_slips");
+}
+function doPay() {
+  if (!payBank.value) return;
+  if (!window.confirm(L(`Pay ${money(pv.value.to_pay_net)} ${ccy.value} in salaries for ${clMonth.value} from the selected bank? Posts a bank entry clearing salary payable.`, `دفع ${money(pv.value.to_pay_net)} ${ccy.value} رواتب لشهر ${clMonth.value} من البنك المختار؟ بيرحّل قيد بنكي يقفل الرواتب المستحقة.`, `Payer les salaires ?`))) return;
+  runStep("pay", "accounting_portal.api.payroll.payroll_pay", { bank_account: payBank.value });
 }
 
 loadCockpit();

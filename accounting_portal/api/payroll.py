@@ -484,13 +484,270 @@ def _close_month_reverter(doc):
     return {"reopened": True, "month": json.loads(doc.payload or "{}").get("month")}
 
 
-# Wire the close sign-off into the write gateway: no-GL, exempt from the approval
-# gate, and reversible (reopen).
+# ─────────────────────────────────────────────────────────────────────────────
+# FULL payroll operations — generate slips → submit → pay. Every step goes through
+# the write gateway (audited, idempotent, gated for material amounts, reversible),
+# so the team runs the whole cycle from the portal instead of ERPNext HR.
+#   • Generate  → creates a Payroll Entry + draft Salary Slips (no GL yet)
+#   • Submit    → submits the slips (posts the salary accrual to the GL)
+#   • Pay       → posts the bank "Bank Entry" journal that clears salary payable
+# ─────────────────────────────────────────────────────────────────────────────
+
+RUN_ACTION = "Run payroll"          # generate the run + draft slips
+SUBMIT_SLIPS_ACTION = "Submit payroll slips"
+PAY_ACTION = "Pay salaries"
+
+
+def _payroll_defaults(target):
+    """Best-guess Payroll Entry defaults (payable account, cost center) taken from
+    the company's most recent run, then company settings."""
+    last = frappe.db.get_value(
+        "Payroll Entry", {"company": target}, ["payroll_payable_account", "cost_center"],
+        order_by="creation desc", as_dict=True) or frappe._dict()
+    payable = last.payroll_payable_account or frappe.db.get_value(
+        "Company", target, "default_payroll_payable_account")
+    cc = last.cost_center or frappe.db.get_value("Company", target, "cost_center")
+    return payable, cc
+
+
+def _month_bounds(month):
+    return f"{month}-01", str(get_last_day(f"{month}-01"))
+
+
+def _bank_accounts(target):
+    return frappe.db.sql(
+        """SELECT name, account_name nm FROM `tabAccount`
+           WHERE company=%s AND is_group=0 AND disabled=0 AND account_type='Bank' ORDER BY name""",
+        (target,), as_dict=True)
+
+
+@frappe.whitelist()
+def payroll_run_preview(company=None, month=None):
+    """Read-only: what a generate/submit/pay would touch for the month — eligible
+    employees (active + assigned a salary structure, no slip yet), current draft /
+    submitted counts, outstanding payable, and the account defaults + bank list."""
+    assert_portal_access()
+    target = _target(company)
+    if not (target and month):
+        return {}
+    start, end = _month_bounds(month)
+    eligible = frappe.db.sql(
+        """SELECT e.name, e.employee_name nm FROM `tabEmployee` e
+           WHERE e.company=%s AND e.status='Active'
+             AND EXISTS(SELECT 1 FROM `tabSalary Structure Assignment` a
+                        WHERE a.employee=e.name AND a.docstatus=1 AND a.from_date<=%s)
+             AND NOT EXISTS(SELECT 1 FROM `tabSalary Slip` s WHERE s.employee=e.name AND s.docstatus<2
+                            AND DATE_FORMAT(s.start_date,'%%Y-%%m')=%s)
+           ORDER BY e.employee_name""", (target, end, month), as_dict=True)
+    drafts = frappe.db.sql(
+        """SELECT name, employee_name nm, net_pay FROM `tabSalary Slip`
+           WHERE company=%s AND docstatus=0 AND DATE_FORMAT(start_date,'%%Y-%%m')=%s""",
+        (target, month), as_dict=True)
+    submitted = frappe.db.sql(
+        """SELECT COUNT(*) n, SUM(net_pay) net FROM `tabSalary Slip`
+           WHERE company=%s AND docstatus=1 AND DATE_FORMAT(start_date,'%%Y-%%m')=%s""",
+        (target, month), as_dict=True)[0]
+    payable, cc = _payroll_defaults(target)
+    to_pay = _pay_plan(target, month)
+    return {
+        "company": target, "currency": _ccy(target), "month": month,
+        "eligible": eligible, "eligible_count": len(eligible),
+        "drafts": drafts, "draft_count": len(drafts),
+        "submitted_count": int(submitted.n or 0), "submitted_net": _m(submitted.net),
+        "payable_account": payable, "cost_center": cc,
+        "banks": _bank_accounts(target),
+        "to_pay_net": _m(sum(p["amount"] for p in to_pay)), "to_pay_count": len(to_pay),
+    }
+
+
+# ── Generate (create Payroll Entry + draft slips) ──────────────────────────────
+
+@frappe.whitelist()
+def payroll_generate(company=None, month=None, notes=None):
+    assert_can_write()
+    target = _target(company)
+    if not (target and month):
+        frappe.throw("company and month are required")
+    from accounting_portal.api import _actions
+    key = "payroll-run:" + frappe.generate_hash(f"{target}:{month}", 14)
+    return _actions.execute(RUN_ACTION, target, key, payload={"month": month},
+                            amount=0, notes=notes or f"Generate payroll slips {month}")
+
+
+def _run_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    target, month = doc.company, p["month"]
+    start, end = _month_bounds(month)
+    payable, cc = _payroll_defaults(target)
+    pe = frappe.get_doc({
+        "doctype": "Payroll Entry", "company": target, "posting_date": end,
+        "start_date": start, "end_date": end, "payroll_frequency": "Monthly",
+        "currency": _ccy(target), "exchange_rate": 1,
+        "payroll_payable_account": payable, "cost_center": cc,
+    })
+    pe.fill_employee_details()
+    if not pe.get("employees"):
+        frappe.throw("No eligible employees to run (each needs a submitted Salary Structure Assignment).")
+    pe.insert(ignore_permissions=True)
+    pe.submit()
+    pe.create_salary_slips()  # inline for small runs; enqueues for big ones
+    n = frappe.db.count("Salary Slip", {"payroll_entry": pe.name})
+    return {"voucher_type": "Payroll Entry", "voucher_no": pe.name,
+            "result": {"payroll_entry": pe.name, "employees": len(pe.employees), "slips_created": n}}
+
+
+def _run_reverter(doc):
+    """Undo a generate: delete the draft slips it created, then cancel the run.
+    Refuses if any of its slips are already submitted (use the submit-undo first)."""
+    pe = doc.voucher_no
+    if not pe or not frappe.db.exists("Payroll Entry", pe):
+        return {"noop": True}
+    if frappe.db.exists("Salary Slip", {"payroll_entry": pe, "docstatus": 1}):
+        frappe.throw("This run has submitted slips — revert the submission first.")
+    for s in frappe.get_all("Salary Slip", {"payroll_entry": pe, "docstatus": 0}, pluck="name"):
+        frappe.delete_doc("Salary Slip", s, force=1, ignore_permissions=True)
+    if frappe.db.get_value("Payroll Entry", pe, "docstatus") == 1:
+        frappe.get_doc("Payroll Entry", pe).cancel()
+    return {"cancelled_run": pe}
+
+
+# ── Submit slips (post the accrual to the GL) ──────────────────────────────────
+
+@frappe.whitelist()
+def payroll_submit_slips(company=None, month=None, notes=None):
+    assert_can_write()
+    target = _target(company)
+    if not (target and month):
+        frappe.throw("company and month are required")
+    net = flt(frappe.db.sql(
+        """SELECT SUM(net_pay) FROM `tabSalary Slip`
+           WHERE company=%s AND docstatus=0 AND DATE_FORMAT(start_date,'%%Y-%%m')=%s""",
+        (target, month))[0][0])
+    from accounting_portal.api import _actions
+    key = "payroll-submit:" + frappe.generate_hash(f"{target}:{month}", 14)
+    return _actions.execute(SUBMIT_SLIPS_ACTION, target, key, payload={"month": month},
+                            amount=net, notes=notes or f"Submit payroll slips {month}")
+
+
+def _submit_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    target, month = doc.company, p["month"]
+    # Submit through each month's Payroll Entry so HRMS posts the accrual JV.
+    runs = frappe.get_all("Payroll Entry",
+                          {"company": target, "docstatus": 1}, ["name", "start_date"])
+    runs = [r for r in runs if str(r.start_date)[:7] == month
+            and frappe.db.exists("Salary Slip", {"payroll_entry": r.name, "docstatus": 0})]
+    done = []
+    for r in runs:
+        frappe.get_doc("Payroll Entry", r.name).submit_salary_slips()
+        done.append(r.name)
+    # Any stray draft slips not tied to a run — submit directly.
+    for s in frappe.get_all("Salary Slip",
+                            {"company": target, "docstatus": 0}, ["name", "start_date"]):
+        if str(s.start_date)[:7] == month:
+            frappe.get_doc("Salary Slip", s.name).submit()
+    return {"voucher_type": "Payroll Entry", "voucher_no": ",".join(done) or None,
+            "result": {"runs_submitted": done, "month": month}}
+
+
+def _submit_reverter(doc):
+    """Cancel the month's submitted slips (reverses the accrual GL)."""
+    p = json.loads(doc.payload or "{}")
+    target, month = doc.company, p["month"]
+    cancelled = 0
+    for s in frappe.get_all("Salary Slip",
+                            {"company": target, "docstatus": 1}, ["name", "start_date"]):
+        if str(s.start_date)[:7] == month:
+            frappe.get_doc("Salary Slip", s.name).cancel()
+            cancelled += 1
+    return {"cancelled_slips": cancelled, "month": month}
+
+
+# ── Pay salaries (bank entry that clears salary payable) ───────────────────────
+
+def _pay_plan(target, month):
+    """Per-employee net still owed for the month = submitted-slip net minus what a
+    prior Bank Entry already paid against that employee's payable/run."""
+    slips = frappe.db.sql(
+        """SELECT s.employee, s.employee_name nm, s.net_pay, s.payroll_entry pe
+           FROM `tabSalary Slip` s
+           WHERE s.company=%s AND s.docstatus=1 AND DATE_FORMAT(s.start_date,'%%Y-%%m')=%s""",
+        (target, month), as_dict=True)
+    plan = []
+    for s in slips:
+        payable, _cc = _payroll_defaults(target)
+        acct = frappe.db.get_value("Payroll Entry", s.pe, "payroll_payable_account") if s.pe else payable
+        # already paid to this employee against this run
+        paid = flt(frappe.db.sql(
+            """SELECT SUM(jea.debit) FROM `tabJournal Entry Account` jea
+               JOIN `tabJournal Entry` je ON je.name=jea.parent
+               WHERE je.docstatus=1 AND jea.party_type='Employee' AND jea.party=%s
+                 AND jea.reference_type='Payroll Entry' AND jea.reference_name=%s""",
+            (s.employee, s.pe))[0][0]) if s.pe else 0.0
+        owe = _m(flt(s.net_pay) - paid)
+        if owe > 0.005:
+            plan.append({"employee": s.employee, "nm": s.employee_name, "amount": owe,
+                         "account": acct, "pe": s.pe})
+    return plan
+
+
+@frappe.whitelist()
+def payroll_pay(company=None, month=None, bank_account=None, notes=None):
+    assert_can_write()
+    target = _target(company)
+    if not (target and month and bank_account):
+        frappe.throw("company, month and bank_account are required")
+    plan = _pay_plan(target, month)
+    if not plan:
+        frappe.throw("Nothing to pay — salaries for this month are already settled.")
+    total = _m(sum(p["amount"] for p in plan))
+    from accounting_portal.api import _actions
+    key = "payroll-pay:" + frappe.generate_hash(f"{target}:{month}:{bank_account}:{total}", 14)
+    return _actions.execute(PAY_ACTION, target, key,
+                            payload={"month": month, "bank_account": bank_account},
+                            amount=total, notes=notes or f"Pay salaries {month}")
+
+
+def _pay_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    target, month, bank = doc.company, p["month"], p["bank_account"]
+    plan = _pay_plan(target, month)
+    if not plan:
+        frappe.throw("Nothing left to pay for this month.")
+    start, end = _month_bounds(month)
+    total = _m(sum(x["amount"] for x in plan))
+    accounts = [{"account": x["account"], "party_type": "Employee", "party": x["employee"],
+                 "debit_in_account_currency": x["amount"], "credit_in_account_currency": 0,
+                 "reference_type": "Payroll Entry", "reference_name": x["pe"]} for x in plan]
+    accounts.append({"account": bank, "debit_in_account_currency": 0,
+                     "credit_in_account_currency": total})
+    mm = month[5:7] + "-" + month[2:4]
+    je = frappe.get_doc({
+        "doctype": "Journal Entry", "voucher_type": "Bank Entry", "company": target,
+        "posting_date": nowdate(), "multi_currency": 1,
+        "cheque_no": f"SALARY {mm}", "cheque_date": nowdate(),
+        "user_remark": f"Payment of salaries from {start} to {end}",
+        "accounts": accounts,
+    })
+    je.insert(ignore_permissions=True)
+    je.submit()
+    return {"voucher_type": "Journal Entry", "voucher_no": je.name,
+            "result": {"paid": total, "employees": len(plan), "bank": bank}}
+
+
+# Generate/pay register via the shared cancel-voucher undo where applicable.
 def _register():
     from accounting_portal.api import _actions
     _actions.register_poster(CLOSE_ACTION, _close_month_poster)
     _actions.register_reverter(CLOSE_ACTION, _close_month_reverter)
     _actions._NO_GATE.add(CLOSE_ACTION)
+    _actions.register_poster(RUN_ACTION, _run_poster)
+    _actions.register_reverter(RUN_ACTION, _run_reverter)
+    _actions._NO_GATE.add(RUN_ACTION)  # creates drafts only (no GL) → no approval gate
+    _actions.register_poster(SUBMIT_SLIPS_ACTION, _submit_poster)
+    _actions.register_reverter(SUBMIT_SLIPS_ACTION, _submit_reverter)
+    _actions.register_poster(PAY_ACTION, _pay_poster)
+    _actions.register_reverter(PAY_ACTION, _actions._cancel_voucher_reverter)
 
 
 _register()
