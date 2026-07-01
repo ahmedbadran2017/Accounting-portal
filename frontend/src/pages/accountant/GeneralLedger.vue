@@ -1,4 +1,6 @@
 <template>
+  <div class="space-y-3">
+  <FiscalYearBar />
   <div class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#f5f3ff"><Icon name="ledger" :size="14" color="#7c3aed" /></span>
@@ -59,6 +61,7 @@
       </div>
     </div>
   </div>
+  </div>
 </template>
 
 <script setup>
@@ -67,9 +70,11 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import FiscalYearBar from "@/components/FiscalYearBar.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { usePersistedRef } from "@/composables/usePersistedRef";
+import { useFiscalYear } from "@/composables/useFiscalYear";
 
 const route = useRoute();
 const router = useRouter();
@@ -105,6 +110,14 @@ async function load() {
   } catch { d.value = { rows: [], opening: 0 }; isLive.value = false; }
   finally { loading.value = false; }
 }
+const fyc = useFiscalYear();
+// A fiscal-year pick sets the ledger's date window (opening is computed before it).
+watch(fyc.selected, () => {
+  const f = fyc.fy.value;
+  fromDate.value = f.from || "";
+  toDate.value = f.to || "";
+  load();
+});
 onMounted(load);
 watch(() => route.query.account, load);
 function clearAcct() { router.replace({ path: "/accounting/accountant/gl", query: {} }); }

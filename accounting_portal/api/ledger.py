@@ -83,33 +83,50 @@ def general_ledger(company=None, account=None, party=None, voucher_no=None,
 
 
 @frappe.whitelist()
-def trial_balance(company=None):
+def trial_balance(company=None, from_date=None, to_date=None):
     """Net trial balance per account for one company (non-zero balances only).
 
+    With a fiscal-year period each account also carries opening (carried forward)
+    → period debit/credit → closing, so a year can be cleaned in isolation.
+
     Flags anomalies the auditor cares about: an asset/expense carrying a credit
-    balance, or a liability/income carrying a debit balance (a sign the account
-    is mis-stated), and any single balance above an outsized threshold.
+    balance, or a liability/income carrying a debit balance, and outsized balances.
     """
     assert_portal_access()
     target = _target(company)
     if not target:
         return {"rows": [], "total_dr": 0, "total_cr": 0}
+    period = bool(from_date or to_date)
 
     def _build():
+        p = {"c": target}
+        upto = "gl.is_cancelled = 0 AND gl.company = %(c)s"
+        if to_date:
+            upto += " AND gl.posting_date <= %(td)s"; p["td"] = to_date
         rows = frappe.db.sql(
-            """
-            SELECT acc.account_number AS code, acc.account_name AS name,
-                   acc.root_type, acc.account_type,
-                   SUM(gl.debit - gl.credit) AS bal
-            FROM `tabGL Entry` gl
-            JOIN `tabAccount` acc ON acc.name = gl.account
-            WHERE gl.is_cancelled = 0 AND gl.company = %s
-            GROUP BY gl.account
-            HAVING ABS(SUM(gl.debit - gl.credit)) > 0.005
-            ORDER BY acc.lft
-            """,
-            (target,), as_dict=True,
-        )
+            f"""SELECT gl.account AS acct, acc.account_number AS code, acc.account_name AS name,
+                       acc.root_type, SUM(gl.debit - gl.credit) AS bal
+                FROM `tabGL Entry` gl JOIN `tabAccount` acc ON acc.name = gl.account
+                WHERE {upto} GROUP BY gl.account
+                HAVING ABS(SUM(gl.debit - gl.credit)) > 0.005 ORDER BY acc.lft""",
+            p, as_dict=True)
+        opening, pdr, pcr = {}, {}, {}
+        if period:
+            if from_date:
+                for r in frappe.db.sql(
+                        """SELECT account, SUM(debit-credit) v FROM `tabGL Entry`
+                           WHERE is_cancelled=0 AND company=%(c)s AND posting_date < %(fd)s GROUP BY account""",
+                        {"c": target, "fd": from_date}, as_dict=True):
+                    opening[r.account] = flt(r.v)
+            conds, pp = ["is_cancelled=0", "company=%(c)s"], {"c": target}
+            if from_date:
+                conds.append("posting_date >= %(fd)s"); pp["fd"] = from_date
+            if to_date:
+                conds.append("posting_date <= %(td)s"); pp["td"] = to_date
+            for r in frappe.db.sql(
+                    f"""SELECT account, SUM(debit) d, SUM(credit) cr FROM `tabGL Entry`
+                        WHERE {' AND '.join(conds)} GROUP BY account""", pp, as_dict=True):
+                pdr[r.account] = flt(r.d); pcr[r.account] = flt(r.cr)
         out, total_dr, total_cr = [], 0.0, 0.0
         for r in rows:
             bal = flt(r.bal)
@@ -119,11 +136,17 @@ def trial_balance(company=None):
             total_cr += cr
             debit_nature = r.root_type in ("Asset", "Expense")
             anomaly = (debit_nature and bal < 0) or (not debit_nature and bal > 0) or abs(bal) >= 50_000_000
-            out.append({"code": r.code, "name": r.name, "root_type": r.root_type,
-                        "dr": dr, "cr": cr, "anomaly": bool(anomaly)})
-        return {"rows": out, "total_dr": total_dr, "total_cr": total_cr}
+            row = {"code": r.code, "name": r.name, "root_type": r.root_type,
+                   "dr": dr, "cr": cr, "anomaly": bool(anomaly)}
+            if period:
+                row.update({"opening": round(opening.get(r.acct, 0.0), 2),
+                            "period_dr": round(pdr.get(r.acct, 0.0), 2),
+                            "period_cr": round(pcr.get(r.acct, 0.0), 2),
+                            "closing": round(bal, 2), "period": True})
+            out.append(row)
+        return {"rows": out, "total_dr": total_dr, "total_cr": total_cr, "period": period}
 
-    return _cache.cached(f"ap_tb:{target}", 180, _build)
+    return _cache.cached(f"ap_tb:{target}:{from_date}:{to_date}", 180, _build)
 
 
 @frappe.whitelist()

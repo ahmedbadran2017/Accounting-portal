@@ -1,82 +1,104 @@
 <template>
-  <div class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
-    <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair">
-      <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#ecfdf5"><Icon name="list" :size="14" color="#047857" /></span>
-      <span class="text-[13px] font-bold">{{ L("Trial balance","ميزان المراجعة","Balance") }}</span>
-      <span class="text-[11px] text-ink-muted">{{ L("Net balance per account · reconciled to the GL","الرصيد الصافي لكل حساب · مطابق للأستاذ","Solde net par compte · rapproché au GL") }}</span>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-[12px]">
-        <thead>
-          <tr class="border-b border-line">
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Code","الرمز","Code") }}</th>
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
-          </tr>
-        </thead>
-        <tbody v-if="loading">
-          <tr v-for="n in 8" :key="'sk' + n" class="border-b border-line-hair animate-pulse" :style="{ opacity: Math.max(0.3, 1 - (n - 1) * 0.1) }">
-            <td class="px-4 py-3"><div class="h-3 rounded-full bg-app-warm" style="width:70px"></div></td>
-            <td class="px-4 py-3"><div class="h-3 rounded-full bg-app-warm" style="max-width:220px"></div></td>
-            <td class="px-4 py-3"><div class="h-3 rounded-full bg-app-warm ms-auto" style="width:80px"></div></td>
-            <td class="px-4 py-3"><div class="h-3 rounded-full bg-app-warm ms-auto" style="width:80px"></div></td>
-          </tr>
-        </tbody>
-        <tbody v-else>
-          <tr v-for="(r, i) in rows" :key="i" class="border-b border-line-hair" :class="r.anomaly ? 'bg-rose-50/40' : 'hover:bg-app-warm/60'">
-            <td class="px-4 py-2.5 font-mono text-ink-3 whitespace-nowrap">{{ r.code }}</td>
-            <td class="px-4 py-2.5">
-              <span class="inline-flex items-center gap-1.5">{{ r.name }}<Icon v-if="r.anomaly" name="alert" :size="12" color="#be123c" /></span>
-            </td>
-            <td class="px-4 py-2.5 text-end tnum font-semibold" :class="r.anomaly && r.dr ? 'text-sale' : ''">{{ r.dr || "—" }}</td>
-            <td class="px-4 py-2.5 text-end tnum font-semibold" :class="r.anomaly && r.cr ? 'text-sale' : ''">{{ r.cr || "—" }}</td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr class="border-t-2 border-line-2 font-bold">
-            <td class="px-4 py-2.5" colspan="2">{{ L("Total","الإجمالي","Total") }}</td>
-            <td class="px-4 py-2.5 text-end tnum">{{ totalDr }}</td>
-            <td class="px-4 py-2.5 text-end tnum">{{ totalCr }}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-    <div class="px-4 py-2.5 border-t border-line text-[11px] text-amber-700 flex items-start gap-1.5">
-      <Icon name="alert" :size="13" color="#b45309" class="flex-shrink-0 mt-px" />
-      {{ L("Totals are skewed by the 168.8M 153.01 spike — exclude it to see the operating trial balance.",
-            "الإجماليات متأثرة بقفزة 153.01 البالغة ١٦٨٫٨ مليون — استبعدها لرؤية ميزان التشغيل.",
-            "Les totaux sont faussés par le pic 153.01 de 168,8M — excluez-le pour la balance d’exploitation.") }}
+  <div class="space-y-3">
+    <FiscalYearBar />
+    <div class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
+      <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair">
+        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#ecfdf5"><Icon name="list" :size="14" color="#047857" /></span>
+        <span class="text-[13px] font-bold">{{ L("Trial balance","ميزان المراجعة","Balance") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ period ? L("opening → movement → closing, this year","افتتاحي ← حركة ← ختامي، هذه السنة","ouverture → mouvement → clôture") : L("net balance per account · reconciled to the GL","الرصيد الصافي لكل حساب","solde net par compte") }}</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[12px]">
+          <thead>
+            <tr class="border-b border-line text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+              <th class="px-4 py-2.5 text-start">{{ L("Code","الرمز","Code") }}</th>
+              <th class="px-4 py-2.5 text-start">{{ L("Account","الحساب","Compte") }}</th>
+              <template v-if="period">
+                <th class="px-4 py-2.5 text-end">{{ L("Opening","افتتاحي","Ouverture") }}</th>
+                <th class="px-4 py-2.5 text-end">{{ L("Debit","مدين","Débit") }}</th>
+                <th class="px-4 py-2.5 text-end">{{ L("Credit","دائن","Crédit") }}</th>
+                <th class="px-4 py-2.5 text-end">{{ L("Closing","ختامي","Clôture") }}</th>
+              </template>
+              <template v-else>
+                <th class="px-4 py-2.5 text-end">{{ L("Debit","مدين","Débit") }}</th>
+                <th class="px-4 py-2.5 text-end">{{ L("Credit","دائن","Crédit") }}</th>
+              </template>
+            </tr>
+          </thead>
+          <tbody v-if="loading">
+            <tr v-for="n in 8" :key="'sk'+n" class="border-b border-line-hair animate-pulse" :style="{ opacity: Math.max(0.3, 1-(n-1)*0.1) }">
+              <td class="px-4 py-3" :colspan="period ? 6 : 4"><div class="h-3 rounded-full bg-app-warm" style="max-width:320px"></div></td>
+            </tr>
+          </tbody>
+          <tbody v-else>
+            <tr v-for="(r,i) in rows" :key="i" class="border-b border-line-hair" :class="r.anomaly ? 'bg-rose-50/40' : 'hover:bg-app-warm/60'">
+              <td class="px-4 py-2.5 font-mono text-ink-3 whitespace-nowrap">{{ r.code }}</td>
+              <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5">{{ r.name }}<Icon v-if="r.anomaly" name="alert" :size="12" color="#be123c" /></span></td>
+              <template v-if="period">
+                <td class="px-4 py-2.5 text-end tnum text-ink-3">{{ money(r.opening) }}</td>
+                <td class="px-4 py-2.5 text-end tnum text-teal-700">{{ money(r.period_dr) }}</td>
+                <td class="px-4 py-2.5 text-end tnum text-rose-600">{{ money(r.period_cr) }}</td>
+                <td class="px-4 py-2.5 text-end tnum font-bold" :class="r.anomaly ? 'text-sale' : ''">{{ money(r.closing) }}</td>
+              </template>
+              <template v-else>
+                <td class="px-4 py-2.5 text-end tnum font-semibold" :class="r.anomaly && r.dr ? 'text-sale' : ''">{{ money(r.dr) }}</td>
+                <td class="px-4 py-2.5 text-end tnum font-semibold" :class="r.anomaly && r.cr ? 'text-sale' : ''">{{ money(r.cr) }}</td>
+              </template>
+            </tr>
+            <tr v-if="!rows.length"><td :colspan="period ? 6 : 4" class="px-4 py-10 text-center text-ink-muted">{{ L("No balances.","لا أرصدة.","Aucun solde.") }}</td></tr>
+          </tbody>
+          <tfoot v-if="!period">
+            <tr class="border-t-2 border-line-2 font-bold">
+              <td class="px-4 py-2.5" colspan="2">{{ L("Total","الإجمالي","Total") }}</td>
+              <td class="px-4 py-2.5 text-end tnum">{{ money(totals.dr) }}</td>
+              <td class="px-4 py-2.5 text-end tnum">{{ money(totals.cr) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="px-4 py-2.5 border-t border-line text-[11px] text-amber-700 flex items-start gap-1.5">
+        <Icon name="alert" :size="13" color="#b45309" class="flex-shrink-0 mt-px" />
+        {{ L("Pick a fiscal year to isolate each year’s movement (opening carried forward + this year’s Dr/Cr = closing).",
+              "اختر سنة مالية لعزل حركة كل سنة (الافتتاحي المُرحّل + مدين/دائن السنة = الختامي).",
+              "Choisissez un exercice pour isoler le mouvement de l’année.") }}
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { TRIAL } from "@/data/accountant";
-import { liveOrSample, currentCompany } from "@/composables/useLive";
+import FiscalYearBar from "@/components/FiscalYearBar.vue";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
+import { useUi } from "@/composables/useUi";
+import { useFiscalYear } from "@/composables/useFiscalYear";
+import { fmtAmount } from "@/utils/helpers";
 
 const { locale } = useI18n();
+const { entityId } = useUi();
+const fyc = useFiscalYear();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const money = (n) => (Number(n) ? fmtAmount(n) : "—");
 
-const fmt = (n) => (n ? Number(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "");
 const rows = ref([]);
-const isLive = ref(null);
 const loading = ref(true);
-onMounted(async () => {
-  try {
-    const res = await liveOrSample(
-      "accounting_portal.api.ledger.trial_balance", { company: currentCompany() }, () => TRIAL,
-      (data) => (data.rows || data).map((r) => ({ code: r.code, name: r.name, dr: fmt(r.dr), cr: fmt(r.cr), anomaly: r.anomaly })),
-    );
-    rows.value = res.data;
-    isLive.value = res.live;
-  } finally { loading.value = false; }
-});
+const period = ref(false);
+const totals = ref({ dr: 0, cr: 0 });
 
-const sum = (k) => rows.value.reduce((s, r) => s + Number((r[k] || "0").replace(/,/g, "")), 0);
-const totalDr = computed(() => sum("dr").toLocaleString("en-US"));
-const totalCr = computed(() => sum("cr").toLocaleString("en-US"));
+async function load() {
+  loading.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.ledger.trial_balance", { company: currentCompany(), ...fyc.filterValue() });
+    rows.value = r.rows || [];
+    period.value = !!r.period;
+    totals.value = { dr: r.total_dr || 0, cr: r.total_cr || 0 };
+  } catch { rows.value = []; }
+  finally { loading.value = false; }
+}
+load();
+watch(entityId, load);
+watch(fyc.selected, load);
 </script>
