@@ -664,6 +664,18 @@ def _pe_only_pairs(target, orders=None):
 
 
 @frappe.whitelist()
+def pe_ref_fixable(company=None, order=None):
+    """Is this one order 'collected via Payment Entry only' (carrier ref on the PE
+    but not stamped on the order/invoice)? Used to show a fix button on the order."""
+    assert_portal_access()
+    target = _target(company)
+    if not (target and order):
+        return {"fixable": False}
+    pairs = _pe_only_pairs(target, [order])
+    return {"fixable": bool(pairs), "ref": pairs[0]["ref"] if pairs else None}
+
+
+@frappe.whitelist()
 def backfill_pe_refs(company=None, orders=None, dry_run=1):
     """Fix orders collected via Payment Entry only: copy the carrier reference from
     the Payment Entry onto the Sales Order + its invoice, so the ref-based views

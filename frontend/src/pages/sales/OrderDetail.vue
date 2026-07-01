@@ -4,6 +4,18 @@
       <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ L("Back to orders","العودة للطلبات","Retour aux commandes") }}
     </button>
 
+    <!-- PE-only: carrier ref is on the payment but not the order → shows as Delivered -->
+    <div v-if="fixable.fixable" class="flex items-center gap-3 px-4 py-2.5 rounded-card border border-amber-200 bg-amber-50/70">
+      <Icon name="alert" :size="16" color="#b45309" class="shrink-0" />
+      <div class="min-w-0 text-[12px]">
+        <span class="font-bold text-amber-800">{{ L("Collected via payment only","محصّل عبر الدفعة فقط","Encaissé via paiement") }}</span>
+        <span class="text-amber-700"> — {{ L("carrier ref","مرجع الشحن","réf.") }} <b class="font-mono">{{ fixable.ref }}</b> {{ L("is on the payment, not this order — so it shows Delivered.","على الدفعة مش الأوردر — فبيظهر Delivered.","sur le paiement.") }}</span>
+      </div>
+      <button v-if="canFix" type="button" :disabled="fixing" class="ms-auto shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="stampRef">
+        <Icon :name="fixing ? 'clock' : 'check'" :size="13" />{{ fixing ? L("Stamping…","جارٍ…","…") : L("Stamp & fix","اختم وصلّح","Corriger") }}
+      </button>
+    </div>
+
     <!-- Header card -->
     <div class="bg-white rounded-[16px] border border-line px-5 py-[18px] shadow-card">
       <div class="flex items-start gap-3.5 flex-wrap">
@@ -172,6 +184,10 @@ import Icon from "@/components/Icon.vue";
 import DocHub from "@/components/DocHub.vue";
 import { STATE_META, stateLabel, AV, postingInfo } from "@/data/orders";
 import { useOrders } from "@/composables/useOrders";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -182,13 +198,39 @@ const DOCTYPE = "Sales Order";
 // Live get_order (real posted journal) with sample fallback; rebuilt on id/locale change.
 const vm = ref(null);
 const loading = ref(true);
+const { can } = useAuth();
+const toast = useToast();
+const canFix = computed(() => can("manage_users"));
+const fixable = ref({ fixable: false });
+const fixing = ref(false);
+
 async function load() {
   loading.value = true;
   vm.value = await loadDetail(route.query.id, locale.value);
   loading.value = false;
   if (route.query.id && !vm.value) router.replace("/accounting/sales/orders");
+  loadFixable();
 }
 watch(() => [route.query.id, locale.value], load, { immediate: true });
+
+async function loadFixable() {
+  fixable.value = { fixable: false };
+  if (!route.query.id) return;
+  try { fixable.value = await api.call("accounting_portal.api.cod.pe_ref_fixable", { company: currentCompany(), order: route.query.id }) || { fixable: false }; }
+  catch { fixable.value = { fixable: false }; }
+}
+async function stampRef() {
+  if (fixing.value) return;
+  fixing.value = true;
+  try {
+    await api.call("accounting_portal.api.cod.backfill_pe_refs", { company: currentCompany(), orders: [route.query.id], dry_run: 0 });
+    toast.success(L("Stamped — now collected", "تم الختم — أصبح محصّلاً", "Corrigé — encaissé"));
+    fixable.value = { fixable: false };
+    load();
+  } catch (e) {
+    toast.error(L("Failed", "فشل", "Échec") + ": " + String(e?.message || e).slice(0, 120));
+  } finally { fixing.value = false; }
+}
 
 const o = computed(() => vm.value?.o || null);
 const dims = computed(() => vm.value?.dims || []);
