@@ -40,7 +40,10 @@
           </tr></thead>
           <tbody>
             <tr v-for="r in fx.wrong" :key="r.doc" class="border-t border-line-hair hover:bg-app-warm/40">
-              <td class="px-4 py-2 font-mono text-[11px]">{{ r.doc }}<div class="text-[10px] text-ink-muted">{{ r.cur }} · {{ r.date }}</div></td>
+              <td class="px-4 py-2 font-mono text-[11px]">
+                <button type="button" class="font-semibold text-accent-dark hover:underline inline-flex items-center gap-1" @click="openBill(r.doc)">{{ r.doc }}<Icon name="arrow" :size="10" /></button>
+                <div class="text-[10px] text-ink-muted">{{ r.cur }} · {{ r.date }}</div>
+              </td>
               <td class="px-3 py-2 text-end tnum text-rose-600 font-semibold">{{ r.book_fx }}</td>
               <td class="px-3 py-2 text-end tnum text-success-dark font-bold">{{ r.live_fx }}</td>
               <td class="px-3 py-2 text-end tnum line-through text-ink-muted">{{ money(r.booked) }}</td>
@@ -100,6 +103,7 @@ import { useUi } from "@/composables/useUi";
 
 const emit = defineEmits(["drill"]);
 const router = useRouter();
+function openBill(doc) { if (doc) router.push({ path: "/accounting/purchases/bills", query: { id: doc } }); }
 const { locale } = useI18n();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
