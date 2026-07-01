@@ -208,6 +208,7 @@
             <th class="px-4 py-2 text-start">{{ L('Employee','الموظف','Employé') }}</th>
             <th class="px-3 py-2 text-start hidden sm:table-cell">{{ L('Department','القسم','Service') }}</th>
             <th class="px-3 py-2 text-start">{{ L('Status','الحالة','Statut') }}</th>
+            <th class="px-3 py-2 text-start">{{ L('Structure','الهيكل','Structure') }}</th>
             <th class="px-3 py-2 text-end">{{ L('Base','الأساسي','Base') }}</th>
             <th class="px-3 py-2 text-start hidden md:table-cell">{{ L('Last slip','آخر مسير','Dernier') }}</th>
             <th class="px-4 py-2 text-end">{{ L('YTD net','صافي السنة','Net cumul') }}</th>
@@ -217,11 +218,18 @@
               <td class="px-4 py-2.5"><div class="font-semibold group-hover:text-accent-dark">{{ r.nm }}</div><div class="text-[10px] text-ink-muted">{{ r.desig || r.name }}</div></td>
               <td class="px-3 py-2.5 text-ink-2 hidden sm:table-cell truncate max-w-[160px]">{{ r.dept || "—" }}</td>
               <td class="px-3 py-2.5"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-chip" :class="r.status==='Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-muted'">{{ r.status || "—" }}</span></td>
+              <td class="px-3 py-2.5" @click.stop>
+                <span v-if="r.has_structure" class="text-[11px] text-ink-2 truncate max-w-[150px] inline-block align-middle">{{ r.structure }}</span>
+                <button v-else-if="r.status==='Active' && can('post_entries')" type="button" class="inline-flex items-center gap-1 h-6 px-2 rounded-chip text-[10.5px] font-bold text-white bg-teal-700 hover:bg-teal-800" @click="assignFor(r)">
+                  <Icon name="plus" :size="11" />{{ L('Assign','تعيين','Affecter') }}
+                </button>
+                <span v-else class="text-[11px] text-ink-muted">—</span>
+              </td>
               <td class="px-3 py-2.5 text-end tnum">{{ money(r.base) }}</td>
               <td class="px-3 py-2.5 text-ink-3 hidden md:table-cell whitespace-nowrap" :class="isStale(r.last_slip) ? 'text-amber-700 font-semibold' : ''">{{ r.last_slip || "—" }}</td>
               <td class="px-4 py-2.5 text-end tnum font-semibold">{{ money(r.ytd_net) }}</td>
             </tr>
-            <tr v-if="!emps.length"><td colspan="6" class="px-4 py-8 text-center text-ink-muted">{{ L('No employees match.','لا موظفين مطابقين.','Aucun.') }}</td></tr>
+            <tr v-if="!emps.length"><td colspan="7" class="px-4 py-8 text-center text-ink-muted">{{ L('No employees match.','لا موظفين مطابقين.','Aucun.') }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -300,6 +308,7 @@
         </div>
       </div>
     </template>
+    <AssignStructureModal v-if="assignEmp" :employee="assignEmp.name" :employee-name="assignEmp.nm" @close="assignEmp = null" @done="onAssigned" />
   </div>
 </template>
 
@@ -310,6 +319,7 @@ import { useI18n } from "vue-i18n";
 import { h } from "vue";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import AssignStructureModal from "@/components/AssignStructureModal.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -429,6 +439,9 @@ const mBar = (v) => Math.round((Number(v) || 0) / maxNet.value * 100);
 const isStale = (d) => { if (!d) return true; const m = new Date(); m.setMonth(m.getMonth() - 2); return new Date(d) < m; };
 function openEmp(name) { router.push({ path: "/accounting/payroll", query: { employee: name } }); }
 function openRun(name) { router.push({ path: "/accounting/payroll", query: { run: name } }); }
+const assignEmp = ref(null);
+function assignFor(r) { assignEmp.value = r; }
+function onAssigned() { loadEmps(); if (view.value === "close") loadClose(); }
 function openDept(dept) { empDept.value = dept; empStatus.value = "all"; empSearch.value = ""; view.value = "employees"; loadEmps(); }
 
 function checkLabel(s) {

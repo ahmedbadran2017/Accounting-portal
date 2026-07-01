@@ -155,6 +155,8 @@ def payroll_employees(company=None, search=None, status="Active", department=Non
         f"""SELECT e.name, e.employee_name nm, e.department dept, e.designation desig, e.status,
                    (SELECT a.base FROM `tabSalary Structure Assignment` a
                     WHERE a.employee=e.name AND a.docstatus=1 ORDER BY a.from_date DESC LIMIT 1) base,
+                   (SELECT a.salary_structure FROM `tabSalary Structure Assignment` a
+                    WHERE a.employee=e.name AND a.docstatus=1 ORDER BY a.from_date DESC LIMIT 1) structure,
                    (SELECT MAX(s.start_date) FROM `tabSalary Slip` s WHERE s.employee=e.name AND s.docstatus=1) last_slip,
                    (SELECT SUM(s.gross_pay) FROM `tabSalary Slip` s WHERE s.employee=e.name AND s.docstatus=1
                     AND s.start_date BETWEEN %(y0)s AND %(y1)s) ytd_gross,
@@ -165,6 +167,7 @@ def payroll_employees(company=None, search=None, status="Active", department=Non
     for r in rows:
         r["base"] = _m(r["base"]); r["ytd_gross"] = _m(r["ytd_gross"]); r["ytd_net"] = _m(r["ytd_net"])
         r["last_slip"] = str(r["last_slip"] or "")[:10]
+        r["has_structure"] = bool(r.get("structure"))
     return {"company": target, "rows": rows, "currency": _ccy(target),
             "departments": _departments(target),
             "statuses": ["Active", "Inactive", "Left", "Suspended"]}
@@ -766,6 +769,64 @@ def _pay_poster(doc):
             "result": {"paid": total, "employees": len(plan), "bank": bank}}
 
 
+# ── Assign a salary structure (so a new/unassigned employee becomes payable) ───
+
+ASSIGN_ACTION = "Assign salary structure"
+
+
+@frappe.whitelist()
+def assignment_options(company=None):
+    """Active salary structures for the company + defaults, for the assign form."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    structures = frappe.db.sql(
+        """SELECT name, currency FROM `tabSalary Structure`
+           WHERE company=%s AND docstatus=1 AND is_active='Yes' ORDER BY name""", (target,), as_dict=True)
+    payable, cc = _payroll_defaults(target)
+    return {"company": target, "currency": _ccy(target), "structures": structures,
+            "default_from": str(get_last_day(nowdate()).replace(day=1)),
+            "payable_account": payable, "cost_center": cc}
+
+
+@frappe.whitelist()
+def assign_structure(company=None, employee=None, salary_structure=None, from_date=None, base=None, notes=None):
+    """Assign a salary structure to an employee (Salary Structure Assignment) so the
+    payroll run can generate their slip. Audited + reversible (cancels the SSA)."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and employee and salary_structure):
+        frappe.throw("company, employee and salary_structure are required")
+    if not frappe.db.exists("Employee", {"name": employee, "company": target}):
+        frappe.throw("Employee not found in this company")
+    if not frappe.db.exists("Salary Structure", {"name": salary_structure, "company": target, "docstatus": 1}):
+        frappe.throw("Salary structure not found")
+    payable, _cc = _payroll_defaults(target)
+    fd = from_date or str(get_last_day(nowdate()).replace(day=1))
+    from accounting_portal.api import _actions
+    key = "assign-ssa:" + frappe.generate_hash(f"{target}:{employee}:{salary_structure}:{fd}", 14)
+    return _actions.execute(
+        ASSIGN_ACTION, target, key,
+        payload={"employee": employee, "salary_structure": salary_structure, "from_date": fd,
+                 "base": flt(base or 0), "currency": _ccy(target), "payable": payable},
+        amount=0, notes=notes or f"Assign {salary_structure} to {employee}")
+
+
+def _assign_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    ssa = frappe.get_doc({
+        "doctype": "Salary Structure Assignment", "company": doc.company,
+        "employee": p["employee"], "salary_structure": p["salary_structure"],
+        "from_date": p["from_date"], "currency": p.get("currency") or _ccy(doc.company),
+        "base": flt(p.get("base") or 0), "payroll_payable_account": p.get("payable"),
+    })
+    ssa.insert(ignore_permissions=True)
+    ssa.submit()
+    return {"voucher_type": "Salary Structure Assignment", "voucher_no": ssa.name,
+            "result": {"employee": p["employee"], "structure": p["salary_structure"]}}
+
+
 # Generate/pay register via the shared cancel-voucher undo where applicable.
 def _register():
     from accounting_portal.api import _actions
@@ -779,6 +840,9 @@ def _register():
     _actions.register_reverter(SUBMIT_SLIPS_ACTION, _submit_reverter)
     _actions.register_poster(PAY_ACTION, _pay_poster)
     _actions.register_reverter(PAY_ACTION, _actions._cancel_voucher_reverter)
+    _actions.register_poster(ASSIGN_ACTION, _assign_poster)
+    _actions.register_reverter(ASSIGN_ACTION, _actions._cancel_voucher_reverter)
+    _actions._NO_GATE.add(ASSIGN_ACTION)  # HR master data — no GL, no approval gate
 
 
 _register()
