@@ -134,8 +134,8 @@ async function reject(a) {
 }
 async function revert(a) {
   if (!window.confirm(L(
-    `Undo "${a.action_type}"? This restores the values it changed.`,
-    `تراجع عن "${a.action_type}"؟ هيرجّع القيم اللي اتغيّرت.`,
+    `Undo "${a.action_type}"? This reverses it — cancelling the voucher it posted, or restoring the prior values.`,
+    `تراجع عن "${a.action_type}"؟ هيعكسها — يلغي المستند اللي اترحّل، أو يرجّع القيم القديمة.`,
     `Annuler « ${a.action_type} » ?`))) return;
   busy.value = true;
   try { await api.call("accounting_portal.api._actions.revert_action", { name: a.name }); toast.success(L("Reverted", "تم التراجع", "Annulé")); load(); }

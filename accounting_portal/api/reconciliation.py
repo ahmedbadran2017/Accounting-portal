@@ -276,7 +276,19 @@ def _clear_bank_poster(action):
             "result": {"cleared": len(p["entries"]), "date": date}}
 
 
+def _clear_bank_reverter(action):
+    """Undo a bank clearing: remove the clearance_date from each entry."""
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    done = 0
+    for e in (p.get("entries") or []):
+        frappe.db.set_value(e["doctype"], e["name"], "clearance_date", None)
+        done += 1
+    frappe.db.commit()
+    return {"uncleared": done}
+
+
 _actions.register_poster(CLEAR_BANK_ACTION, _clear_bank_poster)
+_actions.register_reverter(CLEAR_BANK_ACTION, _clear_bank_reverter)
 
 
 @frappe.whitelist()

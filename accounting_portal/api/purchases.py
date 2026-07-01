@@ -737,7 +737,19 @@ def _clear_cheque_poster(action):
             "result": {"cleared": names, "date": date, "n": len(names)}}
 
 
+def _clear_cheque_reverter(action):
+    """Undo a cheque clearing: remove the clearance_date from each Payment Entry."""
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    done = 0
+    for n in (p.get("names") or []):
+        frappe.db.set_value("Payment Entry", n, "clearance_date", None)
+        done += 1
+    frappe.db.commit()
+    return {"uncleared": done}
+
+
 _actions.register_poster(CLEAR_CHQ_ACTION, _clear_cheque_poster)
+_actions.register_reverter(CLEAR_CHQ_ACTION, _clear_cheque_reverter)
 
 
 @frappe.whitelist()

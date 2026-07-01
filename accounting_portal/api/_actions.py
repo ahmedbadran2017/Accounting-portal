@@ -186,10 +186,39 @@ def revert_action(name):
     return doc.as_dict()
 
 
+def _cancel_voucher_reverter(action):
+    """Generic undo for a voucher-creating action: cancel the submitted voucher it
+    produced (Frappe posts the reversing GL entries). If the voucher is linked
+    downstream Frappe blocks the cancel — that error surfaces and it stays intact."""
+    import re
+    vt, vn = action.voucher_type, (action.voucher_no or "")
+    if not vt:
+        frappe.throw("This action has no voucher to cancel")
+    done = []
+    for c in [x.strip() for x in re.split(r"[,\s]+", vn) if x.strip()]:
+        if frappe.db.exists(vt, c):
+            d = frappe.get_doc(vt, c)
+            if d.docstatus == 1:
+                d.cancel()
+                done.append(c)
+    if not done:
+        frappe.throw("No submitted voucher to cancel (already cancelled?)")
+    return {"cancelled": done}
+
+
+# Actions that create one submitted voucher → undo = cancel it (reversing GL).
+_CANCEL_VOUCHER_ACTIONS = (
+    "Post Correction", "Opening Entry", "Record Payment", "Create Sales Order",
+    "Sales Return", "Bill Delivery Note", "Make Receipt", "Make Invoice", "Pay Bill",
+    "Create Purchase Order", "Debit Note", "Group Pay", "Group Bill",
+)
+for _at in _CANCEL_VOUCHER_ACTIONS:
+    register_reverter(_at, _cancel_voucher_reverter)
+
+
 def revertable_types():
     """Action types that have a registered reverter (so the UI can show Undo)."""
-    if not _REVERTERS:
-        _ensure_posters()
+    _ensure_posters()  # idempotent import — makes sure every module's reverters registered
     return set(_REVERTERS.keys())
 
 
