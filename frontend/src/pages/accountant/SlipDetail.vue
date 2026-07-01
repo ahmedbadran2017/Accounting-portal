@@ -67,6 +67,6 @@ async function load() {
 }
 load();
 watch(slip, load);
-watch(entityId, () => router.push({ path: "/accounting/accountant/payroll" }));
+watch(entityId, () => router.push({ path: "/accounting/payroll" }));
 function back() { router.back(); }
 </script>

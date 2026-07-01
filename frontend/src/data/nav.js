@@ -29,8 +29,12 @@ export const SUBTABS = {
   ],
   accountant: [
     ["journals", "sub.journals"], ["triage", "sub.triage"], ["coa", "sub.coa"], ["gl", "sub.gl"], ["trial", "sub.trial"],
-    ["expenses", "sub.expenses"], ["payroll", "sub.payroll"], ["assets", "sub.assets"], ["fx", "sub.fx"], ["opening", "sub.opening"], ["close", "sub.close"], ["team", "sub.team"],
+    ["assets", "sub.assets"], ["fx", "sub.fx"], ["opening", "sub.opening"], ["close", "sub.close"], ["team", "sub.team"],
   ],
+  // Expenses & Payroll are now top-level modules. Each is a self-tabbed page
+  // (its own inner tabs), so it carries no sidebar sub-tabs.
+  expenses: [],
+  payroll: [],
   reports: [["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["missingdocs", "sub.missingdocs"], ["statements", "sub.statements"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"], ["dataroom", "sub.dataroom"]],
   settings: [
     ["orgs", "sub.orgs"], ["users", "sub.users"], ["activity", "sub.activity"], ["taxconf", "sub.taxconf"], ["currencies", "sub.currencies"],
@@ -45,6 +49,9 @@ export const NAV_GROUPS = [
     { id: "sales", icon: "receipt" }, { id: "purchases", icon: "cart" }, { id: "items", icon: "box" },
   ] },
   { label: "groups.money", items: [{ id: "banking", icon: "bank" }] },
+  { label: "groups.people", items: [
+    { id: "expenses", icon: "wallet" }, { id: "payroll", icon: "users" },
+  ] },
   { label: "groups.books", items: [
     { id: "accountant", icon: "ledger" }, { id: "reports", icon: "chart" }, { id: "settings", icon: "gear" },
   ] },

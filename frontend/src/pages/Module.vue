@@ -27,6 +27,10 @@ import Accountant from "@/pages/Accountant.vue";
 import Items from "@/pages/Items.vue";
 import Reports from "@/pages/Reports.vue";
 import Settings from "@/pages/Settings.vue";
+import ExpenseCenter from "@/pages/accountant/ExpenseCenter.vue";
+import Payroll from "@/pages/accountant/Payroll.vue";
+import EmployeePayroll from "@/pages/accountant/EmployeePayroll.vue";
+import SlipDetail from "@/pages/accountant/SlipDetail.vue";
 import ModulePage from "@/pages/ModulePage.vue";
 
 // Single dynamic child of AppLayout: dispatch on the :module route param so we
@@ -47,6 +51,12 @@ const view = computed(() => {
   if (m === "items") return Items;
   if (m === "reports") return Reports;
   if (m === "settings") return Settings;
+  if (m === "expenses") return ExpenseCenter;
+  if (m === "payroll") {
+    if (route.query.slip) return SlipDetail;
+    if (route.query.employee) return EmployeePayroll;
+    return Payroll;
+  }
   return ModulePage;
 });
 

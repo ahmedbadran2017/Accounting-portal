@@ -14,11 +14,14 @@
     "overview": "Vue d’ensemble",
     "operations": "Opérations",
     "money": "Trésorerie",
+    "people": "Personnel & Dépenses",
     "books": "Comptes",
     "jonly": "★ Spécifique Justyol"
   },
   "nav": {
     "dashboard": "Tableau de bord",
+    "expenses": "Dépenses",
+    "payroll": "Paie",
     "sales": "Ventes · COD",
     "purchases": "Achats",
     "items": "Articles & marge",

@@ -14,11 +14,14 @@
     "overview": "نظرة عامة",
     "operations": "العمليات",
     "money": "الأموال",
+    "people": "الأفراد والمصروفات",
     "books": "الدفاتر",
     "jonly": "★ خاص بـ Justyol"
   },
   "nav": {
     "dashboard": "لوحة القيادة",
+    "expenses": "المصروفات",
+    "payroll": "الرواتب",
     "sales": "المبيعات · COD",
     "purchases": "المشتريات",
     "items": "الأصناف والهامش",

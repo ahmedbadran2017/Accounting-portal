@@ -14,11 +14,14 @@
     "overview": "Overview",
     "operations": "Operations",
     "money": "Money",
+    "people": "People & Spend",
     "books": "Books",
     "jonly": "★ Justyol-only"
   },
   "nav": {
     "dashboard": "Dashboard",
+    "expenses": "Expenses",
+    "payroll": "Payroll",
     "sales": "Sales · COD",
     "purchases": "Purchases",
     "items": "Items & margin",

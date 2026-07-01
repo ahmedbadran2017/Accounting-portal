@@ -26,10 +26,6 @@
     <FxRevaluation v-else-if="activeSub === 'fx'" />
     <OpeningEntry v-else-if="activeSub === 'opening'" />
     <PeriodClose v-else-if="activeSub === 'close'" />
-    <ExpenseCenter v-else-if="activeSub === 'expenses'" />
-    <SlipDetail v-else-if="activeSub === 'payroll' && route.query.slip" />
-    <EmployeePayroll v-else-if="activeSub === 'payroll' && route.query.employee" />
-    <Payroll v-else-if="activeSub === 'payroll'" />
     <AccountantDetail v-else-if="activeSub === 'team' && route.query.user" />
     <TeamPerformance v-else-if="activeSub === 'team'" />
     <ScaffoldTable v-else />
@@ -55,10 +51,6 @@ import OpeningEntry from "@/pages/accountant/OpeningEntry.vue";
 import PeriodClose from "@/pages/accountant/PeriodClose.vue";
 import TeamPerformance from "@/pages/accountant/TeamPerformance.vue";
 import AccountantDetail from "@/pages/accountant/AccountantDetail.vue";
-import ExpenseCenter from "@/pages/accountant/ExpenseCenter.vue";
-import Payroll from "@/pages/accountant/Payroll.vue";
-import EmployeePayroll from "@/pages/accountant/EmployeePayroll.vue";
-import SlipDetail from "@/pages/accountant/SlipDetail.vue";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { SUBTABS, defaultSub } from "@/data/nav";

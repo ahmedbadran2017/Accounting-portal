@@ -218,5 +218,5 @@ watch(entityId, () => { c.value = {}; emps.value = []; runs.value = []; k.value 
 const maxNet = computed(() => Math.max(1, ...(c.value.monthly || []).map((m) => m.net)));
 const mBar = (v) => Math.round((Number(v) || 0) / maxNet.value * 100);
 const isStale = (d) => { if (!d) return true; const m = new Date(); m.setMonth(m.getMonth() - 2); return new Date(d) < m; };
-function openEmp(name) { router.push({ path: "/accounting/accountant/payroll", query: { employee: name } }); }
+function openEmp(name) { router.push({ path: "/accounting/payroll", query: { employee: name } }); }
 </script>

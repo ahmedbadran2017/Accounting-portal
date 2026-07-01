@@ -7,6 +7,7 @@ import { SUBTABS } from "@/data/nav";
 const REAL_MODULES = new Set([
   "dashboard", "copilot", "mywork", "sales", "purchases", "banking",
   "accountant", "items", "reports", "settings", "consolidation",
+  "expenses", "payroll",
 ]);
 // Reverse index: a sub-tab slug → its parent module (first match wins). Lets a
 // link/search/typed URL that addresses a sub as if it were a top-level module
@@ -50,6 +51,11 @@ router.beforeEach(async (to) => {
   const m = to.params.module;
   if (m && !REAL_MODULES.has(m) && SUB_TO_MODULE[m] && !to.params.sub) {
     return { name: "Module", params: { module: SUB_TO_MODULE[m], sub: m }, query: to.query, replace: true };
+  }
+  // Expenses & Payroll moved out of Accountant into their own top-level modules.
+  // Keep old bookmarked /accounting/accountant/{expenses,payroll} URLs working.
+  if (m === "accountant" && (to.params.sub === "expenses" || to.params.sub === "payroll")) {
+    return { name: "Module", params: { module: to.params.sub }, query: to.query, replace: true };
   }
 
   const auth = useAuth();
