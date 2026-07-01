@@ -237,6 +237,37 @@ def payroll_runs(company=None):
 
 
 @frappe.whitelist()
+def payroll_run_detail(company=None, run=None):
+    """One Payroll Entry (run): header + the salary slips it produced."""
+    assert_portal_access()
+    target = _target(company)
+    if not (target and run):
+        return {}
+    pe = frappe.db.get_value(
+        "Payroll Entry", run,
+        ["name", "company", "posting_date", "start_date", "end_date", "payroll_frequency",
+         "payroll_payable_account", "cost_center", "currency", "docstatus", "number_of_employees"],
+        as_dict=True)
+    if not pe or pe.company != target:
+        frappe.throw("Run not found")
+    slips = [
+        {"name": r.name, "employee": r.employee, "employee_name": r.employee_name,
+         "gross": _m(r.gross_pay), "ded": _m(r.total_deduction), "net": _m(r.net_pay),
+         "status": r.status, "docstatus": r.docstatus}
+        for r in frappe.db.sql(
+            """SELECT name, employee, employee_name, gross_pay, total_deduction, net_pay, status, docstatus
+               FROM `tabSalary Slip` WHERE payroll_entry=%s ORDER BY employee_name""", (run,), as_dict=True)]
+    for kf in ("posting_date", "start_date", "end_date"):
+        pe[kf] = str(pe[kf] or "")[:10]
+    pe["status"] = "Posted" if pe.docstatus == 1 else ("Cancelled" if pe.docstatus == 2 else "Draft")
+    return {"company": target, "currency": _ccy(target), "run": pe, "slips": slips,
+            "gross": _m(sum(s["gross"] for s in slips)),
+            "net": _m(sum(s["net"] for s in slips)),
+            "submitted": sum(1 for s in slips if s["docstatus"] == 1),
+            "drafts": sum(1 for s in slips if s["docstatus"] == 0)}
+
+
+@frappe.whitelist()
 def salary_slip_detail(company=None, slip=None):
     """Full component breakdown for one salary slip."""
     assert_portal_access()

@@ -34,6 +34,7 @@ const ExpenseCenter = lazy(() => import("@/pages/accountant/ExpenseCenter.vue"))
 const Payroll = lazy(() => import("@/pages/accountant/Payroll.vue"));
 const EmployeePayroll = lazy(() => import("@/pages/accountant/EmployeePayroll.vue"));
 const SlipDetail = lazy(() => import("@/pages/accountant/SlipDetail.vue"));
+const RunDetail = lazy(() => import("@/pages/accountant/RunDetail.vue"));
 const ModulePage = lazy(() => import("@/pages/ModulePage.vue"));
 
 // Single dynamic child of AppLayout: dispatch on the :module route param so we
@@ -58,6 +59,7 @@ const view = computed(() => {
   if (m === "payroll") {
     if (route.query.slip) return SlipDetail;
     if (route.query.employee) return EmployeePayroll;
+    if (route.query.run) return RunDetail;
     return Payroll;
   }
   return ModulePage;

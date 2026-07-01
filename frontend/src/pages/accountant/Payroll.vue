@@ -169,7 +169,7 @@
             <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
               <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" />{{ L('Payroll runs this month','تشغيلات الشهر','Exécutions du mois') }}</div>
               <table class="w-full text-[12px]"><tbody>
-                <tr v-for="r in cl.runs" :key="r.name" class="border-t border-line-hair first:border-t-0">
+                <tr v-for="r in cl.runs" :key="r.name" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/50 cursor-pointer group" @click="openRun(r.name)">
                   <td class="px-4 py-2 font-mono text-[11px]">{{ r.name }}</td>
                   <td class="px-3 py-2 text-end tnum text-ink-muted">{{ r.slips }} {{ L('slips','مسير','bull.') }}</td>
                   <td class="px-4 py-2 text-end"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="r.status==='Posted' ? 'bg-emerald-50 text-emerald-700' : r.status==='Cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-700'">{{ r.status }}</span></td>
@@ -240,7 +240,7 @@
           <th class="px-4 py-2 text-end">{{ L('Net','الصافي','Net') }}</th>
         </tr></thead>
         <tbody>
-          <tr v-for="r in runs" :key="r.name" class="border-t border-line-hair">
+          <tr v-for="r in runs" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer group" @click="openRun(r.name)">
             <td class="px-4 py-2.5 font-mono text-[11px]">{{ r.name }}</td>
             <td class="px-3 py-2.5 text-ink-2">{{ r.month }}</td>
             <td class="px-3 py-2.5 text-end tnum">{{ r.slips }}</td>
@@ -428,6 +428,7 @@ const maxNet = computed(() => Math.max(1, ...(c.value.monthly || []).map((m) => 
 const mBar = (v) => Math.round((Number(v) || 0) / maxNet.value * 100);
 const isStale = (d) => { if (!d) return true; const m = new Date(); m.setMonth(m.getMonth() - 2); return new Date(d) < m; };
 function openEmp(name) { router.push({ path: "/accounting/payroll", query: { employee: name } }); }
+function openRun(name) { router.push({ path: "/accounting/payroll", query: { run: name } }); }
 function openDept(dept) { empDept.value = dept; empStatus.value = "all"; empSearch.value = ""; view.value = "employees"; loadEmps(); }
 
 function checkLabel(s) {
