@@ -144,7 +144,7 @@
 <script setup>
 import { ref, reactive, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
@@ -165,7 +165,11 @@ const { entityId } = useUi();
 const { can } = useAuth();
 const toast = useToast();
 const router = useRouter();
-const view = ref("breakdown");
+const route = useRoute();
+// Keep the active tab in the URL (?t=…) so Back / reload return here.
+const TABS = ["breakdown", "transactions", "recurring"];
+const view = ref(TABS.includes(route.query.t) ? route.query.t : "breakdown");
+watch(view, (v) => { if (route.query.t !== v) router.replace({ query: { ...route.query, t: v } }); });
 const dueBadge = ref(0);
 const showNew = ref(false);
 const newPrefill = ref(null);

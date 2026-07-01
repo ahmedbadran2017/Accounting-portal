@@ -97,6 +97,6 @@ watch(employee, load);
 watch(entityId, () => router.push({ path: "/accounting/payroll" }));
 
 function initials(n) { return String(n || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?"; }
-function back() { router.push({ path: "/accounting/payroll" }); }
+function back() { if (window.history.length > 1) router.back(); else router.push({ path: "/accounting/payroll" }); }
 function openSlip(name) { router.push({ path: "/accounting/payroll", query: { slip: name } }); }
 </script>

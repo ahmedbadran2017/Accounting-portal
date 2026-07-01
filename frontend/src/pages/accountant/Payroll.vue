@@ -265,7 +265,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { h } from "vue";
 import Icon from "@/components/Icon.vue";
@@ -284,6 +284,7 @@ const { entityId } = useUi();
 const { can } = useAuth();
 const toast = useToast();
 const router = useRouter();
+const route = useRoute();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 // Accounting precision: exact, grouped, 2 decimals — never abbreviated to K/M.
 const money = (n) => fmtMoney(n);
@@ -294,7 +295,11 @@ const Kpi = (p) => h("div", { class: "bg-white rounded-card border border-line s
   h("div", { class: "text-[10.5px] text-ink-muted mt-0.5" }, p.sub)]);
 Kpi.props = ["label", "value", "sub", "icon", "color"];
 
-const view = ref("cockpit");
+// The active tab lives in the URL (?t=…) so browser Back / reload return you to
+// the same tab instead of resetting to the cockpit or bouncing you out.
+const TABS = ["cockpit", "close", "employees", "runs", "components", "accounting"];
+const view = ref(TABS.includes(route.query.t) ? route.query.t : "cockpit");
+watch(view, (v) => { if (route.query.t !== v) router.replace({ query: { ...route.query, t: v } }); });
 const VIEWS = [
   { k: "cockpit", icon: "chart", label: () => L("Cockpit", "اللوحة", "Cockpit") },
   { k: "close", icon: "lock", label: () => L("Month close", "إقفال الشهر", "Clôture") },
