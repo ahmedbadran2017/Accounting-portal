@@ -1,5 +1,13 @@
 <template>
   <div class="space-y-3.5">
+    <div class="flex gap-1 bg-white border border-line rounded-chip p-1 w-fit shadow-card">
+      <button v-for="v in VIEWS" :key="v.k" class="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5" :class="coaView === v.k ? 'bg-app-warm text-accent-dark shadow-card' : 'text-ink-3 hover:text-ink'" @click="coaView = v.k">
+        <Icon :name="v.icon" :size="13" />{{ v.label() }}
+      </button>
+    </div>
+
+    <AccountCleanup v-if="coaView === 'cleanup'" />
+    <template v-else>
     <!-- Toolbar -->
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Chart of accounts","دليل الحسابات","Plan comptable") }}</span>
@@ -86,6 +94,7 @@
         </div>
       </template>
     </div>
+    </template>
   </div>
 </template>
 
@@ -95,6 +104,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import AccountCleanup from "@/pages/accountant/AccountCleanup.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
@@ -103,6 +113,11 @@ const { locale } = useI18n();
 const { entityId } = useUi();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const coaView = ref("balances");
+const VIEWS = [
+  { k: "balances", icon: "scale", label: () => L("Balances", "الأرصدة", "Soldes") },
+  { k: "cleanup", icon: "grid", label: () => L("Cleanup", "تنظيف", "Nettoyage") },
+];
 const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? (a / 1e3).toFixed(0) + "K" : Math.round(a).toLocaleString()); };
 
 const rows = ref([]);

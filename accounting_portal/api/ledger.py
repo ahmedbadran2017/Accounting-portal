@@ -188,3 +188,88 @@ def pending_journals(company=None, limit=50):
         """,
         (target, limit), as_dict=True,
     )
+
+
+# ── Chart-of-accounts cleanup ─────────────────────────────────────────────────
+from accounting_portal.api import _actions  # noqa: E402
+from accounting_portal.api.permissions import assert_super_admin  # noqa: E402
+
+DISABLE_ACCT_ACTION = "Toggle account disabled"
+
+
+@frappe.whitelist()
+def account_cleanup(company=None):
+    """Surface CoA clutter: leaf accounts with no GL activity (candidates to
+    disable) and same-name account pairs (to review — often a legit AR/AP pair,
+    not a true duplicate). Read-only."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    active = {r[0] for r in frappe.db.sql(
+        "SELECT DISTINCT account FROM `tabGL Entry` WHERE company=%s AND is_cancelled=0", (target,))}
+    leaves = frappe.db.sql(
+        """SELECT name, account_number num, account_name nm, root_type rt, disabled
+           FROM `tabAccount` WHERE company=%s AND is_group=0 ORDER BY account_number""",
+        (target,), as_dict=True)
+    dead, by_name = [], {}
+    for a in leaves:
+        if a.name not in active:
+            dead.append({"account": a.name, "num": a.num, "name": a.nm, "root": a.rt,
+                         "disabled": int(a.disabled or 0)})
+        key = "".join(ch for ch in (a.nm or "").lower() if ch.isalnum())
+        by_name.setdefault(key, []).append({"num": a.num, "name": a.nm, "root": a.rt})
+    pairs = [{"name": v[0]["name"], "accounts": v} for k, v in by_name.items() if len(v) > 1]
+    pairs.sort(key=lambda x: x["name"])
+    return {
+        "company": target, "leaves": len(leaves),
+        "dead": dead, "dead_count": len(dead),
+        "dead_active": sum(1 for d in dead if not d["disabled"]),
+        "name_pairs": pairs[:60], "name_pair_count": len(pairs),
+    }
+
+
+@frappe.whitelist()
+def set_account_disabled(company=None, account=None, disabled=1, dry_run=1):
+    """Disable/enable an account. Super-admin only; audited; reversible (undo flips
+    it back). Guarded so a disable never hides an account that still has activity."""
+    assert_super_admin()
+    target = _target(company)
+    if not (target and account):
+        frappe.throw("Account required")
+    acc = frappe.db.get_value("Account", account, ["company", "is_group", "disabled"], as_dict=True)
+    if not acc or acc.company != target:
+        frappe.throw("Account not in this company")
+    if acc.is_group:
+        frappe.throw("Can't disable a group account")
+    want = int(disabled or 0)
+    if want and frappe.db.exists("GL Entry", {"account": account, "company": target, "is_cancelled": 0}):
+        frappe.throw("Account has ledger activity — not a dead account")
+    if int(dry_run or 0):
+        return {"dry_run": True, "account": account, "from": int(acc.disabled or 0), "to": want}
+    key = f"disable_acct:{target}:{account}:{want}"
+    res = _actions.execute(
+        DISABLE_ACCT_ACTION, target, key,
+        payload={"account": account, "to": want, "old": int(acc.disabled or 0)},
+        amount=0, notes=f"{'Disable' if want else 'Enable'} account {account}")
+    return {"dry_run": False, "account": account, "to": want, "result": res}
+
+
+def _disable_acct_poster(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    if p.get("account"):
+        frappe.db.set_value("Account", p["account"], {"disabled": int(p.get("to") or 0)}, update_modified=True)
+    return {"voucher_type": "Account", "voucher_no": p.get("account"), "result": "toggled"}
+
+
+def _disable_acct_reverter(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    if p.get("account"):
+        frappe.db.set_value("Account", p["account"], {"disabled": int(p.get("old") or 0)}, update_modified=True)
+    return {"restored": p.get("account")}
+
+
+_actions.register_poster(DISABLE_ACCT_ACTION, _disable_acct_poster)
+_actions.register_reverter(DISABLE_ACCT_ACTION, _disable_acct_reverter)
