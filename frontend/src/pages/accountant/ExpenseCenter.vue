@@ -45,10 +45,10 @@
               <th class="px-4 py-2 text-end">{{ L("Amount", "المبلغ", "Montant") }}</th>
             </tr></thead>
             <tbody>
-              <tr v-for="r in tx.rows.value" :key="r.id" class="border-t border-line-hair hover:bg-app-warm/40" :class="isJE(r) ? 'cursor-pointer group' : ''" @click="openVoucher(r)">
+              <tr v-for="r in tx.rows.value" :key="r.id" class="border-t border-line-hair hover:bg-app-warm/40" :class="canOpen(r) ? 'cursor-pointer group' : ''" @click="openVoucher(r)">
                 <td class="px-4 py-2.5 whitespace-nowrap text-ink-2">{{ r.posting_date }}</td>
                 <td class="px-3 py-2.5"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-chip whitespace-nowrap" :style="`background:${catColor(r.category)}18;color:${catColor(r.category)}`">{{ catLabel(r.category) }}</span></td>
-                <td class="px-3 py-2.5"><div class="font-semibold truncate max-w-[240px]" :class="isJE(r) ? 'group-hover:text-accent-dark' : ''">{{ r.nm }}</div><div v-if="r.remarks" class="text-[10px] text-ink-muted truncate max-w-[240px]">{{ r.remarks }}</div></td>
+                <td class="px-3 py-2.5"><div class="font-semibold truncate max-w-[240px]" :class="canOpen(r) ? 'group-hover:text-accent-dark' : ''">{{ r.nm }}</div><div v-if="r.remarks" class="text-[10px] text-ink-muted truncate max-w-[240px]">{{ r.remarks }}</div></td>
                 <td class="px-3 py-2.5 hidden md:table-cell"><div class="font-mono text-[10.5px] text-ink-3">{{ r.voucher_no }}</div><div class="text-[9.5px] text-ink-muted">{{ r.voucher_type }}<span v-if="r.party"> · {{ r.party }}</span></div></td>
                 <td class="px-4 py-2.5 text-end tnum font-bold" :class="r.amount < 0 ? 'text-rose-500' : ''">{{ money(r.amount) }}</td>
               </tr>
@@ -220,8 +220,20 @@ const tx = useServerTable(
 const setGroup = (gp) => tx.setFilters({ group: gp, category: "all" });
 const setCat = (c) => tx.setFilters({ category: c });
 const setMin = (m) => tx.setFilters({ min_amount: m });
-const isJE = (r) => r.voucher_type === "Journal Entry";
-function openVoucher(r) { if (isJE(r)) router.push({ path: "/accounting/accountant/journals", query: { id: r.voucher_no } }); }
+// Map each voucher type to the portal detail screen that opens it.
+const VOUCHER_ROUTE = {
+  "Journal Entry": "/accounting/accountant/journals",
+  "Purchase Invoice": "/accounting/purchases/bills",
+  "Payment Entry": "/accounting/purchases/payments",
+  "Sales Invoice": "/accounting/sales/invoices",
+  "Delivery Note": "/accounting/sales/challans",
+  "Purchase Receipt": "/accounting/purchases/received",
+};
+const canOpen = (r) => !!(r.voucher_no && VOUCHER_ROUTE[r.voucher_type]);
+function openVoucher(r) {
+  const path = VOUCHER_ROUTE[r.voucher_type];
+  if (path && r.voucher_no) router.push({ path, query: { id: r.voucher_no } });
+}
 
 watch(view, (v) => { if (v === "transactions" && !tx.rows.value.length) tx.load(); });
 watch(entityId, () => { load(); loadBadge(); if (view.value === "transactions") tx.load(); });
