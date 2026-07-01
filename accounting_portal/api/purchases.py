@@ -654,6 +654,10 @@ def make_invoice_group(company=None, receipts=None, dedupe_key=None):
 # ── Cheque register (supplier cheques — track issued → cleared) ──
 _CHQ_COND = "(IFNULL(pe.reference_no,'') LIKE 'CHQ%%' OR pe.mode_of_payment IN ('Cheque','Bank Draft'))"
 CLEAR_CHQ_ACTION = "Clear Cheque"
+# An outstanding cheque this many days past its cheque date has almost certainly
+# been cashed at the bank — the cash-out is already in the GL; it's just never
+# been reconciled (clearance_date left blank), so it lingers as "Outstanding".
+STALE_CHQ_DAYS = 45
 
 
 def _chq_status(due, cleared):
@@ -681,7 +685,9 @@ def cheques_summary(company=None):
               ROUND(SUM(CASE WHEN pe.clearance_date IS NULL AND pe.reference_date>CURDATE() THEN pe.paid_amount ELSE 0 END)) postdated,
               SUM(CASE WHEN pe.clearance_date IS NULL AND pe.reference_date>CURDATE() THEN 1 ELSE 0 END) postdated_n,
               ROUND(SUM(CASE WHEN pe.clearance_date IS NOT NULL THEN pe.paid_amount ELSE 0 END)) cleared,
-              SUM(CASE WHEN pe.clearance_date IS NOT NULL THEN 1 ELSE 0 END) cleared_n
+              SUM(CASE WHEN pe.clearance_date IS NOT NULL THEN 1 ELSE 0 END) cleared_n,
+              ROUND(SUM(CASE WHEN pe.clearance_date IS NULL AND pe.reference_date < DATE_SUB(CURDATE(),INTERVAL {STALE_CHQ_DAYS} DAY) THEN pe.paid_amount ELSE 0 END)) stale,
+              SUM(CASE WHEN pe.clearance_date IS NULL AND pe.reference_date < DATE_SUB(CURDATE(),INTERVAL {STALE_CHQ_DAYS} DAY) THEN 1 ELSE 0 END) stale_n
             FROM `tabPayment Entry` pe
             WHERE pe.company=%s AND pe.docstatus=1 AND pe.payment_type='Pay' AND {_CHQ_COND}""",
         target, as_dict=True)[0]
@@ -709,7 +715,8 @@ def list_cheques(company=None, search=None, status=None, from_date=None, to_date
         f"""SELECT pe.name, pe.party, IFNULL(s.supplier_name, pe.party) AS supplier_name,
                    IFNULL(pe.reference_no,'') AS cheque_no, pe.reference_date AS due,
                    pe.clearance_date AS cleared_on, pe.paid_amount AS amount,
-                   pe.paid_from_account_currency AS currency, IFNULL(pe.mode_of_payment,'') AS bank
+                   pe.paid_from_account_currency AS currency, IFNULL(pe.mode_of_payment,'') AS bank,
+                   DATEDIFF(CURDATE(), pe.reference_date) AS age_days
             FROM `tabPayment Entry` pe LEFT JOIN `tabSupplier` s ON s.name=pe.party
             WHERE {' AND '.join(conds)}
             ORDER BY pe.clearance_date IS NOT NULL, pe.reference_date ASC LIMIT %(limit)s""",
@@ -717,12 +724,19 @@ def list_cheques(company=None, search=None, status=None, from_date=None, to_date
     out = []
     for r in rows:
         st = _chq_status(r.get("due"), r.get("cleared_on"))
-        if status and status != st:
+        age = int(r.get("age_days") or 0)
+        stale = st == "outstanding" and age > STALE_CHQ_DAYS
+        if status == "stale":
+            if not stale:
+                continue
+        elif status and status != st:
             continue
         r["amount"] = flt(r["amount"])
         r["due"] = str(r.get("due") or "")
         r["cleared_on"] = str(r.get("cleared_on") or "")
         r["status"] = st
+        r["age_days"] = age
+        r["stale"] = stale
         out.append(r)
     return out
 

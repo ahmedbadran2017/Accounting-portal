@@ -16,6 +16,19 @@
       </button>
     </div>
 
+    <!-- Stale audit banner: outstanding cheques long past their date = almost
+         certainly cashed, just never reconciled. -->
+    <div v-if="(sum.stale_n || 0) > 0" class="flex items-center gap-3 px-4 py-3 rounded-card border border-amber-200 bg-amber-50/70">
+      <span class="w-8 h-8 rounded-[10px] grid place-items-center shrink-0" style="background:#fef3c7"><Icon name="alert" :size="16" color="#b45309" /></span>
+      <div class="min-w-0 text-[12px] leading-snug">
+        <span class="font-bold text-amber-800">{{ sum.stale_n }} {{ L("cheque(s) look already cashed", "شيك غالبًا اتصرفوا بالفعل", "chèque(s) probabl. encaissés") }}</span>
+        <span class="text-amber-700"> — {{ money(sum.stale) }} MAD {{ L("past their cheque date by 45+ days but still Outstanding (unreconciled). The cash already left the books — review and mark cleared.", "فات تاريخهم بأكثر من 45 يوم وما زالوا معلّقين (غير مطابَقين). النقد خرج بالفعل من الدفاتر — راجعهم وعلّم تصرّف.", "en retard de 45+ jours mais toujours en cours — à rapprocher.") }}</span>
+      </div>
+      <button type="button" class="ms-auto shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700" @click="setStatus('stale')">
+        <Icon name="filter" :size="13" />{{ L("Review", "راجِع", "Revoir") }}
+      </button>
+    </div>
+
     <!-- Table -->
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
@@ -61,6 +74,7 @@
               <td v-show="!tt.hidden.value.has('bank')" class="px-4 py-2.5 text-ink-3 truncate max-w-[180px]">{{ o.bank }}</td>
               <td v-show="!tt.hidden.value.has('status')" class="px-4 py-2.5">
                 <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" :style="stStyle(o.status)"><span class="w-1.5 h-1.5 rounded-full" :style="{ background: ST[o.status].c }"></span>{{ statusLabel(o.status) }}</span>
+                <span v-if="o.stale" class="ms-1 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700" :title="L('Past cheque date by ' + o.age_days + ' days — likely already cashed, reconcile it', 'فات تاريخه بـ ' + o.age_days + ' يوم — غالبًا اتصرف، طابقه', '')"><Icon name="alert" :size="10" />{{ L("likely cleared", "غالبًا تصرّف", "encaissé ?") }}</span>
               </td>
               <td v-show="!tt.hidden.value.has('amount')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ o.currency }} {{ fmt(o.amount) }}</td>
             </tr>
@@ -108,11 +122,13 @@ const ST = {
   cleared: { c: "#047857", bg: "#ecfdf5", l: () => L("Cleared", "تصرّف", "Encaissé") },
 };
 const stStyle = (s) => { const m = ST[s] || ST.outstanding; return { background: m.bg, color: m.c }; };
-const statusLabel = (s) => (ST[s] || ST.outstanding).l();
+const STALE_L = () => L("Likely cleared", "غالبًا تصرّفت", "Probabl. encaissés");
+const statusLabel = (s) => (s === "stale" ? STALE_L() : (ST[s] || ST.outstanding).l());
 
 const FILTERS = [
   { key: "", label: () => L("All", "الكل", "Tout") },
   { key: "outstanding", label: () => L("Outstanding", "معلّق", "En cours") },
+  { key: "stale", label: () => L("Likely cleared", "غالبًا تصرّفت", "Probabl. encaissés") },
   { key: "postdated", label: () => L("Post-dated", "مؤجّل", "Postdaté") },
   { key: "cleared", label: () => L("Cleared", "تصرّف", "Encaissé") },
 ];
