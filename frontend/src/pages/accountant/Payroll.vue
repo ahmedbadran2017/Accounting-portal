@@ -182,6 +182,9 @@
       </template>
     </template>
 
+    <!-- ── ADJUSTMENTS (bonuses & deductions, reviewed before the slip) ── -->
+    <PayAdjustments v-else-if="view==='adjustments'" />
+
     <!-- ── EMPLOYEES ── -->
     <div v-else-if="view==='employees'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2.5 flex-wrap">
@@ -320,6 +323,7 @@ import { h } from "vue";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import AssignStructureModal from "@/components/AssignStructureModal.vue";
+import PayAdjustments from "@/pages/accountant/PayAdjustments.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -347,12 +351,13 @@ Kpi.props = ["label", "value", "sub", "icon", "color"];
 
 // The active tab lives in the URL (?t=…) so browser Back / reload return you to
 // the same tab instead of resetting to the cockpit or bouncing you out.
-const TABS = ["cockpit", "close", "employees", "runs", "components", "accounting"];
+const TABS = ["cockpit", "close", "adjustments", "employees", "runs", "components", "accounting"];
 const view = ref(TABS.includes(route.query.t) ? route.query.t : "cockpit");
 watch(view, (v) => { if (route.query.t !== v) router.replace({ query: { ...route.query, t: v } }); });
 const VIEWS = [
   { k: "cockpit", icon: "chart", label: () => L("Cockpit", "اللوحة", "Cockpit") },
   { k: "close", icon: "lock", label: () => L("Month close", "إقفال الشهر", "Clôture") },
+  { k: "adjustments", icon: "coins", label: () => L("Adjustments", "الحوافز والخصومات", "Ajustements") },
   { k: "employees", icon: "layers", label: () => L("Employees", "الموظفون", "Employés") },
   { k: "runs", icon: "list", label: () => L("Runs", "التشغيلات", "Exécutions") },
   { k: "components", icon: "scale", label: () => L("Components", "المكوّنات", "Composants") },

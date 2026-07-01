@@ -836,6 +836,107 @@ def _assign_poster(doc):
             "result": {"employee": p["employee"], "structure": p["salary_structure"]}}
 
 
+# ── Pay adjustments: bonuses & one-off deductions (Additional Salary) ──────────
+# These are entered/reviewed PER MONTH and picked up automatically when the slip
+# is generated — the "review everything before creating the slip" board.
+
+ADJ_ACTION = "Add pay adjustment"
+
+
+@frappe.whitelist()
+def component_options(company=None):
+    """Salary components split into earnings / deductions for the adjustment picker."""
+    assert_portal_access()
+    rows = frappe.db.sql("SELECT name, type FROM `tabSalary Component` WHERE disabled=0 ORDER BY type, name", as_dict=True)
+    return {"earnings": [r.name for r in rows if r.type == "Earning"],
+            "deductions": [r.name for r in rows if r.type == "Deduction"]}
+
+
+@frappe.whitelist()
+def pay_adjustments(company=None, month=None):
+    """All bonuses / one-off deductions (Additional Salary) that apply to the month,
+    grouped per employee — the pre-slip review board."""
+    assert_portal_access()
+    target = _target(company)
+    if not (target and month):
+        return {}
+    start, end = _month_bounds(month)
+    rows = frappe.db.sql(
+        """SELECT a.name, a.employee, e.employee_name nm, a.salary_component comp, a.type, a.amount
+           FROM `tabAdditional Salary` a JOIN `tabEmployee` e ON e.name=a.employee
+           WHERE a.company=%s AND a.docstatus<2
+             AND (a.payroll_date BETWEEN %s AND %s
+                  OR (IFNULL(a.from_date,'0001-01-01')<=%s AND IFNULL(a.to_date,'9999-12-31')>=%s))
+           ORDER BY e.employee_name, a.type""", (target, start, end, end, start), as_dict=True)
+    by = {}
+    for r in rows:
+        r["amount"] = _m(r["amount"])
+        emp = by.setdefault(r.employee, {"employee": r.employee, "nm": r.nm, "earn": 0.0, "ded": 0.0, "items": []})
+        emp["items"].append({"name": r.name, "comp": r.comp, "type": r.type, "amount": r["amount"]})
+        if r.type == "Earning":
+            emp["earn"] += r["amount"]
+        else:
+            emp["ded"] += r["amount"]
+    emps = sorted(by.values(), key=lambda x: x["nm"])
+    for e in emps:
+        e["earn"], e["ded"] = _m(e["earn"]), _m(e["ded"])
+        e["net"] = _m(e["earn"] - e["ded"])
+    return {"company": target, "currency": _ccy(target), "month": month, "employees": emps,
+            "earn_total": _m(sum(e["earn"] for e in emps)), "ded_total": _m(sum(e["ded"] for e in emps)),
+            "count": len(rows)}
+
+
+@frappe.whitelist()
+def add_adjustment(company=None, employee=None, salary_component=None, amount=None, month=None, notes=None):
+    """Add a bonus / deduction for an employee in a month (Additional Salary).
+    Audited + reversible. Picked up automatically when the slip is generated."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and employee and salary_component and month):
+        frappe.throw("company, employee, salary_component and month are required")
+    amt = _m(amount)
+    if amt <= 0:
+        frappe.throw("Amount must be greater than zero")
+    if not frappe.db.exists("Employee", {"name": employee, "company": target}):
+        frappe.throw("Employee not found in this company")
+    from accounting_portal.api import _actions
+    key = "payadj:" + frappe.generate_hash(f"{target}:{employee}:{salary_component}:{amt}:{month}", 14)
+    return _actions.execute(
+        ADJ_ACTION, target, key,
+        payload={"employee": employee, "salary_component": salary_component, "amount": amt, "month": month},
+        amount=0, notes=notes or f"{salary_component} for {employee} ({month})")
+
+
+def _adj_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    ctype = frappe.db.get_value("Salary Component", p["salary_component"], "type")
+    a = frappe.get_doc({
+        "doctype": "Additional Salary", "company": doc.company, "employee": p["employee"],
+        "salary_component": p["salary_component"], "type": ctype, "amount": flt(p["amount"]),
+        "currency": _ccy(doc.company), "payroll_date": _month_end(p["month"]),
+        "overwrite_salary_structure_amount": 0,
+    })
+    a.insert(ignore_permissions=True)
+    if a.meta.is_submittable:
+        a.submit()
+    return {"voucher_type": "Additional Salary", "voucher_no": a.name,
+            "result": {"employee": p["employee"], "component": p["salary_component"], "amount": flt(p["amount"])}}
+
+
+@frappe.whitelist()
+def remove_adjustment(company=None, name=None):
+    """Remove a bonus / deduction (cancels + deletes the Additional Salary)."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and name and frappe.db.exists("Additional Salary", {"name": name, "company": target})):
+        frappe.throw("Adjustment not found")
+    d = frappe.get_doc("Additional Salary", name)
+    if d.docstatus == 1:
+        d.cancel()
+    frappe.delete_doc("Additional Salary", name, force=1, ignore_permissions=True)
+    return {"removed": name}
+
+
 # Generate/pay register via the shared cancel-voucher undo where applicable.
 def _register():
     from accounting_portal.api import _actions
@@ -852,6 +953,9 @@ def _register():
     _actions.register_poster(ASSIGN_ACTION, _assign_poster)
     _actions.register_reverter(ASSIGN_ACTION, _actions._cancel_voucher_reverter)
     _actions._NO_GATE.add(ASSIGN_ACTION)  # HR master data — no GL, no approval gate
+    _actions.register_poster(ADJ_ACTION, _adj_poster)
+    _actions.register_reverter(ADJ_ACTION, _actions._cancel_voucher_reverter)
+    _actions._NO_GATE.add(ADJ_ACTION)  # pre-slip input — no GL until the slip posts
 
 
 _register()
