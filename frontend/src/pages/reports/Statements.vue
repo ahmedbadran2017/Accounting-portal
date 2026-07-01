@@ -132,6 +132,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, onMounted, watch, h } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -147,7 +148,7 @@ const { entityId } = useUi();
 function drill(account) { if (account) router.push({ path: "/accounting/accountant/gl", query: { account } }); }
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(1) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 
 const TABS = [
   { key: "pnl", label: () => L("P&L", "أ.خ", "Résultat") },

@@ -67,6 +67,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -81,7 +82,7 @@ const { locale } = useI18n();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(1) + "M" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 const shortAcct = (a) => String(a || "").split(" - ").slice(0, 2).join(" ");
 
 const p = ref(null);

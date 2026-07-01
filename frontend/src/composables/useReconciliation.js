@@ -28,9 +28,5 @@ export function useReconciliation() {
   return { summary, unmatchedPayments, candidates };
 }
 
-export const fmtMAD = (n) => {
-  const a = Math.abs(Number(n) || 0), s = n < 0 ? "−" : "";
-  if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
-  if (a >= 1e3) return s + Math.round(a / 1e3) + "K";
-  return s + Math.round(a);
-};
+// Exact grouped amount — no K/M abbreviation (accounting precision).
+export const fmtMAD = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });

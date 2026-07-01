@@ -95,6 +95,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -117,7 +118,7 @@ const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const fmt2 = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
+const money = (n) => fmtAmount(n);
 const carrierLabel = (c) => String(c || "").replace(/ Transactions?$/i, "").trim() || c;
 
 const s = ref({});

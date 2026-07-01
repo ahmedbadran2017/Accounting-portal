@@ -77,6 +77,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -91,7 +92,7 @@ const { locale } = useI18n();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
-const money = (n) => { n = Number(n) || 0; return Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + "M" : Math.abs(n) >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
+const money = (n) => fmtAmount(n);
 const MON = { "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun", "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec" };
 const monthLabel = (m) => { const [y, mm] = String(m).split("-"); return (MON[mm] || mm) + " " + y; };
 

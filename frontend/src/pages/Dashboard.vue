@@ -365,6 +365,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -456,7 +457,7 @@ const DATE_PRESETS = [
 const periodLabel = computed(() => { const r = currentRange.value; return r.from ? `${r.from} → ${r.to}` : ""; });
 const cod = computed(() => cockpit.value || {});
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(n / 1e3) + "K" : Math.round(n).toLocaleString(); };
+const money = (n) => fmtAmount(n);
 const MON = { "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun", "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec" };
 const monthLabel = (m) => MON[String(m).split("-")[1]] || m;
 const FUNNEL = [

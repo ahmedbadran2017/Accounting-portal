@@ -99,6 +99,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -118,7 +119,7 @@ const VIEWS = [
   { k: "balances", icon: "scale", label: () => L("Balances", "الأرصدة", "Soldes") },
   { k: "cleanup", icon: "grid", label: () => L("Cleanup", "تنظيف", "Nettoyage") },
 ];
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? (a / 1e3).toFixed(0) + "K" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 
 const rows = ref([]);
 const isLive = ref(null);

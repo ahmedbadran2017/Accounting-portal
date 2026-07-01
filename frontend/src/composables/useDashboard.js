@@ -7,18 +7,16 @@ import { currentCompany } from "@/composables/useLive";
 
 const pick = (l, en, ar, fr) => (l === "ar" ? ar : l === "fr" ? fr : en);
 
+// Accounting system → exact grouped figures, never K/M abbreviation.
+function exact(n) {
+  return Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
 function vu(n) {
-  // → { value, unit } for the big KPI number (carries a − for negatives).
-  const a = Math.abs(Number(n) || 0), s = n < 0 ? "−" : "";
-  if (a >= 1e6) return { value: s + (a / 1e6).toFixed(2), unit: "M" };
-  if (a >= 1e3) return { value: s + Math.round(a / 1e3), unit: "K" };
-  return { value: s + Math.round(a), unit: "" };
+  // → { value, unit } for the big KPI number; unit stays empty (no K/M).
+  return { value: exact(n), unit: "" };
 }
 function compact(n) {
-  const a = Math.abs(Number(n) || 0), s = n < 0 ? "−" : "";
-  if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
-  if (a >= 1e3) return s + Math.round(a / 1e3) + "K";
-  return s + Math.round(a);
+  return exact(n);
 }
 
 // A 100×26 SVG polyline for a KPI sparkline, normalised from a number series.
@@ -104,7 +102,7 @@ export function overlayCockpit(base, d, l = "en") {
         d: r.day,
         inH: Math.round((Number(r.in) || 0) / cmax * 60) + 2,
         outH: Math.round((Number(r.out) || 0) / cmax * 60) + 2,
-        title: `${r.day} · +${Math.round((Number(r.in) || 0) / 1000)}k / −${Math.round((Number(r.out) || 0) / 1000)}k`,
+        title: `${r.day} · +${exact(r.in)} / −${exact(r.out)}`,
       })),
     };
     const channels = (d.channels || []).slice(0, 5).map((c) => ({

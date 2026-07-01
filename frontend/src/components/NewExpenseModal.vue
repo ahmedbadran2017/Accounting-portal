@@ -97,6 +97,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { fmtMoney } from "@/utils/helpers";
 
+const props = defineProps({ prefill: { type: Object, default: null } });
 const emit = defineEmits(["close", "posted"]);
 const { locale } = useI18n();
 const { entityId, entities } = useUi();
@@ -123,6 +124,14 @@ onMounted(async () => {
   try {
     opt.value = await api.call("accounting_portal.api.expenses.expense_form_options", { company: currentCompany() }) || opt.value;
     payAccount.value = opt.value.default_pay || (opt.value.pay_accounts[0] && opt.value.pay_accounts[0].name) || "";
+    // Prefill from a recurring expense (supplier · account · typical amount).
+    const p = props.prefill;
+    if (p) {
+      if (p.expense_account) expenseAccount.value = p.expense_account;
+      if (p.amount) amount.value = Number(p.amount);
+      if (p.description) description.value = p.description;
+      if (p.party) party.value = p.party;
+    }
   } catch (e) { error.value = (e && e.message) || "Failed to load"; }
   finally { optLoad.value = false; }
 });

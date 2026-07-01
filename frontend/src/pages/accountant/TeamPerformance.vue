@@ -105,6 +105,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -121,7 +122,7 @@ const { entityId } = useUi();
 const router = useRouter();
 const openMember = (m) => router.push({ path: "/accounting/accountant/team", query: { user: m.user } });
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? (a / 1e3).toFixed(0) + "K" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 
 const data = ref({});
 const loading = ref(true);

@@ -95,6 +95,16 @@ export function fmtMoney(amount, currency = "", decimals = 2) {
   return currency ? `${s} ${currency}` : s;
 }
 
+/**
+ * Exact amount for accounting display: grouped thousands, full integer part,
+ * up to 2 decimals only when the value actually has them (no ".00" clutter, and
+ * crucially NO K/M abbreviation — an accounting system shows every digit).
+ * 174230 → "174,230"   128844.735 → "128,844.74"   -1234.5 → "-1,234.5"
+ */
+export function fmtAmount(n) {
+  return Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
 export function fmtDate(s, fallback = "—") {
   if (!s) return fallback;
   const d = new Date(s);

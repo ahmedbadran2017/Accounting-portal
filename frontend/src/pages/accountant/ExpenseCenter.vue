@@ -6,12 +6,12 @@
           <Icon :name="v.icon" :size="13" />{{ v.label() }}<span v-if="v.k==='recurring' && dueBadge" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">{{ dueBadge }}</span>
         </button>
       </div>
-      <button v-if="can('post_entries')" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="showNew = true">
+      <button v-if="can('post_entries')" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew">
         <Icon name="plus" :size="14" />{{ L("New expense", "مصروف جديد", "Nouvelle dépense") }}
       </button>
     </div>
 
-    <RecurringExpenses v-if="view === 'recurring'" @counts="onCounts" />
+    <RecurringExpenses v-if="view === 'recurring'" @counts="onCounts" @record="onRecord" />
 
     <!-- ── TRANSACTIONS ── -->
     <template v-else-if="view === 'transactions'">
@@ -137,7 +137,7 @@
     </template>
     </template>
 
-    <NewExpenseModal v-if="showNew" @close="showNew = false" @posted="onPosted" />
+    <NewExpenseModal v-if="showNew" :prefill="newPrefill" @close="closeNew" @posted="onPosted" />
   </div>
 </template>
 
@@ -168,6 +168,7 @@ const router = useRouter();
 const view = ref("breakdown");
 const dueBadge = ref(0);
 const showNew = ref(false);
+const newPrefill = ref(null);
 const VIEWS = [
   { k: "breakdown", icon: "list", label: () => L("Breakdown", "التفصيل", "Répartition") },
   { k: "transactions", icon: "receipt", label: () => L("Transactions", "الحركات", "Transactions") },
@@ -232,6 +233,9 @@ async function loadBadge() {
 }
 loadBadge();
 
+function openNew() { newPrefill.value = null; showNew.value = true; }
+function onRecord(prefill) { newPrefill.value = prefill; showNew.value = true; }
+function closeNew() { showNew.value = false; newPrefill.value = null; }
 function onPosted(res) {
   const proposed = res && res.status === "Proposed";
   if (proposed) toast.success(L("Sent for approval", "أُرسل للموافقة", "Envoyé pour approbation"));

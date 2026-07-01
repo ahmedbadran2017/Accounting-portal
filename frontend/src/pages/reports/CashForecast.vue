@@ -45,6 +45,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -55,7 +56,7 @@ import { useUi } from "@/composables/useUi";
 const { locale } = useI18n();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 
 const SAMPLE = { currency: "MAD", cash: 675192, carrier_float: 5720000, runrate_30d: 1009125, cheques_7d: 341792, cheques_out: 3407000, bills_due: 7302975, proj_7d: -2700000, proj_30d: -4710000, liquidity_7d_ok: false };
 const d = ref(SAMPLE);

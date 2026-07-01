@@ -102,6 +102,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, watch, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -118,7 +119,7 @@ const { entityId } = useUi();
 const route = useRoute();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? (a / 1e3).toFixed(0) + "K" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 
 // inline KPI card (keeps this page self-contained)
 const KpiCard = (props) => h("div", { class: "bg-white rounded-card border border-line shadow-card px-4 py-3" }, [

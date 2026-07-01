@@ -81,6 +81,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -90,7 +91,7 @@ import api from "@/services/api";
 const { locale } = useI18n();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 
 const SAMPLE = { base: "USD", rows: [{ company: "Justyol Morocco", abbr: "JM", currency: "MAD", rate: 0.105, base: { net: 70695385, assets: 72183437, cash: 71073 } }], totals: { income: 2580000, net: 70536553, assets: 73035766, cash: 232584 }, rate_warnings: [] };
 const d = ref({ rows: [], totals: {} });

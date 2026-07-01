@@ -53,23 +53,29 @@
                 <span class="text-[10px] font-bold px-1.5 py-0.5 rounded" :class="badge(r.status)">{{ r.next }}</span>
                 <div class="text-[10px] text-ink-muted mt-0.5">{{ dueLabel(r) }}</div>
               </td>
-              <td class="px-4 py-2.5 text-end">
-                <button v-if="canWrite && r.status!=='ok'" type="button" :disabled="busy===key(r)" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60" @click="makeDraft(r)">
-                  <Icon :name="busy===key(r) ? 'clock' : 'plus'" :size="12" />{{ L("Draft bill","درافت فاتورة","Brouillon") }}
-                </button>
+              <td class="px-4 py-2.5 text-end whitespace-nowrap">
+                <div v-if="canWrite && r.status!=='ok'" class="inline-flex items-center gap-1.5">
+                  <button type="button" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark" @click="record(r)">
+                    <Icon name="wallet" :size="12" />{{ L("Record","تسجيل","Enregistrer") }}
+                  </button>
+                  <button type="button" :disabled="busy===key(r)" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-60" @click="makeDraft(r)">
+                    <Icon :name="busy===key(r) ? 'clock' : 'doc'" :size="12" />{{ L("Draft bill","درافت فاتورة","Brouillon") }}
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
       <div class="px-4 py-2 border-t border-line-hair text-[10px] text-ink-muted flex items-center gap-1.5">
-        <Icon name="alert" :size="11" color="#9a8f86" />{{ L("“Draft bill” copies the last bill forward as a draft — nothing is posted until you review and submit it.","«درافت فاتورة» بينسخ آخر فاتورة كمسودّة — مفيش ترحيل لحد ما تراجع وتعتمد.","copie la dernière facture en brouillon.") }}
+        <Icon name="alert" :size="11" color="#9a8f86" />{{ L("“Record” opens the expense form prefilled (posts a journal). “Draft bill” copies the last bill forward as an unpaid draft to review.","«تسجيل» بيفتح نموذج المصروف معبّأ (بيرحّل قيد). «درافت فاتورة» بينسخ آخر فاتورة كمسودّة غير مدفوعة للمراجعة.","« Enregistrer » ouvre le formulaire pré-rempli ; « Brouillon » copie la dernière facture.") }}
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -80,13 +86,13 @@ import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 
-const emit = defineEmits(["counts"]);
+const emit = defineEmits(["counts", "record"]);
 const { locale } = useI18n();
 const { entityId } = useUi();
 const { can } = useAuth();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 
 const d = ref({});
 const loading = ref(true);
@@ -112,6 +118,13 @@ function dueLabel(r) {
   if (dd < 0) return L(`${-dd}d overdue`, `متأخّر ${-dd} يوم`, `retard ${-dd}j`);
   if (dd === 0) return L("today", "اليوم", "auj.");
   return L(`in ${dd}d`, `خلال ${dd} يوم`, `dans ${dd}j`);
+}
+function record(r) {
+  // Hand a prefilled expense up to the Expense Center's New-expense modal.
+  emit("record", {
+    expense_account: r.account, amount: r.avg_amt, party: r.supplier,
+    description: L(`Recurring · ${r.account_name || r.supplier}`, `متكرّر · ${r.account_name || r.supplier}`, `Récurrent · ${r.account_name || r.supplier}`),
+  });
 }
 async function makeDraft(r) {
   if (busy.value) return;

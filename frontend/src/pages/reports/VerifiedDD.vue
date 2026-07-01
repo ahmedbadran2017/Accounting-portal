@@ -34,6 +34,7 @@
 </template>
 
 <script setup>
+import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -44,7 +45,7 @@ import { useUi } from "@/composables/useUi";
 const { locale } = useI18n();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
-const money = (n) => { n = Number(n) || 0; const a = Math.abs(n); return (n < 0 ? "−" : "") + (a >= 1e6 ? (a / 1e6).toFixed(1) + "M" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a).toLocaleString()); };
+const money = (n) => fmtAmount(n);
 
 const SAMPLE = { currency: "MAD", score: 1, total: 6, metrics: { revenue: 7810557, gross_margin: -44.7, cash: 675192, debtors: -2851136, exposure: 693526151 }, checklist: [
   { area: "Gross margin quality", status: "fail", value: "−44.7%", note: "COGS exceeds revenue — inventory/COGS posting is broken" },
