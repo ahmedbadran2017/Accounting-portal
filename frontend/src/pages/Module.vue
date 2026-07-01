@@ -13,25 +13,28 @@
 </template>
 
 <script setup>
-import { computed, ref, onErrorCaptured, watch } from "vue";
+import { computed, ref, onErrorCaptured, watch, defineAsyncComponent } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+// Dashboard is the landing page → keep it eager (in app.js) for instant first
+// paint. Every other module is a lazy chunk, loaded only when navigated to.
 import Dashboard from "@/pages/Dashboard.vue";
-import Copilot from "@/pages/Copilot.vue";
-import MyWork from "@/pages/MyWork.vue";
-import Sales from "@/pages/Sales.vue";
-import Purchases from "@/pages/Purchases.vue";
-import Banking from "@/pages/Banking.vue";
-import Accountant from "@/pages/Accountant.vue";
-import Items from "@/pages/Items.vue";
-import Reports from "@/pages/Reports.vue";
-import Settings from "@/pages/Settings.vue";
-import ExpenseCenter from "@/pages/accountant/ExpenseCenter.vue";
-import Payroll from "@/pages/accountant/Payroll.vue";
-import EmployeePayroll from "@/pages/accountant/EmployeePayroll.vue";
-import SlipDetail from "@/pages/accountant/SlipDetail.vue";
-import ModulePage from "@/pages/ModulePage.vue";
+const lazy = (loader) => defineAsyncComponent(loader);
+const Copilot = lazy(() => import("@/pages/Copilot.vue"));
+const MyWork = lazy(() => import("@/pages/MyWork.vue"));
+const Sales = lazy(() => import("@/pages/Sales.vue"));
+const Purchases = lazy(() => import("@/pages/Purchases.vue"));
+const Banking = lazy(() => import("@/pages/Banking.vue"));
+const Accountant = lazy(() => import("@/pages/Accountant.vue"));
+const Items = lazy(() => import("@/pages/Items.vue"));
+const Reports = lazy(() => import("@/pages/Reports.vue"));
+const Settings = lazy(() => import("@/pages/Settings.vue"));
+const ExpenseCenter = lazy(() => import("@/pages/accountant/ExpenseCenter.vue"));
+const Payroll = lazy(() => import("@/pages/accountant/Payroll.vue"));
+const EmployeePayroll = lazy(() => import("@/pages/accountant/EmployeePayroll.vue"));
+const SlipDetail = lazy(() => import("@/pages/accountant/SlipDetail.vue"));
+const ModulePage = lazy(() => import("@/pages/ModulePage.vue"));
 
 // Single dynamic child of AppLayout: dispatch on the :module route param so we
 // don't enumerate a route per module. Dashboard and Copilot are bespoke; every

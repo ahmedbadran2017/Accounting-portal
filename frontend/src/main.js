@@ -18,6 +18,18 @@ import "./index.css";
 // Apply the persisted locale's lang/dir on first paint.
 applyLocale(i18n.global.locale.value);
 
+// Stale-chunk safety net: after a deploy replaces hashed route chunks, an
+// already-open tab may try to import a filename that no longer exists. Vite
+// fires `vite:preloadError`; do a one-time hard reload (fresh HTML → current
+// chunk names) instead of leaving the user on a broken navigation.
+let _reloadedForChunk = false;
+window.addEventListener("vite:preloadError", (e) => {
+  if (_reloadedForChunk) return;
+  _reloadedForChunk = true;
+  e.preventDefault();
+  window.location.reload();
+});
+
 const app = createApp(App);
 
 app.config.errorHandler = (err, vm, info) => {

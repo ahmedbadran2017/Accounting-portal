@@ -27,12 +27,20 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       input: path.resolve(__dirname, "src/main.js"),
       output: {
-        // Inline every lazy route chunk into one fixed-name app.js. On the
-        // no-node bench deploy the only cache key is app.js?v={mtime}; a separate
-        // hash-named chunk (Module-XXXX.js) would change name each build and a
-        // cached old app.js would 404 on it. One file = deterministic deploys.
-        inlineDynamicImports: true,
+        // Split code so first load ships only the shell + vendor + landing page;
+        // every other module loads on demand. Safe here because the HTML page is
+        // `no_cache` and cache-busts `app.js?v={mtime}` every build — fresh HTML
+        // always points at the current app.js, which references the current
+        // content-hashed chunks. Hashed chunks are immutable → cache-forever with
+        // no stale-name 404s. (An already-open tab surviving a deploy is handled
+        // by the vite:preloadError hard-reload in main.js.)
         entryFileNames: "app.js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        // Keep the big, rarely-changing runtime (Vue, router, i18n) in its own
+        // chunk so it stays cached across app deploys.
+        manualChunks: {
+          vendor: ["vue", "vue-router", "vue-i18n"],
+        },
         assetFileNames: (info) => {
           const name = info.name || "";
           if (name.endsWith(".css")) return "app.css";
