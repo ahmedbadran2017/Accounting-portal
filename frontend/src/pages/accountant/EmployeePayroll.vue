@@ -16,6 +16,9 @@
           <div class="text-[10.5px] text-ink-muted mt-0.5">{{ e.name }}<span v-if="e.date_of_joining"> · {{ L("joined","انضم","embauché") }} {{ e.date_of_joining }}</span></div>
         </div>
         <span class="ms-auto text-[10px] font-bold px-2 py-1 rounded-chip" :class="e.status==='Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-muted'">{{ e.status }}</span>
+        <button v-if="canWrite" type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="editing = true">
+          <Icon name="gear" :size="13" />{{ L("Edit","تعديل","Modifier") }}
+        </button>
       </div>
 
       <div class="grid grid-cols-3 gap-3">
@@ -53,6 +56,7 @@
         </div>
       </div>
     </template>
+    <EmployeeEditModal v-if="editing && employee" :employee="employee" @close="editing = false" @done="load" />
   </div>
 </template>
 
@@ -62,15 +66,20 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import EmployeeEditModal from "@/components/EmployeeEditModal.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
 import { fmtMoney } from "@/utils/helpers";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const { can } = useAuth();
 const route = useRoute();
 const router = useRouter();
+const canWrite = computed(() => can("post_entries"));
+const editing = ref(false);
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 // Accounting precision: exact, grouped, 2 decimals — no K/M abbreviation.
 const money = (n) => fmtMoney(n);

@@ -937,6 +937,129 @@ def remove_adjustment(company=None, name=None):
     return {"removed": name}
 
 
+# ── Full employee control: create / edit / status (HR master data) ─────────────
+
+EMP_UPDATE_ACTION = "Update employee"
+EMP_CREATE_ACTION = "Create employee"
+_EMP_EDITABLE = ("employee_name", "first_name", "last_name", "gender", "date_of_birth", "salutation",
+                 "date_of_joining", "status", "department", "designation", "employment_type",
+                 "reports_to", "branch", "cell_number", "personal_email", "company_email",
+                 "bank_name", "bank_ac_no", "iban", "relieving_date")
+_EMP_DATES = ("date_of_birth", "date_of_joining", "relieving_date")
+
+
+@frappe.whitelist()
+def employee_form_options(company=None):
+    """Dropdown sources for the employee create/edit form."""
+    assert_portal_access()
+    target = _target(company)
+    return {
+        "departments": frappe.get_all("Department", {"company": target}, pluck="name"),
+        "designations": frappe.get_all("Designation", pluck="name"),
+        "employment_types": frappe.get_all("Employment Type", pluck="name"),
+        "genders": frappe.get_all("Gender", pluck="name"),
+        "statuses": ["Active", "Inactive", "Suspended", "Left"],
+    }
+
+
+@frappe.whitelist()
+def employee_profile(company=None, employee=None):
+    """The editable fields for one employee."""
+    assert_portal_access()
+    target = _target(company)
+    if not (target and employee):
+        return {}
+    e = frappe.db.get_value("Employee", {"name": employee, "company": target},
+                            list(_EMP_EDITABLE) + ["name"], as_dict=True)
+    if not e:
+        frappe.throw("Employee not found")
+    for k in _EMP_DATES:
+        e[k] = str(e[k] or "")[:10]
+    return e
+
+
+@frappe.whitelist()
+def update_employee(company=None, employee=None, fields=None, notes=None):
+    """Edit an employee (name, department, status, bank, contact…). Audited +
+    reversible — the prior values are captured and restored on undo."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and employee) or not frappe.db.exists("Employee", {"name": employee, "company": target}):
+        frappe.throw("Employee not found")
+    fields = fields if isinstance(fields, dict) else json.loads(fields or "{}")
+    fields = {k: v for k, v in fields.items() if k in _EMP_EDITABLE}
+    if not fields:
+        frappe.throw("Nothing to update")
+    prior = {k: frappe.db.get_value("Employee", employee, k) for k in fields}
+    from accounting_portal.api import _actions
+    key = "empupd:" + frappe.generate_hash(f"{employee}:{json.dumps(fields, sort_keys=True, default=str)}", 14)
+    return _actions.execute(
+        EMP_UPDATE_ACTION, target, key,
+        payload={"employee": employee, "fields": fields,
+                 "prior": {k: (str(v) if v not in (None, "") else None) for k, v in prior.items()}},
+        amount=0, notes=notes or f"Update {employee}")
+
+
+def _emp_apply(name, fields):
+    emp = frappe.get_doc("Employee", name)
+    for k, v in fields.items():
+        emp.set(k, v if v not in ("", None) else None)
+    emp.save(ignore_permissions=True)
+    return emp
+
+
+def _update_emp_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    _emp_apply(p["employee"], p["fields"])
+    return {"voucher_type": "Employee", "voucher_no": p["employee"], "result": p["fields"]}
+
+
+def _update_emp_reverter(doc):
+    p = json.loads(doc.payload or "{}")
+    _emp_apply(p["employee"], p.get("prior") or {})
+    return {"restored": list((p.get("prior") or {}).keys())}
+
+
+@frappe.whitelist()
+def create_employee(company=None, first_name=None, last_name=None, gender=None, date_of_birth=None,
+                    date_of_joining=None, department=None, designation=None, employment_type=None,
+                    cell_number=None, company_email=None, bank_name=None, bank_ac_no=None, iban=None, notes=None):
+    """Add a new employee. Audited + reversible (deletes the fresh record on undo
+    if it has no slips yet)."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and first_name and gender and date_of_birth and date_of_joining):
+        frappe.throw("first name, gender, date of birth and joining date are required")
+    payload = {"first_name": first_name, "last_name": last_name, "gender": gender,
+               "date_of_birth": date_of_birth, "date_of_joining": date_of_joining,
+               "department": department, "designation": designation, "employment_type": employment_type,
+               "cell_number": cell_number, "company_email": company_email,
+               "bank_name": bank_name, "bank_ac_no": bank_ac_no, "iban": iban}
+    from accounting_portal.api import _actions
+    key = "empnew:" + frappe.generate_hash(f"{target}:{first_name}:{last_name}:{date_of_joining}:{date_of_birth}", 14)
+    return _actions.execute(EMP_CREATE_ACTION, target, key, payload=payload, amount=0,
+                            notes=notes or f"New employee {first_name} {last_name or ''}".strip())
+
+
+def _create_emp_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    e = frappe.get_doc({"doctype": "Employee", "company": doc.company, "status": "Active",
+                        **{k: v for k, v in p.items() if v not in ("", None)}})
+    e.insert(ignore_permissions=True)
+    return {"voucher_type": "Employee", "voucher_no": e.name,
+            "result": {"employee": e.name, "employee_name": e.employee_name}}
+
+
+def _create_emp_reverter(doc):
+    name = doc.voucher_no
+    if not name or not frappe.db.exists("Employee", name):
+        return {"noop": True}
+    if frappe.db.exists("Salary Slip", {"employee": name}) or frappe.db.exists("Salary Structure Assignment", {"employee": name}):
+        frappe.throw("This employee already has payroll records — set status to Inactive instead of deleting.")
+    frappe.delete_doc("Employee", name, force=1, ignore_permissions=True)
+    return {"deleted": name}
+
+
 # Generate/pay register via the shared cancel-voucher undo where applicable.
 def _register():
     from accounting_portal.api import _actions
@@ -956,6 +1079,12 @@ def _register():
     _actions.register_poster(ADJ_ACTION, _adj_poster)
     _actions.register_reverter(ADJ_ACTION, _actions._cancel_voucher_reverter)
     _actions._NO_GATE.add(ADJ_ACTION)  # pre-slip input — no GL until the slip posts
+    _actions.register_poster(EMP_UPDATE_ACTION, _update_emp_poster)
+    _actions.register_reverter(EMP_UPDATE_ACTION, _update_emp_reverter)
+    _actions._NO_GATE.add(EMP_UPDATE_ACTION)
+    _actions.register_poster(EMP_CREATE_ACTION, _create_emp_poster)
+    _actions.register_reverter(EMP_CREATE_ACTION, _create_emp_reverter)
+    _actions._NO_GATE.add(EMP_CREATE_ACTION)
 
 
 _register()

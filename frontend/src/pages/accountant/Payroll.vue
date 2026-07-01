@@ -189,6 +189,9 @@
     <div v-else-if="view==='employees'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2.5 flex-wrap">
         <Icon name="layers" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Employees','الموظفون','Employés') }}</span>
+        <button v-if="can('post_entries')" type="button" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="newEmp = true">
+          <Icon name="plus" :size="13" />{{ L('New employee','موظف جديد','Nouvel employé') }}
+        </button>
         <div class="ms-auto flex items-center gap-2 flex-wrap">
           <select v-model="empDept" class="h-9 bg-app-warm/40 border border-line-2 rounded-[10px] px-2.5 text-[12px] focus:outline-none focus:border-accent/40" @change="loadEmps">
             <option value="all">{{ L('All departments','كل الأقسام','Tous services') }}</option>
@@ -312,6 +315,7 @@
       </div>
     </template>
     <AssignStructureModal v-if="assignEmp" :employee="assignEmp.name" :employee-name="assignEmp.nm" @close="assignEmp = null" @done="onAssigned" />
+    <EmployeeEditModal v-if="newEmp" @close="newEmp = false" @done="loadEmps" />
   </div>
 </template>
 
@@ -323,6 +327,7 @@ import { h } from "vue";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import AssignStructureModal from "@/components/AssignStructureModal.vue";
+import EmployeeEditModal from "@/components/EmployeeEditModal.vue";
 import PayAdjustments from "@/pages/accountant/PayAdjustments.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import api from "@/services/api";
@@ -445,6 +450,7 @@ const isStale = (d) => { if (!d) return true; const m = new Date(); m.setMonth(m
 function openEmp(name) { router.push({ path: "/accounting/payroll", query: { employee: name } }); }
 function openRun(name) { router.push({ path: "/accounting/payroll", query: { run: name } }); }
 const assignEmp = ref(null);
+const newEmp = ref(false);
 function assignFor(r) { assignEmp.value = r; }
 function onAssigned() { loadEmps(); if (view.value === "close") loadClose(); }
 function openDept(dept) { empDept.value = dept; empStatus.value = "all"; empSearch.value = ""; view.value = "employees"; loadEmps(); }
