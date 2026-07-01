@@ -69,5 +69,7 @@ export const JONLY = [
 
 export function defaultSub(module) {
   const s = SUBTABS[module];
-  return s ? s[0][0] : null;
+  // Guard the empty-array case (self-tabbed modules like expenses/payroll have
+  // no sidebar sub-tabs): `[]` is truthy but `[][0][0]` throws.
+  return s && s.length ? s[0][0] : null;
 }
