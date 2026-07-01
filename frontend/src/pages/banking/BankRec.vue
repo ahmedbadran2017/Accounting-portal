@@ -22,7 +22,10 @@
         <span class="text-[13px] font-bold truncate max-w-[260px]">{{ selName }}</span>
         <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("uncleared entries", "قيد غير مُسوّى", "écritures") }}</span>
-        <div class="relative ms-auto">
+        <button type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="showImport = true">
+          <Icon name="doc" :size="13" />{{ L("Import statement", "استيراد كشف", "Importer relevé") }}
+        </button>
+        <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="srch" :placeholder="L('Voucher / party / ref…', 'مستند / طرف…', 'Pièce / tiers…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
@@ -61,6 +64,7 @@
     <div v-else class="bg-white rounded-card border border-line shadow-card py-12 text-center text-[12px] text-ink-muted">{{ L("Pick a bank account to reconcile.", "اختر حسابًا بنكيًا للتسوية.", "Choisissez un compte.") }}</div>
 
     <BulkBar :t="tt" filename="bankrec-selected" :note="bulkNote" :actions="bulkActions" />
+    <StatementImportModal v-if="showImport && sel" :account="sel" :account-name="selName" @close="showImport = false" @done="onImported" />
   </div>
 </template>
 
@@ -74,6 +78,7 @@ import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import BulkBar from "@/components/BulkBar.vue";
+import StatementImportModal from "@/components/StatementImportModal.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
@@ -108,6 +113,8 @@ const rows = ref([]);
 const live = ref(null);
 const loading = ref(false);
 const srch = ref("");
+const showImport = ref(false);
+function onImported() { loadAccounts(); loadRows(); }
 const tt = useTableTools(rows, cols, { storeKey: "bankrec", keyField: "voucher", defaultSort: "date", defaultDir: -1 });
 const bulkNote = computed(() => { const t = tt.selectedRows.value.reduce((a, r) => a + Math.abs(Number(r.amount) || 0), 0); return t ? fmt(t) + " MAD" : ""; });
 
