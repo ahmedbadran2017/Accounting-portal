@@ -25,6 +25,7 @@
     <PaymentMadeDetail v-else-if="activeSub === 'payments' && route.query.id" />
     <PaymentsMade v-else-if="activeSub === 'payments'" />
     <Cheques v-else-if="activeSub === 'cheques'" />
+    <IntermediaryHub v-else-if="activeSub === 'intermediaries'" />
     <ScaffoldTable v-else />
 
     <PurchaseOrderForm v-if="showPo" @close="showPo = false" @created="onPoCreated" />
@@ -48,6 +49,7 @@ import BillDetail from "@/pages/purchases/BillDetail.vue";
 import PaymentsMade from "@/pages/purchases/PaymentsMade.vue";
 import PaymentMadeDetail from "@/pages/purchases/PaymentMadeDetail.vue";
 import Cheques from "@/pages/purchases/Cheques.vue";
+import IntermediaryHub from "@/pages/purchases/IntermediaryHub.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
