@@ -70,6 +70,7 @@ def _ensure_posters():
     import accounting_portal.api.payroll          # noqa: F401 — payroll month-close poster + reverter
     import accounting_portal.api.expenses         # noqa: F401 — record-expense poster + reverter
     import accounting_portal.api.ledger           # noqa: F401 — disable/reclassify account posters + reverters
+    import accounting_portal.api.intermediary     # noqa: F401 — create-intermediary-account poster + reverter
 
 
 def _existing(dedupe_key):

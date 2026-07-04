@@ -72,8 +72,22 @@
           <button class="text-ink-3 hover:text-ink" @click="funding=false"><Icon name="close" :size="18" /></button>
         </div>
         <div class="p-5 space-y-3.5">
-          <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Intermediary","الوسيط","Intermédiaire") }}</span>
-            <select v-model="fund.intermediary" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none"><option value="">—</option><option v-for="i in opt.intermediaries || []" :key="i.name" :value="i.name">{{ i.nm }}</option></select></label>
+          <label class="block">
+            <span class="text-[11px] font-semibold text-ink-3 flex items-center">{{ L("Intermediary","الوسيط","Intermédiaire") }}
+              <button type="button" class="ms-auto text-[10.5px] font-bold text-brand hover:underline" @click="creating = !creating">{{ creating ? L("Pick existing","اختر موجود","Choisir") : L("+ New intermediary","+ وسيط جديد","+ Nouveau") }}</button></span>
+            <select v-if="!creating" v-model="fund.intermediary" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none"><option value="">—</option><option v-for="i in opt.intermediaries || []" :key="i.name" :value="i.name">{{ i.nm }}</option></select>
+          </label>
+          <div v-if="creating" class="rounded-[12px] border border-line-2 bg-app-warm/40 p-3 space-y-2.5">
+            <div class="text-[10.5px] text-ink-muted">{{ L("One clean account per intermediary — created under “Due From Intermediaries” and reused for every transfer.","حساب واحد نضيف لكل وسيط — بيتعمل تحت «Due From Intermediaries» ويتعاد استخدامه في كل تحويلة.","Un compte propre par intermédiaire, réutilisé.") }}</div>
+            <div class="flex items-center gap-2">
+              <input v-model.trim="newAcct.name" class="flex-1 border border-line-2 rounded-chip px-3 py-2 text-[12px] bg-white focus:outline-none" :placeholder="L('e.g. Due from Hassan Exchange','مثال: Due from Hassan Exchange','ex. Due from Hassan')" @keyup.enter="doCreateAcct" />
+              <select v-model="newAcct.currency" class="w-[76px] border border-line-2 rounded-chip px-2 py-2 text-[12px] bg-white focus:outline-none">
+                <option v-for="c in ['MAD','USD','TRY','EUR']" :key="c" :value="c">{{ c }}</option>
+              </select>
+              <button type="button" class="h-[34px] px-3 rounded-chip text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="!newAcct.name || acctBusy" @click="doCreateAcct">{{ acctBusy ? '…' : L("Create","إنشاء","Créer") }}</button>
+            </div>
+            <div v-if="acctErr" class="text-[11px] text-sale">{{ acctErr }}</div>
+          </div>
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("From bank","من بنك","Banque") }}</span>
             <select v-model="fund.bank" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none"><option value="">—</option><option v-for="b in opt.banks || []" :key="b.name" :value="b.name">{{ b.nm }}</option></select></label>
           <div class="grid grid-cols-2 gap-3">
@@ -145,7 +159,23 @@ async function settle(b) {
 
 const funding = ref(false), fundBusy = ref(false), fundErr = ref("");
 const fund = reactive({ intermediary: "", bank: "", amount: null, date: new Date().toISOString().slice(0, 10) });
-function openFund() { fund.intermediary = ""; fund.bank = ""; fund.amount = null; fundErr.value = ""; funding.value = true; }
+function openFund() { fund.intermediary = ""; fund.bank = ""; fund.amount = null; fundErr.value = ""; creating.value = false; funding.value = true; }
+
+const creating = ref(false), acctBusy = ref(false), acctErr = ref("");
+const newAcct = reactive({ name: "", currency: "MAD" });
+async function doCreateAcct() {
+  if (!newAcct.name || acctBusy.value) return;
+  acctBusy.value = true; acctErr.value = "";
+  try {
+    const res = await api.call("accounting_portal.api.intermediary.create_intermediary_account",
+      { company: currentCompany(), account_name: newAcct.name, currency: newAcct.currency });
+    toast.success(L("Account created", "تم إنشاء الحساب", "Compte créé"));
+    creating.value = false; newAcct.name = "";
+    await load();
+    if (res && res.voucher_no) fund.intermediary = res.voucher_no;
+  } catch (e) { acctErr.value = String(e?.message || e).slice(0, 200); }
+  finally { acctBusy.value = false; }
+}
 async function doFund() {
   if (fundBusy.value) return;
   fundBusy.value = true; fundErr.value = "";
