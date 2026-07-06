@@ -13,6 +13,26 @@
       <div v-if="optLoad" class="p-8 text-center text-ink-muted text-[12px]">{{ L("Loading…", "جارٍ التحميل…", "…") }}</div>
       <template v-else>
         <div class="p-5 space-y-3.5">
+          <!-- what is this? a vendor's bill (PI) vs an immediate cash expense (JE) -->
+          <div class="flex gap-1 bg-app-warm/60 rounded-chip p-1 w-fit">
+            <button type="button" class="px-3 py-1.5 rounded-lg text-[11.5px]" :class="modeType==='bill' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3 font-medium'" @click="modeType='bill'">{{ L("Supplier bill", "فاتورة مورّد", "Facture fournisseur") }}</button>
+            <button type="button" class="px-3 py-1.5 rounded-lg text-[11.5px]" :class="modeType==='cash' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3 font-medium'" @click="modeType='cash'">{{ L("Quick cash expense", "مصروف فوري", "Dépense rapide") }}</button>
+          </div>
+          <div class="text-[10.5px] text-ink-muted -mt-1.5">
+            {{ modeType==='bill'
+              ? L("Meta / TikTok ads, freight, clearance… — books a real Purchase Invoice: supplier ledger, aging and partial payments work.", "إعلانات ميتا/تيك توك، شحن، تخليص… — بتتسجل Purchase Invoice حقيقية: كشف المورّد والأعمار والدفع الجزئي شغالين.", "Vraie facture fournisseur.")
+              : L("Small immediate spend with no vendor account — books a journal entry.", "مصروف صغير فوري من غير حساب مورّد — قيد يومية.", "Petite dépense immédiate.") }}
+          </div>
+
+          <!-- supplier (bill mode) -->
+          <label v-if="modeType==='bill'" class="block">
+            <span class="text-[11px] font-semibold text-ink-3">{{ L("Supplier", "المورّد", "Fournisseur") }} <span class="text-sale">*</span></span>
+            <select v-model="supplier" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
+              <option value="">—</option>
+              <option v-for="s in opt.suppliers" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </label>
+
           <!-- expense account — single searchable combobox -->
           <div class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Expense account", "حساب المصروف", "Compte de charge") }}</span>
@@ -51,16 +71,31 @@
             </label>
           </div>
 
-          <!-- pay from -->
-          <label class="block">
+          <!-- bill mode: supplier bill no + payment status -->
+          <div v-if="modeType==='bill'" class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-[11px] font-semibold text-ink-3">{{ L("Supplier bill #", "رقم فاتورة المورّد", "N° facture") }} <span class="text-ink-muted font-normal">({{ L("optional", "اختياري", "opt.") }})</span></span>
+              <input v-model.trim="billNo" :placeholder="L('e.g. META-2026-0492','مثال: META-2026-0492','ex. META-0492')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+            </label>
+            <label class="block">
+              <span class="text-[11px] font-semibold text-ink-3">{{ L("Payment", "الدفع", "Paiement") }}</span>
+              <select v-model="payNow" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
+                <option value="">{{ L("Not paid yet → goes to 'To Pay'", "لسه ماتدفعتش ← تروح To Pay", "Impayée → À payer") }}</option>
+                <option v-for="a in cashBankAccounts" :key="a.name" :value="a.name">{{ L("Paid from", "اتدفعت من", "Payée de") }} {{ a.nm }}</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- cash mode: pay from -->
+          <label v-if="modeType==='cash'" class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Paid from", "مدفوع من", "Payé depuis") }}</span>
             <select v-model="payAccount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
               <option v-for="a in opt.pay_accounts" :key="a.name" :value="a.name">{{ payLabel(a) }}</option>
             </select>
           </label>
 
-          <!-- supplier (only meaningful for a payable/credit account) -->
-          <label v-if="isPayable" class="block">
+          <!-- cash mode: supplier (only meaningful for a payable/credit account) -->
+          <label v-if="modeType==='cash' && isPayable" class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Supplier", "المورّد", "Fournisseur") }} <span class="text-ink-muted font-normal">({{ L("optional", "اختياري", "facultatif") }})</span></span>
             <select v-model="party" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
               <option value="">—</option>
@@ -136,7 +171,8 @@
               <span class="tnum font-bold text-teal-700">{{ money(taxValue) }}</span>
             </div>
             <div class="flex items-center justify-between px-3 py-2 border-t border-line-hair">
-              <span class="truncate">{{ L("Cr", "دائن", "Cr") }} · {{ shortAcct(payAccount) }}{{ party ? " · " + party : "" }}</span>
+              <span class="truncate" v-if="modeType==='bill'">{{ L("Cr", "دائن", "Cr") }} · {{ payNow ? shortAcct(payNow) : L("Creditors", "ذمم الموردين", "Fournisseurs") + " · " + supplier }}</span>
+              <span class="truncate" v-else>{{ L("Cr", "دائن", "Cr") }} · {{ shortAcct(payAccount) }}{{ party ? " · " + party : "" }}</span>
               <span class="tnum font-bold text-rose-600">{{ money(grossAmount) }}</span>
             </div>
           </div>
@@ -189,6 +225,13 @@ const party = ref("");
 const description = ref("");
 const posting = ref(false);
 const error = ref("");
+
+// bill (Purchase Invoice) vs quick cash expense (Journal Entry)
+const modeType = ref("bill");
+const supplier = ref("");
+const billNo = ref("");
+const payNow = ref(""); // "" = unpaid → To Pay; else the Bank/Cash account it was paid from
+const cashBankAccounts = computed(() => (opt.value.pay_accounts || []).filter((a) => a.typ !== "Payable"));
 
 // VAT (TVA / KDV)
 const hasTax = ref(false);
@@ -265,16 +308,22 @@ function onAcctInput() { acctOpen.value = true; if (expenseAccount.value) expens
 function pickAccount(a) { expenseAccount.value = a.name; acctQuery.value = acctLabel(a); acctOpen.value = false; }
 const payMap = computed(() => Object.fromEntries((opt.value.pay_accounts || []).map((a) => [a.name, a])));
 const isPayable = computed(() => payMap.value[payAccount.value]?.typ === "Payable");
-const canPreview = computed(() => expenseAccount.value && payAccount.value && Number(amount.value) > 0);
+const canPreview = computed(() =>
+  expenseAccount.value && Number(amount.value) > 0 &&
+  (modeType.value === "bill" ? !!supplier.value : !!payAccount.value));
 const currencyWarn = computed(() => {
+  if (modeType.value === "bill") return false; // PI handles its own currency
   const ea = selectedAccount.value, pa = payMap.value[payAccount.value];
   const eccy = (ea && ea.ccy) || opt.value.currency;
   const pccy = (pa && pa.ccy) || opt.value.currency;
   return ea && pa && eccy !== pccy;
 });
 const canSubmit = computed(() =>
-  canPreview.value && !currencyWarn.value &&
-  (!hasTax.value || (taxAccount.value && netAmount.value > 0)));
+  expenseAccount.value && Number(amount.value) > 0 &&
+  (!hasTax.value || (taxAccount.value && netAmount.value > 0)) &&
+  (modeType.value === "bill"
+    ? !!supplier.value
+    : (payAccount.value && !currencyWarn.value)));
 
 function payLabel(a) {
   const t = a.typ === "Bank" ? L("Bank", "بنك", "Banque") : a.typ === "Cash" ? L("Cash", "نقدية", "Caisse") : L("Payable", "ذمم دائنة", "À payer");
@@ -287,16 +336,24 @@ async function submit() {
   if (!canSubmit.value) return;
   posting.value = true;
   try {
-    const res = await api.call("accounting_portal.api.expenses.create_expense", {
+    const common = {
       company: currentCompany(), expense_account: expenseAccount.value,
       amount: netAmount.value, posting_date: postingDate.value,
-      pay_account: payAccount.value, party: (isPayable.value && party.value) || undefined,
       description: description.value || undefined,
       tax_amount: taxValue.value || undefined,
       tax_account: (hasTax.value && taxAccount.value) || undefined,
       attachment: fileUrl.value || undefined,
       attachment_name: fileName.value || undefined,
-    });
+    };
+    const res = modeType.value === "bill"
+      ? await api.call("accounting_portal.api.expenses.create_supplier_bill", {
+          ...common, supplier: supplier.value, bill_no: billNo.value || undefined,
+          paid_from: payNow.value || undefined,
+        })
+      : await api.call("accounting_portal.api.expenses.create_expense", {
+          ...common, pay_account: payAccount.value,
+          party: (isPayable.value && party.value) || undefined,
+        });
     emit("posted", res);
     emit("close");
   } catch (e) {

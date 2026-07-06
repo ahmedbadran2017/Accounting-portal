@@ -355,9 +355,93 @@ def create_expense(company=None, expense_account=None, amount=None, posting_date
         amount=gross, notes=description or "Operating expense")
 
 
+BILL_ACTION = "Record supplier bill"
+
+
+@frappe.whitelist()
+def create_supplier_bill(company=None, supplier=None, expense_account=None, amount=None,
+                         posting_date=None, bill_no=None, description=None,
+                         tax_amount=0, tax_account=None, paid_from=None,
+                         attachment=None, attachment_name=None):
+    """A recurring vendor's expense bill (Meta / TikTok ads, freight, clearance…)
+    recorded as a real Purchase Invoice — supplier ledger, AP aging, statements
+    and partial payments all work, unlike a bare journal. Service line (no stock
+    item) debits the expense account; VAT debits the 191.x input account.
+    `paid_from` (a Bank/Cash account) marks it paid immediately; empty = it lands
+    in Purchases → To Pay. Gated, audited, revert = cancel the invoice."""
+    assert_can_write()
+    target = _target(company)
+    amt = _m(amount)
+    tax = _m(tax_amount)
+    if not (target and supplier and expense_account):
+        frappe.throw("company, supplier and expense_account are required")
+    if amt <= 0:
+        frappe.throw("Amount must be greater than zero")
+    if tax > 0 and not tax_account:
+        frappe.throw("Pick the input-VAT account for the tax portion")
+    if not frappe.db.exists("Supplier", supplier):
+        frappe.throw(f"Supplier not found: {supplier}")
+    for a in [expense_account] + ([tax_account] if tax > 0 else []) + ([paid_from] if paid_from else []):
+        if not frappe.db.exists("Account", {"name": a, "company": target, "is_group": 0}):
+            frappe.throw(f"Account not found in {target}: {a}")
+    if paid_from and frappe.db.get_value("Account", paid_from, "account_type") not in ("Bank", "Cash"):
+        frappe.throw("paid_from must be a Bank or Cash account")
+    gross = round(amt + tax, 2)
+    pd = str(posting_date or nowdate())[:10]
+    key = "suppbill:" + frappe.generate_hash(
+        f"{target}|{supplier}|{expense_account}|{amt}|{tax}|{pd}|{bill_no or ''}", 14)
+    return _actions.execute(
+        BILL_ACTION, target, key,
+        payload={"supplier": supplier, "expense_account": expense_account, "net": amt,
+                 "tax": tax, "tax_account": tax_account, "posting_date": pd,
+                 "bill_no": bill_no or None, "description": description or None,
+                 "paid_from": paid_from or None,
+                 "attachment": attachment or None, "attachment_name": attachment_name or None},
+        amount=gross,
+        notes=(description or f"Supplier bill — {supplier}") + (f" · {bill_no}" if bill_no else ""))
+
+
+def _bill_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    pi = frappe.new_doc("Purchase Invoice")
+    pi.company = action.company
+    pi.supplier = p["supplier"]
+    pi.posting_date = p["posting_date"]
+    pi.set_posting_time = 1
+    if p.get("bill_no"):
+        pi.bill_no = p["bill_no"]
+        pi.bill_date = p["posting_date"]
+    pi.append("items", {
+        "item_name": (p.get("description") or p["expense_account"].split(" - ")[-2 if " - " in p["expense_account"] else 0])[:140],
+        "description": p.get("description") or "Expense bill via Accounting Portal",
+        "qty": 1, "rate": flt(p["net"]),
+        "expense_account": p["expense_account"],
+        "cost_center": frappe.get_cached_value("Company", action.company, "cost_center"),
+    })
+    if flt(p.get("tax")) > 0:
+        pi.append("taxes", {"charge_type": "Actual", "add_deduct_tax": "Add", "category": "Total",
+                            "account_head": p["tax_account"], "tax_amount": flt(p["tax"]),
+                            "description": "Input VAT"})
+    if p.get("paid_from"):
+        pi.is_paid = 1
+        pi.cash_bank_account = p["paid_from"]
+        pi.paid_amount = round(flt(p["net"]) + flt(p.get("tax")), 2)
+    pi.insert(ignore_permissions=True)
+    pi.submit()
+    if p.get("attachment"):
+        frappe.get_doc({"doctype": "File", "file_url": p["attachment"],
+                        "file_name": p.get("attachment_name") or p["attachment"].rsplit("/", 1)[-1],
+                        "attached_to_doctype": "Purchase Invoice", "attached_to_name": pi.name,
+                        "is_private": 1}).insert(ignore_permissions=True)
+    return {"voucher_type": "Purchase Invoice", "voucher_no": pi.name,
+            "result": f"{p['supplier']} · {pi.grand_total}"}
+
+
 def _register():
     _actions.register_poster(EXPENSE_ACTION, _expense_poster)
     _actions.register_reverter(EXPENSE_ACTION, _actions._cancel_voucher_reverter)
+    _actions.register_poster(BILL_ACTION, _bill_poster)
+    _actions.register_reverter(BILL_ACTION, _actions._cancel_voucher_reverter)
 
 
 _register()
