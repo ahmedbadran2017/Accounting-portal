@@ -72,6 +72,7 @@ def _ensure_posters():
     import accounting_portal.api.ledger           # noqa: F401 — disable/reclassify account posters + reverters
     import accounting_portal.api.intermediary     # noqa: F401 — create-intermediary-account poster + reverter
     import accounting_portal.api.valuation        # noqa: F401 — stock-valuation-fix poster + reverter
+    import accounting_portal.api.landed_pipeline  # noqa: F401 — landed-cost-voucher poster + reverter
 
 
 def _existing(dedupe_key):

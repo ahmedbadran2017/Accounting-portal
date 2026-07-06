@@ -48,7 +48,8 @@
     <PriceListDetail v-else-if="activeSub === 'pricelists' && route.query.id" />
     <PriceListsList v-else-if="activeSub === 'pricelists'" />
     <LandedCostDetail v-else-if="activeSub === 'landed' && route.query.id" />
-    <LandedCost v-else-if="activeSub === 'landed'" />
+    <LandedCost v-else-if="activeSub === 'landed' && route.query.list" />
+    <ShipmentPipeline v-else-if="activeSub === 'landed'" />
     <ItemCostCard v-else-if="activeSub === 'costing' && route.query.item" />
     <LandedWorkbench v-else-if="activeSub === 'costing'" />
     <ValuationDoctor v-else-if="activeSub === 'valuation'" />
@@ -72,6 +73,7 @@ import ItemDetail from "@/pages/items/ItemDetail.vue";
 import PriceListsList from "@/pages/items/PriceListsList.vue";
 import PriceListDetail from "@/pages/items/PriceListDetail.vue";
 import ValuationDoctor from "@/pages/items/ValuationDoctor.vue";
+import ShipmentPipeline from "@/pages/items/ShipmentPipeline.vue";
 import InventoryCorrectionModal from "@/components/InventoryCorrectionModal.vue";
 import SetPriceModal from "@/components/SetPriceModal.vue";
 import { useUi } from "@/composables/useUi";
