@@ -127,6 +127,7 @@
                 <td class="px-2 py-2 text-[11px]" colspan="2">{{ m.description }} <span class="text-[10px] text-ink-muted">{{ m.expense_account }}</span></td>
                 <td class="px-3 py-2 text-end tnum font-semibold">{{ money(m.amount) }}</td>
               </tr>
+              <tr v-if="inbox.length >= 500"><td colspan="4" class="px-4 py-2 text-center text-[10px] text-amber-700">{{ L("Showing the latest 500 charges — post some to surface older ones.","بيعرض أحدث 500 مصروف — رحّل شوية عشان الأقدم يظهر.","500 dernières charges.") }}</td></tr>
               <tr v-if="!inbox.length && !manualCharges.length"><td colspan="4" class="px-4 py-6 text-center text-ink-muted text-[11px]">{{ L("No unallocated charges — add one manually if the bill isn't booked yet.","مفيش مصاريف غير موزعة — أضف يدوي لو الفاتورة لسه ماتسجلتش.","Aucune charge.") }}</td></tr>
             </tbody>
           </table>

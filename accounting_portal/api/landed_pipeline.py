@@ -90,7 +90,7 @@ def charge_inbox(company=None):
               AND g.voucher_type != 'Landed Cost Voucher' AND {_INBOUND}
             GROUP BY g.voucher_type, g.voucher_no, g.account, a.account_name, g.posting_date
             HAVING SUM(g.debit-g.credit) > 0.5
-            ORDER BY g.posting_date DESC LIMIT 200""", (target, _FROM), as_dict=True)
+            ORDER BY g.posting_date DESC LIMIT 500""", (target, _FROM), as_dict=True)
     used = _used_charge_sources(target)
     # Credits these accounts received from receipt-GL reposts = charges ALREADY
     # capitalised by earlier LCVs (incl. the pre-portal drafts, which carry no

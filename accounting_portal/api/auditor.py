@@ -887,6 +887,37 @@ def _anomaly_findings(target, mat=None):
                                     "(or enforce it at manual-payment entry) so they reconcile and count as collected.",
                   "drill": {"module": "banking", "sub": "settlements", "label": "Carrier settlements"}})
 
+    # 10b) Receipts with no landed cost after 14 days — freight/customs never
+    # capitalised, so item valuation and every COGS booked from them run light.
+    nolcv = frappe.db.sql(
+        """SELECT COUNT(*) n, ROUND(SUM(pr.base_grand_total)) v FROM `tabPurchase Receipt` pr
+           WHERE pr.company=%s AND pr.docstatus=1 AND pr.posting_date >= '2026-01-01'
+             AND pr.posting_date <= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+             AND pr.name NOT IN (
+               SELECT lpr.receipt_document FROM `tabLanded Cost Purchase Receipt` lpr
+               JOIN `tabLanded Cost Voucher` l ON l.name=lpr.parent WHERE l.docstatus=1)""",
+        (target,), as_dict=True)[0]
+    stalled = frappe.db.sql(
+        """SELECT COUNT(*) n, ROUND(SUM(total_taxes_and_charges)) v FROM `tabLanded Cost Voucher`
+           WHERE company=%s AND docstatus=0 AND modified <= DATE_SUB(NOW(), INTERVAL 7 DAY)""",
+        (target,), as_dict=True)[0]
+    if (nolcv.n or 0) > 0 or (stalled.n or 0) > 0:
+        f.append({"id": "inv_receipts_no_landed",
+                  "severity": "high" if flt(nolcv.v) > 1_000_000 else "medium",
+                  "metric": "Inventory / landed cost",
+                  "title": f"{int(nolcv.n or 0)} receipts >14 days old carry no landed cost"
+                           + (f" · {int(stalled.n or 0)} drafts stalled >7 days" if stalled.n else ""),
+                  "detail": f"2026 purchase receipts worth {flt(nolcv.v):,.0f} were never covered by a Landed Cost "
+                            f"Voucher — freight/customs stay outside item cost, so valuation and the COGS of "
+                            f"everything delivered from them are understated."
+                            + (f" {int(stalled.n)} draft voucher(s) holding {flt(stalled.v):,.0f} of charges sit "
+                               f"unposted for over a week." if stalled.n else ""),
+                  "amount": flt(nolcv.v) + flt(stalled.v),
+                  "account": None,
+                  "recommendation": "Open Items → Landed cost: post or drop the stalled drafts, then attach the "
+                                    "charge inbox to the uncovered receipts shipment by shipment.",
+                  "drill": {"module": "items", "sub": "landed", "label": "Shipments"}})
+
     # 11) Foreign purchase invoices booked at the wrong FX — inflates inventory/COGS.
     try:
         from accounting_portal.api.landed_engine import _live_fx
