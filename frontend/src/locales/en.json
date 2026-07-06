@@ -103,7 +103,8 @@
     "integrations": "Integrations",
     "anomrules": "Anomaly rules",
     "activity": "Activity & audit",
-    "payroll": "Payroll"
+    "payroll": "Payroll",
+    "valuation": "Valuation fix"
   },
   "jonly": {
     "cod": "COD remittance",

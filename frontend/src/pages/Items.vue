@@ -51,6 +51,7 @@
     <LandedCost v-else-if="activeSub === 'landed'" />
     <ItemCostCard v-else-if="activeSub === 'costing' && route.query.item" />
     <LandedWorkbench v-else-if="activeSub === 'costing'" />
+    <ValuationDoctor v-else-if="activeSub === 'valuation'" />
     <ScaffoldTable v-else />
   </div>
 </template>
@@ -70,6 +71,7 @@ import ItemsList from "@/pages/items/ItemsList.vue";
 import ItemDetail from "@/pages/items/ItemDetail.vue";
 import PriceListsList from "@/pages/items/PriceListsList.vue";
 import PriceListDetail from "@/pages/items/PriceListDetail.vue";
+import ValuationDoctor from "@/pages/items/ValuationDoctor.vue";
 import InventoryCorrectionModal from "@/components/InventoryCorrectionModal.vue";
 import SetPriceModal from "@/components/SetPriceModal.vue";
 import { useUi } from "@/composables/useUi";

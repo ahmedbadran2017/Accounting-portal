@@ -103,7 +103,8 @@
     "integrations": "Intégrations",
     "anomrules": "Règles d’anomalie",
     "activity": "Activité & audit",
-    "payroll": "Paie"
+    "payroll": "Paie",
+    "valuation": "Correction valo."
   },
   "jonly": {
     "cod": "Encaissement COD",

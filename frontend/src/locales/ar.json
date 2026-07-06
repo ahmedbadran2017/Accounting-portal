@@ -103,7 +103,8 @@
     "integrations": "التكاملات",
     "anomrules": "قواعد الشذوذ",
     "activity": "النشاط والتدقيق",
-    "payroll": "الرواتب"
+    "payroll": "الرواتب",
+    "valuation": "تصحيح التقييم"
   },
   "jonly": {
     "cod": "تحصيل COD",
