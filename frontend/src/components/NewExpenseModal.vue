@@ -73,28 +73,83 @@
             <input v-model.trim="description" :placeholder="L('e.g. June office rent','مثال: إيجار المكتب يونيو','ex. loyer juin')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
           </label>
 
+          <!-- VAT (TVA / KDV) -->
+          <div class="border border-line rounded-[12px] overflow-hidden">
+            <label class="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none" :class="hasTax ? 'bg-app-warm/50 border-b border-line-hair' : ''">
+              <input type="checkbox" v-model="hasTax" class="accent-emerald-700" />
+              <span class="text-[11.5px] font-semibold">{{ L("Bill includes VAT (TVA / KDV)", "الفاتورة شاملة ضريبة (TVA / KDV)", "Facture avec TVA") }}</span>
+            </label>
+            <div v-if="hasTax" class="p-3 space-y-2.5">
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="text-[10.5px] font-semibold text-ink-3">{{ L("Input-VAT account", "حساب ضريبة المدخلات", "Compte TVA déductible") }}</span>
+                  <select v-model="taxAccount" class="mt-1 w-full border border-line-2 rounded-chip px-2.5 py-2 text-[12px] focus:outline-none cursor-pointer">
+                    <option value="">—</option>
+                    <option v-for="v in opt.vat_accounts || []" :key="v.name" :value="v.name">{{ (v.num ? v.num + " · " : "") + v.nm }}</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-[10.5px] font-semibold text-ink-3">{{ L("Amount entered is", "المبلغ المدخل فوق", "Montant saisi") }}</span>
+                  <select v-model="amountMode" class="mt-1 w-full border border-line-2 rounded-chip px-2.5 py-2 text-[12px] focus:outline-none cursor-pointer">
+                    <option value="gross">{{ L("incl. VAT (bill total)", "شامل الضريبة (إجمالي الفاتورة)", "TTC") }}</option>
+                    <option value="net">{{ L("excl. VAT (net)", "غير شامل (الصافي)", "HT") }}</option>
+                  </select>
+                </label>
+              </div>
+              <div class="flex items-center gap-3 text-[11.5px]">
+                <span class="text-ink-3">{{ L("Net", "الصافي", "HT") }} <b class="tnum">{{ money(netAmount) }}</b></span>
+                <span class="text-ink-3">{{ L("VAT", "الضريبة", "TVA") }}
+                  <input v-model.number="taxOverride" type="number" min="0" step="0.01" :placeholder="String(autoTax)" class="w-[90px] h-7 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none ms-1" />
+                </span>
+                <span class="text-ink-3">{{ L("Total", "الإجمالي", "TTC") }} <b class="tnum">{{ money(grossAmount) }}</b></span>
+                <span v-if="taxPct" class="text-[10px] text-ink-muted">({{ taxPct }}%)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- bill attachment -->
+          <div class="border border-dashed border-line-2 rounded-[12px] px-3 py-2.5">
+            <div v-if="!fileUrl" class="flex items-center gap-2">
+              <Icon name="doc" :size="14" color="#9a8f86" />
+              <label class="text-[11.5px] font-semibold text-accent-dark cursor-pointer hover:underline">
+                {{ uploading ? L("Uploading…","جارٍ الرفع…","…") : L("Attach the bill (PDF / photo)","أرفق الفاتورة (PDF / صورة)","Joindre la facture") }}
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.heic" class="hidden" @change="onFile" :disabled="uploading" />
+              </label>
+              <span class="text-[10px] text-ink-muted">{{ L("attached to the journal entry","بتتعلق على القيد نفسه","liée à l'écriture") }}</span>
+            </div>
+            <div v-else class="flex items-center gap-2">
+              <Icon name="check" :size="14" color="#047857" />
+              <span class="text-[11.5px] font-medium truncate flex-1">{{ fileName }}</span>
+              <button type="button" class="text-[11px] text-rose-500 hover:underline" @click="fileUrl=''; fileName=''">{{ L("remove","إزالة","retirer") }}</button>
+            </div>
+          </div>
+
           <!-- live double-entry preview -->
           <div v-if="canPreview" class="border border-line rounded-[12px] overflow-hidden text-[11.5px]">
             <div class="px-3 py-1.5 bg-app-warm/50 text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Journal preview", "معاينة القيد", "Aperçu de l'écriture") }}</div>
             <div class="flex items-center justify-between px-3 py-2 border-t border-line-hair">
               <span class="truncate">{{ L("Dr", "مدين", "Dr") }} · {{ shortAcct(expenseAccount) }}</span>
-              <span class="tnum font-bold text-teal-700">{{ money(amount) }}</span>
+              <span class="tnum font-bold text-teal-700">{{ money(netAmount) }}</span>
+            </div>
+            <div v-if="hasTax && taxValue > 0" class="flex items-center justify-between px-3 py-2 border-t border-line-hair">
+              <span class="truncate">{{ L("Dr", "مدين", "Dr") }} · {{ shortAcct(taxAccount) || L("VAT", "الضريبة", "TVA") }}</span>
+              <span class="tnum font-bold text-teal-700">{{ money(taxValue) }}</span>
             </div>
             <div class="flex items-center justify-between px-3 py-2 border-t border-line-hair">
               <span class="truncate">{{ L("Cr", "دائن", "Cr") }} · {{ shortAcct(payAccount) }}{{ party ? " · " + party : "" }}</span>
-              <span class="tnum font-bold text-rose-600">{{ money(amount) }}</span>
+              <span class="tnum font-bold text-rose-600">{{ money(grossAmount) }}</span>
             </div>
           </div>
 
           <div v-if="currencyWarn" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="alert" :size="13" />{{ L("Expense and pay accounts use different currencies — post this one in ERPNext.", "حساب المصروف والدفع بعملتين مختلفتين — رحّله من ERPNext.", "Devises différentes — passez-la dans ERPNext.") }}</div>
-          <div v-else-if="amount >= opt.threshold" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="shield" :size="12" />{{ L("Material amount — needs an approver before it posts.", "مبلغ جوهري — يحتاج موافقة قبل الترحيل.", "Montant important — approbation requise.") }}</div>
+          <div v-else-if="grossAmount >= opt.threshold" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="shield" :size="12" />{{ L("Material amount — needs an approver before it posts.", "مبلغ جوهري — يحتاج موافقة قبل الترحيل.", "Montant important — approbation requise.") }}</div>
           <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
         </div>
 
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canSubmit || posting" @click="submit">
-            {{ posting ? L("Saving…", "جارٍ الحفظ…", "…") : amount >= opt.threshold ? L("Submit for approval", "إرسال للموافقة", "Soumettre") : L("Record expense", "تسجيل المصروف", "Enregistrer") }}
+          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canSubmit || posting || uploading" @click="submit">
+            {{ posting ? L("Saving…", "جارٍ الحفظ…", "…") : grossAmount >= opt.threshold ? L("Submit for approval", "إرسال للموافقة", "Soumettre") : L("Record expense", "تسجيل المصروف", "Enregistrer") }}
           </button>
         </div>
       </template>
@@ -109,7 +164,7 @@ import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
-import { fmtMoney } from "@/utils/helpers";
+import { fmtMoney, getCsrfToken } from "@/utils/helpers";
 
 const props = defineProps({ prefill: { type: Object, default: null } });
 const emit = defineEmits(["close", "posted"]);
@@ -134,6 +189,48 @@ const party = ref("");
 const description = ref("");
 const posting = ref(false);
 const error = ref("");
+
+// VAT (TVA / KDV)
+const hasTax = ref(false);
+const taxAccount = ref("");
+const amountMode = ref("gross"); // what the user typed in Amount: bill total or net
+const taxOverride = ref(null);   // manual tax when the split isn't a clean %
+
+const taxPct = computed(() => {
+  const v = (opt.value.vat_accounts || []).find((x) => x.name === taxAccount.value);
+  return v && v.pct ? Number(v.pct) : 0;
+});
+const autoTax = computed(() => {
+  const a = Number(amount.value) || 0;
+  if (!hasTax.value || !a || !taxPct.value) return 0;
+  const r = taxPct.value / 100;
+  return +(amountMode.value === "gross" ? a - a / (1 + r) : a * r).toFixed(2);
+});
+const taxValue = computed(() => (hasTax.value ? (Number(taxOverride.value) > 0 ? +Number(taxOverride.value).toFixed(2) : autoTax.value) : 0));
+const netAmount = computed(() => {
+  const a = Number(amount.value) || 0;
+  if (!hasTax.value) return a;
+  return +(amountMode.value === "gross" ? a - taxValue.value : a).toFixed(2);
+});
+const grossAmount = computed(() => +(netAmount.value + taxValue.value).toFixed(2));
+
+// bill attachment
+const fileUrl = ref(""), fileName = ref(""), uploading = ref(false);
+async function onFile(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  uploading.value = true; error.value = "";
+  try {
+    const fd = new FormData();
+    fd.append("file", f); fd.append("is_private", 1); fd.append("folder", "Home");
+    const res = await fetch("/api/method/upload_file", { method: "POST", headers: { "X-Frappe-CSRF-Token": getCsrfToken() }, body: fd });
+    const body = await res.json();
+    if (!res.ok) throw new Error("Upload failed");
+    fileUrl.value = body.message.file_url;
+    fileName.value = f.name;
+  } catch (err) { error.value = String(err?.message || err).slice(0, 160); }
+  finally { uploading.value = false; e.target.value = ""; }
+}
 
 onMounted(async () => {
   try {
@@ -175,7 +272,9 @@ const currencyWarn = computed(() => {
   const pccy = (pa && pa.ccy) || opt.value.currency;
   return ea && pa && eccy !== pccy;
 });
-const canSubmit = computed(() => canPreview.value && !currencyWarn.value);
+const canSubmit = computed(() =>
+  canPreview.value && !currencyWarn.value &&
+  (!hasTax.value || (taxAccount.value && netAmount.value > 0)));
 
 function payLabel(a) {
   const t = a.typ === "Bank" ? L("Bank", "بنك", "Banque") : a.typ === "Cash" ? L("Cash", "نقدية", "Caisse") : L("Payable", "ذمم دائنة", "À payer");
@@ -190,9 +289,13 @@ async function submit() {
   try {
     const res = await api.call("accounting_portal.api.expenses.create_expense", {
       company: currentCompany(), expense_account: expenseAccount.value,
-      amount: Number(amount.value), posting_date: postingDate.value,
+      amount: netAmount.value, posting_date: postingDate.value,
       pay_account: payAccount.value, party: (isPayable.value && party.value) || undefined,
       description: description.value || undefined,
+      tax_amount: taxValue.value || undefined,
+      tax_account: (hasTax.value && taxAccount.value) || undefined,
+      attachment: fileUrl.value || undefined,
+      attachment_name: fileName.value || undefined,
     });
     emit("posted", res);
     emit("close");

@@ -251,10 +251,20 @@ def expense_form_options(company=None):
         (target,), as_dict=True)
     suppliers = [r.name for r in frappe.db.sql(
         "SELECT name FROM `tabSupplier` WHERE disabled=0 ORDER BY name LIMIT 200", as_dict=True)]
+    # Input-VAT (recoverable) accounts — TVA in Morocco / İndirilecek KDV in Maslak
+    # live under 191.x: Tax-type on the ASSET side (391.x is the output side).
+    import re as _re
+    vat = frappe.db.sql(
+        """SELECT name, account_name nm, account_number num FROM `tabAccount`
+           WHERE company=%s AND is_group=0 AND disabled=0
+             AND account_type='Tax' AND root_type='Asset' ORDER BY name""", (target,), as_dict=True)
+    for v in vat:
+        m = _re.search(r"%\s*(\d+)", v.nm or "")
+        v["pct"] = int(m.group(1)) if m else None
     return {
         "company": target, "currency": _ccy(target),
         "expense_accounts": _expense_accounts(target),
-        "pay_accounts": pay, "suppliers": suppliers,
+        "pay_accounts": pay, "suppliers": suppliers, "vat_accounts": vat,
         "default_pay": next((p.name for p in pay if p.typ == "Cash"),
                             next((p.name for p in pay if p.typ == "Bank"), pay[0].name if pay else None)),
         "categories": _ORDER, "cat_color": _COLOR,
@@ -285,43 +295,64 @@ def _expense_poster(action):
     })
     je.insert(ignore_permissions=True)
     je.submit()
+    if p.get("attachment"):
+        # The bill's scan was uploaded to the portal's private files — pin it to the JE.
+        frappe.get_doc({"doctype": "File", "file_url": p["attachment"],
+                        "file_name": p.get("attachment_name") or p["attachment"].rsplit("/", 1)[-1],
+                        "attached_to_doctype": "Journal Entry", "attached_to_name": je.name,
+                        "is_private": 1}).insert(ignore_permissions=True)
     return {"voucher_type": "Journal Entry", "voucher_no": je.name, "result": "expense submitted"}
 
 
 @frappe.whitelist()
 def create_expense(company=None, expense_account=None, amount=None, posting_date=None,
-                   pay_account=None, party=None, description=None, dry_run=0):
+                   pay_account=None, party=None, description=None, dry_run=0,
+                   tax_amount=0, tax_account=None, attachment=None, attachment_name=None):
     """Record an operating expense as a balanced Journal Entry (Dr expense account,
     Cr the bank/cash/payable it's paid from). Goes through the write gateway →
-    audited, idempotent, gated for material amounts, and reversible (cancels the JE)."""
+    audited, idempotent, gated for material amounts, and reversible (cancels the JE).
+
+    VAT-bearing bills (TVA Morocco / KDV Maslak): `amount` is the NET expense and
+    `tax_amount` posts as a second debit on the input-VAT asset account (191.x) —
+    Dr expense net / Dr VAT / Cr pay gross, so the recoverable tax never inflates
+    the expense and offsets output VAT at return time. `attachment` (a portal
+    file_url) is attached to the Journal Entry when it posts."""
     assert_can_write()
     target = _target(company)
     amt = _m(amount)
+    tax = _m(tax_amount)
     if not (target and expense_account and pay_account):
         frappe.throw("company, expense_account and pay_account are required")
     if amt <= 0:
         frappe.throw("Amount must be greater than zero")
-    for a in (expense_account, pay_account):
+    if tax < 0:
+        frappe.throw("Tax cannot be negative")
+    if tax > 0 and not tax_account:
+        frappe.throw("Pick the input-VAT account for the tax portion")
+    check = [expense_account, pay_account] + ([tax_account] if tax > 0 else [])
+    for a in check:
         if not frappe.db.exists("Account", {"name": a, "company": target, "is_group": 0}):
             frappe.throw(f"Account not found in {target}: {a}")
     pd = posting_date or nowdate()
     pay_type = frappe.db.get_value("Account", pay_account, "account_type")
     party = party or None
     party_type = "Supplier" if (party and pay_type == "Payable") else None
-    lines = [
-        {"account": expense_account, "debit": amt, "credit": 0},
-        {"account": pay_account, "debit": 0, "credit": amt,
-         "party_type": party_type, "party": party if party_type else None},
-    ]
+    gross = round(amt + tax, 2)
+    lines = [{"account": expense_account, "debit": amt, "credit": 0}]
+    if tax > 0:
+        lines.append({"account": tax_account, "debit": tax, "credit": 0})
+    lines.append({"account": pay_account, "debit": 0, "credit": gross,
+                  "party_type": party_type, "party": party if party_type else None})
     if int(dry_run or 0):
-        return {"preview": True, "lines": lines, "amount": amt, "posting_date": str(pd),
-                "gated": amt >= _actions.MATERIAL_THRESHOLD}
+        return {"preview": True, "lines": lines, "amount": gross, "posting_date": str(pd),
+                "gated": gross >= _actions.MATERIAL_THRESHOLD}
     key = "expense:" + frappe.generate_hash(
-        f"{target}|{expense_account}|{pay_account}|{amt}|{pd}|{description or ''}|{party or ''}", 14)
+        f"{target}|{expense_account}|{pay_account}|{amt}|{tax}|{pd}|{description or ''}|{party or ''}", 14)
     return _actions.execute(
         EXPENSE_ACTION, target, key,
-        payload={"posting_date": str(pd), "remark": description or "Operating expense", "lines": lines},
-        amount=amt, notes=description or "Operating expense")
+        payload={"posting_date": str(pd), "remark": description or "Operating expense", "lines": lines,
+                 "attachment": attachment or None, "attachment_name": attachment_name or None},
+        amount=gross, notes=description or "Operating expense")
 
 
 def _register():
