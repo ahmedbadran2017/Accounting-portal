@@ -131,7 +131,7 @@ def _lines_from_pdf(content):
     return [["Date", "Description", "Amount"]] + rows
 
 
-_DATE_HINTS = ("date", "تاريخ", "value date", "date valeur", "date opération", "operation date")
+_DATE_HINTS = ("date", "تاريخ", "value date", "date valeur", "valeur", "date opération", "operation date")
 _DEBIT_HINTS = ("debit", "débit", "مدين", "withdrawal", "retrait", "sortie", "out")
 _CREDIT_HINTS = ("credit", "crédit", "دائن", "deposit", "versement", "entrée", "in")
 # "operation"/"opération" is NOT an amount hint — BMCE (and most MA/FR banks) use it
