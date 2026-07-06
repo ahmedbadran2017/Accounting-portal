@@ -49,8 +49,70 @@
       </table></div>
     </div>
 
+    <!-- mode tabs -->
+    <div class="flex flex-wrap items-center gap-1 bg-white border border-line rounded-chip p-1 w-fit">
+      <button type="button" class="px-3 py-1.5 rounded-lg text-[12px]" :class="mode==='dist' ? 'text-accent-dark font-semibold bg-app-warm shadow-card' : 'text-ink-3 font-medium hover:text-ink'" @click="mode='dist'">{{ L("Distortions","التشويهات","Écarts") }}</button>
+      <button type="button" class="px-3 py-1.5 rounded-lg text-[12px]" :class="mode==='zero' ? 'text-accent-dark font-semibold bg-app-warm shadow-card' : 'text-ink-3 font-medium hover:text-ink'" @click="mode='zero'">
+        {{ L("Zero-COGS sellers","بيع بتكلفة صفر","COGS zéro") }}
+        <span v-if="z.summary?.sellers" class="ms-1 text-[10px] font-bold text-rose-600">{{ z.summary.sellers }}</span>
+      </button>
+    </div>
+
+    <!-- zero-COGS queue -->
+    <div v-if="mode==='zero'" class="bg-white rounded-card border border-rose-200 shadow-card overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2 flex-wrap">
+        <Icon name="alert" :size="14" color="#e11d48" />{{ L("Selling at zero cost — every delivery books 100% fake margin","بيتباعوا بتكلفة صفر — كل تسليمة هامشها وهمي 100%","Vendus à coût nul") }}
+        <span class="text-[10px] text-ink-muted">{{ z.summary?.sellers || 0 }} {{ L("selling","بيتباعوا","vendus") }} / {{ z.summary?.bins || 0 }} · {{ L("missed COGS 2026 ≈","تكلفة ضايعة 2026 ≈","COGS manqué ≈") }} <b class="text-rose-600">{{ money(z.summary?.missed_cogs) }}</b></span>
+        <button v-if="canWrite && selZero.length" type="button" class="ms-auto h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="bulkBusy" @click="fixSelected">
+          {{ bulkBusy ? bulkProgress : L(`Fix ${selZero.length} at benchmark`, `صحّح ${selZero.length} بالمرجع`, `Corriger ${selZero.length}`) }}
+        </button>
+      </div>
+      <TableLoading v-if="zLoading" :rows="6" />
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-[12px]">
+          <thead><tr style="background:#fff1f2" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+            <th class="ps-4 py-2 w-8"><input type="checkbox" :checked="allZeroSel" class="accent-emerald-700" @change="toggleAllZero" /></th>
+            <th class="px-2 py-2 text-start">{{ L("Item","الصنف","Article") }}</th>
+            <th class="px-3 py-2 text-start">{{ L("Warehouse","المخزن","Dépôt") }}</th>
+            <th class="px-3 py-2 text-end">{{ L("In stock","بالمخزن","Stock") }}</th>
+            <th class="px-3 py-2 text-end">{{ L("Sold 2026","مبيع 2026","Vendu") }}</th>
+            <th class="px-3 py-2 text-end">{{ L("Benchmark","المرجعي","Référence") }}</th>
+            <th class="px-3 py-2 text-end">{{ L("Missed COGS","تكلفة ضايعة","COGS manqué") }}</th>
+            <th class="px-4 py-2 text-end">{{ L("Fix","صحّح","Corriger") }}</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="r in z.rows || []" :key="key(r)" class="border-t border-line-hair hover:bg-app-warm/40">
+              <td class="ps-4 py-2 w-8"><input v-if="r.benchmark" type="checkbox" :checked="selZero.includes(key(r))" class="accent-emerald-700" @change="toggleZero(r)" /></td>
+              <td class="px-2 py-2 max-w-[220px]">
+                <router-link :to="{ path: '/accounting/items/costing', query: { item: r.item_code } }" class="hover:underline">
+                  <div class="truncate font-medium">{{ r.item_name }}</div>
+                  <div class="text-[10px] text-ink-muted font-mono">{{ r.sku || r.item_code }}</div>
+                </router-link>
+              </td>
+              <td class="px-3 py-2 text-[11px] whitespace-nowrap">{{ r.warehouse.replace(/ - \w+$/, "") }}</td>
+              <td class="px-3 py-2 text-end tnum">{{ Number(r.qty).toLocaleString() }}</td>
+              <td class="px-3 py-2 text-end tnum font-semibold" :class="r.sold_2026 ? 'text-rose-600' : 'text-ink-muted'">{{ Number(r.sold_2026).toLocaleString() }}</td>
+              <td class="px-3 py-2 text-end tnum">{{ r.benchmark != null ? money(r.benchmark) : "—" }}</td>
+              <td class="px-3 py-2 text-end tnum text-rose-600">{{ r.missed_cogs != null ? money(r.missed_cogs) : "—" }}</td>
+              <td class="px-4 py-2 text-end whitespace-nowrap">
+                <div v-if="canWrite && r.benchmark" class="inline-flex items-center gap-1.5">
+                  <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="w-[80px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none" :placeholder="String(r.benchmark)" />
+                  <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" :disabled="busy===key(r)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</button>
+                </div>
+                <span v-else-if="!r.benchmark" class="text-[10px] text-ink-muted">{{ L("no purchase basis — set cost from Costing","بدون أساس شراء — حدد التكلفة من Costing","sans base") }}</span>
+              </td>
+            </tr>
+            <tr v-if="!(z.rows || []).length"><td colspan="8" class="px-4 py-8 text-center text-ink-muted">{{ L("No zero-valuation stock 🎉","مفيش مخزون بتقييم صفري 🎉","Aucun stock à zéro") }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+        <Icon name="alert" :size="11" color="#9a8f86" />{{ L("Fix posts a Stock Reconciliation at the benchmark; later deliveries repost with real COGS. Material fixes go to approval.","التصحيح بيرحّل Stock Reconciliation بالمرجع؛ التسليمات اللاحقة بيتعاد حسابها بتكلفة حقيقية. الكبير بيروح للموافقة.","Corrections auditées.") }}
+      </div>
+    </div>
+
     <!-- bins table -->
-    <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+    <div v-if="mode==='dist'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2">
         <Icon name="box" :size="14" color="#0b5c4f" />{{ L("Bins by distortion","المخازن حسب حجم التشويه","Stocks par écart") }}
         <label class="ms-auto inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-3"><input type="checkbox" v-model="onlyFlagged" class="accent-emerald-700" />{{ L("flagged only","المعلَّم فقط","signalés") }}</label>
@@ -135,13 +197,56 @@ const busy = ref(""), kicking = ref("");
 const fixRate = reactive({}), fixDate = reactive({});
 const key = (r) => r.item_code + "|" + r.warehouse;
 
+// zero-COGS queue (Sprint 2)
+const mode = ref("dist");
+const z = ref({ rows: [], summary: {} });
+const zLoading = ref(true);
+const selZero = ref([]);
+const bulkBusy = ref(false), bulkProgress = ref("");
+const zeroSelectable = computed(() => (z.value.rows || []).filter((r) => r.benchmark));
+const allZeroSel = computed(() => zeroSelectable.value.length > 0 && selZero.value.length === zeroSelectable.value.length);
+function toggleZero(r) {
+  const k = key(r), i = selZero.value.indexOf(k);
+  i >= 0 ? selZero.value.splice(i, 1) : selZero.value.push(k);
+}
+function toggleAllZero() {
+  selZero.value = allZeroSel.value ? [] : zeroSelectable.value.map(key);
+}
+async function fixSelected() {
+  const rows = zeroSelectable.value.filter((r) => selZero.value.includes(key(r)));
+  if (!rows.length || bulkBusy.value) return;
+  const total = rows.reduce((s, r) => s + r.benchmark * r.qty, 0);
+  if (!window.confirm(L(
+    `Fix ${rows.length} bins at their benchmark (total stock impact ~${money(total)} MAD)? Material ones go to approval.`,
+    `تصحيح ${rows.length} مخزن بالمرجع (أثر إجمالي ~${money(total)} درهم)؟ الكبير هيروح للموافقة.`,
+    `Corriger ${rows.length} ?`))) return;
+  bulkBusy.value = true;
+  let ok = 0, proposed = 0, failed = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    bulkProgress.value = `${i + 1}/${rows.length}…`;
+    try {
+      const res = await api.call("accounting_portal.api.valuation.correct_valuation", {
+        company: currentCompany(), item_code: r.item_code, warehouse: r.warehouse,
+        correct_rate: Number(fixRate[key(r)]) > 0 ? Number(fixRate[key(r)]) : r.benchmark,
+      });
+      res && res.status === "Proposed" ? proposed++ : ok++;
+    } catch { failed++; }
+  }
+  bulkBusy.value = false; bulkProgress.value = ""; selZero.value = [];
+  toast.success(L(`${ok} fixed · ${proposed} sent for approval${failed ? ` · ${failed} failed` : ""}`,
+    `${ok} اتصحح · ${proposed} للموافقة${failed ? ` · ${failed} فشل` : ""}`,
+    `${ok} corrigés · ${proposed} en approbation`));
+  load();
+}
+
 const visible = computed(() => {
   const rows = d.value.rows || [];
   return onlyFlagged.value ? rows.filter((r) => !["ok", "no_basis"].includes(r.flag)) : rows;
 });
 
 async function load() {
-  loading.value = true;
+  loading.value = true; zLoading.value = true;
   try {
     [d.value, rq.value] = await Promise.all([
       api.call("accounting_portal.api.valuation.valuation_review", { company: currentCompany() }, { fresh: true }),
@@ -149,6 +254,10 @@ async function load() {
     ]);
   } catch { d.value = { rows: [] }; }
   finally { loading.value = false; }
+  try {
+    z.value = await api.call("accounting_portal.api.valuation.zero_cogs_review", { company: currentCompany() }, { fresh: true }) || { rows: [], summary: {} };
+  } catch { z.value = { rows: [], summary: {} }; }
+  finally { zLoading.value = false; }
 }
 load();
 watch(entityId, load);

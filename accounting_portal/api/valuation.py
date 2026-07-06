@@ -122,6 +122,52 @@ def valuation_review(company=None, limit=250):
 
 
 @frappe.whitelist()
+def zero_cogs_review(company=None):
+    """The zero-COGS queue: bins holding stock at a ZERO/negative valuation.
+    Every delivery from them books COGS = 0 → 100% fake margin. These bins have
+    stock_value = 0 so the distortion view (sorted by stock value) never surfaces
+    them — this is their dedicated queue, ranked by the COGS they already missed
+    in 2026 (units delivered × benchmark)."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    bins = frappe.db.sql(
+        """SELECT b.item_code, b.warehouse, b.actual_qty qty, b.valuation_rate vr,
+                  i.item_name, i.custom_sku sku, i.image
+           FROM `tabBin` b
+           JOIN `tabWarehouse` w ON w.name=b.warehouse AND w.company=%s
+           JOIN `tabItem` i ON i.name=b.item_code
+           WHERE b.actual_qty > 0 AND IFNULL(b.valuation_rate, 0) <= 0""", (target,), as_dict=True)
+    if not bins:
+        return {"company": target, "rows": [],
+                "summary": {"bins": 0, "sellers": 0, "missed_cogs": 0, "stock_units_zero": 0}}
+    items = list({b.item_code for b in bins})
+    sold = dict(frappe.db.sql(
+        """SELECT dni.item_code, SUM(dni.qty) FROM `tabDelivery Note Item` dni
+           JOIN `tabDelivery Note` dn ON dn.name=dni.parent
+           WHERE dn.docstatus=1 AND dn.company=%s AND dn.posting_date >= '2026-01-01'
+             AND dni.item_code IN %s GROUP BY dni.item_code""", (target, tuple(items))))
+    bench = _benchmarks(target, items)
+    rows = []
+    for b in bins:
+        bm = bench.get(b.item_code)
+        s = flt(sold.get(b.item_code))
+        b["qty"], b["vr"] = flt(b.qty), flt(b.vr)
+        b["sold_2026"] = s
+        b["benchmark"] = bm
+        b["missed_cogs"] = round(s * bm) if bm else None
+        b["flag"] = "zero_rate" if bm else "no_basis"
+        rows.append(b)
+    rows.sort(key=lambda r: (-(r["missed_cogs"] or 0), -r["qty"]))
+    sellers = [r for r in rows if r["sold_2026"] > 0]
+    return {"company": target, "rows": rows[:300],
+            "summary": {"bins": len(rows), "sellers": len(sellers),
+                        "missed_cogs": round(sum(r["missed_cogs"] or 0 for r in sellers)),
+                        "stock_units_zero": round(sum(r["qty"] for r in rows))}}
+
+
+@frappe.whitelist()
 def correct_valuation(company=None, item_code=None, warehouse=None, correct_rate=None,
                       effective_date=None, notes=None):
     """Set a bin's valuation to the correct rate via a back-dated Stock
