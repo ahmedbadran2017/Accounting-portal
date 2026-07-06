@@ -251,18 +251,28 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
                 f"""SELECT account, SUM({amt}) i, SUM({amtc}) o, COUNT(*) n FROM `tabGL Entry`
                     WHERE {' AND '.join(conds)} GROUP BY account""", p, as_dict=True):
             pin[r.account] = flt(r.i); pout[r.account] = flt(r.o); pn[r.account] = r.n
+    # With a fiscal year selected, the cards' uncleared counters scope to the
+    # period (the FY work list) — the pre-period backlog is surfaced separately
+    # as the carryover chip in bank_uncleared.
+    dwin_pe = (" AND posting_date >= %(fd)s" if from_date else "") + (" AND posting_date <= %(td)s" if to_date else "")
+    dwin_je = (" AND je.posting_date >= %(fd)s" if from_date else "") + (" AND je.posting_date <= %(td)s" if to_date else "")
     for r in accts:
+        dp = {"c": target, "a": r.name}
+        if from_date:
+            dp["fd"] = from_date
+        if to_date:
+            dp["td"] = to_date
         pe = frappe.db.sql(
-            """SELECT COUNT(*) n, ROUND(SUM(ABS(paid_amount))) v FROM `tabPayment Entry`
-               WHERE company=%s AND docstatus=1 AND (paid_to=%s OR paid_from=%s) AND clearance_date IS NULL""",
-            (target, r.name, r.name), as_dict=True)[0]
+            f"""SELECT COUNT(*) n, ROUND(SUM(ABS(paid_amount))) v FROM `tabPayment Entry`
+               WHERE company=%(c)s AND docstatus=1 AND (paid_to=%(a)s OR paid_from=%(a)s)
+                 AND clearance_date IS NULL{dwin_pe}""", dp, as_dict=True)[0]
         je = frappe.db.sql(
-            """SELECT COUNT(DISTINCT je.name) n,
+            f"""SELECT COUNT(DISTINCT je.name) n,
                       ROUND(SUM(ABS(jea.debit_in_account_currency - jea.credit_in_account_currency))) v
                FROM `tabJournal Entry` je
                JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
-               WHERE je.company=%s AND je.docstatus=1 AND jea.account=%s AND je.clearance_date IS NULL""",
-            (target, r.name), as_dict=True)[0]
+               WHERE je.company=%(c)s AND je.docstatus=1 AND jea.account=%(a)s
+                 AND je.clearance_date IS NULL{dwin_je}""", dp, as_dict=True)[0]
         r["book"] = flt(r["book"])
         r["uncleared_n"] = (pe.n or 0) + (je.n or 0)
         r["uncleared_v"] = flt(pe.v) + flt(je.v)
@@ -315,7 +325,26 @@ def bank_uncleared(company=None, account=None, from_date=None, to_date=None, sea
     for r in rows:
         r["amount"] = flt(r["amount"]); r["date"] = str(r.get("date") or "")
     rows.sort(key=lambda x: x["date"], reverse=True)
-    return rows[:lim]
+    # Uncleared items CARRIED OVER from before the period (old outstanding cheques /
+    # transfers) still belong to this period's closing-balance reconciliation — a
+    # fiscal-year work list must surface them, not hide them.
+    carry_n, carry_v = 0, 0.0
+    if from_date:
+        cp = frappe.db.sql(
+            """SELECT COUNT(*), SUM(ABS(paid_amount)) FROM `tabPayment Entry`
+               WHERE company=%s AND docstatus=1 AND (paid_to=%s OR paid_from=%s)
+                 AND clearance_date IS NULL AND posting_date < %s""",
+            (target, account, account, from_date))[0]
+        cj = frappe.db.sql(
+            """SELECT COUNT(DISTINCT je.name), SUM(ABS(jea.debit - jea.credit))
+               FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea
+                 ON jea.parent=je.name AND jea.account=%s
+               WHERE je.company=%s AND je.docstatus=1 AND je.clearance_date IS NULL
+                 AND je.posting_date < %s""",
+            (account, target, from_date))[0]
+        carry_n = int(cp[0] or 0) + int(cj[0] or 0)
+        carry_v = flt(cp[1]) + flt(cj[1])
+    return {"rows": rows[:lim], "carryover_n": carry_n, "carryover_v": round(carry_v, 2)}
 
 
 def _clear_bank_poster(action):

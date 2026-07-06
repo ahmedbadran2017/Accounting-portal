@@ -27,6 +27,9 @@
         <span class="text-[13px] font-bold truncate max-w-[260px]">{{ selName }}</span>
         <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("uncleared entries", "قيد غير مُسوّى", "écritures") }}</span>
+        <button v-if="carryover.n" type="button" class="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-chip bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100" @click="showAllTime" :title="L('Old outstanding items still count toward this year\'s closing balance — click to include them','قيود قديمة معلّقة لسه بتأثر على رصيد إقفال السنة دي — اضغط لعرضها','Anciens en suspens')">
+          ⏳ {{ carryover.n }} {{ L("carried over from before", "مُرحّل من قبل", "reportés") }} ({{ fmt(carryover.v) }})
+        </button>
         <button type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="showImport = true">
           <Icon name="doc" :size="13" />{{ L("Import statement", "استيراد كشف", "Importer relevé") }}
         </button>
@@ -142,11 +145,19 @@ async function loadAccounts() {
   finally { loadingAcc.value = false; }
   if (accounts.value.length && !sel.value) pick(accounts.value[0]);
 }
+const carryover = ref({ n: 0, v: 0 });
+function showAllTime() { fyc.selected.value = "all"; }
 async function loadRows() {
   if (!sel.value) return;
   loading.value = true;
-  try { rows.value = await api.call("accounting_portal.api.reconciliation.bank_uncleared", { company: currentCompany(), account: sel.value, search: srch.value || undefined, limit: 500 }) || []; live.value = true; }
-  catch { rows.value = SAMPLE_ROWS; live.value = false; }
+  try {
+    const res = await api.call("accounting_portal.api.reconciliation.bank_uncleared",
+      { company: currentCompany(), account: sel.value, search: srch.value || undefined, limit: 500, ...fyFilter() });
+    // New shape {rows, carryover_*}; tolerate the old plain array.
+    rows.value = Array.isArray(res) ? res : (res?.rows || []);
+    carryover.value = Array.isArray(res) ? { n: 0, v: 0 } : { n: res?.carryover_n || 0, v: res?.carryover_v || 0 };
+    live.value = true;
+  } catch { rows.value = SAMPLE_ROWS; carryover.value = { n: 0, v: 0 }; live.value = false; }
   finally { loading.value = false; }
 }
 function pick(a) { sel.value = a.name; selName.value = a.account_name; tt.clearSelection(); loadRows(); }
@@ -165,6 +176,6 @@ const bulkActions = computed(() => [{
 
 let timer;
 watch(entityId, () => { sel.value = ""; tt.clearSelection(); loadAccounts(); }, { immediate: true });
-watch(fyc.selected, () => { loadAccounts(); });
+watch(fyc.selected, () => { loadAccounts(); loadRows(); });
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
 </script>
