@@ -250,7 +250,7 @@ def expense_form_options(company=None):
              AND account_type IN ('Bank','Cash','Payable') ORDER BY account_type, name""",
         (target,), as_dict=True)
     suppliers = [r.name for r in frappe.db.sql(
-        "SELECT name FROM `tabSupplier` WHERE disabled=0 ORDER BY name LIMIT 200", as_dict=True)]
+        "SELECT name FROM `tabSupplier` WHERE disabled=0 ORDER BY name LIMIT 1000", as_dict=True)]
     # Input-VAT (recoverable) accounts — TVA in Morocco / İndirilecek KDV in Maslak
     # live under 191.x: Tax-type on the ASSET side (391.x is the output side).
     import re as _re

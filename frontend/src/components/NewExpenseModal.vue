@@ -24,14 +24,25 @@
               : L("Small immediate spend with no vendor account — books a journal entry.", "مصروف صغير فوري من غير حساب مورّد — قيد يومية.", "Petite dépense immédiate.") }}
           </div>
 
-          <!-- supplier (bill mode) -->
-          <label v-if="modeType==='bill'" class="block">
+          <!-- supplier (bill mode) — searchable combobox -->
+          <div v-if="modeType==='bill'" class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Supplier", "المورّد", "Fournisseur") }} <span class="text-sale">*</span></span>
-            <select v-model="supplier" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
-              <option value="">—</option>
-              <option v-for="s in opt.suppliers" :key="s" :value="s">{{ s }}</option>
-            </select>
-          </label>
+            <div class="relative mt-1" v-click-outside="() => (suppOpen = false)">
+              <input v-model="suppQuery" @focus="suppOpen = true" @input="onSuppInput"
+                     :placeholder="L('search supplier name…','ابحث باسم المورّد…','rechercher…')"
+                     class="w-full border border-line-2 rounded-chip ps-3 pe-8 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <span class="absolute top-1/2 -translate-y-1/2 end-3 text-ink-muted pointer-events-none flex"><Icon :name="suppOpen ? 'search' : 'chev'" :size="14" /></span>
+              <div v-if="suppOpen" class="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-line rounded-[12px] shadow-cardHover">
+                <button v-for="s in filteredSuppliers" :key="s" type="button"
+                        class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px]"
+                        :class="s === supplier ? 'bg-accent-soft font-semibold' : ''" @click="pickSupplier(s)">
+                  <span class="flex-1 truncate">{{ s }}</span>
+                  <Icon v-if="s === supplier" name="check" :size="13" color="#047857" class="shrink-0" />
+                </button>
+                <div v-if="!filteredSuppliers.length" class="px-3 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No supplier matches.","لا مورّد مطابق.","Aucun fournisseur.") }}</div>
+              </div>
+            </div>
+          </div>
 
           <!-- expense account — single searchable combobox -->
           <div class="block">
@@ -229,6 +240,17 @@ const error = ref("");
 // bill (Purchase Invoice) vs quick cash expense (Journal Entry)
 const modeType = ref("bill");
 const supplier = ref("");
+const suppQuery = ref("");
+const suppOpen = ref(false);
+const filteredSuppliers = computed(() => {
+  const list = opt.value.suppliers || [];
+  const q = suppQuery.value.trim().toLowerCase();
+  // Empty query, or the query still equals the picked supplier → show all.
+  if (!q || q === supplier.value.toLowerCase()) return list.slice(0, 300);
+  return list.filter((s) => s.toLowerCase().includes(q)).slice(0, 300);
+});
+function onSuppInput() { suppOpen.value = true; if (supplier.value) supplier.value = ""; }
+function pickSupplier(s) { supplier.value = s; suppQuery.value = s; suppOpen.value = false; }
 const billNo = ref("");
 const payNow = ref(""); // "" = unpaid → To Pay; else the Bank/Cash account it was paid from
 const cashBankAccounts = computed(() => (opt.value.pay_accounts || []).filter((a) => a.typ !== "Payable"));
@@ -295,6 +317,7 @@ onMounted(async () => {
         modeType.value = "bill";
         if (!(opt.value.suppliers || []).includes(p.party)) (opt.value.suppliers = opt.value.suppliers || []).unshift(p.party);
         supplier.value = p.party;
+        suppQuery.value = p.party;
         party.value = p.party;
       }
     }
