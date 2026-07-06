@@ -78,6 +78,11 @@
               <button class="text-[10px] font-semibold text-accent-dark hover:underline" @click="freightPerKg = d.suggested_freight_per_kg">{{ L("suggest","اقتراح","suggéré") }} {{ fmt(d.suggested_freight_per_kg) }}</button>
             </label>
             <input v-model.number="freightPerKg" type="number" step="0.1" min="0" class="w-full h-9 mt-1 bg-app-warm/40 border border-line-2 rounded-[10px] px-3 text-[13px] tnum focus:outline-none focus:border-accent/40 focus:bg-white" />
+            <div v-if="d.freight_stats" class="text-[10px] text-ink-muted mt-1 leading-relaxed">
+              {{ L("= all inbound freight ÷ est. total kg","= كل مصاريف الشحن الوارد ÷ الوزن الكلي المقدَّر","= fret total ÷ kg estimés") }}
+              ({{ Number(d.freight_stats.pool).toLocaleString() }} ÷ {{ Number(d.freight_stats.est_total_kg).toLocaleString() }} kg)
+              <span :class="d.freight_stats.coverage_pct < 20 ? 'text-amber-700 font-semibold' : ''">· {{ L("weights known for","الوزن معروف لـ","poids connus") }} {{ d.freight_stats.coverage_pct }}% {{ L("of units — extrapolated","من الوحدات — الباقي مُقدَّر","des unités") }}</span>
+            </div>
           </div>
           <p class="text-[10px] text-ink-muted leading-relaxed pt-1">{{ L("A calculator — nothing is written to the books yet. Posting the cost is a later step.","حاسبة — لسه مفيش كتابة للدفاتر. ترحيل التكلفة خطوة لاحقة.","Calculateur — rien n'est écrit.") }}</p>
         </div>

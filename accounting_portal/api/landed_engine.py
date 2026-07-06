@@ -66,19 +66,35 @@ def _live_fx(cur, date, cache):
     return v
 
 
-def _suggested_freight_per_kg(target):
-    pool = frappe.db.sql(
+def _freight_stats(target):
+    """Freight pool ÷ ESTIMATED total kg. Most of the catalogue has no weight
+    (~3.5% of purchased units carry one), so dividing the whole pool by only the
+    weighted units' kg overstated the rate ~29× (212 MAD/kg instead of ~7).
+    We extrapolate: est. total kg = avg kg/unit of weighted items × all units,
+    and report the coverage so the UI can say how solid the estimate is."""
+    pool = flt(frappe.db.sql(
         f"""SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-            WHERE g.company=%s AND g.is_cancelled=0 AND {_INBOUND}""", (target,))[0][0]
-    kg = frappe.db.sql(
-        """SELECT SUM(pii.qty*IFNULL(it.weight_per_unit,0))
+            WHERE g.company=%s AND g.is_cancelled=0 AND {_INBOUND}""", (target,))[0][0])
+    row = frappe.db.sql(
+        """SELECT
+             SUM(CASE WHEN IFNULL(it.weight_per_unit,0) > 0 THEN pii.qty*it.weight_per_unit ELSE 0 END),
+             SUM(CASE WHEN IFNULL(it.weight_per_unit,0) > 0 THEN pii.qty ELSE 0 END),
+             SUM(pii.qty)
            FROM `tabPurchase Invoice Item` pii
            JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
            JOIN `tabItem` it ON it.name=pii.item_code
-           WHERE pi.company=%s AND pi.docstatus=1""", (target,))[0][0]
-    # Clamp to ≥0: if the freight accounts net a credit balance (pool < 0), a
-    # negative per-kg rate would silently *reduce* landed cost — don't feed that in.
-    return max(0.0, round(flt(pool) / flt(kg), 2)) if flt(kg) else 0.0
+           WHERE pi.company=%s AND pi.docstatus=1""", (target,))[0]
+    kg_w, units_w, units_all = flt(row[0]), flt(row[1]), flt(row[2])
+    est_kg = (kg_w / units_w) * units_all if units_w else 0.0
+    # Clamp to ≥0: a credit-balance pool must not silently *reduce* landed cost.
+    rate = max(0.0, round(pool / est_kg, 2)) if est_kg else 0.0
+    coverage = round(units_w / units_all * 100, 1) if units_all else 0.0
+    return {"rate": rate, "coverage_pct": coverage, "pool": round(pool),
+            "est_total_kg": round(est_kg), "weighted_kg": round(kg_w, 1)}
+
+
+def _suggested_freight_per_kg(target):
+    return _freight_stats(target)["rate"]
 
 
 @frappe.whitelist()
@@ -95,9 +111,10 @@ def landed_defaults(company=None):
            JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
            WHERE pi.company=%s AND pi.docstatus=1""", (target,))[0][0]
     catalogue = frappe.db.count("Item")
+    fs = _freight_stats(target)
     return {
         "company": target, "currency": currency,
-        "suggested_freight_per_kg": _suggested_freight_per_kg(target),
+        "suggested_freight_per_kg": fs["rate"], "freight_stats": fs,
         "purchased_items": int(purchased or 0), "catalogue_items": int(catalogue or 0),
     }
 
@@ -167,7 +184,8 @@ def item_landed_cost(company=None, item_code=None, freight_per_kg=None, fx_mode=
     wavg_live = round(tot_live / tot_qty, 3) if tot_qty else flt(i.last_purchase_rate)
     product_cost = wavg_live if fx_mode == "live" else wavg_book
 
-    fpk = flt(freight_per_kg) if freight_per_kg not in (None, "") else _suggested_freight_per_kg(target)
+    fstats = _freight_stats(target)
+    fpk = flt(freight_per_kg) if freight_per_kg not in (None, "") else fstats["rate"]
     freight_unit = round(fpk * weight, 3)
     landed = round(product_cost + freight_unit, 3)
 
@@ -183,7 +201,7 @@ def item_landed_cost(company=None, item_code=None, freight_per_kg=None, fx_mode=
         "valuation_rate": flt(i.valuation_rate), "last_purchase_rate": flt(i.last_purchase_rate),
         "purchases": purchases,
         "wavg_book": wavg_book, "wavg_live": wavg_live, "fx_mode": fx_mode,
-        "freight_per_kg": fpk, "suggested_freight_per_kg": _suggested_freight_per_kg(target),
+        "freight_per_kg": fpk, "suggested_freight_per_kg": fstats["rate"], "freight_stats": fstats,
         "product_cost": round(product_cost, 3), "freight_unit": freight_unit, "landed": landed,
         "sell": round(sell, 2), "sell_src": sell_src,
         "margin": margin, "margin_pct": round(margin / sell * 100, 1) if sell else 0.0,
