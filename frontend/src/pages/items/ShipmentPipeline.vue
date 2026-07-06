@@ -46,9 +46,15 @@
         </tr></thead>
         <tbody>
           <tr v-for="d0 in drafts" :key="d0.name" class="border-t border-line-hair align-top">
-            <td class="px-4 py-2.5 font-mono text-[11px]">{{ d0.name }}<div class="text-[9.5px] text-ink-muted">{{ d0.items_n }} {{ L("item lines","سطر صنف","lignes") }} · {{ d0.basis }}</div></td>
+            <td class="px-4 py-2.5 font-mono text-[11px]">
+              <router-link :to="{ path: '/accounting/items/landed', query: { id: d0.name } }" class="text-accent-dark hover:underline">{{ d0.name }}</router-link>
+              <div class="text-[9.5px] text-ink-muted">{{ d0.items_n }} {{ L("item lines","سطر صنف","lignes") }} · {{ d0.basis }}</div>
+            </td>
             <td class="px-3 py-2.5 whitespace-nowrap text-ink-3">{{ d0.dt }}</td>
-            <td class="px-3 py-2.5 text-[10.5px] font-mono max-w-[160px]"><div v-for="r in d0.receipts.slice(0,3)" :key="r" class="truncate">{{ r }}</div><div v-if="d0.receipts.length>3" class="text-ink-muted">+{{ d0.receipts.length-3 }}</div></td>
+            <td class="px-3 py-2.5 text-[10.5px] font-mono max-w-[160px]">
+              <router-link v-for="r in d0.receipts.slice(0,3)" :key="r" :to="{ path: '/accounting/purchases/received', query: { id: r } }" class="truncate block text-accent-dark hover:underline">{{ r }}</router-link>
+              <div v-if="d0.receipts.length>3" class="text-ink-muted">+{{ d0.receipts.length-3 }}</div>
+            </td>
             <td class="px-3 py-2.5 text-[10.5px] max-w-[220px]"><div v-for="(c,i) in d0.charges.slice(0,3)" :key="i" class="truncate">{{ money(c.amount) }} — {{ (c.description || c.expense_account).slice(0,40) }}</div><div v-if="d0.charges.length>3" class="text-ink-muted">+{{ d0.charges.length-3 }}</div></td>
             <td class="px-3 py-2.5 text-end tnum font-semibold whitespace-nowrap">{{ money(d0.total) }}</td>
             <td class="px-4 py-2.5 text-end whitespace-nowrap">
@@ -77,7 +83,7 @@
             <tbody>
               <tr v-for="r in receipts" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="toggleReceipt(r.name)">
                 <td class="ps-4 py-2 w-8"><input type="checkbox" :checked="selReceipts.includes(r.name)" class="accent-emerald-700 pointer-events-none" /></td>
-                <td class="px-2 py-2 font-mono text-[10.5px] whitespace-nowrap">{{ r.name }}</td>
+                <td class="px-2 py-2 font-mono text-[10.5px] whitespace-nowrap"><router-link :to="{ path: '/accounting/purchases/received', query: { id: r.name } }" class="text-accent-dark hover:underline" @click.stop>{{ r.name }}</router-link></td>
                 <td class="px-2 py-2 truncate max-w-[140px]">{{ r.supplier }}</td>
                 <td class="px-2 py-2 text-ink-3 whitespace-nowrap">{{ String(r.dt).slice(0,10) }}</td>
                 <td class="px-3 py-2 text-end tnum whitespace-nowrap">{{ money(r.value) }} <span class="text-[9px] text-ink-muted">· {{ r.items }} {{ L("items","صنف","art.") }}</span></td>
@@ -109,7 +115,7 @@
             <tbody>
               <tr v-for="(c, i) in inbox" :key="c.vn + c.account" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="toggleCharge(i)">
                 <td class="ps-4 py-2 w-8"><input type="checkbox" :checked="selCharges.includes(i)" class="accent-emerald-700 pointer-events-none" /></td>
-                <td class="px-2 py-2"><div class="font-mono text-[10.5px]">{{ c.vn }}</div><div class="text-[10px] text-ink-muted truncate max-w-[200px]">{{ c.account_name }} · {{ c.remarks || c.vt }}</div></td>
+                <td class="px-2 py-2"><router-link :to="chargeLink(c)" class="font-mono text-[10.5px] text-accent-dark hover:underline" @click.stop>{{ c.vn }}</router-link><div class="text-[10px] text-ink-muted truncate max-w-[200px]">{{ c.account_name }} · {{ c.remarks || c.vt }}</div></td>
                 <td class="px-2 py-2 text-ink-3 whitespace-nowrap text-[11px]">{{ c.dt }}</td>
                 <td class="px-3 py-2 text-end tnum font-semibold whitespace-nowrap">{{ money(c.amount) }}</td>
               </tr>
@@ -243,6 +249,13 @@ function debouncedReceipts() {
     receipts.value = await api.call("accounting_portal.api.landed_pipeline.receipts_uncovered",
       { company: currentCompany(), q: rq.value || undefined }, { fresh: true });
   }, 350);
+}
+
+function chargeLink(c) {
+  if (c.vt === "Journal Entry") return { path: "/accounting/accountant/journals", query: { id: c.vn } };
+  if (c.vt === "Purchase Invoice") return { path: "/accounting/purchases/bills", query: { id: c.vn } };
+  if (c.vt === "Payment Entry") return { path: "/accounting/purchases/payments", query: { id: c.vn } };
+  return { path: "/accounting/accountant/gl", query: { voucher: c.vn } };
 }
 
 function toggleReceipt(name) {
