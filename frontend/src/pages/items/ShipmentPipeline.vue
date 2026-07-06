@@ -113,9 +113,12 @@
         <div class="overflow-y-auto max-h-[280px]">
           <table class="w-full text-[12px]">
             <tbody>
-              <tr v-for="(c, i) in inbox" :key="c.vn + c.account" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="toggleCharge(i)">
+              <tr v-for="(c, i) in inbox" :key="c.vn + c.account + c.dt" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="toggleCharge(i)">
                 <td class="ps-4 py-2 w-8"><input type="checkbox" :checked="selCharges.includes(i)" class="accent-emerald-700 pointer-events-none" /></td>
-                <td class="px-2 py-2"><router-link :to="chargeLink(c)" class="font-mono text-[10.5px] text-accent-dark hover:underline" @click.stop>{{ c.vn }}</router-link><div class="text-[10px] text-ink-muted truncate max-w-[200px]">{{ c.account_name }} · {{ c.remarks || c.vt }}</div></td>
+                <td class="px-2 py-2"><router-link :to="chargeLink(c)" class="font-mono text-[10.5px] text-accent-dark hover:underline" @click.stop>{{ c.vn }}</router-link>
+                  <div class="text-[10px] text-ink-muted truncate max-w-[200px]">{{ c.account_name }} · {{ c.remarks || c.vt }}</div>
+                  <div v-if="c.account_absorbed" class="text-[9.5px] text-amber-700">⚠ {{ money(c.account_absorbed) }} {{ L("already capitalised on this account — don't re-attach the same bill","اترسمل قبل كده على الحساب ده — متعلقش نفس الفاتورة تاني","déjà capitalisé sur ce compte") }}</div>
+                </td>
                 <td class="px-2 py-2 text-ink-3 whitespace-nowrap text-[11px]">{{ c.dt }}</td>
                 <td class="px-3 py-2 text-end tnum font-semibold whitespace-nowrap">{{ money(c.amount) }}</td>
               </tr>

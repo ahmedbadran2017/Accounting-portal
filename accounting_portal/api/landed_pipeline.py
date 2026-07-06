@@ -92,6 +92,15 @@ def charge_inbox(company=None):
             HAVING SUM(g.debit-g.credit) > 0.5
             ORDER BY g.posting_date DESC LIMIT 200""", (target, _FROM), as_dict=True)
     used = _used_charge_sources(target)
+    # Credits these accounts received from receipt-GL reposts = charges ALREADY
+    # capitalised by earlier LCVs (incl. the pre-portal drafts, which carry no
+    # src-stamp). Surfaced per row so nobody re-attaches an absorbed bill.
+    absorbed = dict(frappe.db.sql(
+        f"""SELECT g.account, ROUND(SUM(g.credit - g.debit)) FROM `tabGL Entry` g
+            JOIN `tabAccount` a ON a.name=g.account
+            WHERE g.company=%s AND g.is_cancelled=0 AND g.posting_date>=%s
+              AND g.voucher_type IN ('Purchase Receipt', 'Purchase Invoice') AND {_INBOUND}
+            GROUP BY g.account HAVING SUM(g.credit - g.debit) > 0.5""", (target, _FROM)))
     out = []
     for r in rows:
         if r.vn in used:
@@ -99,6 +108,7 @@ def charge_inbox(company=None):
         r["amount"] = flt(r.amount, 2)
         r["dt"] = str(r.dt)[:10]
         r["remarks"] = (r.remarks or "")[:120]
+        r["account_absorbed"] = flt(absorbed.get(r.account))
         out.append(r)
     return out
 
@@ -166,17 +176,29 @@ def submit_draft_lcv(company=None, name=None):
         notes=f"Submit draft landed cost {name} ({flt(doc.total_taxes_and_charges):,.0f})")
 
 
+DEL_ACTION = "Delete LCV draft"
+
+
 @frappe.whitelist()
 def delete_draft_lcv(company=None, name=None):
-    """Drop a stale draft (draft only — never touches submitted vouchers)."""
+    """Drop a stale draft (draft only — never touches submitted vouchers).
+    Goes through the gateway so the audit trail records who dropped what."""
     assert_can_write()
     target = _target(company)
     doc = frappe.get_doc("Landed Cost Voucher", name)
     if doc.company != target or doc.docstatus != 0:
         frappe.throw("Only a draft of this company can be deleted")
-    frappe.delete_doc("Landed Cost Voucher", name, ignore_permissions=True)
-    frappe.db.commit()
-    return {"deleted": name}
+    return _actions.execute(
+        DEL_ACTION, target, f"lcvdel:{name}",
+        payload={"name": name}, amount=0,
+        notes=f"Delete stalled landed-cost draft {name} ({flt(doc.total_taxes_and_charges):,.0f})")
+
+
+def _del_draft_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    if frappe.db.get_value("Landed Cost Voucher", p["name"], "docstatus") == 0:
+        frappe.delete_doc("Landed Cost Voucher", p["name"], ignore_permissions=True)
+    return {"voucher_type": "Landed Cost Voucher", "voucher_no": p["name"], "result": "draft deleted"}
 
 
 def _load_receipt_items(receipts):
@@ -290,6 +312,8 @@ def _lcv_poster(action):
             "receipt_document_type": "Purchase Receipt", "receipt_document": r,
             "supplier": pr.supplier, "grand_total": pr.base_grand_total})
     doc.get_items_from_purchase_receipts()
+    if not doc.get("items"):
+        frappe.throw("The selected receipts carry no item lines")
     if mode == "Weight":
         total = sum(flt(c.get("amount")) for c in p["charges"])
         weights = dict(frappe.db.sql(
@@ -330,3 +354,5 @@ def _lcv_reverter(action):
 
 _actions.register_poster(LCV_ACTION, _lcv_poster)
 _actions.register_reverter(LCV_ACTION, _lcv_reverter)
+_actions.register_poster(DEL_ACTION, _del_draft_poster)
+_actions._NO_GATE.add(DEL_ACTION)  # draft-only, no GL — audited but ungated

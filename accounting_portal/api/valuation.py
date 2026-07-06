@@ -167,6 +167,16 @@ def zero_cogs_review(company=None):
                         "stock_units_zero": round(sum(r["qty"] for r in rows))}}
 
 
+def _qty_asof(item_code, warehouse, date):
+    """Stock on hand at the END of `date` — a back-dated reconciliation must carry
+    the quantity of THAT day, not today's, or it rewrites quantity history."""
+    r = frappe.db.sql(
+        """SELECT qty_after_transaction FROM `tabStock Ledger Entry`
+           WHERE item_code=%s AND warehouse=%s AND is_cancelled=0 AND posting_date <= %s
+           ORDER BY posting_date DESC, creation DESC LIMIT 1""", (item_code, warehouse, date))
+    return flt(r[0][0]) if r else 0.0
+
+
 @frappe.whitelist()
 def correct_valuation(company=None, item_code=None, warehouse=None, correct_rate=None,
                       effective_date=None, notes=None):
@@ -192,10 +202,13 @@ def correct_valuation(company=None, item_code=None, warehouse=None, correct_rate
         date = _POLICY_FLOOR  # fix-forward policy: never restate closed years
     if date > nowdate():
         frappe.throw("Effective date cannot be in the future")
-    impact = abs(rate - flt(b.valuation_rate)) * flt(b.actual_qty)
+    qty_then = _qty_asof(item_code, warehouse, date)
+    if qty_then <= 0:
+        frappe.throw(f"No stock in {warehouse} on {date} — pick a later effective date")
+    impact = abs(rate - flt(b.valuation_rate)) * qty_then
     return _actions.execute(
         FIX_ACTION, target, f"valfix:{target}:{item_code}:{warehouse}:{rate}:{date}",
-        payload={"item_code": item_code, "warehouse": warehouse, "qty": flt(b.actual_qty),
+        payload={"item_code": item_code, "warehouse": warehouse, "qty": qty_then,
                  "old_rate": flt(b.valuation_rate), "rate": rate, "date": date},
         amount=impact,
         notes=notes or f"Valuation {item_code} @ {warehouse}: {flt(b.valuation_rate):,.2f} → {rate:,.2f} ({date})")
@@ -204,6 +217,12 @@ def correct_valuation(company=None, item_code=None, warehouse=None, correct_rate
 def _valfix_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     company = action.company
+    # Re-resolve the quantity AS OF the effective date at post time (approval may
+    # come days after the proposal) — a back-dated reco with today's qty would
+    # rewrite quantity history and corrupt every later stock move.
+    qty_then = _qty_asof(p["item_code"], p["warehouse"], p["date"])
+    if qty_then <= 0:
+        frappe.throw(f"No stock in {p['warehouse']} on {p['date']} — re-propose with a later date")
     doc = frappe.get_doc({
         "doctype": "Stock Reconciliation", "company": company,
         "purpose": "Stock Reconciliation",
@@ -211,7 +230,7 @@ def _valfix_poster(action):
         "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
         "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
         "items": [{"item_code": p["item_code"], "warehouse": p["warehouse"],
-                   "qty": flt(p["qty"]), "valuation_rate": flt(p["rate"])}],
+                   "qty": qty_then, "valuation_rate": flt(p["rate"])}],
     })
     doc.insert(ignore_permissions=True)
     doc.submit()
