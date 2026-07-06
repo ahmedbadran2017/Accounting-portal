@@ -289,7 +289,14 @@ onMounted(async () => {
       }
       if (p.amount) amount.value = Number(p.amount);
       if (p.description) description.value = p.description;
-      if (p.party) party.value = p.party;
+      // A recurring vendor (Meta / TikTok / carrier…) lands straight in
+      // supplier-bill mode with the supplier picked; party kept for cash mode.
+      if (p.party) {
+        modeType.value = "bill";
+        if (!(opt.value.suppliers || []).includes(p.party)) (opt.value.suppliers = opt.value.suppliers || []).unshift(p.party);
+        supplier.value = p.party;
+        party.value = p.party;
+      }
     }
   } catch (e) { error.value = (e && e.message) || "Failed to load"; }
   finally { optLoad.value = false; }
