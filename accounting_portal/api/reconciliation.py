@@ -215,30 +215,40 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
     cached = frappe.cache().get_value(ck)
     if cached is not None:
         return cached
+    base_ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    # Foreign-currency accounts (a USD safe in TRY-based Maslak) must be summed
+    # from the *_in_account_currency columns — base sums wore the wrong label.
     accts = frappe.db.sql(
-        """SELECT a.name, a.account_name, a.account_type, IFNULL(a.account_currency,'MAD') AS ccy,
-                  ROUND(SUM(g.debit - g.credit)) AS book
+        """SELECT a.name, a.account_name, a.account_type, IFNULL(a.account_currency,%(base)s) AS ccy,
+                  ROUND(SUM(CASE WHEN IFNULL(a.account_currency,%(base)s) != %(base)s
+                            THEN g.debit_in_account_currency - g.credit_in_account_currency
+                            ELSE g.debit - g.credit END)) AS book,
+                  ROUND(SUM(g.debit - g.credit)) AS book_base
            FROM `tabAccount` a JOIN `tabGL Entry` g ON g.account=a.name AND g.is_cancelled=0
            WHERE a.company=%(c)s AND a.is_group=0 AND a.account_type IN ('Bank','Cash')
            GROUP BY a.name HAVING COUNT(*) > 0
-           ORDER BY ABS(SUM(g.debit - g.credit)) DESC LIMIT 40""", {"c": target}, as_dict=True)
+           ORDER BY ABS(SUM(g.debit - g.credit)) DESC LIMIT 40""",
+        {"c": target, "base": base_ccy}, as_dict=True)
     names = tuple(r.name for r in accts) or ("",)
+    fx_names = tuple(r.name for r in accts if r.ccy != base_ccy) or ("",)
+    amt = "CASE WHEN account IN %(fx)s THEN debit_in_account_currency ELSE debit END"
+    amtc = "CASE WHEN account IN %(fx)s THEN credit_in_account_currency ELSE credit END"
     opening, pin, pout, pn = {}, {}, {}, {}
     if from_date:
         for r in frappe.db.sql(
-                """SELECT account, SUM(debit-credit) v FROM `tabGL Entry`
+                f"""SELECT account, SUM(({amt})-({amtc})) v FROM `tabGL Entry`
                    WHERE company=%(c)s AND is_cancelled=0 AND account IN %(n)s AND posting_date < %(fd)s
-                   GROUP BY account""", {"c": target, "n": names, "fd": from_date}, as_dict=True):
+                   GROUP BY account""", {"c": target, "n": names, "fx": fx_names, "fd": from_date}, as_dict=True):
             opening[r.account] = flt(r.v)
     if period:
         conds = ["company=%(c)s", "is_cancelled=0", "account IN %(n)s"]
-        p = {"c": target, "n": names}
+        p = {"c": target, "n": names, "fx": fx_names}
         if from_date:
             conds.append("posting_date >= %(fd)s"); p["fd"] = from_date
         if to_date:
             conds.append("posting_date <= %(td)s"); p["td"] = to_date
         for r in frappe.db.sql(
-                f"""SELECT account, SUM(debit) i, SUM(credit) o, COUNT(*) n FROM `tabGL Entry`
+                f"""SELECT account, SUM({amt}) i, SUM({amtc}) o, COUNT(*) n FROM `tabGL Entry`
                     WHERE {' AND '.join(conds)} GROUP BY account""", p, as_dict=True):
             pin[r.account] = flt(r.i); pout[r.account] = flt(r.o); pn[r.account] = r.n
     for r in accts:
@@ -374,12 +384,20 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None,
     a = frappe.db.get_value("Account", account, ["account_name", "account_type", "account_currency", "company"], as_dict=True)
     if not a or a.company != target:
         frappe.throw("Account not found")
+    # A foreign-currency account (e.g. a USD account in TRY-based Maslak) must be
+    # read from the *_in_account_currency columns — summing base debit/credit and
+    # labelling it with the account currency showed TRY totals as "USD".
+    base_ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+    acc_ccy = a.account_currency or base_ccy
+    dr, cr = ("debit_in_account_currency", "credit_in_account_currency") if acc_ccy != base_ccy else ("debit", "credit")
     balance = flt(frappe.db.sql(
+        f"SELECT SUM({dr}-{cr}) FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0", account)[0][0])
+    base_balance = flt(frappe.db.sql(
         "SELECT SUM(debit-credit) FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0", account)[0][0])
     # Opening (carried forward) = balance before the period start; the period's own
     # in/out; closing = opening + in − out. Falls back to last 30 days if no period.
     opening = flt(frappe.db.sql(
-        "SELECT SUM(debit-credit) FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0 AND posting_date < %s",
+        f"SELECT SUM({dr}-{cr}) FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0 AND posting_date < %s",
         (account, from_date))[0][0]) if from_date else None
     fconds = ["account=%(acc)s", "is_cancelled=0"]
     fp = {"acc": account}
@@ -390,7 +408,7 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None,
     if not (from_date or to_date):
         fconds.append("posting_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")
     fl = frappe.db.sql(
-        f"""SELECT ROUND(SUM(debit)) inflow, ROUND(SUM(credit)) outflow, COUNT(*) n
+        f"""SELECT ROUND(SUM({dr})) inflow, ROUND(SUM({cr})) outflow, COUNT(*) n
             FROM `tabGL Entry` WHERE {' AND '.join(fconds)}""", fp, as_dict=True)[0]
     closing = round(flt(opening) + flt(fl.inflow) - flt(fl.outflow)) if from_date else balance
     pe = frappe.db.sql(
@@ -416,7 +434,7 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None,
     ledger_total = frappe.db.sql(f"SELECT COUNT(*) FROM `tabGL Entry` WHERE {lwhere}", lp)[0][0]
     ledger = frappe.db.sql(
         f"""SELECT posting_date AS date, voucher_type AS type, voucher_no AS voucher,
-                   IFNULL(against,'') AS against, ROUND(debit,2) AS debit, ROUND(credit,2) AS credit, creation
+                   IFNULL(against,'') AS against, ROUND({dr},2) AS debit, ROUND({cr},2) AS credit, creation
             FROM `tabGL Entry` WHERE {lwhere}
             ORDER BY posting_date DESC, creation DESC LIMIT %(ps)s OFFSET %(st)s""",
         {**lp, "ps": page_size, "st": start}, as_dict=True)
@@ -426,7 +444,7 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None,
         # Balance column is the real account balance at each row, on any page.
         f0 = ledger[0]
         newer = flt(frappe.db.sql(
-            """SELECT SUM(debit-credit) FROM `tabGL Entry`
+            f"""SELECT SUM({dr}-{cr}) FROM `tabGL Entry`
                WHERE account=%s AND is_cancelled=0
                  AND (posting_date > %s OR (posting_date = %s AND creation > %s))""",
             (account, f0["date"], f0["date"], f0["creation"]))[0][0])
@@ -439,9 +457,10 @@ def get_bank_account(company=None, account=None, from_date=None, to_date=None,
             running -= (e["debit"] - e["credit"])
     return {
         "account": account, "name": a.account_name, "type": a.account_type,
-        "currency": a.account_currency or "MAD", "balance": balance,
+        "currency": acc_ccy, "balance": balance,
         "inflow": flt(fl.inflow), "outflow": flt(fl.outflow), "period_n": fl.n or 0,
         "opening": (round(flt(opening)) if opening is not None else None), "closing": closing,
+        "base_currency": base_ccy, "base_balance": round(base_balance, 2), "is_fx": acc_ccy != base_ccy,
         "uncleared_n": (pe.n or 0) + (je.n or 0), "uncleared_v": flt(pe.v) + flt(je.v),
         "ledger": ledger, "ledger_total": ledger_total, "start": start, "page_size": page_size,
     }

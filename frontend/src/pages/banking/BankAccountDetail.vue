@@ -19,6 +19,7 @@
           <div class="text-end">
             <div class="text-[10.5px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Balance", "الرصيد", "Solde") }}</div>
             <div class="text-[26px] font-extrabold tnum" :class="h.balance < 0 ? 'text-sale' : ''">{{ fmt(h.balance) }}<span class="text-[12px] text-ink-muted ms-1">{{ h.currency }}</span></div>
+            <div v-if="h.is_fx" class="text-[10.5px] text-ink-muted tnum">≈ {{ fmt(h.base_balance) }} {{ h.base_currency }} {{ L("in the books","في الدفاتر","comptable") }}</div>
           </div>
         </div>
         <!-- Fiscal-year view: opening (carried forward) → in/out → closing -->
