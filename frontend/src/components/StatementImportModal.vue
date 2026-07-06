@@ -157,8 +157,11 @@ async function reparse() {
   if (!fileUrl.value) return;
   parseErr.value = "";
   try {
-    const clean = Object.fromEntries(Object.entries(mapping).filter(([, v]) => v !== null && v !== undefined));
-    parsed.value = await api.call("accounting_portal.api.bank_import.parse_statement", { file_url: fileUrl.value, mapping: Object.keys(clean).length ? clean : undefined }, { fresh: true });
+    // First parse: no mapping → backend auto-detects. Re-parse after the user
+    // touched a select: send the FULL mapping (nulls included) so "—" clears a
+    // column instead of the auto-detect re-filling it.
+    const userMapping = parsed.value ? { ...mapping } : undefined;
+    parsed.value = await api.call("accounting_portal.api.bank_import.parse_statement", { file_url: fileUrl.value, mapping: userMapping }, { fresh: true });
     if (parsed.value.columns) Object.assign(mapping, { date: parsed.value.columns.date, amount: parsed.value.columns.amount, debit: parsed.value.columns.debit, credit: parsed.value.columns.credit, desc: parsed.value.columns.desc });
     result.value = null;
   } catch (err) { parseErr.value = String(err?.message || err).slice(0, 200); parsed.value = null; }

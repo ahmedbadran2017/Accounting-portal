@@ -134,8 +134,10 @@ def _lines_from_pdf(content):
 _DATE_HINTS = ("date", "تاريخ", "value date", "date valeur", "date opération", "operation date")
 _DEBIT_HINTS = ("debit", "débit", "مدين", "withdrawal", "retrait", "sortie", "out")
 _CREDIT_HINTS = ("credit", "crédit", "دائن", "deposit", "versement", "entrée", "in")
-_AMOUNT_HINTS = ("amount", "montant", "mouvement", "المبلغ", "value", "operation")
-_DESC_HINTS = ("description", "libelle", "libellé", "label", "narration", "détail", "detail", "wording", "بيان", "reference", "référence")
+# "operation"/"opération" is NOT an amount hint — BMCE (and most MA/FR banks) use it
+# for the description column; matching it as amount parses narration digits as money.
+_AMOUNT_HINTS = ("amount", "montant", "mouvement", "المبلغ", "value")
+_DESC_HINTS = ("description", "libelle", "libellé", "label", "narration", "détail", "detail", "wording", "بيان", "reference", "référence", "operation", "opération")
 
 
 def _detect_columns(header):
@@ -146,9 +148,14 @@ def _detect_columns(header):
             if any(hint in cell for hint in hints):
                 return i
         return None
-    return {"date": find(_DATE_HINTS), "debit": find(_DEBIT_HINTS),
+    cols = {"date": find(_DATE_HINTS), "debit": find(_DEBIT_HINTS),
             "credit": find(_CREDIT_HINTS), "amount": find(_AMOUNT_HINTS),
             "desc": find(_DESC_HINTS)}
+    # A statement is either single-signed-amount OR split debit/credit. When the
+    # split columns exist they win — a stray "amount" match is usually a text col.
+    if cols["debit"] is not None or cols["credit"] is not None:
+        cols["amount"] = None
+    return cols
 
 
 @frappe.whitelist()
@@ -185,7 +192,10 @@ def parse_statement(file_url=None, mapping=None):
         import json
         mapping = json.loads(mapping or "{}")
     if mapping:
-        cols.update({k: v for k, v in mapping.items() if v is not None})
+        # explicit user mapping wins — including explicit nulls ("—" clears a column)
+        for k in ("date", "amount", "debit", "credit", "desc"):
+            if k in mapping:
+                cols[k] = mapping[k]
 
     def cell(row, idx):
         return row[idx] if (idx is not None and idx < len(row)) else None
@@ -195,12 +205,19 @@ def parse_statement(file_url=None, mapping=None):
         d = _parse_date(cell(r, cols.get("date")))
         if not d:
             continue
-        amt = _parse_amount(cell(r, cols.get("amount")))
-        if amt is None and (cols.get("debit") is not None or cols.get("credit") is not None):
-            dr = _parse_amount(cell(r, cols.get("debit"))) or 0
-            cr = _parse_amount(cell(r, cols.get("credit"))) or 0
-            amt = cr - dr  # credit (money in) positive, debit (money out) negative
+        amt = None
+        if cols.get("debit") is not None or cols.get("credit") is not None:
+            dr = _parse_amount(cell(r, cols.get("debit")))
+            cr = _parse_amount(cell(r, cols.get("credit")))
+            if dr is not None or cr is not None:
+                # credit (money in) positive, debit (money out) negative;
+                # banks export debits as positive or already-negative — use magnitude
+                amt = (cr or 0) - abs(dr or 0)
+        if amt is None:
+            amt = _parse_amount(cell(r, cols.get("amount")))
         if amt is None or abs(amt) < 0.005:
+            continue
+        if abs(amt) > 1e12:  # narration/account-number digits parsed as money
             continue
         txns.append({"date": d, "amount": flt(amt, 2),
                      "description": str(cell(r, cols.get("desc")) or "").strip()[:180]})
