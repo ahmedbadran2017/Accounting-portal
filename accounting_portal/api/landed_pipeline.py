@@ -293,20 +293,19 @@ def post_lcv(company=None, receipts=None, charges=None, distribute_by="Amount", 
         notes=notes or f"Landed cost {total:,.0f} over {len(receipts)} receipt(s)")
 
 
-def _lcv_poster(action):
-    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    if p.get("mode") == "submit_draft":
-        doc = frappe.get_doc("Landed Cost Voucher", p["name"])
-        doc.submit()
-        return {"voucher_type": "Landed Cost Voucher", "voucher_no": doc.name, "result": "submitted"}
+def _charge_desc(c):
+    desc = (c.get("description") or c["expense_account"])[:100]
+    if c.get("source"):
+        desc = f"{desc} src:{c['source']}"
+    return desc
+
+
+def _new_lcv(company, posting_date, receipts, basis):
     doc = frappe.new_doc("Landed Cost Voucher")
-    doc.company = action.company
-    doc.posting_date = p.get("posting_date") or nowdate()
-    mode = p.get("distribute_by") or "Amount"
-    # ERPNext has no native by-weight basis — we compute weight shares ourselves
-    # and post them as a manual distribution.
-    doc.distribute_charges_based_on = "Distribute Manually" if mode == "Weight" else mode
-    for r in p["receipts"]:
+    doc.company = company
+    doc.posting_date = posting_date or nowdate()
+    doc.distribute_charges_based_on = basis
+    for r in receipts:
         pr = frappe.db.get_value("Purchase Receipt", r, ["supplier", "base_grand_total"], as_dict=True)
         doc.append("purchase_receipts", {
             "receipt_document_type": "Purchase Receipt", "receipt_document": r,
@@ -314,30 +313,59 @@ def _lcv_poster(action):
     doc.get_items_from_purchase_receipts()
     if not doc.get("items"):
         frappe.throw("The selected receipts carry no item lines")
+    return doc
+
+
+def _apply_weight_shares(doc, total):
+    """Manual per-item allocation = weight share × total, residual on the
+    heaviest line so the sum ties out to the charge exactly."""
+    weights = dict(frappe.db.sql(
+        "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
+        (tuple({it.item_code for it in doc.items}),)))
+    base = sum(flt(it.qty) * flt(weights.get(it.item_code)) for it in doc.items)
+    if base <= 0:
+        frappe.throw("None of these items has a weight — cannot distribute by weight")
+    allocated, heaviest = 0.0, None
+    for it in doc.items:
+        share = flt(it.qty) * flt(weights.get(it.item_code)) / base
+        it.applicable_charges = round(total * share, 2)
+        allocated += it.applicable_charges
+        if heaviest is None or it.applicable_charges > heaviest.applicable_charges:
+            heaviest = it
+    heaviest.applicable_charges = round(heaviest.applicable_charges + (total - allocated), 2)
+
+
+def _lcv_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    if p.get("mode") == "submit_draft":
+        doc = frappe.get_doc("Landed Cost Voucher", p["name"])
+        doc.submit()
+        return {"voucher_type": "Landed Cost Voucher", "voucher_no": doc.name, "result": "submitted"}
+    mode = p.get("distribute_by") or "Amount"
     if mode == "Weight":
+        # ERPNext's 'Distribute Manually' (our weight vehicle) allows exactly ONE
+        # charge row per voucher — so weight mode posts one voucher per charge,
+        # each weight-allocated over the same receipts. Cleaner accounting too:
+        # every charge credits its own account on its own voucher.
+        created = []
+        for c in p["charges"]:
+            doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], "Distribute Manually")
+            _apply_weight_shares(doc, flt(c["amount"]))
+            doc.append("taxes", {"expense_account": c["expense_account"],
+                                 "description": _charge_desc(c), "amount": flt(c["amount"])})
+            doc.insert(ignore_permissions=True)
+            doc.submit()
+            created.append(doc.name)
+        # stash every voucher on the action so revert can cancel them all
+        frappe.db.set_value(action.doctype, action.name, "payload",
+                            json.dumps({**p, "created": created}, default=str), update_modified=False)
         total = sum(flt(c.get("amount")) for c in p["charges"])
-        weights = dict(frappe.db.sql(
-            "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
-            (tuple({it.item_code for it in doc.items}),)))
-        base = sum(flt(it.qty) * flt(weights.get(it.item_code)) for it in doc.items)
-        if base <= 0:
-            frappe.throw("None of these items has a weight — cannot distribute by weight")
-        allocated = 0.0
-        heaviest = None
-        for it in doc.items:
-            share = flt(it.qty) * flt(weights.get(it.item_code)) / base
-            it.applicable_charges = round(total * share, 2)
-            allocated += it.applicable_charges
-            if heaviest is None or it.applicable_charges > heaviest.applicable_charges:
-                heaviest = it
-        # rounding residual lands on the biggest line so the sum ties out exactly
-        heaviest.applicable_charges = round(heaviest.applicable_charges + (total - allocated), 2)
+        return {"voucher_type": "Landed Cost Voucher", "voucher_no": created[0],
+                "result": f"{total:,.0f} by weight → {len(created)} voucher(s): {', '.join(created)}"[:130]}
+    doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], mode)
     for c in p["charges"]:
-        desc = (c.get("description") or c["expense_account"])[:100]
-        if c.get("source"):
-            desc = f"{desc} src:{c['source']}"
         doc.append("taxes", {"expense_account": c["expense_account"],
-                             "description": desc, "amount": flt(c["amount"])})
+                             "description": _charge_desc(c), "amount": flt(c["amount"])})
     doc.insert(ignore_permissions=True)
     doc.submit()
     return {"voucher_type": "Landed Cost Voucher", "voucher_no": doc.name,
@@ -345,11 +373,17 @@ def _lcv_poster(action):
 
 
 def _lcv_reverter(action):
-    if action.voucher_no and frappe.db.exists("Landed Cost Voucher", action.voucher_no):
-        doc = frappe.get_doc("Landed Cost Voucher", action.voucher_no)
-        if doc.docstatus == 1:
-            doc.cancel()
-    return {"voucher_type": "Landed Cost Voucher", "voucher_no": action.voucher_no, "result": "cancelled"}
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    names = p.get("created") or ([action.voucher_no] if action.voucher_no else [])
+    cancelled = []
+    for n in names:
+        if n and frappe.db.exists("Landed Cost Voucher", n):
+            doc = frappe.get_doc("Landed Cost Voucher", n)
+            if doc.docstatus == 1:
+                doc.cancel()
+                cancelled.append(n)
+    return {"voucher_type": "Landed Cost Voucher", "voucher_no": action.voucher_no,
+            "result": f"cancelled {len(cancelled)}: {', '.join(cancelled)}"[:130]}
 
 
 _actions.register_poster(LCV_ACTION, _lcv_poster)

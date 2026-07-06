@@ -153,6 +153,7 @@
         <span class="font-bold text-emerald-700">{{ money(preview.total_charge) }} {{ L("over","على","sur") }} {{ preview.lines_n }} {{ L("item lines","سطر","lignes") }}</span>
         <span>· {{ preview.later_moves_to_repost.toLocaleString() }} {{ L("later stock moves will be reposted (COGS heals)","حركة لاحقة هيتعاد حسابها (الـ COGS يتصلح)","mouvements recalculés") }}</span>
         <span v-if="preview.weightless_n" class="text-amber-700 font-semibold">· ⚠ {{ preview.weightless_n }} {{ L("lines have no weight → get 0 share","سطر بدون وزن ← نصيبه صفر","lignes sans poids") }}</span>
+        <span v-if="basis==='Weight' && weightChargeCount > 1" class="text-ink-3">· {{ L(`posts as ${weightChargeCount} vouchers (one per charge — ERPNext rule)`, `هيترحّل ${weightChargeCount} سندات (سند لكل مصروف — قاعدة ERPNext)`, `${weightChargeCount} bons`) }}</span>
       </div>
       <div v-if="preview" class="overflow-x-auto max-h-[300px] overflow-y-auto">
         <table class="w-full text-[12px]">
@@ -230,6 +231,7 @@ const chargesTotal = computed(() =>
   selCharges.value.reduce((s, i) => s + Number(inbox.value[i]?.amount || 0), 0) +
   manualCharges.value.reduce((s, m) => s + Number(m.amount || 0), 0));
 const canPreview = computed(() => selReceipts.value.length && (selCharges.value.length || manualCharges.value.length));
+const weightChargeCount = computed(() => selCharges.value.length + manualCharges.value.length);
 
 async function load() {
   loading.value = true;
