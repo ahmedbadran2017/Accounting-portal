@@ -182,9 +182,21 @@ def delete_draft_lcv(company=None, name=None):
 def _load_receipt_items(receipts):
     return frappe.db.sql(
         """SELECT pri.parent receipt, pri.name detail, pri.item_code, pri.description,
-                  pri.qty, pri.base_rate rate, pri.base_amount amount, pri.cost_center
-           FROM `tabPurchase Receipt Item` pri WHERE pri.parent IN %s""",
+                  pri.qty, pri.base_rate rate, pri.base_amount amount, pri.cost_center,
+                  IFNULL(it.weight_per_unit, 0) wpu
+           FROM `tabPurchase Receipt Item` pri
+           LEFT JOIN `tabItem` it ON it.name = pri.item_code
+           WHERE pri.parent IN %s""",
         (tuple(receipts),), as_dict=True)
+
+
+def _basis(i, mode):
+    """A line's share basis: customs scale with value, freight with weight."""
+    if mode == "Qty":
+        return flt(i.get("qty"))
+    if mode == "Weight":
+        return flt(i.get("qty")) * flt(i.get("wpu"))
+    return flt(i.get("amount"))
 
 
 @frappe.whitelist()
@@ -201,10 +213,13 @@ def preview_lcv(company=None, receipts=None, charges=None, distribute_by="Amount
     if not items:
         frappe.throw("No items on those receipts")
     total_charge = sum(flt(c.get("amount")) for c in charges)
-    base = sum(flt(i.amount) for i in items) if distribute_by == "Amount" else sum(flt(i.qty) for i in items)
+    base = sum(_basis(i, distribute_by) for i in items)
+    weightless = sum(1 for i in items if distribute_by == "Weight" and flt(i.wpu) <= 0)
+    if distribute_by == "Weight" and base <= 0:
+        frappe.throw("None of these items has a weight — set item weights first, or distribute by value/qty")
     rows = []
     for i in items:
-        share = (flt(i.amount) if distribute_by == "Amount" else flt(i.qty)) / base if base else 0
+        share = _basis(i, distribute_by) / base if base else 0
         alloc = round(total_charge * share, 2)
         i_qty = flt(i.qty) or 1
         rows.append({"receipt": i.receipt, "item_code": i.item_code,
@@ -219,7 +234,7 @@ def preview_lcv(company=None, receipts=None, charges=None, distribute_by="Amount
            WHERE is_cancelled=0 AND posting_date >= %s AND item_code IN %s""",
         (min_dt, tuple({r["item_code"] for r in rows})))[0][0]
     return {"total_charge": round(total_charge, 2), "distribute_by": distribute_by,
-            "lines": rows[:250], "lines_n": len(rows),
+            "lines": rows[:250], "lines_n": len(rows), "weightless_n": weightless,
             "later_moves_to_repost": int(later_moves or 0)}
 
 
@@ -265,13 +280,34 @@ def _lcv_poster(action):
     doc = frappe.new_doc("Landed Cost Voucher")
     doc.company = action.company
     doc.posting_date = p.get("posting_date") or nowdate()
-    doc.distribute_charges_based_on = p.get("distribute_by") or "Amount"
+    mode = p.get("distribute_by") or "Amount"
+    # ERPNext has no native by-weight basis — we compute weight shares ourselves
+    # and post them as a manual distribution.
+    doc.distribute_charges_based_on = "Distribute Manually" if mode == "Weight" else mode
     for r in p["receipts"]:
         pr = frappe.db.get_value("Purchase Receipt", r, ["supplier", "base_grand_total"], as_dict=True)
         doc.append("purchase_receipts", {
             "receipt_document_type": "Purchase Receipt", "receipt_document": r,
             "supplier": pr.supplier, "grand_total": pr.base_grand_total})
     doc.get_items_from_purchase_receipts()
+    if mode == "Weight":
+        total = sum(flt(c.get("amount")) for c in p["charges"])
+        weights = dict(frappe.db.sql(
+            "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
+            (tuple({it.item_code for it in doc.items}),)))
+        base = sum(flt(it.qty) * flt(weights.get(it.item_code)) for it in doc.items)
+        if base <= 0:
+            frappe.throw("None of these items has a weight — cannot distribute by weight")
+        allocated = 0.0
+        heaviest = None
+        for it in doc.items:
+            share = flt(it.qty) * flt(weights.get(it.item_code)) / base
+            it.applicable_charges = round(total * share, 2)
+            allocated += it.applicable_charges
+            if heaviest is None or it.applicable_charges > heaviest.applicable_charges:
+                heaviest = it
+        # rounding residual lands on the biggest line so the sum ties out exactly
+        heaviest.applicable_charges = round(heaviest.applicable_charges + (total - allocated), 2)
     for c in p["charges"]:
         desc = (c.get("description") or c["expense_account"])[:100]
         if c.get("source"):

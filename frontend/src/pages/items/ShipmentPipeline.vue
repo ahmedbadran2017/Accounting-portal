@@ -135,8 +135,9 @@
     <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2 flex-wrap">
         <Icon name="layers" :size="14" color="#0b5c4f" />{{ L("3 · Preview allocation → 4 · Post","٣ · عاين التوزيع ← ٤ · رحّل","3 · Aperçu → 4 · Valider") }}
-        <select v-model="basis" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none">
+        <select v-model="basis" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none" @change="preview = null">
           <option value="Amount">{{ L("by value (customs)","بالقيمة (جمارك)","par valeur") }}</option>
+          <option value="Weight">{{ L("by weight (freight)","بالوزن (شحن)","par poids") }}</option>
           <option value="Qty">{{ L("by qty","بالكمية","par qté") }}</option>
         </select>
         <div class="ms-auto inline-flex items-center gap-2">
@@ -147,6 +148,7 @@
       <div v-if="preview" class="px-4 py-2 border-b border-line-hair text-[11px] text-ink-3 flex items-center gap-3 flex-wrap" style="background:#f0fdf4">
         <span class="font-bold text-emerald-700">{{ money(preview.total_charge) }} {{ L("over","على","sur") }} {{ preview.lines_n }} {{ L("item lines","سطر","lignes") }}</span>
         <span>· {{ preview.later_moves_to_repost.toLocaleString() }} {{ L("later stock moves will be reposted (COGS heals)","حركة لاحقة هيتعاد حسابها (الـ COGS يتصلح)","mouvements recalculés") }}</span>
+        <span v-if="preview.weightless_n" class="text-amber-700 font-semibold">· ⚠ {{ preview.weightless_n }} {{ L("lines have no weight → get 0 share","سطر بدون وزن ← نصيبه صفر","lignes sans poids") }}</span>
       </div>
       <div v-if="preview" class="overflow-x-auto max-h-[300px] overflow-y-auto">
         <table class="w-full text-[12px]">
