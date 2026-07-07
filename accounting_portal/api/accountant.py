@@ -18,6 +18,27 @@ JE_ACTION = "Post Correction"
 
 
 @frappe.whitelist()
+def party_options(party_type=None, q=None, limit=25):
+    """Search parties for a JE line. Receivable accounts need a Customer,
+    Payable a Supplier; Employee for advances/payroll."""
+    assert_portal_access()
+    dt = {"Customer": "Customer", "Supplier": "Supplier", "Employee": "Employee"}.get(party_type)
+    if not dt:
+        return []
+    name_field = "employee_name" if dt == "Employee" else f"{dt.lower()}_name"
+    active = "status='Active'" if dt == "Employee" else "IFNULL(disabled,0)=0"
+    cond = ""
+    params = {"lim": min(int(limit or 25), 50)}
+    if q:
+        cond = f" AND (name LIKE %(q)s OR {name_field} LIKE %(q)s)"
+        params["q"] = f"%{q}%"
+    return frappe.db.sql(
+        f"""SELECT name, {name_field} AS label FROM `tab{dt}`
+            WHERE {active}{cond} ORDER BY {name_field} LIMIT %(lim)s""",
+        params, as_dict=True)
+
+
+@frappe.whitelist()
 def account_options(company=None):
     """Postable (non-group) accounts for the company — the JE form's picker."""
     assert_portal_access()

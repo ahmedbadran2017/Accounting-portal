@@ -50,6 +50,28 @@
                       <div v-if="!filteredFor(ln).length" class="px-3 py-3 text-center text-[11px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun.") }}</div>
                     </div>
                   </div>
+                  <!-- party: required for Receivable/Payable, optional otherwise -->
+                  <div v-if="ln.account && (needsParty(ln) || ln.showParty)" class="mt-1 flex items-center gap-1.5">
+                    <select v-model="ln.party_type" class="text-[10.5px] bg-app-warm/50 border border-line-2 rounded-chip px-1.5 py-0.5 focus:outline-none" @change="ln.party = ''; ln.pq = ''">
+                      <option value="">{{ L("type","النوع","type") }}</option>
+                      <option value="Customer">{{ L("Customer","عميل","Client") }}</option>
+                      <option value="Supplier">{{ L("Supplier","مورّد","Fourn.") }}</option>
+                      <option value="Employee">{{ L("Employee","موظف","Employé") }}</option>
+                    </select>
+                    <div v-if="ln.party_type" class="relative flex-1" v-click-outside="() => { if (openParty === i) openParty = null }">
+                      <input v-model="ln.pq" @focus="openParty = i; loadParties(ln)" @input="openParty = i; ln.party = ''; loadParties(ln)"
+                             :placeholder="L('search party…','ابحث عن الطرف…','tiers…')"
+                             class="w-full text-[10.5px] bg-app-warm/50 border rounded-chip px-2 py-0.5 focus:outline-none"
+                             :class="needsParty(ln) && !ln.party ? 'border-rose-300' : 'border-line-2'" />
+                      <div v-if="openParty === i && (ln._parties || []).length" class="absolute z-40 mt-1 w-[240px] max-h-44 overflow-y-auto bg-white border border-line rounded-[10px] shadow-cardHover">
+                        <button v-for="pt in ln._parties" :key="pt.name" type="button" class="w-full text-start px-2.5 py-1.5 hover:bg-app-warm/60 text-[11px] border-t border-line-hair first:border-t-0" @click="pickParty(ln, pt)">
+                          <span class="font-medium">{{ pt.label || pt.name }}</span><span v-if="pt.label && pt.label !== pt.name" class="text-[9px] text-ink-muted ms-1">{{ pt.name }}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <button v-if="!needsParty(ln)" type="button" class="text-ink-muted hover:text-sale" @click="ln.showParty = false; ln.party_type = ''; ln.party = ''"><Icon name="close" :size="11" /></button>
+                  </div>
+                  <button v-else-if="ln.account && !needsParty(ln)" type="button" class="mt-0.5 text-[9.5px] text-ink-muted hover:text-accent-dark" @click="ln.showParty = true">+ {{ L("party","طرف","tiers") }}</button>
                 </td>
                 <td class="px-2 py-1.5"><input type="number" min="0" v-model.number="ln.debit" class="w-full text-end tnum bg-transparent py-1 focus:outline-none" placeholder="0" /></td>
                 <td class="px-2 py-1.5"><input type="number" min="0" v-model.number="ln.credit" class="w-full text-end tnum bg-transparent py-1 focus:outline-none" placeholder="0" /></td>
@@ -58,7 +80,7 @@
             </tbody>
             <tfoot>
               <tr class="border-t border-line-2" style="background:#fafaf9">
-                <td class="px-3 py-2"><button class="text-[11px] font-semibold text-accent hover:text-accent-dark inline-flex items-center gap-1" @click="lines.push({ account: '', q: '', debit: null, credit: null })"><Icon name="plus" :size="12" />{{ L("Add line", "سطر", "Ligne") }}</button></td>
+                <td class="px-3 py-2"><button class="text-[11px] font-semibold text-accent hover:text-accent-dark inline-flex items-center gap-1" @click="lines.push(newLine())"><Icon name="plus" :size="12" />{{ L("Add line", "سطر", "Ligne") }}</button></td>
                 <td class="px-3 py-2 text-end tnum font-bold">{{ fmt(totalDr) }}</td>
                 <td class="px-3 py-2 text-end tnum font-bold">{{ fmt(totalCr) }}</td>
                 <td></td>
@@ -113,11 +135,13 @@ const SAMPLE_ACCOUNTS = [
 
 const postingDate = ref(new Date().toISOString().slice(0, 10));
 const remark = ref("");
-const lines = ref([{ account: "", q: "", debit: null, credit: null }, { account: "", q: "", debit: null, credit: null }]);
+const newLine = () => ({ account: "", q: "", debit: null, credit: null, party_type: "", party: "", pq: "", showParty: false, _parties: [] });
+const lines = ref([newLine(), newLine()]);
 const accounts = ref([]);
 const posting = ref(false);
 const error = ref("");
 const openLine = ref(null);
+const openParty = ref(null);
 
 // Searchable account picker per line. With thousands of accounts a plain
 // <select> is unusable — filter by name/number as the user types.
@@ -126,7 +150,26 @@ function filteredFor(ln) {
   if (!q || q === ln.account.toLowerCase()) return accounts.value.slice(0, 80);
   return accounts.value.filter((a) => a.name.toLowerCase().includes(q)).slice(0, 80);
 }
-function pick(ln, a) { ln.account = a.name; ln.q = a.name; openLine.value = null; }
+const typeMap = computed(() => Object.fromEntries(accounts.value.map((a) => [a.name, a.type])));
+// Receivable/Payable accounts require a party in ERPNext — auto-set its type.
+function needsParty(ln) { return ["Receivable", "Payable"].includes(typeMap.value[ln.account]); }
+function pick(ln, a) {
+  ln.account = a.name; ln.q = a.name; openLine.value = null;
+  if (a.type === "Receivable" && !ln.party_type) ln.party_type = "Customer";
+  else if (a.type === "Payable" && !ln.party_type) ln.party_type = "Supplier";
+}
+let ptTimer = null;
+function loadParties(ln) {
+  clearTimeout(ptTimer);
+  ptTimer = setTimeout(async () => {
+    if (!ln.party_type) { ln._parties = []; return; }
+    try {
+      ln._parties = await api.call("accounting_portal.api.accountant.party_options",
+        { party_type: ln.party_type, q: ln.pq || undefined }) || [];
+    } catch { ln._parties = []; }
+  }, 250);
+}
+function pickParty(ln, pt) { ln.party = pt.name; ln.pq = pt.label || pt.name; openParty.value = null; }
 
 onMounted(async () => {
   try {
@@ -146,12 +189,15 @@ async function post() {
   error.value = "";
   const clean = lines.value.filter((l) => l.account && ((Number(l.debit) || 0) > 0 || (Number(l.credit) || 0) > 0));
   if (clean.length < 2) { error.value = L("Add at least two complete lines.", "أضف سطرين مكتملين على الأقل.", "Ajoutez au moins deux lignes."); return; }
+  const missingParty = clean.find((l) => needsParty(l) && !l.party);
+  if (missingParty) { error.value = L(`${missingParty.account} needs a party.`, `${missingParty.account} يحتاج طرفًا.`, "Tiers requis."); return; }
   posting.value = true;
   try {
     const method = props.opening ? "create_opening_entry" : "create_journal_entry";
     const res = await api.call(`accounting_portal.api.accountant.${method}`, {
       company: currentCompany(), posting_date: postingDate.value,
-      lines: clean.map((l) => ({ account: l.account, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0 })),
+      lines: clean.map((l) => ({ account: l.account, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0,
+        party_type: (l.party && l.party_type) || undefined, party: l.party || undefined })),
       remark: remark.value,
     });
     emit("posted", res);
