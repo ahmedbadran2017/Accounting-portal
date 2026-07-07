@@ -25,11 +25,14 @@
     <div v-if="imports.length" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2">
         <Icon name="doc" :size="14" color="#0b5c4f" />{{ L("Imported statements", "الكشوف المرفوعة", "Relevés importés") }}
-        <span class="text-[10px] text-ink-muted">{{ imports.length }}</span>
+        <span class="text-[10px] text-ink-muted">{{ inProgressImports.length }} {{ L("in progress", "جارية", "en cours") }}</span>
+        <button v-if="doneImportsN || imports.length > visibleImports.length || showAllImports" type="button" class="ms-auto text-[10.5px] font-semibold text-accent-dark hover:underline" @click="showAllImports = !showAllImports">
+          {{ showAllImports ? L("Hide completed", "اخفي المكتمل", "Masquer") : L(`Show all (${imports.length})`, `عرض الكل (${imports.length})`, `Tout (${imports.length})`) }}
+        </button>
       </div>
       <div class="overflow-x-auto"><table class="w-full text-[12px]">
         <tbody>
-          <tr v-for="im in imports" :key="im.name" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="openWorkbench(im.name)">
+          <tr v-for="im in visibleImports" :key="im.name" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="openWorkbench(im.name)">
             <td class="px-4 py-2.5"><div class="font-medium truncate max-w-[220px]">{{ im.file_name }}</div><div class="text-[10px] text-ink-muted font-mono">{{ im.name }} · {{ im.account.split(" - ")[0] }}</div></td>
             <td class="px-3 py-2.5 text-[11px] text-ink-3 whitespace-nowrap">{{ im.from_date }} → {{ im.to_date }}</td>
             <td class="px-3 py-2.5 whitespace-nowrap text-[11px] tnum">
@@ -42,6 +45,7 @@
             <td class="px-3 py-2.5 text-[10.5px] text-ink-muted whitespace-nowrap">{{ (im.owner || "").split("@")[0] }} · {{ im.modified }}</td>
             <td class="px-4 py-2.5 text-end"><span class="text-[11px] font-bold text-accent-dark">{{ im.status==='Done' ? L("open","افتح","ouvrir") : L("resume →","استئناف ←","reprendre →") }}</span></td>
           </tr>
+          <tr v-if="!visibleImports.length"><td class="px-4 py-4 text-center text-[11px] text-ink-muted">{{ L("Nothing in progress — all statements are done 🎉", "مفيش كشوف جارية — كله مكتمل 🎉", "Tout est terminé") }}</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -178,6 +182,11 @@ function showAllTime() { fyc.selected.value = "all"; }
 
 // statement-import history (the workbench sessions)
 const imports = ref([]);
+const showAllImports = ref(false);
+// In-progress sessions are the daily work; Done files fold into the archive.
+const inProgressImports = computed(() => imports.value.filter((i) => i.status !== "Done"));
+const doneImportsN = computed(() => imports.value.length - inProgressImports.value.length);
+const visibleImports = computed(() => (showAllImports.value ? imports.value : inProgressImports.value.slice(0, 5)));
 async function loadImports() {
   try { imports.value = await api.call("accounting_portal.api.bank_workbench.list_imports", { company: currentCompany() }, { fresh: true }) || []; }
   catch { imports.value = []; }
