@@ -102,6 +102,41 @@
         </div>
       </div>
 
+      <!-- money-IN modal: Dr this bank / Cr the picked account (carrier clearing, another account, income…) -->
+      <div v-if="moneyIn" class="fixed inset-0 z-[110] flex items-start justify-center p-4 sm:p-10 overflow-y-auto" style="background:rgba(28,25,23,.45)" @click.self="moneyIn=null">
+        <div class="bg-white rounded-[18px] shadow-cardHover w-full max-w-lg my-8 overflow-hidden">
+          <div class="flex items-center gap-2.5 px-5 py-4 border-b border-line">
+            <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#ecfdf5"><Icon name="cash" :size="16" color="#047857" /></span>
+            <div class="flex-1"><div class="text-[14px] font-bold">{{ L("Record money in","تسجيل وارد","Encaissement") }}</div>
+              <div class="text-[11px] text-ink-muted tnum">{{ moneyIn.date }} · {{ (moneyIn.description || "").slice(0,60) }} · <b class="text-success-dark">+{{ money(moneyIn.amount) }}</b></div></div>
+            <button class="text-ink-3 hover:text-ink" @click="moneyIn=null"><Icon name="close" :size="18" /></button>
+          </div>
+          <div class="p-5 space-y-3">
+            <div class="text-[11px] text-ink-3 leading-relaxed rounded-[10px] px-3 py-2" style="background:#f0fdf4">
+              {{ L("Books: Dr", "القيد: مدين", "Dr") }} <b>{{ d.account.split(" - ")[1] || d.account }}</b> / {{ L("Cr the account below — carrier COD remittance → the carrier clearing account; transfer from our own account → that account; other income → an income account.", "دائن الحساب اللي تحت — تحصيل COD من الناقل ← حساب تصفية الناقل؛ تحويل من حساب بتاعنا ← الحساب ده؛ إيراد آخر ← حساب إيراد.", "Cr le compte choisi.") }}
+            </div>
+            <div class="block">
+              <span class="text-[11px] font-semibold text-ink-3">{{ L("Credit account (where it came from)","الحساب الدائن (جاي منين)","Compte crédité") }}</span>
+              <input v-model.trim="inQuery" :placeholder="L('search account…','ابحث عن حساب…','rechercher…')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <div class="mt-1 max-h-44 overflow-y-auto border border-line rounded-[12px]">
+                <button v-for="a in inFiltered" :key="a.name" type="button" class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0"
+                        :class="a.name === inAccount ? 'bg-accent-soft font-semibold' : ''" @click="inAccount = a.name">
+                  <span class="flex-1 truncate">{{ a.num ? a.num + " · " : "" }}{{ a.nm }}</span>
+                  <span class="text-[9.5px] text-ink-muted">{{ a.typ || a.rt }}</span>
+                  <Icon v-if="a.name === inAccount" name="check" :size="13" color="#047857" />
+                </button>
+                <div v-if="!inFiltered.length" class="px-3 py-4 text-center text-[11px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun.") }}</div>
+              </div>
+            </div>
+            <div v-if="Math.abs(moneyIn.amount) >= 10000" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="shield" :size="12" />{{ L("Material amount — goes for approval first.","مبلغ جوهري — هيروح للموافقة الأول.","Approbation requise.") }}</div>
+          </div>
+          <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
+            <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="moneyIn=null">{{ L("Cancel","إلغاء","Annuler") }}</button>
+            <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!inAccount || inBusy" @click="postIn">{{ inBusy ? "…" : L("Record","سجّل","Enregistrer") }}</button>
+          </div>
+        </div>
+      </div>
+
       <NewExpenseModal v-if="registering" :prefill="regPrefill" @close="registering=false" @posted="onRegistered" />
     </template>
     <div v-else class="p-10 text-center text-ink-muted text-[12px]">{{ L("Import not found.","الاستيراد مش موجود.","Introuvable.") }}</div>
@@ -205,7 +240,58 @@ async function doMatch(c) {
   }
 }
 
+const moneyIn = ref(null), inAccount = ref(""), inQuery = ref(""), inBusy = ref(false);
+const inOptions = ref([]);
+const inFiltered = computed(() => {
+  const q = inQuery.value.trim().toLowerCase();
+  const list = inOptions.value;
+  if (!q) return list.slice(0, 60);
+  return list.filter((a) => (a.nm || "").toLowerCase().includes(q) || (a.num || "").toLowerCase().includes(q)).slice(0, 60);
+});
+async function openMoneyIn(l) {
+  regLine.value = l;
+  moneyIn.value = l;
+  inAccount.value = ""; inQuery.value = "";
+  if (!inOptions.value.length) {
+    try { inOptions.value = await api.call("accounting_portal.api.bank_workbench.in_account_options", { company: currentCompany() }) || []; }
+    catch { inOptions.value = []; }
+  }
+  // carrier remittance? default straight to the carrier clearing account
+  const desc = (l.description || "").toLowerCase();
+  if (/cathedis|cathadis|aramex|cash ?plus|rdf/.test(desc)) {
+    const hit = inOptions.value.find((a) => /cathadis|cathedis/.test((a.nm || "").toLowerCase()))
+      || inOptions.value.find((a) => /aramex/.test((a.nm || "").toLowerCase()) && /aramex/.test(desc));
+    if (hit) { inAccount.value = hit.name; inQuery.value = hit.nm; }
+  }
+}
+async function postIn() {
+  const l = moneyIn.value;
+  if (!inAccount.value || inBusy.value || !l) return;
+  inBusy.value = true;
+  try {
+    const amt = Math.abs(l.amount);
+    const res = await api.call("accounting_portal.api.accountant.create_journal_entry", {
+      company: currentCompany(), posting_date: l.date,
+      lines: [{ account: d.value.account, debit: amt, credit: 0 },
+              { account: inAccount.value, debit: 0, credit: amt }],
+      remark: `Bank in · ${(l.description || "").slice(0, 120)} · ${l.date}`,
+      dedupe_key: "bsiin:" + d.value.name + ":" + l.i,
+    });
+    if (res?.status === "Proposed") {
+      toast.success(L("Sent for approval — link the line after it posts", "اتبعت للموافقة — اربط السطر بعد الترحيل", "Envoyé"));
+      moneyIn.value = null;
+      return;
+    }
+    if (res?.voucher_no && await act(l, "created", { voucher: res.voucher_no, voucher_type: "Journal Entry" })) {
+      toast.success(L("Recorded & linked", "اتسجل واتربط", "Enregistré"));
+      moneyIn.value = null;
+    }
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 180)); }
+  finally { inBusy.value = false; }
+}
+
 function openRegister(l) {
+  if (l.amount > 0) return openMoneyIn(l);
   regLine.value = l;
   // money OUT: an expense/bill paid from this bank; the modal's bill/cash switch
   // covers supplier vs quick cash. Prefill everything from the line.

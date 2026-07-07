@@ -131,6 +131,23 @@ def get_import(company=None, name=None):
 
 
 @frappe.whitelist()
+def in_account_options(company=None):
+    """Credit-side accounts for recording MONEY-IN lines (Dr bank / Cr this):
+    carrier clearing accounts, other banks/cash (internal transfers), income,
+    receivables… — anything postable on this company."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return []
+    return frappe.db.sql(
+        """SELECT name, account_name nm, account_number num, account_type typ, root_type rt
+           FROM `tabAccount`
+           WHERE company=%s AND is_group=0 AND disabled=0
+             AND root_type IN ('Asset', 'Income', 'Liability')
+           ORDER BY name LIMIT 1500""", (target,), as_dict=True)
+
+
+@frappe.whitelist()
 def rematch_import(company=None, name=None):
     """Re-run auto-match on the PENDING lines of an existing import — now against
     ALL book entries (cleared included). Rescues imports created before the
