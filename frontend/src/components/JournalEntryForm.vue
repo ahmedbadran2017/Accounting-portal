@@ -35,10 +35,21 @@
             <tbody>
               <tr v-for="(ln, i) in lines" :key="i" class="border-t border-line-hair">
                 <td class="px-2 py-1.5">
-                  <select v-model="ln.account" class="w-full bg-transparent text-[12px] py-1 focus:outline-none cursor-pointer">
-                    <option value="">—</option>
-                    <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.name }}{{ a.currency ? " · " + a.currency : "" }}</option>
-                  </select>
+                  <div class="relative" v-click-outside="() => { if (openLine === i) openLine = null }">
+                    <input v-model="ln.q" @focus="openLine = i" @input="openLine = i; ln.account = ''"
+                           :placeholder="L('search account…','ابحث عن حساب…','rechercher…')"
+                           class="w-full bg-transparent text-[12px] py-1 focus:outline-none"
+                           :class="ln.account ? 'text-ink font-medium' : 'text-ink-2'" />
+                    <div v-if="openLine === i" class="absolute z-30 mt-1 w-[280px] max-h-56 overflow-y-auto bg-white border border-line rounded-[12px] shadow-cardHover">
+                      <button v-for="a in filteredFor(ln)" :key="a.name" type="button"
+                              class="w-full flex items-center gap-2 px-3 py-1.5 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0"
+                              :class="a.name === ln.account ? 'bg-accent-soft font-semibold' : ''" @click="pick(ln, a)">
+                        <span class="flex-1 truncate">{{ a.name }}</span>
+                        <span v-if="a.currency" class="text-[9.5px] text-ink-muted shrink-0">{{ a.currency }}</span>
+                      </button>
+                      <div v-if="!filteredFor(ln).length" class="px-3 py-3 text-center text-[11px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun.") }}</div>
+                    </div>
+                  </div>
                 </td>
                 <td class="px-2 py-1.5"><input type="number" min="0" v-model.number="ln.debit" class="w-full text-end tnum bg-transparent py-1 focus:outline-none" placeholder="0" /></td>
                 <td class="px-2 py-1.5"><input type="number" min="0" v-model.number="ln.credit" class="w-full text-end tnum bg-transparent py-1 focus:outline-none" placeholder="0" /></td>
@@ -47,7 +58,7 @@
             </tbody>
             <tfoot>
               <tr class="border-t border-line-2" style="background:#fafaf9">
-                <td class="px-3 py-2"><button class="text-[11px] font-semibold text-accent hover:text-accent-dark inline-flex items-center gap-1" @click="lines.push({ account: '', debit: null, credit: null })"><Icon name="plus" :size="12" />{{ L("Add line", "سطر", "Ligne") }}</button></td>
+                <td class="px-3 py-2"><button class="text-[11px] font-semibold text-accent hover:text-accent-dark inline-flex items-center gap-1" @click="lines.push({ account: '', q: '', debit: null, credit: null })"><Icon name="plus" :size="12" />{{ L("Add line", "سطر", "Ligne") }}</button></td>
                 <td class="px-3 py-2 text-end tnum font-bold">{{ fmt(totalDr) }}</td>
                 <td class="px-3 py-2 text-end tnum font-bold">{{ fmt(totalCr) }}</td>
                 <td></td>
@@ -102,10 +113,20 @@ const SAMPLE_ACCOUNTS = [
 
 const postingDate = ref(new Date().toISOString().slice(0, 10));
 const remark = ref("");
-const lines = ref([{ account: "", debit: null, credit: null }, { account: "", debit: null, credit: null }]);
+const lines = ref([{ account: "", q: "", debit: null, credit: null }, { account: "", q: "", debit: null, credit: null }]);
 const accounts = ref([]);
 const posting = ref(false);
 const error = ref("");
+const openLine = ref(null);
+
+// Searchable account picker per line. With thousands of accounts a plain
+// <select> is unusable — filter by name/number as the user types.
+function filteredFor(ln) {
+  const q = (ln.q || "").trim().toLowerCase();
+  if (!q || q === ln.account.toLowerCase()) return accounts.value.slice(0, 80);
+  return accounts.value.filter((a) => a.name.toLowerCase().includes(q)).slice(0, 80);
+}
+function pick(ln, a) { ln.account = a.name; ln.q = a.name; openLine.value = null; }
 
 onMounted(async () => {
   try {
