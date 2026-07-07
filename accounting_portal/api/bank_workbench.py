@@ -215,7 +215,7 @@ def rematch_import(company=None, name=None):
                           include_cleared=1)
     # vouchers already pinned to other lines must not be consumed twice
     taken = {l.get("voucher") for l in lines if l.get("voucher")}
-    taken |= {v.get("voucher") for l in lines for v in (l.get("vouchers") or [])}
+    taken |= {v.get("voucher") for l in lines for v in (l.get("vouchers") or []) if isinstance(v, dict) and v.get("voucher")}
     matched_keys = {}
     for m in res.get("matched", []):
         book = m.get("book") or {}
@@ -304,8 +304,10 @@ def match_candidates(company=None, name=None, idx=None, search=None):
                ORDER BY (je.clearance_date IS NOT NULL), ABS(DATEDIFF(je.posting_date, %(d)s)) LIMIT 8""",
             p, as_dict=True)
     # exclude vouchers already pinned to another line of THIS import
+    # `vouchers` on a split line is a list of {voucher, voucher_type} dicts —
+    # collect the voucher NAMES, not the dicts (a dict is unhashable in a set).
     taken = {x.get("voucher") for x in lines if x.get("voucher")}
-    taken |= {v for x in lines for v in (x.get("vouchers") or []) if v}
+    taken |= {v.get("voucher") for x in lines for v in (x.get("vouchers") or []) if isinstance(v, dict) and v.get("voucher")}
     rows = [r for r in pe + je if r["voucher"] not in taken]
     for r in rows:
         r["amount"] = flt(r["amount"])
