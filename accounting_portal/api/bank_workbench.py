@@ -76,7 +76,9 @@ def create_import(company=None, account=None, file_url=None, file_name=None, map
     txns = parsed.get("transactions") or []
     if not txns:
         frappe.throw("No transactions parsed from the file — check the column mapping")
-    res = match_statement(company=target, account=account, transactions=txns)
+    # include_cleared: entries reconciled in earlier sessions must match, not
+    # resurface as "missing in books"
+    res = match_statement(company=target, account=account, transactions=txns, include_cleared=1)
     matched_keys = {}
     for m in res.get("matched", []):
         s = m.get("statement") or {}
@@ -129,6 +131,47 @@ def get_import(company=None, name=None):
 
 
 @frappe.whitelist()
+def rematch_import(company=None, name=None):
+    """Re-run auto-match on the PENDING lines of an existing import — now against
+    ALL book entries (cleared included). Rescues imports created before the
+    include_cleared fix, and picks up entries booked after the upload."""
+    assert_can_write()
+    target = _target(company)
+    doc, lines = _load(name, target)
+    pending = [l for l in lines if l.get("status") == "pending"]
+    if not pending:
+        return {"newly_matched": 0, **_stats(doc)}
+    from accounting_portal.api.bank_import import match_statement
+    res = match_statement(company=target, account=doc.account,
+                          transactions=[{"date": l["date"], "amount": l["amount"],
+                                         "description": l.get("description")} for l in pending],
+                          include_cleared=1)
+    # vouchers already pinned to other lines must not be consumed twice
+    taken = {l.get("voucher") for l in lines if l.get("voucher")}
+    matched_keys = {}
+    for m in res.get("matched", []):
+        book = m.get("book") or {}
+        if book.get("voucher") in taken:
+            continue
+        s = m.get("statement") or {}
+        matched_keys.setdefault((str(s.get("date"))[:10], flt(s.get("amount"))), []).append(book)
+    newly = 0
+    for l in lines:
+        if l.get("status") != "pending":
+            continue
+        pool = matched_keys.get((l["date"], flt(l["amount"])))
+        if pool:
+            book = pool.pop(0)
+            l["status"] = "matched"
+            l["voucher"] = book.get("voucher")
+            l["voucher_type"] = book.get("doctype")
+            l["by"] = "auto"
+            newly += 1
+    _save(doc, lines)
+    return {"newly_matched": newly, **_stats(doc), "lines": lines}
+
+
+@frappe.whitelist()
 def match_candidates(company=None, name=None, idx=None):
     """Book entries a pending line could be — uncleared, close in amount
     (±2% or ±2 MAD) and date (±45 days)."""
@@ -142,27 +185,32 @@ def match_candidates(company=None, name=None, idx=None):
     pe = frappe.db.sql(
         """SELECT name voucher, 'Payment Entry' voucher_type, posting_date date,
                   CASE WHEN paid_to=%(a)s THEN paid_amount ELSE -paid_amount END amount,
-                  IFNULL(party,'') party, IFNULL(reference_no,'') ref
+                  IFNULL(party,'') party, IFNULL(reference_no,'') ref,
+                  (clearance_date IS NOT NULL) cleared
            FROM `tabPayment Entry`
            WHERE company=%(c)s AND docstatus=1 AND (paid_to=%(a)s OR paid_from=%(a)s)
-             AND clearance_date IS NULL AND ABS(paid_amount) BETWEEN %(lo)s AND %(hi)s
+             AND ABS(paid_amount) BETWEEN %(lo)s AND %(hi)s
              AND ABS(DATEDIFF(posting_date, %(d)s)) <= 45
-           ORDER BY ABS(DATEDIFF(posting_date, %(d)s)) LIMIT 8""", p, as_dict=True)
+           ORDER BY (clearance_date IS NOT NULL), ABS(DATEDIFF(posting_date, %(d)s)) LIMIT 8""", p, as_dict=True)
     je = frappe.db.sql(
         """SELECT je.name voucher, 'Journal Entry' voucher_type, je.posting_date date,
                   ROUND(SUM(jea.debit - jea.credit), 2) amount, '' party,
-                  IFNULL(je.cheque_no, IFNULL(je.user_remark,'')) ref
+                  IFNULL(je.cheque_no, IFNULL(je.user_remark,'')) ref,
+                  (je.clearance_date IS NOT NULL) cleared
            FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea
              ON jea.parent=je.name AND jea.account=%(a)s
-           WHERE je.company=%(c)s AND je.docstatus=1 AND je.clearance_date IS NULL
+           WHERE je.company=%(c)s AND je.docstatus=1
              AND ABS(DATEDIFF(je.posting_date, %(d)s)) <= 45
            GROUP BY je.name HAVING ABS(ABS(SUM(jea.debit - jea.credit)) - %(amt)s) <= %(tol)s
-           ORDER BY ABS(DATEDIFF(je.posting_date, %(d)s)) LIMIT 8""",
+           ORDER BY (je.clearance_date IS NOT NULL), ABS(DATEDIFF(je.posting_date, %(d)s)) LIMIT 8""",
         {**p, "amt": amt, "tol": tol}, as_dict=True)
-    rows = pe + je
+    # exclude vouchers already pinned to another line of THIS import
+    taken = {x.get("voucher") for x in lines if x.get("voucher")}
+    rows = [r for r in pe + je if r["voucher"] not in taken]
     for r in rows:
         r["amount"] = flt(r["amount"])
         r["date"] = str(r["date"])[:10]
+        r["cleared"] = int(r.get("cleared") or 0)
     return rows[:10]
 
 

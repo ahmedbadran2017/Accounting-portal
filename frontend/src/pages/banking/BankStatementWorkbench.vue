@@ -20,6 +20,7 @@
             <span class="px-2.5 py-1 rounded-chip" style="background:#eff6ff;color:#0369a1">➕ {{ d.n_created }}</span>
             <span class="px-2.5 py-1 rounded-chip" style="background:#f5f5f4;color:#78716c">👁 {{ d.n_ignored }}</span>
             <span class="px-2.5 py-1 rounded-chip font-bold" :class="pendingN ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'">{{ pendingN ? pendingN + " " + L("pending","متبقي","restants") : L("Done 🎉","خلصت 🎉","Terminé") }}</span>
+            <button v-if="canWrite && pendingN" type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="rematching" @click="rematch">{{ rematching ? "…" : L("Re-match", "إعادة مطابقة", "Re-lier") }}</button>
           </div>
         </div>
       </div>
@@ -88,7 +89,7 @@
             <table v-else-if="cands.length" class="w-full text-[12px]">
               <tbody>
                 <tr v-for="c in cands" :key="c.voucher" class="border-t border-line-hair hover:bg-app-warm/40">
-                  <td class="px-3 py-2 font-mono text-[11px]">{{ c.voucher }}<div class="text-[9.5px] text-ink-muted font-sans">{{ c.voucher_type }}</div></td>
+                  <td class="px-3 py-2 font-mono text-[11px]">{{ c.voucher }}<div class="text-[9.5px] text-ink-muted font-sans">{{ c.voucher_type }}<span v-if="c.cleared" class="ms-1 text-emerald-700 font-semibold">· {{ L("already reconciled","مُسوّى قبل كده","déjà rapproché") }}</span></div></td>
                   <td class="px-3 py-2 text-ink-3 whitespace-nowrap">{{ c.date }}</td>
                   <td class="px-3 py-2 truncate max-w-[180px] text-[11px]">{{ c.party || c.ref }}</td>
                   <td class="px-3 py-2 text-end tnum font-semibold" :class="c.amount<0 ? 'text-sale' : 'text-success-dark'">{{ money(c.amount) }}</td>
@@ -175,6 +176,19 @@ async function ignore(l) {
 }
 async function reset(l) {
   if (await act(l, "reset")) toast.success(L("Back to pending", "رجع ناقص", "Réinitialisé"));
+}
+
+const rematching = ref(false);
+async function rematch() {
+  if (rematching.value) return;
+  rematching.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.bank_workbench.rematch_import",
+      { company: currentCompany(), name: d.value.name });
+    toast.success(L(`${res.newly_matched} newly matched`, `اتطابق ${res.newly_matched} جديد`, `${res.newly_matched} liés`));
+    await load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 180)); }
+  finally { rematching.value = false; }
 }
 
 async function openMatch(l) {

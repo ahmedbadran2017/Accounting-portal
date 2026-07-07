@@ -229,9 +229,12 @@ def parse_statement(file_url=None, mapping=None):
 # ── matching ──────────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
-def match_statement(company=None, account=None, transactions=None, date_window=4):
-    """Match parsed statement transactions against the account's uncleared book
-    entries by amount (± date_window days). Read-only — proposes what to clear."""
+def match_statement(company=None, account=None, transactions=None, date_window=4, include_cleared=0):
+    """Match parsed statement transactions against the account's book entries by
+    amount (± date_window days). Read-only — proposes what to clear.
+    include_cleared=1 matches ALREADY-reconciled entries too (the workbench needs
+    this: a line whose entry was cleared in an earlier session is matched, not
+    'missing in books')."""
     assert_portal_access()
     target = _target(company)
     if not (target and account):
@@ -242,19 +245,21 @@ def match_statement(company=None, account=None, transactions=None, date_window=4
     transactions = transactions or []
     window = int(date_window or 4)
 
-    # uncleared book entries on this account (PE + JE), signed +in / −out
+    clr = "" if int(include_cleared or 0) else " AND pe.clearance_date IS NULL"
+    clr_je = "" if int(include_cleared or 0) else " AND je.clearance_date IS NULL"
+    # book entries on this account (PE + JE), signed +in / −out
     book = frappe.db.sql(
-        """SELECT pe.name voucher, 'Payment Entry' doctype, pe.posting_date dt,
+        f"""SELECT pe.name voucher, 'Payment Entry' doctype, pe.posting_date dt,
                   CASE WHEN pe.paid_to=%(a)s THEN pe.received_amount ELSE -pe.paid_amount END amt,
                   IFNULL(pe.party_name, pe.party) party
            FROM `tabPayment Entry` pe
-           WHERE pe.company=%(c)s AND pe.docstatus=1 AND pe.clearance_date IS NULL
+           WHERE pe.company=%(c)s AND pe.docstatus=1{clr}
              AND (pe.paid_to=%(a)s OR pe.paid_from=%(a)s)
            UNION ALL
            SELECT je.name, 'Journal Entry', je.posting_date,
                   SUM(jea.debit - jea.credit), MAX(IFNULL(jea.party, je.user_remark))
            FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
-           WHERE je.company=%(c)s AND je.docstatus=1 AND je.clearance_date IS NULL AND jea.account=%(a)s
+           WHERE je.company=%(c)s AND je.docstatus=1{clr_je} AND jea.account=%(a)s
            GROUP BY je.name""",
         {"c": target, "a": account}, as_dict=True)
     for b in book:
