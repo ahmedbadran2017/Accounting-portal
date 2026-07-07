@@ -132,9 +132,10 @@ def get_import(company=None, name=None):
 
 @frappe.whitelist()
 def in_account_options(company=None):
-    """Credit-side accounts for recording MONEY-IN lines (Dr bank / Cr this):
-    carrier clearing accounts, other banks/cash (internal transfers), income,
-    receivables… — anything postable on this company."""
+    """Postable accounts for recording a bank line's other side. Money-in
+    (Dr bank / Cr this) → carrier clearing, other banks/cash, income, receivables;
+    also used by bulk register where the other side may be an Expense (bank
+    charges). Excludes group accounts."""
     assert_portal_access()
     target = _target(company)
     if not target:
@@ -143,8 +144,57 @@ def in_account_options(company=None):
         """SELECT name, account_name nm, account_number num, account_type typ, root_type rt
            FROM `tabAccount`
            WHERE company=%s AND is_group=0 AND disabled=0
-             AND root_type IN ('Asset', 'Income', 'Liability')
-           ORDER BY name LIMIT 1500""", (target,), as_dict=True)
+             AND root_type IN ('Asset', 'Income', 'Liability', 'Expense')
+           ORDER BY name LIMIT 2000""", (target,), as_dict=True)
+
+
+@frappe.whitelist()
+def bulk_register(company=None, name=None, idxs=None, account=None):
+    """Register several same-direction pending lines as ONE combined journal —
+    Dr/Cr the picked account against the bank for the total — and link every
+    line to it. Built for batches of identical items (bank charges, per-transfer
+    commissions). Gated on the total; on Proposed, lines stay pending."""
+    assert_can_write()
+    target = _target(company)
+    doc, lines = _load(name, target)
+    idxs = json.loads(idxs) if isinstance(idxs, str) else (idxs or [])
+    idxs = [int(i) for i in idxs]
+    sel = [l for l in lines if l["i"] in idxs and l.get("status") == "pending"]
+    if not sel:
+        frappe.throw("No pending lines selected")
+    if not account or frappe.db.get_value("Account", account, "company") != target:
+        frappe.throw("Pick a valid account")
+    signs = {1 if flt(l["amount"]) >= 0 else -1 for l in sel}
+    if len(signs) > 1:
+        frappe.throw("Select lines of one direction only (all money-in, or all money-out)")
+    total = round(sum(abs(flt(l["amount"])) for l in sel), 2)
+    is_in = flt(sel[0]["amount"]) >= 0
+    # money-in: Dr bank / Cr account ; money-out: Dr account / Cr bank
+    if is_in:
+        je_lines = [{"account": doc.account, "debit": total, "credit": 0},
+                    {"account": account, "debit": 0, "credit": total}]
+    else:
+        je_lines = [{"account": account, "debit": total, "credit": 0},
+                    {"account": doc.account, "debit": 0, "credit": total}]
+    from accounting_portal.api.accountant import create_journal_entry
+    res = create_journal_entry(
+        company=target, posting_date=max(l["date"] for l in sel if l.get("date")) or nowdate(),
+        lines=je_lines,
+        remark=f"Bank batch · {len(sel)} × {(sel[0].get('description') or '')[:60]} · {doc.name}",
+        dedupe_key="bsibulk:" + frappe.generate_hash(f"{doc.name}:{sorted(idxs)}:{account}", 12))
+    if res.get("status") == "Proposed":
+        return {"proposed": True, "n": len(sel), "total": total, **_stats(doc)}
+    vno = res.get("voucher_no")
+    if vno:
+        frappe.db.set_value("Journal Entry", vno, "clearance_date",
+                            max(l["date"] for l in sel if l.get("date")), update_modified=False)
+        now = str(frappe.utils.now())[:16]
+        for l in lines:
+            if l["i"] in idxs and l.get("status") == "pending":
+                l.update({"status": "created", "voucher": vno, "voucher_type": "Journal Entry",
+                          "by": frappe.session.user, "at": now})
+        _save(doc, lines)
+    return {"voucher": vno, "n": len(sel), "total": total, **_stats(doc), "lines": lines}
 
 
 @frappe.whitelist()

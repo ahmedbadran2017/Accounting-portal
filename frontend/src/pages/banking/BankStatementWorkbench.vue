@@ -32,11 +32,20 @@
                 @click="filter = fl.k">{{ fl.label() }} <span class="text-[10px] text-ink-muted">{{ fl.n() }}</span></button>
       </div>
 
+      <!-- bulk selection bar -->
+      <div v-if="sel.length" class="flex items-center gap-3 flex-wrap bg-emerald-50 border border-emerald-200 rounded-card px-4 py-2.5">
+        <span class="text-[12px] font-bold text-emerald-800">{{ sel.length }} {{ L("selected","مختار","sélectionnés") }} · {{ selDir === 'mixed' ? L('mixed direction','اتجاه مختلط','mixte') : money(selTotal) }}</span>
+        <button type="button" class="text-[11px] text-ink-3 hover:underline" @click="sel = []">{{ L("clear","إلغاء","effacer") }}</button>
+        <button v-if="selDir !== 'mixed'" type="button" class="ms-auto h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openBulk">{{ L(`Register ${sel.length} together`, `سجّل ${sel.length} مرة واحدة`, `Créer ${sel.length}`) }}</button>
+        <span v-else class="ms-auto text-[10.5px] text-amber-700 font-semibold">{{ L("select all money-in or all money-out","اختار كلهم داخل أو كلهم خارج","une seule direction") }}</span>
+      </div>
+
       <!-- lines, chronological -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+              <th v-if="canWrite" class="ps-4 py-2 w-8"><input type="checkbox" :checked="allPendingSel" class="accent-emerald-700" @change="toggleAllPending" /></th>
               <th class="px-4 py-2 text-start">{{ L("Date","التاريخ","Date") }}</th>
               <th class="px-3 py-2 text-start">{{ L("Description","الوصف","Description") }}</th>
               <th class="px-3 py-2 text-end">{{ L("Amount","المبلغ","Montant") }}</th>
@@ -44,7 +53,8 @@
               <th class="px-4 py-2 text-end">{{ L("Action","الإجراء","Action") }}</th>
             </tr></thead>
             <tbody>
-              <tr v-for="l in visible" :key="l.i" class="border-t border-line-hair" :class="l.status==='pending' ? 'hover:bg-amber-50/40' : 'hover:bg-app-warm/30'">
+              <tr v-for="l in visible" :key="l.i" class="border-t border-line-hair" :class="[l.status==='pending' ? 'hover:bg-amber-50/40' : 'hover:bg-app-warm/30', sel.includes(l.i) ? 'bg-emerald-50/40' : '']">
+                <td v-if="canWrite" class="ps-4 py-2 w-8"><input v-if="l.status==='pending'" type="checkbox" :checked="sel.includes(l.i)" class="accent-emerald-700" @change="toggleSel(l)" /></td>
                 <td class="px-4 py-2 whitespace-nowrap text-ink-3">{{ l.date }}</td>
                 <td class="px-3 py-2 max-w-[340px]"><div class="truncate" :title="l.description">{{ l.description || "—" }}</div>
                   <div v-if="l.reason" class="text-[10px] text-ink-muted">{{ L("reason","السبب","raison") }}: {{ l.reason }}</div>
@@ -66,7 +76,7 @@
                   <button v-else-if="canWrite && l.status!=='pending'" type="button" class="text-[10.5px] text-ink-muted hover:text-sale hover:underline" @click="reset(l)">{{ L("undo","تراجع","annuler") }}</button>
                 </td>
               </tr>
-              <tr v-if="!visible.length"><td colspan="5" class="px-4 py-10 text-center text-ink-muted">{{ L("Nothing in this filter.","مفيش حاجة في الفلتر ده.","Rien ici.") }}</td></tr>
+              <tr v-if="!visible.length"><td :colspan="canWrite ? 6 : 5" class="px-4 py-10 text-center text-ink-muted">{{ L("Nothing in this filter.","مفيش حاجة في الفلتر ده.","Rien ici.") }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -98,6 +108,43 @@
               </tbody>
             </table>
             <div v-else class="py-8 text-center text-[12px] text-ink-muted">{{ L("No close uncleared entry — use Register to create it.","مفيش قيد قريب غير مُسوّى — استخدم «سجّل» لإنشائه.","Aucune correspondance.") }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- bulk register modal: one combined journal for all selected lines -->
+      <div v-if="bulk" class="fixed inset-0 z-[110] flex items-start justify-center p-4 sm:p-10 overflow-y-auto" style="background:rgba(28,25,23,.45)" @click.self="bulk=false">
+        <div class="bg-white rounded-[18px] shadow-cardHover w-full max-w-lg my-8 overflow-hidden">
+          <div class="flex items-center gap-2.5 px-5 py-4 border-b border-line">
+            <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#f5f3ff"><Icon name="ledger" :size="16" color="#7c3aed" /></span>
+            <div class="flex-1"><div class="text-[14px] font-bold">{{ L("Register together","تسجيل مجمّع","Enregistrer ensemble") }}</div>
+              <div class="text-[11px] text-ink-muted">{{ sel.length }} {{ L("lines","سطر","lignes") }} · {{ selIsIn ? L("money in","وارد","entrée") : L("money out","صادر","sortie") }} · <b :class="selIsIn ? 'text-success-dark' : 'text-sale'">{{ money(selTotal) }}</b></div></div>
+            <button class="text-ink-3 hover:text-ink" @click="bulk=false"><Icon name="close" :size="18" /></button>
+          </div>
+          <div class="p-5 space-y-3">
+            <div class="text-[11px] text-ink-3 leading-relaxed rounded-[10px] px-3 py-2" style="background:#faf5ff">
+              {{ L("Dr","مدين","Dr") }} <b>{{ selIsIn ? (d.account.split(" - ")[1] || d.account) : L("chosen account","الحساب المختار","compte") }}</b>
+              / {{ L("Cr","دائن","Cr") }} <b>{{ selIsIn ? L("chosen account","الحساب المختار","compte") : (d.account.split(" - ")[1] || d.account) }}</b>
+              — {{ L("one combined journal, all lines linked and reconciled.","قيد واحد مجمّع، كل السطور بتتربط وتتسوّى.","une seule écriture.") }}
+            </div>
+            <div class="block">
+              <span class="text-[11px] font-semibold text-ink-3">{{ selIsIn ? L("Credit account (where it came from)","الحساب الدائن","Compte crédité") : L("Expense / debit account","حساب المصروف","Compte débité") }}</span>
+              <input v-model.trim="bulkQuery" :placeholder="L('search account…','ابحث عن حساب…','rechercher…')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <div class="mt-1 max-h-44 overflow-y-auto border border-line rounded-[12px]">
+                <button v-for="a in bulkFiltered" :key="a.name" type="button" class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0"
+                        :class="a.name === bulkAccount ? 'bg-accent-soft font-semibold' : ''" @click="bulkAccount = a.name">
+                  <span class="flex-1 truncate">{{ a.num ? a.num + " · " : "" }}{{ a.nm }}</span>
+                  <span class="text-[9.5px] text-ink-muted">{{ a.typ || a.rt }}</span>
+                  <Icon v-if="a.name === bulkAccount" name="check" :size="13" color="#047857" />
+                </button>
+                <div v-if="!bulkFiltered.length" class="px-3 py-4 text-center text-[11px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun.") }}</div>
+              </div>
+            </div>
+            <div v-if="selTotal >= 10000" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="shield" :size="12" />{{ L("Material — goes for approval first.","مبلغ جوهري — للموافقة الأول.","Approbation requise.") }}</div>
+          </div>
+          <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
+            <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="bulk=false">{{ L("Cancel","إلغاء","Annuler") }}</button>
+            <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!bulkAccount || bulkBusy" @click="postBulk">{{ bulkBusy ? "…" : L("Register","سجّل","Enregistrer") }}</button>
           </div>
         </div>
       </div>
@@ -144,7 +191,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import NewExpenseModal from "@/components/NewExpenseModal.vue";
@@ -179,6 +226,60 @@ const FILTERS = [
   { k: "ignored", label: () => L("Ignored", "متجاهَل", "Ignoré"), n: () => lines.value.filter((l) => l.status === "ignored").length },
 ];
 const visible = computed(() => (filter.value === "all" ? lines.value : lines.value.filter((l) => l.status === filter.value)));
+
+// ---- bulk selection (register a batch of same-direction lines at once) ----
+const sel = ref([]);
+const visiblePending = computed(() => visible.value.filter((l) => l.status === "pending"));
+const allPendingSel = computed(() => visiblePending.value.length > 0 && visiblePending.value.every((l) => sel.value.includes(l.i)));
+const selRows = computed(() => lines.value.filter((l) => sel.value.includes(l.i)));
+const selDir = computed(() => {
+  const dirs = new Set(selRows.value.map((l) => (l.amount >= 0 ? "in" : "out")));
+  return dirs.size > 1 ? "mixed" : [...dirs][0] || "";
+});
+const selIsIn = computed(() => selDir.value === "in");
+const selTotal = computed(() => selRows.value.reduce((s, l) => s + Math.abs(Number(l.amount) || 0), 0));
+function toggleSel(l) {
+  const i = sel.value.indexOf(l.i);
+  i >= 0 ? sel.value.splice(i, 1) : sel.value.push(l.i);
+}
+function toggleAllPending() {
+  sel.value = allPendingSel.value ? [] : visiblePending.value.map((l) => l.i);
+}
+// keep selection sane when the filter changes
+watch(filter, () => { sel.value = []; });
+
+const bulk = ref(false), bulkQuery = ref(""), bulkAccount = ref(""), bulkBusy = ref(false);
+const bulkFiltered = computed(() => {
+  const q = bulkQuery.value.trim().toLowerCase();
+  const list = inOptions.value;
+  if (!q) return list.slice(0, 60);
+  return list.filter((a) => (a.nm || "").toLowerCase().includes(q) || (a.num || "").toLowerCase().includes(q)).slice(0, 60);
+});
+async function openBulk() {
+  if (selDir.value === "mixed" || !sel.value.length) return;
+  bulkAccount.value = ""; bulkQuery.value = "";
+  if (!inOptions.value.length) {
+    try { inOptions.value = await api.call("accounting_portal.api.bank_workbench.in_account_options", { company: currentCompany() }) || []; }
+    catch { inOptions.value = []; }
+  }
+  bulk.value = true;
+}
+async function postBulk() {
+  if (!bulkAccount.value || bulkBusy.value) return;
+  bulkBusy.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.bank_workbench.bulk_register",
+      { company: currentCompany(), name: d.value.name, idxs: sel.value, account: bulkAccount.value });
+    if (res?.proposed) {
+      toast.success(L("Sent for approval — link the lines after it posts", "اتبعت للموافقة — اربط السطور بعد الترحيل", "Envoyé"));
+    } else {
+      toast.success(L(`${res.n} registered as ${res.voucher}`, `اتسجل ${res.n} في ${res.voucher}`, `${res.n} enregistrés`));
+    }
+    bulk.value = false; sel.value = [];
+    await load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 180)); }
+  finally { bulkBusy.value = false; }
+}
 
 async function load() {
   loading.value = true;
