@@ -46,6 +46,7 @@ const ICONS = {
   send: "M4 12l16-8-6 16-3-6z",
   refresh: "M21 12a9 9 0 11-2.6-6.3M21 4v5h-5",
   doc: "M6 2h8l4 4v16H6zM14 2v4h4",
+  copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   scale: "M12 3v18M5 21h14M7 7l-4 6a4 4 0 008 0zM17 7l-4 6a4 4 0 008 0zM7 7l5-2 5 2",
   lock: "M5 11h14v10H5zM8 11V7a4 4 0 018 0v4",
 };

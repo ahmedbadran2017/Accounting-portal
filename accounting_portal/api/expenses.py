@@ -232,6 +232,52 @@ def expense_transactions(company=None, from_date=None, to_date=None, group="opex
             "total": total, "start": st, "page_size": ps}
 
 
+@frappe.whitelist()
+def duplicate_source(company=None, source_type=None, source_name=None):
+    """Read an existing bill / expense and return values to pre-fill the New-
+    expense form — the portal's 'Duplicate', so a recurring vendor bill or a
+    repeated cash expense is re-entered in one click (nothing is posted here)."""
+    assert_portal_access()
+    target = _target(company)
+    if not (target and source_type and source_name):
+        frappe.throw("source_type and source_name are required")
+    if source_type == "Purchase Invoice":
+        pi = frappe.db.get_value("Purchase Invoice", source_name,
+                                 ["company", "supplier", "total_taxes_and_charges", "remarks"], as_dict=True)
+        if not pi or pi.company != target:
+            frappe.throw("Bill not in this company")
+        item = frappe.db.sql(
+            """SELECT expense_account, description, base_net_amount amt
+               FROM `tabPurchase Invoice Item` WHERE parent=%s ORDER BY base_net_amount DESC LIMIT 1""",
+            (source_name,), as_dict=True)
+        net = frappe.db.get_value("Purchase Invoice", source_name, "base_net_total")
+        tax = frappe.db.sql(
+            """SELECT account_head, base_tax_amount FROM `tabPurchase Taxes and Charges`
+               WHERE parent=%s AND base_tax_amount>0 ORDER BY base_tax_amount DESC LIMIT 1""",
+            (source_name,), as_dict=True)
+        return {"mode": "bill", "party": pi.supplier,
+                "expense_account": item[0].expense_account if item else None,
+                "amount": flt(net) or (flt(item[0].amt) if item else 0),
+                "tax_amount": flt(tax[0].base_tax_amount) if tax else 0,
+                "tax_account": tax[0].account_head if tax else None,
+                "description": (item[0].description if item else None) or pi.remarks}
+    if source_type == "Journal Entry":
+        je = frappe.db.get_value("Journal Entry", source_name, ["company", "user_remark"], as_dict=True)
+        if not je or je.company != target:
+            frappe.throw("Entry not in this company")
+        rows = frappe.db.sql(
+            """SELECT jea.account, jea.debit, jea.credit, a.root_type, a.account_type
+               FROM `tabJournal Entry Account` jea JOIN `tabAccount` a ON a.name=jea.account
+               WHERE jea.parent=%s""", (source_name,), as_dict=True)
+        exp = next((r for r in rows if r.root_type == "Expense" and flt(r.debit) > 0), None)
+        pay = next((r for r in rows if r.account_type in ("Bank", "Cash") and flt(r.credit) > 0), None)
+        return {"mode": "cash", "expense_account": exp.account if exp else None,
+                "amount": flt(exp.debit) if exp else 0,
+                "pay_account": pay.account if pay else None,
+                "description": je.user_remark}
+    frappe.throw(f"Cannot duplicate a {source_type}")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CREATE expense — accountants record an operating expense without opening ERPNext
 # ─────────────────────────────────────────────────────────────────────────────

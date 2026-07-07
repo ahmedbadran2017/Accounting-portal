@@ -50,7 +50,10 @@
                 <td class="px-3 py-2.5"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-chip whitespace-nowrap" :style="`background:${catColor(r.category)}18;color:${catColor(r.category)}`">{{ catLabel(r.category) }}</span></td>
                 <td class="px-3 py-2.5"><div class="font-semibold truncate max-w-[240px]" :class="canOpen(r) ? 'group-hover:text-accent-dark' : ''">{{ r.nm }}</div><div v-if="r.remarks" class="text-[10px] text-ink-muted truncate max-w-[240px]">{{ r.remarks }}</div></td>
                 <td class="px-3 py-2.5 hidden md:table-cell"><div class="font-mono text-[10.5px] text-ink-3">{{ r.voucher_no }}</div><div class="text-[9.5px] text-ink-muted">{{ r.voucher_type }}<span v-if="r.party"> · {{ r.party }}</span></div></td>
-                <td class="px-4 py-2.5 text-end tnum font-bold" :class="r.amount < 0 ? 'text-rose-500' : ''">{{ money(r.amount) }}</td>
+                <td class="px-4 py-2.5 text-end whitespace-nowrap">
+                  <span class="tnum font-bold" :class="r.amount < 0 ? 'text-rose-500' : ''">{{ money(r.amount) }}</span>
+                  <button v-if="can('post_entries') && canDup(r)" type="button" class="ms-2 align-middle text-ink-muted hover:text-accent-dark opacity-0 group-hover:opacity-100 transition" :title="L('Duplicate','تكرار','Dupliquer')" @click.stop="duplicate(r)"><Icon name="copy" :size="13" /></button>
+                </td>
               </tr>
               <tr v-if="!tx.rows.value.length"><td colspan="5" class="px-4 py-10 text-center text-ink-muted">{{ L("No expense transactions match.", "لا مصروفات مطابقة.", "Aucune dépense.") }}</td></tr>
             </tbody>
@@ -251,6 +254,15 @@ loadBadge();
 
 function openNew() { newPrefill.value = null; showNew.value = true; }
 function onRecord(prefill) { newPrefill.value = prefill; showNew.value = true; }
+// Duplicate an existing bill / cash expense → open the form pre-filled.
+const canDup = (r) => ["Purchase Invoice", "Journal Entry"].includes(r.voucher_type) && r.voucher_no;
+async function duplicate(r) {
+  try {
+    const pre = await api.call("accounting_portal.api.expenses.duplicate_source", {
+      company: currentCompany(), source_type: r.voucher_type, source_name: r.voucher_no });
+    newPrefill.value = pre; showNew.value = true;
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); }
+}
 function closeNew() { showNew.value = false; newPrefill.value = null; }
 function onPosted(res) {
   const proposed = res && res.status === "Proposed";

@@ -312,13 +312,22 @@ onMounted(async () => {
       if (p.amount) amount.value = Number(p.amount);
       if (p.description) description.value = p.description;
       if (p.posting_date) postingDate.value = String(p.posting_date).slice(0, 10);
+      // Explicit mode from Duplicate (bill vs cash); otherwise a party implies bill.
+      if (p.mode === "cash" || p.mode === "bill") modeType.value = p.mode;
       // Bank-workbench prefill: the line's bank account pays in both modes.
       if (p.pay_account && (opt.value.pay_accounts || []).some((a) => a.name === p.pay_account)) payAccount.value = p.pay_account;
       if (p.paid_from && (opt.value.pay_accounts || []).some((a) => a.name === p.paid_from && a.typ !== "Payable")) payNow.value = p.paid_from;
+      // Duplicate carrying VAT — re-open the tax section pre-filled.
+      if (p.tax_amount && p.tax_account) {
+        hasTax.value = true;
+        taxAccount.value = p.tax_account;
+        amountMode.value = "net";       // amount above is the net expense
+        taxOverride.value = Number(p.tax_amount);
+      }
       // A recurring vendor (Meta / TikTok / carrier…) lands straight in
       // supplier-bill mode with the supplier picked; party kept for cash mode.
       if (p.party) {
-        modeType.value = "bill";
+        if (p.mode !== "cash") modeType.value = "bill";
         if (!(opt.value.suppliers || []).includes(p.party)) (opt.value.suppliers = opt.value.suppliers || []).unshift(p.party);
         supplier.value = p.party;
         suppQuery.value = p.party;
