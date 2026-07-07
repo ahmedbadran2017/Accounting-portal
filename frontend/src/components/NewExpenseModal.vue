@@ -311,6 +311,10 @@ onMounted(async () => {
       }
       if (p.amount) amount.value = Number(p.amount);
       if (p.description) description.value = p.description;
+      if (p.posting_date) postingDate.value = String(p.posting_date).slice(0, 10);
+      // Bank-workbench prefill: the line's bank account pays in both modes.
+      if (p.pay_account && (opt.value.pay_accounts || []).some((a) => a.name === p.pay_account)) payAccount.value = p.pay_account;
+      if (p.paid_from && (opt.value.pay_accounts || []).some((a) => a.name === p.paid_from && a.typ !== "Payable")) payNow.value = p.paid_from;
       // A recurring vendor (Meta / TikTok / carrier…) lands straight in
       // supplier-bill mode with the supplier picked; party kept for cash mode.
       if (p.party) {

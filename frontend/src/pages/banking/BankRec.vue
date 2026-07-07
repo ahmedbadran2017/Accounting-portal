@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-3.5">
+  <BankStatementWorkbench v-if="route.query.imp" :key="route.query.imp" :import-name="String(route.query.imp)" @back="closeWorkbench" />
+  <div v-else class="space-y-3.5">
     <!-- Account picker -->
     <div class="flex gap-3 overflow-x-auto pb-1">
       <button v-for="a in accounts" :key="a.name" @click="pick(a)"
@@ -18,6 +19,31 @@
         <div class="text-[10.5px] mt-1" :class="a.uncleared_n ? 'text-brand font-semibold' : 'text-ink-muted'">{{ a.uncleared_n }} {{ L("uncleared", "غير مُسوّى", "non rapprochés") }}</div>
       </button>
       <div v-if="!accounts.length && !loadingAcc" class="text-[12px] text-ink-muted py-8">{{ L("No bank accounts.", "لا حسابات بنكية.", "Aucun compte.") }}</div>
+    </div>
+
+    <!-- Statement history — every upload is a resumable work session -->
+    <div v-if="imports.length" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2">
+        <Icon name="doc" :size="14" color="#0b5c4f" />{{ L("Imported statements", "الكشوف المرفوعة", "Relevés importés") }}
+        <span class="text-[10px] text-ink-muted">{{ imports.length }}</span>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-[12px]">
+        <tbody>
+          <tr v-for="im in imports" :key="im.name" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="openWorkbench(im.name)">
+            <td class="px-4 py-2.5"><div class="font-medium truncate max-w-[220px]">{{ im.file_name }}</div><div class="text-[10px] text-ink-muted font-mono">{{ im.name }} · {{ im.account.split(" - ")[0] }}</div></td>
+            <td class="px-3 py-2.5 text-[11px] text-ink-3 whitespace-nowrap">{{ im.from_date }} → {{ im.to_date }}</td>
+            <td class="px-3 py-2.5 whitespace-nowrap text-[11px] tnum">
+              <span class="text-emerald-700 font-semibold">✓{{ im.n_matched }}</span>
+              <span class="text-sky-700 font-semibold ms-1.5">➕{{ im.n_created }}</span>
+              <span class="text-ink-muted ms-1.5">👁{{ im.n_ignored }}</span>
+              <span class="text-ink-muted ms-1.5">/ {{ im.n_total }}</span>
+            </td>
+            <td class="px-3 py-2.5"><span class="text-[10.5px] font-bold px-2 py-0.5 rounded-chip" :class="im.status==='Done' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'">{{ im.status }}</span></td>
+            <td class="px-3 py-2.5 text-[10.5px] text-ink-muted whitespace-nowrap">{{ (im.owner || "").split("@")[0] }} · {{ im.modified }}</td>
+            <td class="px-4 py-2.5 text-end"><span class="text-[11px] font-bold text-accent-dark">{{ im.status==='Done' ? L("open","افتح","ouvrir") : L("resume →","استئناف ←","reprendre →") }}</span></td>
+          </tr>
+        </tbody>
+      </table></div>
     </div>
 
     <!-- Entries -->
@@ -72,14 +98,14 @@
     <div v-else class="bg-white rounded-card border border-line shadow-card py-12 text-center text-[12px] text-ink-muted">{{ L("Pick a bank account to reconcile.", "اختر حسابًا بنكيًا للتسوية.", "Choisissez un compte.") }}</div>
 
     <BulkBar :t="tt" filename="bankrec-selected" :note="bulkNote" :actions="bulkActions" />
-    <StatementImportModal v-if="showImport && sel" :account="sel" :account-name="selName" @close="showImport = false" @done="onImported" />
+    <StatementImportModal v-if="showImport && sel" :account="sel" :account-name="selName" @close="showImport = false" @done="onImported" @workbench="openWorkbench" />
   </div>
 </template>
 
 <script setup>
 import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
@@ -93,6 +119,7 @@ import { useUi } from "@/composables/useUi";
 import { useToast } from "@/composables/useToast";
 import { useTableTools } from "@/composables/useTableTools";
 import { useFiscalYear } from "@/composables/useFiscalYear";
+import BankStatementWorkbench from "@/pages/banking/BankStatementWorkbench.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
@@ -100,6 +127,7 @@ const fyc = useFiscalYear();
 const fyFilter = () => fyc.filterValue();
 const toast = useToast();
 const router = useRouter();
+const route = useRoute();
 function open(o) {
   if (o.doctype === "Payment Entry") router.push({ path: "/accounting/purchases/payments", query: { id: o.voucher } });
   else router.push({ path: "/accounting/accountant/journals", query: { id: o.voucher } });
@@ -147,6 +175,20 @@ async function loadAccounts() {
 }
 const carryover = ref({ n: 0, v: 0 });
 function showAllTime() { fyc.selected.value = "all"; }
+
+// statement-import history (the workbench sessions)
+const imports = ref([]);
+async function loadImports() {
+  try { imports.value = await api.call("accounting_portal.api.bank_workbench.list_imports", { company: currentCompany() }, { fresh: true }) || []; }
+  catch { imports.value = []; }
+}
+loadImports();
+function openWorkbench(name) { router.replace({ query: { ...route.query, imp: name } }); }
+function closeWorkbench() {
+  const q = { ...route.query }; delete q.imp;
+  router.replace({ query: q });
+  loadImports(); loadAccounts(); loadRows();
+}
 async function loadRows() {
   if (!sel.value) return;
   loading.value = true;

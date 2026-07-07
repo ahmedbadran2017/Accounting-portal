@@ -90,6 +90,7 @@
         <div class="flex items-center gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
           <button v-if="parsed && !result" class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-50" :disabled="matching || !parsed.count" @click="doMatch">{{ matching ? "…" : L("Match", "طابِق", "Rapprocher") }}</button>
+          <button v-if="parsed" class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="savingWb" @click="saveWorkbench">{{ savingWb ? "…" : L("Save & open workbench", "احفظ وافتح الورشة", "Ouvrir l'atelier") }}</button>
           <button v-if="result" class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50" :disabled="reconciling || !result.matched_n" @click="doReconcile">{{ reconciling ? "…" : L("Reconcile", "سوِّ", "Rapprocher") + " " + result.matched_n }}</button>
         </div>
       </div>
@@ -108,7 +109,7 @@ import { getCsrfToken } from "@/utils/helpers";
 import { fmtAmount } from "@/utils/helpers";
 
 const props = defineProps({ account: { type: String, required: true }, accountName: { type: String, default: "" } });
-const emit = defineEmits(["close", "done"]);
+const emit = defineEmits(["close", "done", "workbench"]);
 const { locale } = useI18n();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -175,6 +176,25 @@ async function doMatch() {
     detail.value = result.value.statement_only_n ? "statement_only" : "matched";
   } catch (err) { toast.error(String(err?.message || err).slice(0, 200)); }
   finally { matching.value = false; }
+}
+
+const savingWb = ref(false);
+async function saveWorkbench() {
+  // Persist the upload as a resumable work session (parse + auto-match happen
+  // server-side against the SAME file) and jump into the workbench page.
+  if (savingWb.value || !fileUrl.value) return;
+  savingWb.value = true;
+  try {
+    const clean = Object.fromEntries(Object.entries(mapping).filter(([, v]) => v !== null && v !== undefined));
+    const res = await api.call("accounting_portal.api.bank_workbench.create_import", {
+      company: currentCompany(), account: props.account,
+      file_url: fileUrl.value, file_name: fileName.value,
+      mapping: Object.keys(clean).length ? clean : undefined,
+    });
+    emit("workbench", res.name);
+    emit("close");
+  } catch (err) { toast.error(String(err?.message || err).slice(0, 180)); }
+  finally { savingWb.value = false; }
 }
 
 async function doReconcile() {
