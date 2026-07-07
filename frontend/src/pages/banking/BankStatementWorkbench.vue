@@ -61,7 +61,7 @@
                 </td>
                 <td class="px-3 py-2 text-end tnum font-semibold whitespace-nowrap" :class="l.amount < 0 ? 'text-sale' : 'text-success-dark'">{{ l.amount < 0 ? "−" : "+" }}{{ money(Math.abs(l.amount)) }}</td>
                 <td class="px-3 py-2 whitespace-nowrap">
-                  <span v-if="l.status==='matched'" class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip" style="background:#ecfdf5;color:#047857">✓ {{ l.voucher }}</span>
+                  <span v-if="l.status==='matched'" class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip" style="background:#ecfdf5;color:#047857">✓ {{ l.voucher }}<span v-if="l.split > 1"> +{{ l.split - 1 }}</span></span>
                   <span v-else-if="l.status==='created'" class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip" style="background:#eff6ff;color:#0369a1">➕ {{ l.voucher }}</span>
                   <span v-else-if="l.status==='ignored'" class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip" style="background:#f5f5f4;color:#78716c">👁 {{ L("ignored","متجاهَل","ignoré") }}</span>
                   <span v-else class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip bg-amber-50 text-amber-800">{{ L("missing in books","ناقص في الدفاتر","manquant") }}</span>
@@ -94,20 +94,36 @@
               <div class="text-[11px] text-ink-muted tnum">{{ matching.date }} · {{ matching.description?.slice(0,60) }} · <b :class="matching.amount<0 ? 'text-sale' : 'text-success-dark'">{{ money(matching.amount) }}</b></div></div>
             <button class="text-ink-3 hover:text-ink" @click="matching=null"><Icon name="close" :size="18" /></button>
           </div>
-          <div class="p-4">
+          <div class="px-4 pt-3">
+            <div class="relative">
+              <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="14" /></span>
+              <input v-model.trim="candSearch" @input="debouncedCands"
+                     :placeholder="L('search by supplier / ref / voucher — for split payments','ابحث باسم المورّد / المرجع / السند — للدفعات المقسّمة','rechercher fournisseur / réf')"
+                     class="w-full h-9 bg-app-warm/40 border border-line-2 rounded-chip ps-9 pe-3 text-[12px] focus:outline-none focus:border-accent/40" />
+            </div>
+            <div class="mt-1.5 text-[10.5px] text-ink-muted">{{ L("Tick several entries whose total equals this line (one transfer paying many invoices).","علّم على أكتر من قيد مجموعهم = السطر ده (تحويل واحد بيسدد كذا فاتورة).","Cochez plusieurs écritures.") }}</div>
+          </div>
+          <div class="p-4 pt-2">
             <div v-if="candBusy" class="py-8 text-center text-ink-muted text-[12px]">{{ L("Searching…","جارٍ البحث…","…") }}</div>
             <table v-else-if="cands.length" class="w-full text-[12px]">
               <tbody>
-                <tr v-for="c in cands" :key="c.voucher" class="border-t border-line-hair hover:bg-app-warm/40">
-                  <td class="px-3 py-2 font-mono text-[11px]">{{ c.voucher }}<div class="text-[9.5px] text-ink-muted font-sans">{{ c.voucher_type }}<span v-if="c.cleared" class="ms-1 text-emerald-700 font-semibold">· {{ L("already reconciled","مُسوّى قبل كده","déjà rapproché") }}</span></div></td>
-                  <td class="px-3 py-2 text-ink-3 whitespace-nowrap">{{ c.date }}</td>
-                  <td class="px-3 py-2 truncate max-w-[180px] text-[11px]">{{ c.party || c.ref }}</td>
-                  <td class="px-3 py-2 text-end tnum font-semibold" :class="c.amount<0 ? 'text-sale' : 'text-success-dark'">{{ money(c.amount) }}</td>
-                  <td class="px-3 py-2 text-end"><button type="button" class="h-7 px-3 rounded-chip text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700" @click="doMatch(c)">{{ L("Link","اربط","Lier") }}</button></td>
+                <tr v-for="c in cands" :key="c.voucher" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" :class="pickedV.includes(c.voucher) ? 'bg-emerald-50/50' : ''" @click="toggleCand(c)">
+                  <td class="ps-3 py-2 w-8"><input type="checkbox" :checked="pickedV.includes(c.voucher)" class="accent-emerald-700 pointer-events-none" /></td>
+                  <td class="px-2 py-2 font-mono text-[11px]">{{ c.voucher }}<div class="text-[9.5px] text-ink-muted font-sans">{{ c.voucher_type }}<span v-if="c.cleared" class="ms-1 text-emerald-700 font-semibold">· {{ L("already reconciled","مُسوّى قبل كده","déjà rapproché") }}</span></div></td>
+                  <td class="px-2 py-2 text-ink-3 whitespace-nowrap">{{ c.date }}</td>
+                  <td class="px-2 py-2 truncate max-w-[170px] text-[11px]">{{ c.party || c.ref }}</td>
+                  <td class="px-2 py-2 text-end tnum font-semibold" :class="c.amount<0 ? 'text-sale' : 'text-success-dark'">{{ money(c.amount) }}</td>
                 </tr>
               </tbody>
             </table>
-            <div v-else class="py-8 text-center text-[12px] text-ink-muted">{{ L("No close uncleared entry — use Register to create it.","مفيش قيد قريب غير مُسوّى — استخدم «سجّل» لإنشائه.","Aucune correspondance.") }}</div>
+            <div v-else class="py-8 text-center text-[12px] text-ink-muted">{{ candSearch ? L("No entry matches that search.","مفيش قيد مطابق للبحث.","Aucun résultat.") : L("No close uncleared entry — search by supplier, or use Register to create it.","مفيش قيد قريب — ابحث باسم المورّد، أو استخدم «سجّل».","Aucune correspondance.") }}</div>
+          </div>
+          <div v-if="pickedCands.length" class="flex items-center gap-3 flex-wrap px-5 py-3 border-t border-line bg-app-warm/40">
+            <span class="text-[12px] font-bold">{{ pickedCands.length }} {{ L("selected","مختار","sélectionnés") }} · {{ L("total","الإجمالي","total") }} {{ money(pickedSum) }}</span>
+            <span class="text-[11px] font-semibold" :class="sumMatches ? 'text-success-dark' : 'text-amber-700'">
+              {{ sumMatches ? "✓ " + L("matches the line","مطابق للسطر","OK") : L("line is","السطر","ligne") + " " + money(matching.amount) + " · " + L("off by","فرق","écart") + " " + money(pickedSum - matching.amount) }}
+            </span>
+            <button type="button" class="ms-auto h-8 px-4 rounded-chip text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50" :disabled="linkBusy" @click="doMatchMulti">{{ linkBusy ? "…" : L(`Link ${pickedCands.length}`, `اربط ${pickedCands.length}`, `Lier ${pickedCands.length}`) }}</button>
           </div>
         </div>
       </div>
@@ -327,18 +343,47 @@ async function rematch() {
   finally { rematching.value = false; }
 }
 
-async function openMatch(l) {
-  matching.value = l; cands.value = []; candBusy.value = true;
-  try { cands.value = await api.call("accounting_portal.api.bank_workbench.match_candidates", { company: currentCompany(), name: d.value.name, idx: l.i }, { fresh: true }) || []; }
-  catch (e) { toast.error(String(e?.message || e).slice(0, 160)); }
+const candSearch = ref(""), pickedV = ref([]), linkBusy = ref(false);
+const pickedCands = computed(() => cands.value.filter((c) => pickedV.value.includes(c.voucher)));
+const pickedSum = computed(() => pickedCands.value.reduce((s, c) => s + (Number(c.amount) || 0), 0));
+const sumMatches = computed(() => matching.value && Math.abs(pickedSum.value - Number(matching.value.amount)) < 0.5);
+function toggleCand(c) {
+  const i = pickedV.value.indexOf(c.voucher);
+  i >= 0 ? pickedV.value.splice(i, 1) : pickedV.value.push(c.voucher);
+}
+async function fetchCands() {
+  candBusy.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.bank_workbench.match_candidates",
+      { company: currentCompany(), name: d.value.name, idx: matching.value.i, search: candSearch.value || undefined }, { fresh: true });
+    cands.value = Array.isArray(res) ? res : (res?.rows || []);
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); cands.value = []; }
   finally { candBusy.value = false; }
 }
-async function doMatch(c) {
+let candTimer = null;
+function debouncedCands() { clearTimeout(candTimer); candTimer = setTimeout(fetchCands, 300); }
+async function openMatch(l) {
+  matching.value = l; cands.value = []; candSearch.value = ""; pickedV.value = [];
+  await fetchCands();
+}
+async function doMatchMulti() {
   const l = matching.value;
-  if (await act(l, "match", { voucher: c.voucher, voucher_type: c.voucher_type })) {
-    toast.success(L("Linked & reconciled", "اتربط واتسوّى", "Lié"));
+  if (!pickedCands.value.length || linkBusy.value) return;
+  if (!sumMatches.value && !window.confirm(L(
+    `Selected total ${money(pickedSum.value)} ≠ line ${money(l.amount)}. Link anyway?`,
+    `مجموع المختار ${money(pickedSum.value)} ≠ السطر ${money(l.amount)}. أربط برضه؟`,
+    `Total ≠ ligne. Lier ?`))) return;
+  linkBusy.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.bank_workbench.line_action", {
+      company: currentCompany(), name: d.value.name, idx: l.i, action: "match_multi",
+      vouchers: pickedCands.value.map((c) => ({ voucher: c.voucher, voucher_type: c.voucher_type })),
+    });
+    applyResult(res);
+    toast.success(L(`${pickedCands.value.length} linked & reconciled`, `اتربط ${pickedCands.value.length} واتسوّى`, "Lié"));
     matching.value = null;
-  }
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 180)); }
+  finally { linkBusy.value = false; }
 }
 
 const moneyIn = ref(null), inAccount = ref(""), inQuery = ref(""), inBusy = ref(false);

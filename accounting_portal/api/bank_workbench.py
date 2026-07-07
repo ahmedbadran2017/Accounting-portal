@@ -215,6 +215,7 @@ def rematch_import(company=None, name=None):
                           include_cleared=1)
     # vouchers already pinned to other lines must not be consumed twice
     taken = {l.get("voucher") for l in lines if l.get("voucher")}
+    taken |= {v.get("voucher") for l in lines for v in (l.get("vouchers") or [])}
     matched_keys = {}
     for m in res.get("matched", []):
         book = m.get("book") or {}
@@ -239,53 +240,100 @@ def rematch_import(company=None, name=None):
 
 
 @frappe.whitelist()
-def match_candidates(company=None, name=None, idx=None):
-    """Book entries a pending line could be — uncleared, close in amount
-    (±2% or ±2 MAD) and date (±45 days)."""
+def match_candidates(company=None, name=None, idx=None, search=None):
+    """Book entries a pending line could be.
+    Default: uncleared/close (±2% or ±2 MAD, ±45 days) — the auto suggestions.
+    With `search`: any submitted entry on this account whose voucher/party/ref
+    matches the text (amount tolerance dropped) — for splits where one bank line
+    covers several invoices/payments, the accountant searches by supplier or
+    description and links them together."""
     assert_portal_access()
     target = _target(company)
     doc, lines = _load(name, target)
     l = lines[int(idx)]
     amt, date = abs(flt(l["amount"])), l["date"]
-    tol = max(abs(amt) * 0.02, 2)
-    p = {"c": target, "a": doc.account, "lo": amt - tol, "hi": amt + tol, "d": date}
-    pe = frappe.db.sql(
-        """SELECT name voucher, 'Payment Entry' voucher_type, posting_date date,
-                  CASE WHEN paid_to=%(a)s THEN paid_amount ELSE -paid_amount END amount,
-                  IFNULL(party,'') party, IFNULL(reference_no,'') ref,
-                  (clearance_date IS NOT NULL) cleared
-           FROM `tabPayment Entry`
-           WHERE company=%(c)s AND docstatus=1 AND (paid_to=%(a)s OR paid_from=%(a)s)
-             AND ABS(paid_amount) BETWEEN %(lo)s AND %(hi)s
-             AND ABS(DATEDIFF(posting_date, %(d)s)) <= 45
-           ORDER BY (clearance_date IS NOT NULL), ABS(DATEDIFF(posting_date, %(d)s)) LIMIT 8""", p, as_dict=True)
-    je = frappe.db.sql(
-        """SELECT je.name voucher, 'Journal Entry' voucher_type, je.posting_date date,
-                  ROUND(SUM(jea.debit - jea.credit), 2) amount, '' party,
-                  IFNULL(je.cheque_no, IFNULL(je.user_remark,'')) ref,
-                  (je.clearance_date IS NOT NULL) cleared
-           FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea
-             ON jea.parent=je.name AND jea.account=%(a)s
-           WHERE je.company=%(c)s AND je.docstatus=1
-             AND ABS(DATEDIFF(je.posting_date, %(d)s)) <= 45
-           GROUP BY je.name HAVING ABS(ABS(SUM(jea.debit - jea.credit)) - %(amt)s) <= %(tol)s
-           ORDER BY (je.clearance_date IS NOT NULL), ABS(DATEDIFF(je.posting_date, %(d)s)) LIMIT 8""",
-        {**p, "amt": amt, "tol": tol}, as_dict=True)
+    if search:
+        s = f"%{search}%"
+        p = {"c": target, "a": doc.account, "s": s}
+        pe = frappe.db.sql(
+            """SELECT name voucher, 'Payment Entry' voucher_type, posting_date date,
+                      CASE WHEN paid_to=%(a)s THEN paid_amount ELSE -paid_amount END amount,
+                      IFNULL(party,'') party, IFNULL(reference_no,'') ref,
+                      (clearance_date IS NOT NULL) cleared
+               FROM `tabPayment Entry`
+               WHERE company=%(c)s AND docstatus=1 AND (paid_to=%(a)s OR paid_from=%(a)s)
+                 AND (name LIKE %(s)s OR IFNULL(party,'') LIKE %(s)s
+                      OR IFNULL(party_name,'') LIKE %(s)s OR IFNULL(reference_no,'') LIKE %(s)s
+                      OR IFNULL(remarks,'') LIKE %(s)s)
+               ORDER BY (clearance_date IS NOT NULL), posting_date DESC LIMIT 25""", p, as_dict=True)
+        je = frappe.db.sql(
+            """SELECT je.name voucher, 'Journal Entry' voucher_type, je.posting_date date,
+                      ROUND(SUM(jea.debit - jea.credit), 2) amount, MAX(IFNULL(jea.party,'')) party,
+                      IFNULL(je.cheque_no, IFNULL(je.user_remark,'')) ref,
+                      (je.clearance_date IS NOT NULL) cleared
+               FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea
+                 ON jea.parent=je.name AND jea.account=%(a)s
+               WHERE je.company=%(c)s AND je.docstatus=1
+                 AND (je.name LIKE %(s)s OR IFNULL(je.user_remark,'') LIKE %(s)s
+                      OR IFNULL(je.cheque_no,'') LIKE %(s)s OR IFNULL(jea.party,'') LIKE %(s)s)
+               GROUP BY je.name ORDER BY (je.clearance_date IS NOT NULL), je.posting_date DESC LIMIT 25""",
+            p, as_dict=True)
+    else:
+        tol = max(abs(amt) * 0.02, 2)
+        p = {"c": target, "a": doc.account, "lo": amt - tol, "hi": amt + tol, "d": date, "amt": amt, "tol": tol}
+        pe = frappe.db.sql(
+            """SELECT name voucher, 'Payment Entry' voucher_type, posting_date date,
+                      CASE WHEN paid_to=%(a)s THEN paid_amount ELSE -paid_amount END amount,
+                      IFNULL(party,'') party, IFNULL(reference_no,'') ref,
+                      (clearance_date IS NOT NULL) cleared
+               FROM `tabPayment Entry`
+               WHERE company=%(c)s AND docstatus=1 AND (paid_to=%(a)s OR paid_from=%(a)s)
+                 AND ABS(paid_amount) BETWEEN %(lo)s AND %(hi)s
+                 AND ABS(DATEDIFF(posting_date, %(d)s)) <= 45
+               ORDER BY (clearance_date IS NOT NULL), ABS(DATEDIFF(posting_date, %(d)s)) LIMIT 8""", p, as_dict=True)
+        je = frappe.db.sql(
+            """SELECT je.name voucher, 'Journal Entry' voucher_type, je.posting_date date,
+                      ROUND(SUM(jea.debit - jea.credit), 2) amount, '' party,
+                      IFNULL(je.cheque_no, IFNULL(je.user_remark,'')) ref,
+                      (je.clearance_date IS NOT NULL) cleared
+               FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea
+                 ON jea.parent=je.name AND jea.account=%(a)s
+               WHERE je.company=%(c)s AND je.docstatus=1
+                 AND ABS(DATEDIFF(je.posting_date, %(d)s)) <= 45
+               GROUP BY je.name HAVING ABS(ABS(SUM(jea.debit - jea.credit)) - %(amt)s) <= %(tol)s
+               ORDER BY (je.clearance_date IS NOT NULL), ABS(DATEDIFF(je.posting_date, %(d)s)) LIMIT 8""",
+            p, as_dict=True)
     # exclude vouchers already pinned to another line of THIS import
     taken = {x.get("voucher") for x in lines if x.get("voucher")}
+    taken |= {v for x in lines for v in (x.get("vouchers") or []) if v}
     rows = [r for r in pe + je if r["voucher"] not in taken]
     for r in rows:
         r["amount"] = flt(r["amount"])
         r["date"] = str(r["date"])[:10]
         r["cleared"] = int(r.get("cleared") or 0)
-    return rows[:10]
+    return {"rows": rows[:30], "line_amount": flt(l["amount"])}
+
+
+def _clear(vt, vn, date):
+    if vt in ("Payment Entry", "Journal Entry") and date:
+        frappe.db.set_value(vt, vn, "clearance_date", date, update_modified=False)
+
+
+def _unclear_line(l):
+    """Undo clearance for whatever a line was linked to (single or split)."""
+    for v in (l.get("vouchers") or ([{"voucher": l["voucher"], "voucher_type": l.get("voucher_type")}] if l.get("voucher") else [])):
+        vt, vn = v.get("voucher_type"), v.get("voucher")
+        if vt in ("Payment Entry", "Journal Entry") and vn:
+            frappe.db.set_value(vt, vn, "clearance_date", None, update_modified=False)
 
 
 @frappe.whitelist()
 def line_action(company=None, name=None, idx=None, action=None,
-                voucher=None, voucher_type=None, reason=None):
-    """Act on one statement line: match / created / ignore / reset.
-    match & created stamp the book entry's clearance date to the line date."""
+                voucher=None, voucher_type=None, vouchers=None, reason=None):
+    """Act on one statement line: match / match_multi / created / ignore / reset.
+    match & created stamp the book entry's clearance date to the line date;
+    match_multi links SEVERAL entries to one line (a bank line paying several
+    invoices) and clears them all."""
     assert_can_write()
     target = _target(company)
     doc, lines = _load(name, target)
@@ -294,16 +342,32 @@ def line_action(company=None, name=None, idx=None, action=None,
         frappe.throw("Line not found")
     l = lines[idx]
     if action == "reset":
-        # un-clear the previously linked entry if we cleared it
-        if l.get("status") == "matched" and l.get("voucher") and l.get("voucher_type") in ("Payment Entry", "Journal Entry"):
-            frappe.db.set_value(l["voucher_type"], l["voucher"], "clearance_date", None, update_modified=False)
-        for k in ("voucher", "voucher_type", "reason", "by"):
+        _unclear_line(l)
+        for k in ("voucher", "voucher_type", "vouchers", "reason", "by", "split"):
             l.pop(k, None)
         l["status"] = "pending"
     elif action == "ignore":
         l["status"] = "ignored"
         l["reason"] = (reason or "")[:140]
         l["by"] = frappe.session.user
+    elif action == "match_multi":
+        vs = json.loads(vouchers) if isinstance(vouchers, str) else (vouchers or [])
+        clean = []
+        for v in vs:
+            vt, vn = v.get("voucher_type"), v.get("voucher")
+            if not (vt and vn) or not frappe.db.exists(vt, vn):
+                frappe.throw(f"{vt} {vn} not found")
+            clean.append({"voucher": vn, "voucher_type": vt})
+        if not clean:
+            frappe.throw("Select at least one entry")
+        l["status"] = "matched"
+        l["vouchers"] = clean
+        l["voucher"] = clean[0]["voucher"]           # for compact display
+        l["voucher_type"] = clean[0]["voucher_type"]
+        l["split"] = len(clean)
+        l["by"] = frappe.session.user
+        for v in clean:
+            _clear(v["voucher_type"], v["voucher"], l.get("date"))
     elif action in ("match", "created"):
         if not (voucher and voucher_type):
             frappe.throw("voucher and voucher_type are required")
@@ -312,10 +376,9 @@ def line_action(company=None, name=None, idx=None, action=None,
         l["status"] = "matched" if action == "match" else "created"
         l["voucher"] = voucher
         l["voucher_type"] = voucher_type
+        l.pop("vouchers", None); l.pop("split", None)
         l["by"] = frappe.session.user
-        # tick the book entry off against the statement at the line's date
-        if voucher_type in ("Payment Entry", "Journal Entry") and l.get("date"):
-            frappe.db.set_value(voucher_type, voucher, "clearance_date", l["date"], update_modified=False)
+        _clear(voucher_type, voucher, l.get("date"))
     else:
         frappe.throw(f"Unknown action: {action}")
     l["at"] = str(frappe.utils.now())[:16]
