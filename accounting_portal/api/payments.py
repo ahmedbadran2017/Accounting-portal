@@ -97,7 +97,7 @@ def _pe_poster(action):
     from erpnext.accounts.party import get_party_account
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     is_receive = (p.get("payment_type") or "Receive") == "Receive"
-    party_type = "Customer" if is_receive else "Supplier"
+    party_type = p.get("party_type") or ("Customer" if is_receive else "Supplier")
     amt = flt(p.get("amount"))
     party_acct = get_party_account(party_type, p["party"], action.company)
     bank = p["account"]
@@ -123,9 +123,10 @@ def _pe_poster(action):
         "paid_from": party_acct if is_receive else bank,
         "paid_to": bank if is_receive else party_acct,
     })
+    ref_dt = "Sales Invoice" if party_type == "Customer" else "Purchase Invoice"
     for ref in (p.get("references") or []):
         pe.append("references", {
-            "reference_doctype": "Sales Invoice" if is_receive else "Purchase Invoice",
+            "reference_doctype": ref.get("doctype") or ref_dt,
             "reference_name": ref["name"], "allocated_amount": flt(ref.get("amount")),
         })
     pe.insert(ignore_permissions=True)
@@ -136,14 +137,85 @@ def _pe_poster(action):
 _actions.register_poster(PE_ACTION, _pe_poster)
 
 
+WRITEOFF_ACTION = "Write off balance"
+
+
+@frappe.whitelist()
+def write_off_invoice(company=None, invoice=None, doctype=None, amount=None,
+                      write_off_account=None, reason=None):
+    """Clear a small residual on an invoice (bad debt / rounding) with a Journal
+    Entry that references the invoice, so its outstanding drops to zero. AR:
+    Dr write-off / Cr Debtors(party→invoice). AP: Dr Creditors(party→invoice) /
+    Cr write-back. Gated, audited, reversible (cancels the JE)."""
+    assert_can_write()
+    target = _target(company)
+    dt = doctype or "Sales Invoice"
+    if dt not in ("Sales Invoice", "Purchase Invoice"):
+        frappe.throw("Only invoices can be written off")
+    inv = frappe.db.get_value(dt, invoice, ["company", "docstatus", "outstanding_amount",
+                                            "customer" if dt == "Sales Invoice" else "supplier"], as_dict=True)
+    if not inv or inv.company != target or inv.docstatus != 1:
+        frappe.throw("Invoice not found / not submitted")
+    outstanding = flt(inv.outstanding_amount)
+    amt = flt(amount) if amount not in (None, "") else abs(outstanding)
+    if amt <= 0 or amt > abs(outstanding) + 0.01:
+        frappe.throw(f"Write-off must be between 0 and the {abs(outstanding):,.2f} outstanding")
+    woa = write_off_account or frappe.get_cached_value("Company", target, "write_off_account")
+    if not woa:
+        frappe.throw("No write-off account set — pick one (or set it on the Company)")
+    key = f"writeoff:{dt}:{invoice}:{round(amt, 2)}"
+    return _actions.execute(
+        WRITEOFF_ACTION, target, key,
+        payload={"doctype": dt, "invoice": invoice,
+                 "party_type": "Customer" if dt == "Sales Invoice" else "Supplier",
+                 "party": inv.get("customer") or inv.get("supplier"),
+                 "amount": amt, "write_off_account": woa, "reason": reason or "Balance write-off"},
+        amount=amt, reference_doctype=dt, reference_name=invoice,
+        notes=f"Write off {amt:,.2f} on {invoice}" + (f" — {reason}" if reason else ""))
+
+
+def _writeoff_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    from erpnext.accounts.party import get_party_account
+    company = action.company
+    party_acct = get_party_account(p["party_type"], p["party"], company)
+    amt = flt(p["amount"])
+    is_ar = p["doctype"] == "Sales Invoice"
+    party_line = {"account": party_acct, "party_type": p["party_type"], "party": p["party"],
+                  "reference_type": p["doctype"], "reference_name": p["invoice"]}
+    if is_ar:  # Dr write-off / Cr debtors(→invoice)
+        party_line.update({"credit_in_account_currency": amt})
+        wo_line = {"account": p["write_off_account"], "debit_in_account_currency": amt}
+    else:      # Dr creditors(→invoice) / Cr write-back
+        party_line.update({"debit_in_account_currency": amt})
+        wo_line = {"account": p["write_off_account"], "credit_in_account_currency": amt}
+    je = frappe.get_doc({
+        "doctype": "Journal Entry", "company": company, "voucher_type": "Write Off Entry",
+        "posting_date": nowdate(), "multi_currency": 1,
+        "user_remark": (p.get("reason") or "Balance write-off") + f" · {p['invoice']}",
+        "accounts": [party_line, wo_line],
+    })
+    je.insert(ignore_permissions=True)
+    je.submit()
+    return {"voucher_type": "Journal Entry", "voucher_no": je.name,
+            "result": f"wrote off {amt:,.2f} on {p['invoice']}"}
+
+
+_actions.register_poster(WRITEOFF_ACTION, _writeoff_poster)
+_actions.register_reverter(WRITEOFF_ACTION, _actions._cancel_voucher_reverter)
+
+
 @frappe.whitelist()
 def create_payment_entry(company=None, party=None, amount=None, account=None,
                          mode=None, reference_no=None, posting_date=None,
-                         payment_type="Receive", references=None, dedupe_key=None):
+                         payment_type="Receive", references=None, dedupe_key=None,
+                         party_type=None):
     """Record a Payment Entry through the write gateway.
 
-    Receive (default): customer paid into `account` (a bank/cash account).
-    Material amounts (≥ threshold) are Proposed and need an approver.
+    Receive (default): customer paid into `account`. Pay: money out of `account`.
+    `party_type` (Customer / Supplier) is explicit so a Pay to a CUSTOMER = a cash
+    refund, and a Receive from a SUPPLIER = a supplier refund received. Material
+    amounts (≥ threshold) are Proposed and need an approver.
     """
     assert_can_write()
     target = _target(company)
@@ -155,19 +227,22 @@ def create_payment_entry(company=None, party=None, amount=None, account=None,
     if amt <= 0:
         frappe.throw("Amount must be positive")
     if not account:
-        frappe.throw("Select a deposit account")
+        frappe.throw("Select a bank/cash account")
     if isinstance(references, str):
         references = json.loads(references)
+    is_receive = (payment_type or "Receive") == "Receive"
+    ptype = party_type or ("Customer" if is_receive else "Supplier")
 
     posting_date = posting_date or nowdate()
-    key = dedupe_key or f"pe:{target}:{party}:{posting_date}:{round(amt, 2)}:{reference_no or ''}"
+    key = dedupe_key or f"pe:{target}:{payment_type}:{party}:{posting_date}:{round(amt, 2)}:{reference_no or ''}"
+    verb = "Refund to" if (payment_type == "Pay" and ptype == "Customer") else payment_type
     payload = {
-        "payment_type": payment_type, "party": party, "amount": amt, "account": account,
+        "payment_type": payment_type, "party_type": ptype, "party": party, "amount": amt, "account": account,
         "mode": mode, "reference_no": reference_no, "posting_date": posting_date,
         "references": references or [],
     }
     return _actions.execute(PE_ACTION, target, key, payload=payload, amount=amt,
-                            notes=f"{payment_type} {amt:,.0f} from {party}")
+                            notes=f"{verb} {amt:,.0f} · {party}")
 
 
 @frappe.whitelist()
