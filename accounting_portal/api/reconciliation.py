@@ -315,7 +315,7 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
            FROM `tabAccount` a JOIN `tabGL Entry` g ON g.account=a.name AND g.is_cancelled=0
            WHERE a.company=%(c)s AND a.is_group=0 AND a.account_type IN ('Bank','Cash')
            GROUP BY a.name HAVING COUNT(*) > 0
-           ORDER BY ABS(SUM(g.debit - g.credit)) DESC LIMIT 40""",
+           ORDER BY ABS(SUM(g.debit - g.credit)) DESC LIMIT 120""",
         {"c": target, "base": base_ccy}, as_dict=True)
     names = tuple(r.name for r in accts) or ("",)
     fx_names = tuple(r.name for r in accts if r.ccy != base_ccy) or ("",)

@@ -20,13 +20,13 @@
         <div class="text-[22px] font-extrabold tnum mt-2 leading-none" style="color:#b45309">{{ money(ins.uncleared) }}<span class="text-[11px] text-ink-muted ms-1">{{ baseCcy }}</span></div>
         <div class="text-[11px] text-brand font-semibold mt-1.5">{{ ins.uncleared_n }} {{ L("entries → reconcile", "قيد → سوِّ", "écritures") }}</div>
       </button>
-      <!-- Under audit — the parked balances, held out of the cockpit -->
-      <button @click="viewMode = 'audit'" class="relative bg-white border rounded-[16px] p-4 shadow-card overflow-hidden text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all" :style="{ borderColor: counts.audit ? '#ddd6fe' : '#e7e5e4' }">
-        <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: counts.audit ? '#7c3aed' : '#a8a29e', opacity: .35 }"></span>
-        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" :style="{ background: counts.audit ? '#f5f3ff' : '#f5f5f4' }"><Icon name="shield" :size="15" :color="counts.audit ? '#7c3aed' : '#a8a29e'" /></span><span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Under audit", "تحت المراجعة", "En audit") }}</span></div>
-        <div class="text-[22px] font-extrabold tnum mt-2 leading-none" :class="counts.audit ? 'text-violet-700' : 'text-ink-muted'">{{ counts.audit }}</div>
-        <div class="text-[11px] mt-1.5" :class="counts.audit ? 'text-violet-600 font-semibold' : 'text-ink-muted'">{{ counts.audit ? money(ins.parked_v) + " " + baseCcy + " " + L("held out", "معزولة", "isolés") : L("none parked", "لا شيء معزول", "aucun") }}</div>
-      </button>
+      <!-- Overdrafts among the OPERATING accounts (parked ones don't alarm) -->
+      <div class="relative bg-white border rounded-[16px] p-4 shadow-card overflow-hidden" :style="{ borderColor: ins.overdraft_n ? '#fecaca' : '#e7e5e4' }">
+        <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: ins.overdraft_n ? '#be123c' : '#a8a29e', opacity: .4 }"></span>
+        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" :style="{ background: ins.overdraft_n ? '#fef2f2' : '#f5f5f4' }"><Icon name="alert" :size="15" :color="ins.overdraft_n ? '#be123c' : '#a8a29e'" /></span><span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Overdrafts", "كشوفات مدينة", "Découverts") }}</span></div>
+        <div class="text-[22px] font-extrabold tnum mt-2 leading-none" :class="ins.overdraft_n ? 'text-sale' : 'text-ink-muted'">{{ ins.overdraft_n }}</div>
+        <div class="text-[11px] mt-1.5" :class="ins.overdraft_n ? 'text-sale font-semibold' : 'text-ink-muted'">{{ ins.overdraft_n ? money(ins.overdraft_v) + " " + baseCcy : L("all positive ✓", "كلها موجبة ✓", "tous positifs ✓") }}</div>
+      </div>
     </div>
 
     <!-- Accounts table -->
@@ -55,9 +55,10 @@
 
       <div v-if="viewMode === 'audit'" class="px-4 py-2.5 border-b border-line-hair text-[11px] text-violet-700 bg-violet-50/30 flex items-start gap-1.5">
         <Icon name="shield" :size="13" color="#7c3aed" class="flex-shrink-0 mt-px" />
-        {{ L("Parked accounts — held out of the cash cockpit until audited. Their balances stay in the trial balance & balance sheet. Return one to operating once it’s reconciled.",
+        <span>{{ L("Parked accounts — held out of the cash cockpit until audited. Their balances stay in the trial balance & balance sheet. Return one to operating once it’s reconciled.",
               "حسابات معزولة — خارج شاشة الكاش لحين مراجعتها. أرصدتها تظل في ميزان المراجعة والميزانية. أرجعها للتشغيل بعد تسويتها.",
               "Comptes isolés — hors trésorerie jusqu’à l’audit. Leurs soldes restent au bilan.") }}
+          <span v-if="counts.audit" class="font-semibold whitespace-nowrap">· {{ money(ins.parked_v) }} {{ baseCcy }} {{ L("held out", "معزول", "isolé") }}</span></span>
       </div>
 
       <TableToolbar :t="tt" filename="bank-accounts" />
@@ -181,6 +182,8 @@ const ins = computed(() => {
     cash: sum((a) => a.account_type === "Cash"),
     uncleared: op.reduce((s, a) => s + (Number(a.uncleared_v) || 0), 0),
     uncleared_n: op.reduce((s, a) => s + (Number(a.uncleared_n) || 0), 0),
+    overdraft_n: od.length,
+    overdraft_v: od.reduce((s, a) => s + (Number(a.book_base) || 0), 0),
     parked_v: parked.reduce((s, a) => s + (Number(a.book_base) || 0), 0),
   };
 });
