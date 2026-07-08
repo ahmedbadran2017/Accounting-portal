@@ -194,8 +194,13 @@ def _build_je_doc(company, posting_date, lines, remark):
     })
 
 
+def _first_of_next_month(d):
+    from frappe.utils import getdate, get_first_day, add_months
+    return str(get_first_day(add_months(getdate(d), 1)))
+
+
 def create_journal_entry(company=None, posting_date=None, lines=None, remark=None,
-                         dedupe_key=None, draft=0):
+                         dedupe_key=None, draft=0, auto_reverse=0):
     """Post a balanced Journal Entry through the write gateway. `draft=1` saves it
     unsubmitted (docstatus 0), bypassing the approval gate, so a bookkeeper can
     park a half-finished entry and submit it later from the Journals list.
@@ -230,7 +235,20 @@ def create_journal_entry(company=None, posting_date=None, lines=None, remark=Non
         frappe.throw("Journal entry has no amount")
     key = dedupe_key or f"je:{target}:{posting_date}:{round(dr, 2)}:{(remark or '')[:40]}"
     payload = {"posting_date": posting_date, "lines": lines, "remark": remark}
-    return _actions.execute(JE_ACTION, target, key, payload=payload, amount=dr, notes=remark)
+    res = _actions.execute(JE_ACTION, target, key, payload=payload, amount=dr, notes=remark)
+    if int(auto_reverse or 0):
+        # accrual / prepaid: book a mirror entry (debits↔credits swapped) on the
+        # first of next month so it reverses automatically.
+        rev_date = _first_of_next_month(posting_date)
+        rev_lines = [{"account": ln["account"], "debit": flt(ln.get("credit")),
+                      "credit": flt(ln.get("debit")), "party_type": ln.get("party_type"),
+                      "party": ln.get("party")} for ln in lines]
+        _actions.execute(JE_ACTION, target,
+                         f"je-rev:{target}:{rev_date}:{round(dr, 2)}:{(remark or '')[:40]}",
+                         payload={"posting_date": rev_date, "lines": rev_lines,
+                                  "remark": f"Auto-reversal · {remark or ''}"[:140]},
+                         amount=dr, notes=f"Auto-reversal of {remark or 'accrual'}")
+    return res
 
 
 @frappe.whitelist()

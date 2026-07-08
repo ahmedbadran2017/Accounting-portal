@@ -97,6 +97,10 @@
           <span v-if="totalDr >= 10000" class="text-[11px] text-amber-700 inline-flex items-center gap-1"><Icon name="shield" :size="12" />{{ L("needs an approver", "يحتاج موافِق", "approbation requise") }}</span>
         </div>
 
+        <label v-if="!opening" class="flex items-center gap-2 text-[11.5px] text-ink-3 cursor-pointer select-none">
+          <input type="checkbox" v-model="autoReverse" class="accent-emerald-700" />
+          {{ L("Auto-reverse on the 1st of next month (accrual / prepaid)", "عكس تلقائي أول الشهر الجاي (استحقاق / مقدَّم)", "Contre-passer le 1er du mois suivant") }}
+        </label>
         <div v-if="mixedCurrency" class="text-[11.5px] text-sale inline-flex items-center gap-1.5"><Icon name="alert" :size="13" />{{ L("Mixed currencies (" + usedCurrencies.join(", ") + ") — use one currency per entry", "عملات مختلطة (" + usedCurrencies.join("، ") + ") — استخدم عملة واحدة للقيد", "Devises mixtes — une seule par écriture") }}</div>
         <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
       </div>
@@ -138,6 +142,7 @@ const SAMPLE_ACCOUNTS = [
 ];
 
 const clientKey = newClientKey();
+const autoReverse = ref(false);
 const postingDate = ref(new Date().toISOString().slice(0, 10));
 const remark = ref("");
 const newLine = () => ({ account: "", q: "", debit: null, credit: null, party_type: "", party: "", pq: "", showParty: false, _parties: [] });
@@ -205,7 +210,7 @@ async function post(draft = false) {
   try {
     const method = props.opening ? "create_opening_entry" : "create_journal_entry";
     const res = await api.call(`accounting_portal.api.accountant.${method}`, {
-      company: currentCompany(), client_key: clientKey, posting_date: postingDate.value, draft: (draft && !props.opening) ? 1 : undefined,
+      company: currentCompany(), client_key: clientKey, posting_date: postingDate.value, draft: (draft && !props.opening) ? 1 : undefined, auto_reverse: (autoReverse.value && !props.opening && !draft) ? 1 : undefined,
       lines: clean.map((l) => ({ account: l.account, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0,
         party_type: (l.party && l.party_type) || undefined, party: l.party || undefined })),
       remark: remark.value,
