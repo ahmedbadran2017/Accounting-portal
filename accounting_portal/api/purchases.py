@@ -75,7 +75,8 @@ def get_bill(name):
     pi = frappe.db.get_value(
         "Purchase Invoice", name,
         ["name", "supplier", "company", "grand_total", "base_grand_total", "currency",
-         "outstanding_amount", "is_return", "status", "posting_date", "due_date", "bill_no"], as_dict=True,
+         "outstanding_amount", "is_return", "status", "posting_date", "due_date", "bill_no",
+         "on_hold", "hold_comment"], as_dict=True,
     )
     if not pi:
         frappe.throw("Bill not found")
@@ -535,6 +536,26 @@ def pay_bill(company=None, invoice=None, paid_from=None, mode=None, reference_no
         reference_name=invoice, notes=f"Payment for {invoice}" + (f" ({amt:,.0f} of {outstanding:,.0f})" if partial else ""))
     _bust_purch_cache()
     return res
+
+
+@frappe.whitelist()
+def hold_bill(company=None, invoice=None, hold=1, reason=None):
+    """Put a disputed supplier bill on hold (or release it) so it's excluded from
+    payment runs. Uses ERPNext's on_hold flag; no GL impact, reversible."""
+    assert_can_write()
+    target = _target(company)
+    pi = frappe.db.get_value("Purchase Invoice", invoice, ["company", "docstatus"], as_dict=True)
+    if not pi or pi.company != target or pi.docstatus != 1:
+        frappe.throw("Bill not found / not submitted")
+    on = 1 if int(hold or 0) else 0
+    frappe.db.set_value("Purchase Invoice", invoice, {
+        "on_hold": on,
+        "hold_comment": (reason or "On hold via portal") if on else None,
+        "release_date": None,
+    }, update_modified=True)
+    frappe.db.commit()
+    _bust_purch_cache()
+    return {"invoice": invoice, "on_hold": on}
 
 
 @frappe.whitelist()

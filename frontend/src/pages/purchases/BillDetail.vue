@@ -18,7 +18,13 @@
           </span>
         </div>
       </div>
-      <div v-if="b.status !== 'ret'" class="flex justify-end mt-3 pt-3 border-t border-line-hair">
+      <div v-if="b.status !== 'ret'" class="flex justify-end flex-wrap gap-2 mt-3 pt-3 border-t border-line-hair">
+        <button v-if="b.outstanding > 0" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="toggleHold">
+          <Icon name="clock" :size="13" />{{ b.on_hold ? L("Release hold","رفع التعليق","Libérer") : L("Hold","تعليق","Suspendre") }}
+        </button>
+        <button v-if="b.outstanding > 0 && b.outstanding <= 200" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="writeOff">
+          {{ L("Write off","شطب","Passer en perte") }} {{ fmt2(b.outstanding) }}
+        </button>
         <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="confirmDebit = true">
           <Icon name="refresh" :size="13" />{{ L("Debit note / return","إشعار مدين / مرتجع","Note de débit") }}
         </button>
@@ -143,6 +149,29 @@ async function makeDebit() {
     confirmDebit.value = false;
   } catch (err) { toast.error(String((err && err.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
   finally { busy.value = false; }
+}
+
+const fmt2 = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+async function toggleHold() {
+  if (busy.value) return;
+  const on = !b.value.on_hold;
+  let reason;
+  if (on) { reason = window.prompt(L("Reason for holding this bill?", "سبب تعليق الفاتورة؟", "Motif ?")); if (reason === null) return; }
+  busy.value = true;
+  try {
+    await api.call("accounting_portal.api.purchases.hold_bill", { company: currentCompany(), invoice: route.query.id, hold: on ? 1 : 0, reason: reason || undefined });
+    toast.success(on ? L("On hold", "معلّقة", "En attente") : L("Released", "أُفرج عنها", "Libérée")); load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); } finally { busy.value = false; }
+}
+async function writeOff() {
+  if (busy.value) return;
+  const reason = window.prompt(L(`Write off ${fmt2(b.value.outstanding)}? Reason:`, `شطب ${fmt2(b.value.outstanding)}؟ السبب:`, `Motif ?`), L("Rounding / discount", "تقريب / خصم", "Arrondi"));
+  if (reason === null) return;
+  busy.value = true;
+  try {
+    await api.call("accounting_portal.api.payments.write_off_invoice", { company: currentCompany(), invoice: route.query.id, doctype: "Purchase Invoice", reason: reason || undefined });
+    toast.success(L("Written off", "تم الشطب", "Passé en perte")); load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); } finally { busy.value = false; }
 }
 
 // Live get_bill (real 3-way match + posted journal) with sample fallback.
