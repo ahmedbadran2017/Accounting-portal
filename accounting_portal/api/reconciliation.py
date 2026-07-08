@@ -344,6 +344,10 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
     # as the carryover chip in bank_uncleared.
     dwin_pe = (" AND posting_date >= %(fd)s" if from_date else "") + (" AND posting_date <= %(td)s" if to_date else "")
     dwin_je = (" AND je.posting_date >= %(fd)s" if from_date else "") + (" AND je.posting_date <= %(td)s" if to_date else "")
+    # Accounts the team has parked "under audit" — flagged so the cockpit can show
+    # the clean operating cash separately (a view classification, not a GL move).
+    from accounting_portal.api.bank_status import under_audit_set
+    ua = under_audit_set(target)
     for r in accts:
         dp = {"c": target, "a": r.name}
         if from_date:
@@ -371,6 +375,9 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
         r["period_n"] = pn.get(r.name, 0)
         r["closing"] = round(op + i - o) if period else flt(r["book"])
         r["period"] = period
+        r["book_base"] = flt(r.get("book_base"))
+        r["base_ccy"] = base_ccy
+        r["under_audit"] = 1 if r.name in ua else 0
     frappe.cache().set_value(ck, accts, expires_in_sec=180)
     return accts
 
