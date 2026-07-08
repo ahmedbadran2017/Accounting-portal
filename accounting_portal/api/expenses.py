@@ -278,6 +278,37 @@ def duplicate_source(company=None, source_type=None, source_name=None):
     frappe.throw(f"Cannot duplicate a {source_type}")
 
 
+def _fx_rate(from_ccy, to_ccy, date):
+    """Currency-exchange rate from_ccy → to_ccy on/just before `date` (1.0 if same
+    currency). Tries the direct pair, then the inverse (1/rate)."""
+    if not from_ccy or from_ccy == to_ccy:
+        return 1.0
+    r = frappe.db.sql(
+        """SELECT exchange_rate FROM `tabCurrency Exchange`
+           WHERE from_currency=%s AND to_currency=%s AND date<=%s
+           ORDER BY date DESC LIMIT 1""", (from_ccy, to_ccy, date))
+    if r and flt(r[0][0]):
+        return flt(r[0][0])
+    inv = frappe.db.sql(
+        """SELECT exchange_rate FROM `tabCurrency Exchange`
+           WHERE from_currency=%s AND to_currency=%s AND date<=%s
+           ORDER BY date DESC LIMIT 1""", (to_ccy, from_ccy, date))
+    if inv and flt(inv[0][0]):
+        return round(1.0 / flt(inv[0][0]), 9)
+    return 0.0
+
+
+@frappe.whitelist()
+def exchange_rate(company=None, from_currency=None, date=None):
+    """FX rate from `from_currency` to the company's base currency on `date`.
+    Feeds the expense form's rate field when a foreign-currency bill is entered."""
+    assert_portal_access()
+    target = _target(company)
+    base = _ccy(target)
+    return {"from": from_currency, "to": base,
+            "rate": _fx_rate(from_currency, base, date or nowdate())}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CREATE expense — accountants record an operating expense without opening ERPNext
 # ─────────────────────────────────────────────────────────────────────────────
@@ -307,8 +338,15 @@ def expense_form_options(company=None):
     for v in vat:
         m = _re.search(r"%\s*(\d+)", v.nm or "")
         v["pct"] = int(m.group(1)) if m else None
+    # currencies the team actually transacts in — base first, then the ones seen
+    # on accounts, then the usual foreign ones.
+    seen = [r[0] for r in frappe.db.sql(
+        "SELECT DISTINCT account_currency FROM `tabAccount` WHERE company=%s AND account_currency IS NOT NULL AND account_currency != ''", (target,))]
+    base = _ccy(target)
+    currencies = [base] + [c for c in (seen + ["USD", "EUR", "TRY", "MAD"]) if c and c != base]
+    currencies = list(dict.fromkeys(currencies))  # dedupe, keep order
     return {
-        "company": target, "currency": _ccy(target),
+        "company": target, "currency": base, "currencies": currencies,
         "expense_accounts": _expense_accounts(target),
         "pay_accounts": pay, "suppliers": suppliers, "vat_accounts": vat,
         "default_pay": next((p.name for p in pay if p.typ == "Cash"),
@@ -353,7 +391,8 @@ def _expense_poster(action):
 @frappe.whitelist()
 def create_expense(company=None, expense_account=None, amount=None, posting_date=None,
                    pay_account=None, party=None, description=None, dry_run=0,
-                   tax_amount=0, tax_account=None, attachment=None, attachment_name=None):
+                   tax_amount=0, tax_account=None, attachment=None, attachment_name=None,
+                   currency=None, exchange_rate=None):
     """Record an operating expense as a balanced Journal Entry (Dr expense account,
     Cr the bank/cash/payable it's paid from). Goes through the write gateway →
     audited, idempotent, gated for material amounts, and reversible (cancels the JE).
@@ -383,20 +422,31 @@ def create_expense(company=None, expense_account=None, amount=None, posting_date
     pay_type = frappe.db.get_value("Account", pay_account, "account_type")
     party = party or None
     party_type = "Supplier" if (party and pay_type == "Payable") else None
-    gross = round(amt + tax, 2)
-    lines = [{"account": expense_account, "debit": amt, "credit": 0}]
+    # Foreign-currency cash expense: convert to base so the JE (and the gate) are
+    # in the company's currency. amount/tax entered in `currency`.
+    base = _ccy(target)
+    ccy = (currency or base).strip()
+    rate = flt(exchange_rate) if exchange_rate not in (None, "") else _fx_rate(ccy, base, str(pd)[:10])
+    if ccy != base and rate <= 0:
+        frappe.throw(f"No exchange rate for {ccy}→{base} on {pd} — enter one")
+    rate = 1.0 if ccy == base else rate
+    amt_b = round(amt * rate, 2)
+    tax_b = round(tax * rate, 2)
+    gross = round(amt_b + tax_b, 2)
+    lines = [{"account": expense_account, "debit": amt_b, "credit": 0}]
     if tax > 0:
-        lines.append({"account": tax_account, "debit": tax, "credit": 0})
+        lines.append({"account": tax_account, "debit": tax_b, "credit": 0})
     lines.append({"account": pay_account, "debit": 0, "credit": gross,
                   "party_type": party_type, "party": party if party_type else None})
     if int(dry_run or 0):
         return {"preview": True, "lines": lines, "amount": gross, "posting_date": str(pd),
                 "gated": gross >= _actions.MATERIAL_THRESHOLD}
     key = "expense:" + frappe.generate_hash(
-        f"{target}|{expense_account}|{pay_account}|{amt}|{tax}|{pd}|{description or ''}|{party or ''}", 14)
+        f"{target}|{expense_account}|{pay_account}|{amt}|{tax}|{ccy}|{pd}|{description or ''}|{party or ''}", 14)
+    remark = (description or "Operating expense") + (f" ({amt + tax:,.0f} {ccy} @ {rate})" if ccy != base else "")
     return _actions.execute(
         EXPENSE_ACTION, target, key,
-        payload={"posting_date": str(pd), "remark": description or "Operating expense", "lines": lines,
+        payload={"posting_date": str(pd), "remark": remark, "lines": lines,
                  "attachment": attachment or None, "attachment_name": attachment_name or None},
         amount=gross, notes=description or "Operating expense")
 
@@ -408,7 +458,8 @@ BILL_ACTION = "Record supplier bill"
 def create_supplier_bill(company=None, supplier=None, expense_account=None, amount=None,
                          posting_date=None, bill_no=None, description=None,
                          tax_amount=0, tax_account=None, paid_from=None,
-                         attachment=None, attachment_name=None):
+                         attachment=None, attachment_name=None,
+                         currency=None, exchange_rate=None):
     """A recurring vendor's expense bill (Meta / TikTok ads, freight, clearance…)
     recorded as a real Purchase Invoice — supplier ledger, AP aging, statements
     and partial payments all work, unlike a bare journal. Service line (no stock
@@ -432,19 +483,30 @@ def create_supplier_bill(company=None, supplier=None, expense_account=None, amou
             frappe.throw(f"Account not found in {target}: {a}")
     if paid_from and frappe.db.get_value("Account", paid_from, "account_type") not in ("Bank", "Cash"):
         frappe.throw("paid_from must be a Bank or Cash account")
-    gross = round(amt + tax, 2)
     pd = str(posting_date or nowdate())[:10]
+    # Multi-currency: amount/tax are in `currency`; rate converts to base for the
+    # GL and the materiality gate. Default currency = base (rate 1).
+    base = _ccy(target)
+    ccy = (currency or base).strip()
+    rate = flt(exchange_rate) if exchange_rate not in (None, "") else _fx_rate(ccy, base, pd)
+    if ccy != base and rate <= 0:
+        frappe.throw(f"No exchange rate for {ccy}→{base} on {pd} — enter one")
+    if ccy == base:
+        rate = 1.0
+    gross = round(amt + tax, 2)           # in the bill currency
+    gross_base = round(gross * rate, 2)   # what hits the books / the gate
     key = "suppbill:" + frappe.generate_hash(
-        f"{target}|{supplier}|{expense_account}|{amt}|{tax}|{pd}|{bill_no or ''}", 14)
+        f"{target}|{supplier}|{expense_account}|{amt}|{tax}|{ccy}|{pd}|{bill_no or ''}", 14)
     return _actions.execute(
         BILL_ACTION, target, key,
         payload={"supplier": supplier, "expense_account": expense_account, "net": amt,
                  "tax": tax, "tax_account": tax_account, "posting_date": pd,
                  "bill_no": bill_no or None, "description": description or None,
-                 "paid_from": paid_from or None,
+                 "paid_from": paid_from or None, "currency": ccy, "rate": rate,
                  "attachment": attachment or None, "attachment_name": attachment_name or None},
-        amount=gross,
-        notes=(description or f"Supplier bill — {supplier}") + (f" · {bill_no}" if bill_no else ""))
+        amount=gross_base,
+        notes=(description or f"Supplier bill — {supplier}") + (f" · {bill_no}" if bill_no else "")
+              + (f" · {gross:,.0f} {ccy}" if ccy != base else ""))
 
 
 def _bill_poster(action):
@@ -454,6 +516,11 @@ def _bill_poster(action):
     pi.supplier = p["supplier"]
     pi.posting_date = p["posting_date"]
     pi.set_posting_time = 1
+    base = frappe.get_cached_value("Company", action.company, "default_currency")
+    ccy = p.get("currency") or base
+    if ccy and ccy != base:
+        pi.currency = ccy
+        pi.conversion_rate = flt(p.get("rate")) or 1.0
     if p.get("bill_no"):
         pi.bill_no = p["bill_no"]
         pi.bill_date = p["posting_date"]

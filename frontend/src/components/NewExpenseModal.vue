@@ -71,15 +71,29 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <label class="block">
-              <span class="text-[11px] font-semibold text-ink-3">{{ L("Amount", "المبلغ", "Montant") }} ({{ opt.currency }})</span>
-              <input type="number" min="0" step="0.01" v-model.number="amount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum font-semibold text-end focus:outline-none focus:border-accent/40" placeholder="0.00" />
+          <div class="grid grid-cols-3 gap-3">
+            <label class="block col-span-2">
+              <span class="text-[11px] font-semibold text-ink-3">{{ L("Amount", "المبلغ", "Montant") }}</span>
+              <div class="mt-1 flex items-stretch gap-1.5">
+                <input type="number" min="0" step="0.01" v-model.number="amount" class="flex-1 min-w-0 border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum font-semibold text-end focus:outline-none focus:border-accent/40" placeholder="0.00" />
+                <select v-model="currency" @change="onCurrency" class="w-[74px] border border-line-2 rounded-chip px-1.5 text-[12px] font-semibold focus:outline-none cursor-pointer">
+                  <option v-for="c in opt.currencies || [opt.currency]" :key="c" :value="c">{{ c }}</option>
+                </select>
+              </div>
             </label>
             <label class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Date", "التاريخ", "Date") }}</span>
-              <input type="date" v-model="postingDate" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <input type="date" v-model="postingDate" @change="isFx && fetchRate()" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
             </label>
+          </div>
+
+          <!-- FX rate when the bill currency differs from the company's -->
+          <div v-if="isFx" class="flex items-center gap-2 flex-wrap rounded-[10px] px-3 py-2 text-[11.5px]" style="background:#eff6ff">
+            <span class="font-semibold text-sky-800">{{ L("Rate","السعر","Taux") }} 1 {{ currency }} =</span>
+            <input type="number" min="0" step="0.0001" v-model.number="fxRate" class="w-[90px] h-7 border border-line-2 rounded-chip px-2 text-[12px] tnum text-end bg-white focus:outline-none" />
+            <span class="text-sky-800">{{ opt.currency }}</span>
+            <button v-if="rateSuggest" type="button" class="text-[10.5px] text-accent-dark font-semibold hover:underline" @click="fxRate = rateSuggest">{{ L("suggest","اقتراح","suggéré") }} {{ rateSuggest }}</button>
+            <span class="ms-auto text-ink-3">≈ <b class="tnum">{{ money(grossBase) }}</b> {{ opt.currency }} {{ L("in the books","في الدفاتر","comptable") }}</span>
           </div>
 
           <!-- bill mode: supplier bill no + payment status -->
@@ -189,14 +203,14 @@
           </div>
 
           <div v-if="currencyWarn" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="alert" :size="13" />{{ L("Expense and pay accounts use different currencies — post this one in ERPNext.", "حساب المصروف والدفع بعملتين مختلفتين — رحّله من ERPNext.", "Devises différentes — passez-la dans ERPNext.") }}</div>
-          <div v-else-if="grossAmount >= opt.threshold" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="shield" :size="12" />{{ L("Material amount — needs an approver before it posts.", "مبلغ جوهري — يحتاج موافقة قبل الترحيل.", "Montant important — approbation requise.") }}</div>
+          <div v-else-if="grossBase >= opt.threshold" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="shield" :size="12" />{{ L("Material amount — needs an approver before it posts.", "مبلغ جوهري — يحتاج موافقة قبل الترحيل.", "Montant important — approbation requise.") }}</div>
           <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
         </div>
 
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
           <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canSubmit || posting || uploading" @click="submit">
-            {{ posting ? L("Saving…", "جارٍ الحفظ…", "…") : grossAmount >= opt.threshold ? L("Submit for approval", "إرسال للموافقة", "Soumettre") : L("Record expense", "تسجيل المصروف", "Enregistrer") }}
+            {{ posting ? L("Saving…", "جارٍ الحفظ…", "…") : grossBase >= opt.threshold ? L("Submit for approval", "إرسال للموافقة", "Soumettre") : L("Record expense", "تسجيل المصروف", "Enregistrer") }}
           </button>
         </div>
       </template>
@@ -236,6 +250,23 @@ const party = ref("");
 const description = ref("");
 const posting = ref(false);
 const error = ref("");
+
+// multi-currency: bill entered in `currency`, converted to base for the books
+const currency = ref("");
+const fxRate = ref(1);
+const rateSuggest = ref(0);
+const isFx = computed(() => currency.value && currency.value !== opt.value.currency);
+async function fetchRate() {
+  if (!isFx.value) { rateSuggest.value = 0; return; }
+  try {
+    const r = await api.call("accounting_portal.api.expenses.exchange_rate",
+      { company: currentCompany(), from_currency: currency.value, date: postingDate.value });
+    rateSuggest.value = Number(r?.rate) || 0;
+    if (rateSuggest.value > 0) fxRate.value = rateSuggest.value;
+  } catch { rateSuggest.value = 0; }
+}
+function onCurrency() { if (isFx.value) fetchRate(); else fxRate.value = 1; }
+const effRate = computed(() => (isFx.value ? Number(fxRate.value) || 0 : 1));
 
 // bill (Purchase Invoice) vs quick cash expense (Journal Entry)
 const modeType = ref("bill");
@@ -278,6 +309,7 @@ const netAmount = computed(() => {
   return +(amountMode.value === "gross" ? a - taxValue.value : a).toFixed(2);
 });
 const grossAmount = computed(() => +(netAmount.value + taxValue.value).toFixed(2));
+const grossBase = computed(() => +(grossAmount.value * effRate.value).toFixed(2));
 
 // bill attachment
 const fileUrl = ref(""), fileName = ref(""), uploading = ref(false);
@@ -301,6 +333,7 @@ onMounted(async () => {
   try {
     opt.value = await api.call("accounting_portal.api.expenses.expense_form_options", { company: currentCompany() }) || opt.value;
     payAccount.value = opt.value.default_pay || (opt.value.pay_accounts[0] && opt.value.pay_accounts[0].name) || "";
+    currency.value = opt.value.currency;
     // Prefill from a recurring expense (supplier · account · typical amount).
     const p = props.prefill;
     if (p) {
@@ -364,6 +397,7 @@ const currencyWarn = computed(() => {
 const canSubmit = computed(() =>
   expenseAccount.value && Number(amount.value) > 0 &&
   (!hasTax.value || (taxAccount.value && netAmount.value > 0)) &&
+  (!isFx.value || effRate.value > 0) &&
   (modeType.value === "bill"
     ? !!supplier.value
     : (payAccount.value && !currencyWarn.value)));
@@ -387,6 +421,8 @@ async function submit() {
       tax_account: (hasTax.value && taxAccount.value) || undefined,
       attachment: fileUrl.value || undefined,
       attachment_name: fileName.value || undefined,
+      currency: isFx.value ? currency.value : undefined,
+      exchange_rate: isFx.value ? effRate.value : undefined,
     };
     const res = modeType.value === "bill"
       ? await api.call("accounting_portal.api.expenses.create_supplier_bill", {
