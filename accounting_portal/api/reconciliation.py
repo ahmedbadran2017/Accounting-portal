@@ -203,7 +203,8 @@ def transfer_accounts(company=None):
 
 @frappe.whitelist()
 def internal_transfer(company=None, from_account=None, to_account=None, amount=None,
-                      received_amount=None, posting_date=None, reference_no=None, notes=None):
+                      received_amount=None, posting_date=None, reference_no=None, notes=None,
+                      attachment=None, attachment_name=None):
     """Move money between two of the company's own bank/cash accounts as an
     ERPNext 'Internal Transfer' Payment Entry — it books Cr source / Dr target
     and handles the FX itself when the accounts differ in currency (pass
@@ -227,7 +228,8 @@ def internal_transfer(company=None, from_account=None, to_account=None, amount=N
     return _actions.execute(
         TRANSFER_ACTION, target, key,
         payload={"from": from_account, "to": to_account, "amount": amt, "received": recv,
-                 "posting_date": pd, "reference_no": reference_no or None},
+                 "posting_date": pd, "reference_no": reference_no or None,
+                 "attachment": attachment or None, "attachment_name": attachment_name or None},
         amount=amt,
         notes=notes or f"Transfer {amt:,.0f} {from_account.split(' - ')[0]} → {to_account.split(' - ')[0]}")
 
@@ -257,6 +259,11 @@ def _transfer_poster(action):
     pe.set_missing_values()
     pe.insert(ignore_permissions=True)
     pe.submit()
+    if p.get("attachment"):
+        frappe.get_doc({"doctype": "File", "file_url": p["attachment"],
+                        "file_name": p.get("attachment_name") or p["attachment"].rsplit("/", 1)[-1],
+                        "attached_to_doctype": "Payment Entry", "attached_to_name": pe.name,
+                        "is_private": 1}).insert(ignore_permissions=True)
     return {"voucher_type": "Payment Entry", "voucher_no": pe.name,
             "result": f"{flt(p['amount']):,.0f} {p['from'].split(' - ')[0]} → {p['to'].split(' - ')[0]}"}
 
