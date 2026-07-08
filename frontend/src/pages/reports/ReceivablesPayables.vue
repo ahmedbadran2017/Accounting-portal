@@ -89,6 +89,38 @@
           <div v-if="!(r.top_advances || []).length" class="py-6 text-center text-[11px] text-ink-muted">—</div>
         </div>
       </div>
+
+      <!-- Aged trial balance by party (the auditor's listing) -->
+      <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
+          <Icon name="list" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Aged by party","الأعمار حسب الطرف","Ancienneté par tiers") }}</span>
+          <div class="ms-auto flex gap-1 bg-app-warm/60 rounded-chip p-0.5">
+            <button type="button" class="px-2.5 py-1 rounded-lg text-[11px]" :class="agingKind==='ar' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3'" @click="loadAging('ar')">{{ L("Receivable","مدينة","Créances") }}</button>
+            <button type="button" class="px-2.5 py-1 rounded-lg text-[11px]" :class="agingKind==='ap' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3'" @click="loadAging('ap')">{{ L("Payable","دائنة","Dettes") }}</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
+          <table class="w-full text-[12px]">
+            <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted sticky top-0">
+              <th class="px-4 py-2 text-start">{{ L("Party","الطرف","Tiers") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Current","حالي","Courant") }}</th><th class="px-2 py-2 text-end">1–30</th><th class="px-2 py-2 text-end">31–60</th><th class="px-2 py-2 text-end">61–90</th><th class="px-2 py-2 text-end">90+</th><th class="px-4 py-2 text-end">{{ L("Total","الإجمالي","Total") }}</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="p in agingRows" :key="p.party" class="border-t border-line-hair hover:bg-app-warm/40">
+                <td class="px-4 py-2 truncate max-w-[220px]">{{ p.party_name || p.party }}</td>
+                <td class="px-2 py-2 text-end tnum text-ink-3">{{ fmt(p.cur) }}</td><td class="px-2 py-2 text-end tnum">{{ fmt(p.d1_30) }}</td><td class="px-2 py-2 text-end tnum">{{ fmt(p.d31_60) }}</td><td class="px-2 py-2 text-end tnum text-amber-700">{{ fmt(p.d61_90) }}</td><td class="px-2 py-2 text-end tnum text-sale font-semibold">{{ fmt(p.d90p) }}</td>
+                <td class="px-4 py-2 text-end tnum font-bold">{{ fmt(p.total) }}</td>
+              </tr>
+              <tr v-if="agingTotals" class="border-t-2 border-line-2" style="background:#fafaf9">
+                <td class="px-4 py-2 font-bold">{{ L("TOTAL","الإجمالي","TOTAL") }}</td>
+                <td class="px-2 py-2 text-end tnum font-bold">{{ fmt(agingTotals.cur) }}</td><td class="px-2 py-2 text-end tnum font-bold">{{ fmt(agingTotals.d1_30) }}</td><td class="px-2 py-2 text-end tnum font-bold">{{ fmt(agingTotals.d31_60) }}</td><td class="px-2 py-2 text-end tnum font-bold">{{ fmt(agingTotals.d61_90) }}</td><td class="px-2 py-2 text-end tnum font-bold">{{ fmt(agingTotals.d90p) }}</td>
+                <td class="px-4 py-2 text-end tnum font-bold">{{ fmt(agingTotals.total) }}</td>
+              </tr>
+              <tr v-if="!agingRows.length"><td colspan="7" class="px-4 py-8 text-center text-ink-muted">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -136,6 +168,16 @@ async function load() {
   finally { loading.value = false; }
 }
 watch(entityId, load, { immediate: true });
+
+const agingKind = ref("ap"), agingRows = ref([]), agingTotals = ref(null);
+async function loadAging(kind) {
+  agingKind.value = kind;
+  try {
+    const res = await api.call("accounting_portal.api.reports.aging_by_party", { company: currentCompany(), kind });
+    agingRows.value = res?.rows || []; agingTotals.value = res?.totals || null;
+  } catch { agingRows.value = []; agingTotals.value = null; }
+}
+watch(entityId, () => loadAging(agingKind.value), { immediate: true });
 
 function exportCSV() {
   const a = r.value.ar || {}, p = r.value.ap || {};

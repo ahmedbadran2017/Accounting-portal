@@ -143,6 +143,37 @@ def ap_aging(company=None):
     return out
 
 
+def _aging_by_party(doctype, party_field, company, name_field):
+    return frappe.db.sql(
+        f"""SELECT {party_field} party, IFNULL(MAX({name_field}), {party_field}) party_name,
+              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) <= 0 THEN outstanding_amount ELSE 0 END)) cur,
+              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 1 AND 30 THEN outstanding_amount ELSE 0 END)) d1_30,
+              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 31 AND 60 THEN outstanding_amount ELSE 0 END)) d31_60,
+              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 61 AND 90 THEN outstanding_amount ELSE 0 END)) d61_90,
+              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) > 90 THEN outstanding_amount ELSE 0 END)) d90p,
+              ROUND(SUM(outstanding_amount)) total, COUNT(*) n
+           FROM `tab{doctype}` t WHERE company=%s AND docstatus=1 AND outstanding_amount<>0
+           GROUP BY {party_field} HAVING ABS(SUM(outstanding_amount)) > 0.5
+           ORDER BY total DESC LIMIT 400""", (company,), as_dict=True)
+
+
+@frappe.whitelist()
+def aging_by_party(company=None, kind="ar"):
+    """Aged trial balance BY PARTY — each customer/supplier across the buckets,
+    the listing an auditor expects (the totals-only aging isn't enough)."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": [], "kind": kind}
+    if kind == "ap":
+        rows = _aging_by_party("Purchase Invoice", "supplier", target, "supplier_name")
+    else:
+        rows = _aging_by_party("Sales Invoice", "customer", target, "customer_name")
+    tot = {k: sum(flt(r[k]) for r in rows) for k in ("cur", "d1_30", "d31_60", "d61_90", "d90p", "total")}
+    return {"company": target, "kind": kind, "rows": rows, "totals": tot,
+            "currency": frappe.db.get_value("Company", target, "default_currency") or "MAD"}
+
+
 @frappe.whitelist()
 def inventory_health(company=None):
     """Diagnose the stock/COGS break: stock-in-hand vs the Stock-Adjustment pile.
