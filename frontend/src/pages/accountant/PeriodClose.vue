@@ -63,6 +63,23 @@
         </template>
         <p v-else class="text-[10px] mt-2" style="color:#a8a29e">{{ L("Only an admin can lock the period.", "المشرف فقط يمكنه قفل الفترة.", "Seul un admin peut verrouiller.") }}</p>
       </div>
+
+      <!-- Year-end close -->
+      <div v-if="isAdmin" class="rounded-[14px] p-4 bg-white border border-line shadow-card">
+        <div class="flex items-center gap-2.5">
+          <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center" style="background:#f5f3ff"><Icon name="ledger" :size="16" color="#7c3aed" /></span>
+          <div class="flex-1"><div class="text-[12.5px] font-bold">{{ L("Year-end close", "إقفال السنة", "Clôture annuelle") }}</div>
+            <div class="text-[10.5px] text-ink-muted">{{ L("Rolls P&L into retained earnings", "يرحّل الأرباح والخسائر لحقوق الملكية", "P&L → réserves") }}</div></div>
+        </div>
+        <div class="mt-3 space-y-1.5">
+          <div v-for="y in years" :key="y.name" class="flex items-center gap-2 text-[12px] px-2.5 py-1.5 rounded-[9px] bg-app-warm/40">
+            <span class="flex-1 font-semibold">{{ y.name }} <span class="text-[10px] text-ink-muted">{{ y.sd }} → {{ y.ed }}</span></span>
+            <span v-if="y.closed" class="text-[10.5px] font-bold text-emerald-700">{{ L("closed ✓","مُقفلة ✓","clôturé") }}</span>
+            <button v-else class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="closeBusy===y.name" @click="closeYear(y)">{{ closeBusy===y.name ? '…' : L("Close","إقفال","Clôturer") }}</button>
+          </div>
+          <p class="text-[10px] text-ink-muted">{{ L("Posts a Period Closing Voucher — reversible. Do this after the year is otherwise final.", "يرحّل Period Closing Voucher — قابل للتراجع. بعد ما السنة تخلص فعليًا.", "Réversible.") }}</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -142,6 +159,19 @@ async function load() {
   catch { data.value = SAMPLE; live.value = false; }
   finally { loading.value = false; }
 }
-onMounted(() => { load(); loadLock(); });
+const years = ref([]), closeBusy = ref("");
+async function loadYears() {
+  try { const r = await api.call("accounting_portal.api.settings.fiscal_years_for_close", { company: currentCompany() }); years.value = r?.years || []; }
+  catch { years.value = []; }
+}
+async function closeYear(y) {
+  if (closeBusy.value) return;
+  if (!window.confirm(L(`Close ${y.name}? Rolls P&L into retained earnings. Reversible.`, `إقفال ${y.name}؟ يرحّل الأرباح والخسائر لحقوق الملكية. قابل للتراجع.`, `Clôturer ${y.name} ?`))) return;
+  closeBusy.value = y.name;
+  try { await api.call("accounting_portal.api.settings.close_fiscal_year", { company: currentCompany(), fiscal_year: y.name }); toast.success(L("Year closed", "أُقفلت السنة", "Clôturé")); loadYears(); }
+  catch (e) { toast.error(String(e?.message || e).slice(0, 180)); }
+  finally { closeBusy.value = ""; }
+}
+onMounted(() => { load(); loadLock(); loadYears(); });
 watch(entityId, load);
 </script>
