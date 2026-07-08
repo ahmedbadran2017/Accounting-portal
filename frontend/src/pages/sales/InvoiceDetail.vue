@@ -22,7 +22,13 @@
             <Icon name="coins" :size="13" color="#fff" />{{ L("Record payment","تسجيل دفعة","Encaisser") }}
           </button>
           <button v-if="canRefund" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="showRefund = true">
-            <Icon name="refresh" :size="13" />{{ L("Refund","استرداد","Remboursement") }}
+            <Icon name="refresh" :size="13" />{{ L("Credit note","إشعار دائن","Note de crédit") }}
+          </button>
+          <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm px-2.5 py-1 rounded-chip" @click="refundCash" :disabled="busy">
+            <Icon name="cash" :size="13" />{{ L("Refund cash","استرداد نقدي","Rembourser") }}
+          </button>
+          <button v-if="inv && inv.outstanding > 0 && inv.outstanding <= 200" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm px-2.5 py-1 rounded-chip" @click="writeOff" :disabled="busy">
+            {{ L("Write off","شطب","Passer en perte") }} {{ fmt2(inv.outstanding) }}
           </button>
         </div>
       </div>
@@ -199,6 +205,38 @@ async function createReturn() {
     else toast.info(L("Recorded — awaiting an approver", "سُجّل — بانتظار موافِق", "Enregistré — en attente"));
     load();
   } catch (e) { refundError.value = (e && e.message) || L("Failed to create credit note.", "فشل الإنشاء.", "Échec."); }
+  finally { busy.value = false; }
+}
+async function refundCash() {
+  const i = inv.value; if (!i || busy.value) return;
+  const amt = Number(window.prompt(L(`Refund how much cash to the customer? (outstanding/credit ${fmt2(i.outstanding)})`, `كام تسترد كاش للعميل؟ (${fmt2(i.outstanding)})`, `Montant à rembourser ?`), String(Math.abs(i.outstanding))));
+  if (!(amt > 0)) return;
+  if (!accounts.value.length) { try { accounts.value = await api.call("accounting_portal.api.payments.deposit_accounts", { company: currentCompany() }) || []; } catch { /* */ } }
+  const acct = accounts.value[0]?.name;
+  if (!acct) { toast.error(L("No bank/cash account", "لا حساب بنك/كاش", "Aucun compte")); return; }
+  busy.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.payments.create_payment_entry", {
+      company: currentCompany(), party: i.customer || i.party, party_type: "Customer",
+      payment_type: "Pay", amount: amt, account: acct, posting_date: new Date().toISOString().slice(0, 10),
+    });
+    if (res && res.status === "Proposed") toast.info(L("Sent for approval", "أُرسل للموافقة", "Envoyé"));
+    else toast.success(L("Cash refunded", "تم الاسترداد النقدي", "Remboursé"));
+    load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); }
+  finally { busy.value = false; }
+}
+async function writeOff() {
+  const i = inv.value; if (!i || busy.value) return;
+  const reasonTxt = window.prompt(L(`Write off ${fmt2(i.outstanding)}? Reason:`, `شطب ${fmt2(i.outstanding)}؟ السبب:`, `Passer en perte ${fmt2(i.outstanding)} ? Motif:`), L("Rounding / bad debt", "تقريب / دين معدوم", "Arrondi"));
+  if (reasonTxt === null) return;
+  busy.value = true;
+  try {
+    await api.call("accounting_portal.api.payments.write_off_invoice", {
+      company: currentCompany(), invoice: i.id, doctype: "Sales Invoice", reason: reasonTxt || undefined });
+    toast.success(L("Written off", "تم الشطب", "Passé en perte"));
+    load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); }
   finally { busy.value = false; }
 }
 watch(() => route.query.id, load, { immediate: true });
