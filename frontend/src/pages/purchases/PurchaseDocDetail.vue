@@ -125,6 +125,13 @@
             <option v-for="m in modes" :key="m.mode" :value="m.mode">{{ m.mode }}</option>
           </select>
         </div>
+        <div>
+          <label class="text-[11px] font-bold text-ink-3 flex items-center justify-between">{{ L("Amount", "المبلغ", "Montant") }}
+            <button type="button" class="text-[10px] text-accent-dark font-semibold hover:underline" @click="payAmount = h.outstanding">{{ L("full","الكامل","total") }} {{ fmt(h.outstanding) }}</button>
+          </label>
+          <input type="number" min="0" step="0.01" :max="h.outstanding" v-model.number="payAmount" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] tnum text-end font-semibold focus:outline-none focus:border-accent/40" :placeholder="String(h.outstanding)" />
+          <div v-if="payAmount > 0 && payAmount < h.outstanding" class="text-[10.5px] text-amber-700 mt-0.5">{{ L("Partial — ","جزئي — ","Partiel — ") }}{{ fmt(h.outstanding - payAmount) }} {{ L("stays outstanding","يبقى مستحقًا","restant") }}</div>
+        </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Reference No", "رقم المرجع", "Référence") }}</label>
@@ -207,6 +214,7 @@ const payOpen = ref(false);
 const payMode = ref("");
 const payRef = ref("");
 const payDate = ref(new Date().toISOString().slice(0, 10));
+const payAmount = ref(0);
 const modes = ref([]);
 
 const canAct = computed(() => {
@@ -243,6 +251,7 @@ async function primaryAction() {
 
 async function openPay() {
   payRef.value = ""; payMode.value = "";
+  payAmount.value = h.value.outstanding;
   payDate.value = new Date().toISOString().slice(0, 10);
   payOpen.value = true;
   if (!modes.value.length) {
@@ -257,6 +266,7 @@ async function confirmPay() {
     const res = await api.call("accounting_portal.api.purchases.pay_bill", {
       company: currentCompany(), invoice: h.value.name, mode: payMode.value,
       paid_from: (m && m.account) || undefined, reference_no: payRef.value || undefined, reference_date: payDate.value || undefined,
+      pay_amount: (payAmount.value > 0 && payAmount.value < h.value.outstanding) ? payAmount.value : undefined,
     });
     payOpen.value = false; handleRes(res);
   } catch (e) { toast.error(errMsg(e)); } finally { posting.value = false; }

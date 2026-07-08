@@ -416,6 +416,14 @@ def _pay_bill_poster(action):
     if p.get("reference_no"):
         pe.reference_no = p["reference_no"]
         pe.reference_date = p.get("reference_date") or nowdate()
+    # Partial payment: clamp the invoice reference's allocation to the part amount;
+    # the rest stays outstanding (invoice → Partly Paid).
+    if flt(p.get("pay_amount")) > 0:
+        part = flt(p["pay_amount"])
+        for r in (pe.get("references") or []):
+            r.allocated_amount = part
+        pe.paid_amount = part
+        pe.received_amount = part
     # Overriding paid_from (different account / currency) can wipe the amounts
     # get_payment_entry computed → "Paid Amount is mandatory". Recompute, then
     # backstop from the allocated reference amount so it's never blank.
@@ -423,6 +431,12 @@ def _pay_bill_poster(action):
         pe.set_amounts()
     except Exception:
         pass
+    if flt(p.get("pay_amount")) > 0:  # set_amounts may re-expand — re-clamp
+        part = flt(p["pay_amount"])
+        for r in (pe.get("references") or []):
+            r.allocated_amount = part
+        pe.paid_amount = part
+        pe.received_amount = part
     alloc = sum(flt(r.allocated_amount) for r in (pe.get("references") or []))
     if not flt(pe.paid_amount):
         pe.paid_amount = flt(pe.received_amount) or alloc
@@ -489,8 +503,10 @@ def make_invoice_from_receipt(company=None, purchase_receipt=None, dedupe_key=No
 
 @frappe.whitelist()
 def pay_bill(company=None, invoice=None, paid_from=None, mode=None, reference_no=None,
-             reference_date=None, dedupe_key=None):
-    """Create + submit a Payment Entry settling a Purchase Invoice (To Pay → Paid)."""
+             reference_date=None, dedupe_key=None, pay_amount=None):
+    """Create + submit a Payment Entry settling a Purchase Invoice. `pay_amount`
+    pays PART of the outstanding (installment / short-pay); omit it to settle the
+    whole bill. To Pay → Paid (or Partly Paid)."""
     assert_can_write()
     target = _target(company)
     if not target or not invoice or not frappe.db.exists("Purchase Invoice", invoice):
@@ -501,14 +517,22 @@ def pay_bill(company=None, invoice=None, paid_from=None, mode=None, reference_no
         frappe.throw("Invoice belongs to another company")
     if pi.docstatus != 1:
         frappe.throw("Invoice is not submitted")
-    if flt(pi.outstanding_amount) <= 0:
+    outstanding = flt(pi.outstanding_amount)
+    if outstanding <= 0:
         frappe.throw("Invoice already settled")
+    amt = flt(pay_amount) if pay_amount not in (None, "") else outstanding
+    if amt <= 0:
+        frappe.throw("Payment amount must be greater than zero")
+    if amt > outstanding + 0.01:
+        frappe.throw(f"Amount {amt:,.2f} exceeds the {outstanding:,.2f} outstanding")
+    partial = amt < outstanding - 0.01
     res = _actions.execute(
-        PAY_ACTION, target, dedupe_key or f"pay:{invoice}",
+        PAY_ACTION, target, dedupe_key or f"pay:{invoice}:{round(amt, 2)}",
         payload={"invoice": invoice, "paid_from": paid_from, "mode": mode,
-                 "reference_no": reference_no, "reference_date": reference_date},
-        amount=flt(pi.outstanding_amount), reference_doctype="Purchase Invoice",
-        reference_name=invoice, notes=f"Payment for {invoice}")
+                 "reference_no": reference_no, "reference_date": reference_date,
+                 "pay_amount": amt if partial else None},
+        amount=amt, reference_doctype="Purchase Invoice",
+        reference_name=invoice, notes=f"Payment for {invoice}" + (f" ({amt:,.0f} of {outstanding:,.0f})" if partial else ""))
     _bust_purch_cache()
     return res
 
