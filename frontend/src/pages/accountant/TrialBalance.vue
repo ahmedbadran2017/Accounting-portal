@@ -6,6 +6,7 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#ecfdf5"><Icon name="list" :size="14" color="#047857" /></span>
         <span class="text-[13px] font-bold">{{ L("Trial balance","ميزان المراجعة","Balance") }}</span>
         <span class="text-[11px] text-ink-muted">{{ period ? L("opening → movement → closing, this year","افتتاحي ← حركة ← ختامي، هذه السنة","ouverture → mouvement → clôture") : L("net balance per account · reconciled to the GL","الرصيد الصافي لكل حساب","solde net par compte") }}</span>
+        <button type="button" class="ms-auto h-8 px-3 rounded-chip text-[11.5px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :disabled="pdfBusy" @click="downloadPdf"><Icon name="doc" :size="13" />{{ pdfBusy ? "…" : L("PDF","PDF","PDF") }}</button>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
@@ -87,6 +88,15 @@ const rows = ref([]);
 const loading = ref(true);
 const period = ref(false);
 const totals = ref({ dr: 0, cr: 0 });
+const pdfBusy = ref(false);
+async function downloadPdf() {
+  if (pdfBusy.value) return;
+  pdfBusy.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.reports.report_pdf", { report: "trial_balance", company: currentCompany(), ...fyc.filterValue() });
+    if (r?.file_url) window.open(r.file_url, "_blank");
+  } catch { /* */ } finally { pdfBusy.value = false; }
+}
 
 async function load() {
   loading.value = true;
