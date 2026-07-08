@@ -182,6 +182,87 @@ def reconcile_receipt(company=None, payment=None, invoices=None, dedupe_key=None
 
 # ── Bank reconciliation (mark book entries cleared against the statement) ──
 CLEAR_BANK_ACTION = "Clear Bank Entry"
+TRANSFER_ACTION = "Internal transfer"
+
+
+@frappe.whitelist()
+def transfer_accounts(company=None):
+    """Bank & cash accounts of this company — the from/to for an internal transfer."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"accounts": [], "currency": "MAD"}
+    accts = frappe.db.sql(
+        """SELECT name, account_name nm, account_number num, account_type typ,
+                  IFNULL(account_currency,'') ccy
+           FROM `tabAccount` WHERE company=%s AND is_group=0 AND disabled=0
+             AND account_type IN ('Bank','Cash') ORDER BY account_type, name""",
+        (target,), as_dict=True)
+    return {"accounts": accts, "currency": frappe.db.get_value("Company", target, "default_currency") or "MAD"}
+
+
+@frappe.whitelist()
+def internal_transfer(company=None, from_account=None, to_account=None, amount=None,
+                      received_amount=None, posting_date=None, reference_no=None, notes=None):
+    """Move money between two of the company's own bank/cash accounts as an
+    ERPNext 'Internal Transfer' Payment Entry — it books Cr source / Dr target
+    and handles the FX itself when the accounts differ in currency (pass
+    received_amount for a cross-currency transfer). Gated, audited, reversible."""
+    assert_can_write()
+    target = _target(company)
+    amt = flt(amount)
+    if not (target and from_account and to_account):
+        frappe.throw("company, from_account and to_account are required")
+    if from_account == to_account:
+        frappe.throw("From and To must be different accounts")
+    if amt <= 0:
+        frappe.throw("Amount must be greater than zero")
+    for a in (from_account, to_account):
+        row = frappe.db.get_value("Account", a, ["company", "account_type", "is_group"], as_dict=True)
+        if not row or row.company != target or row.is_group or row.account_type not in ("Bank", "Cash"):
+            frappe.throw(f"{a} is not a bank/cash account of {target}")
+    pd = str(posting_date or nowdate())[:10]
+    recv = flt(received_amount) if received_amount not in (None, "") else amt
+    key = "xfer:" + frappe.generate_hash(f"{target}:{from_account}:{to_account}:{amt}:{pd}:{reference_no or ''}", 12)
+    return _actions.execute(
+        TRANSFER_ACTION, target, key,
+        payload={"from": from_account, "to": to_account, "amount": amt, "received": recv,
+                 "posting_date": pd, "reference_no": reference_no or None},
+        amount=amt,
+        notes=notes or f"Transfer {amt:,.0f} {from_account.split(' - ')[0]} → {to_account.split(' - ')[0]}")
+
+
+def _transfer_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    company = action.company
+    fr_ccy = frappe.db.get_value("Account", p["from"], "account_currency")
+    to_ccy = frappe.db.get_value("Account", p["to"], "account_currency")
+    base = frappe.db.get_value("Company", company, "default_currency")
+    pe = frappe.new_doc("Payment Entry")
+    pe.payment_type = "Internal Transfer"
+    pe.company = company
+    pe.posting_date = p.get("posting_date") or nowdate()
+    pe.paid_from = p["from"]
+    pe.paid_to = p["to"]
+    pe.paid_amount = flt(p["amount"])
+    pe.received_amount = flt(p.get("received") or p["amount"])
+    pe.paid_from_account_currency = fr_ccy or base
+    pe.paid_to_account_currency = to_ccy or base
+    # source→base and target→base rates so ERPNext balances both legs in base
+    pe.source_exchange_rate = 1 if (fr_ccy or base) == base else (
+        flt(pe.received_amount) / flt(pe.paid_amount) if fr_ccy == to_ccy else 1)
+    if p.get("reference_no"):
+        pe.reference_no = p["reference_no"]
+        pe.reference_date = pe.posting_date
+    pe.set_missing_values()
+    pe.insert(ignore_permissions=True)
+    pe.submit()
+    return {"voucher_type": "Payment Entry", "voucher_no": pe.name,
+            "result": f"{flt(p['amount']):,.0f} {p['from'].split(' - ')[0]} → {p['to'].split(' - ')[0]}"}
+
+
+_actions.register_poster(TRANSFER_ACTION, _transfer_poster)
+_actions.register_reverter(TRANSFER_ACTION, _actions._cancel_voucher_reverter)
 
 
 @frappe.whitelist()

@@ -71,6 +71,7 @@
                   <div v-if="canWrite && l.status==='pending'" class="inline-flex items-center gap-1.5">
                     <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark" @click="openRegister(l)">{{ L("Register","سجّل","Créer") }}</button>
                     <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm" @click="openMatch(l)">{{ L("Match","اربط","Lier") }}</button>
+                    <button type="button" class="h-7 px-2 rounded-chip text-[11px] text-accent-dark hover:bg-app-warm" :title="L('Transfer between our accounts','تحويل بين حساباتنا','Virement interne')" @click="openTransfer(l)">↔</button>
                     <button type="button" class="h-7 px-2 rounded-chip text-[11px] text-ink-3 hover:bg-app-warm" @click="ignore(l)">{{ L("Ignore","تجاهل","Ignorer") }}</button>
                   </div>
                   <button v-else-if="canWrite && l.status!=='pending'" type="button" class="text-[10.5px] text-ink-muted hover:text-sale hover:underline" @click="reset(l)">{{ L("undo","تراجع","annuler") }}</button>
@@ -201,6 +202,7 @@
       </div>
 
       <NewExpenseModal v-if="registering" :prefill="regPrefill" @close="registering=false" @posted="onRegistered" />
+      <TransferModal v-if="transferring" :prefill="xferPrefill" @close="transferring=false" @posted="onTransferred" />
     </template>
     <div v-else class="p-10 text-center text-ink-muted text-[12px]">{{ L("Import not found.","الاستيراد مش موجود.","Introuvable.") }}</div>
   </div>
@@ -211,6 +213,7 @@ import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import NewExpenseModal from "@/components/NewExpenseModal.vue";
+import TransferModal from "@/components/TransferModal.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useAuth } from "@/composables/useAuth";
@@ -463,5 +466,29 @@ async function onRegistered(res) {
     if (await act(l, "created", { voucher: vno, voucher_type: vt }))
       toast.success(L("Created & linked", "اتسجل واتربط", "Créé"));
   }
+}
+
+// Internal transfer: this bank is one leg — the other is picked in the modal.
+// Money-out line → this bank is the source; money-in line → the destination.
+const transferring = ref(false), xferPrefill = ref(null), xferLine = ref(null);
+function openTransfer(l) {
+  xferLine.value = l;
+  xferPrefill.value = {
+    amount: Math.abs(l.amount), posting_date: l.date,
+    reference_no: (l.description || "").slice(0, 40),
+    ...(l.amount < 0 ? { from_account: d.value.account } : { to_account: d.value.account }),
+  };
+  transferring.value = true;
+}
+async function onTransferred(res) {
+  transferring.value = false;
+  const l = xferLine.value;
+  if (!l) return;
+  if (res?.status === "Proposed") {
+    toast.success(L("Sent for approval — link the line after it posts", "اتبعت للموافقة — اربط السطر بعد الترحيل", "Envoyé"));
+    return;
+  }
+  if (res?.voucher_no && await act(l, "created", { voucher: res.voucher_no, voucher_type: "Payment Entry" }))
+    toast.success(L("Transfer linked", "التحويل اتربط", "Virement lié"));
 }
 </script>

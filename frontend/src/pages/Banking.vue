@@ -3,12 +3,14 @@
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div class="flex items-center gap-2 ms-auto">
-          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand">
-            <Icon name="plus" :size="14" />{{ t("module.new") }}
+          <button v-if="canWrite" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showTransfer = true">
+            <Icon name="plus" :size="14" />{{ L("New transfer","تحويل جديد","Virement") }}
           </button>
         </div>
       </template>
     </PageHeader>
+
+    <TransferModal v-if="showTransfer" @close="showTransfer = false" @posted="onTransfer" />
 
     <div class="flex flex-wrap gap-1 bg-white border border-line rounded-chip p-1 w-fit max-w-full overflow-x-auto">
       <button v-for="s in subs" :key="s[0]" class="px-3 py-1.5 rounded-lg text-[12px] whitespace-nowrap"
@@ -33,7 +35,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -50,13 +52,20 @@ import VarianceQueue from "@/pages/banking/VarianceQueue.vue";
 import CarrierAging from "@/pages/banking/CarrierAging.vue";
 import CarrierSettlements from "@/pages/banking/CarrierSettlements.vue";
 import BankRec from "@/pages/banking/BankRec.vue";
+import TransferModal from "@/components/TransferModal.vue";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
 import { SUBTABS, defaultSub } from "@/data/nav";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const route = useRoute();
 const router = useRouter();
 const { entityId, entities } = useUi();
+const { can } = useAuth();
+const canWrite = computed(() => can("post_entries"));
+const showTransfer = ref(false);
+function onTransfer() { router.replace({ query: { ...route.query, _r: Date.now() } }); }
 
 const subs = SUBTABS.banking;
 const activeSub = computed(() => route.params.sub || defaultSub("banking"));
