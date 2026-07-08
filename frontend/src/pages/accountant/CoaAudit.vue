@@ -35,6 +35,7 @@
       <div class="px-4 py-2 bg-app-warm/30 border-b border-line-hair text-[11px] text-ink-2 flex items-center gap-2 flex-wrap">
         <Icon name="alert" :size="12" color="#b45309" /><span>{{ tabHint() }}</span>
         <button v-if="tab==='dead' && isAdmin && count('dead')" type="button" :disabled="busy==='bulk'" class="ms-auto h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableDead">{{ L('Close all dead','اقفل الميّتة','Fermer morts') }} ({{ count('dead') }})</button>
+        <button v-if="tab==='empty_group' && isAdmin && count('empty_group')" type="button" :disabled="busy==='bulk'" class="ms-auto h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="makePostableAll">{{ L('Make all postable','خلّيهم قابلين للترحيل','Rendre saisissables') }} ({{ count('empty_group') }})</button>
       </div>
 
       <TableLoading v-if="loading" :rows="8" />
@@ -61,6 +62,7 @@
                   <template v-if="isAdmin && !r.disabled">
                     <button v-if="tab==='dead' || (tab==='junk' && r.n===0)" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</button>
                     <button v-else-if="tab==='spaces'" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="trim(r)">{{ L('Trim','قصّ','Nettoyer') }}</button>
+                    <button v-else-if="tab==='empty_group'" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="makePostable(r)">{{ L('Make postable','قابل للترحيل','Rendre saisissable') }}</button>
                     <select v-else-if="tab==='miscash'" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px]" :disabled="busy===r.account" @change="reclass(r,$event.target.value)">
                       <option value="__">{{ L('reclassify…','أعِد التصنيف…','reclasser…') }}</option>
                       <option value="">{{ L('Remove type','شيل النوع','Retirer type') }}</option>
@@ -109,6 +111,7 @@ const CHECKS = [
   { k: "duplicates", label: () => L("Duplicates", "مكرّر", "Doublons") },
   { k: "outliers", label: () => L("Outliers", "قيم شاذّة", "Aberrants") },
   { k: "spaces", label: () => L("Name spaces", "مسافات", "Espaces") },
+  { k: "empty_group", label: () => L("Empty groups", "مجموعات فاضية", "Groupes vides") },
   { k: "dead", label: () => L("Dead", "ميّت", "Morts") },
   { k: "group_with_gl", label: () => L("Group w/ GL", "مجموعة عليها قيود", "Groupe+GL") },
 ];
@@ -129,6 +132,7 @@ function tabHint() {
     spaces: L("Leading/trailing spaces in the name or number — trim to clean.", "مسافات زائدة في الاسم/الرقم — قصّها للتنظيف.", "Nettoyer."),
     dead: L("Leaf accounts with zero activity — close to declutter the tree.", "حسابات بلا حركة — اقفلها لتنظيف الشجرة.", "Fermer."),
     group_with_gl: L("Group accounts carrying postings — a structural error (postings belong on leaves).", "حسابات مجموعة عليها قيود — خطأ هيكلي.", "Erreur structurelle."),
+    empty_group: L("Group accounts with no children and no postings — you can't book to them, so that expense can't be recorded. Make them postable leaves.", "حسابات مجموعة بلا فروع وبلا قيود — مايتقيّدش عليها فالمصروف مستحيل يتسجّل. خليها أوراق قابلة للترحيل.", "Rendre saisissables."),
   };
   return m[tab.value] || "";
 }
@@ -162,6 +166,19 @@ async function loadOverviewSilent() { try { const r = await api.call("accounting
 function disableOne(r) { if (!window.confirm(L(`Close ${r.nm}?`, `اقفل ${r.nm}؟`, `Fermer ?`))) return; act(() => api.call("accounting_portal.api.ledger.set_account_disabled", { company: sel.value, account: r.account, disabled: 1, dry_run: 0 }), r); }
 function trim(r) { act(() => api.call("accounting_portal.api.ledger.trim_account", { company: sel.value, account: r.account }), r); }
 function reclass(r, t) { if (t === "__") return; act(() => api.call("accounting_portal.api.ledger.reclassify_account", { company: sel.value, account: r.account, account_type: t }), r); }
+function makePostable(r) { act(() => api.call("accounting_portal.api.ledger.make_account_postable", { company: sel.value, account: r.account }), r); }
+async function makePostableAll() {
+  if (busy.value) return;
+  if (!window.confirm(L(`Make all ${count('empty_group')} empty groups postable in ${sel.value}? Reversible.`, `خلّي كل الـ ${count('empty_group')} مجموعة فاضية قابلة للترحيل؟`, `Convertir ?`))) return;
+  busy.value = "bulk";
+  try {
+    const accts = (d.value.checks?.empty_group || []).map((x) => x.account);
+    const r = await api.call("accounting_portal.api.ledger.make_postable_bulk", { company: sel.value, accounts: accts });
+    toast.success(L(`${r.converted} made postable`, `${r.converted} بقوا قابلين للترحيل`, `${r.converted} convertis`));
+    await pick(sel.value); await loadOverviewSilent();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); }
+  finally { busy.value = ""; }
+}
 async function disableDead() {
   if (busy.value) return;
   if (!window.confirm(L(`Close all ${count('dead')} dead accounts in ${sel.value}? Reversible.`, `اقفل كل الـ ${count('dead')} حساب ميّت؟`, `Fermer ?`))) return;

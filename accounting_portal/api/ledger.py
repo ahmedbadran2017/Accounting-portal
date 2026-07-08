@@ -405,6 +405,73 @@ _actions.register_poster(RECLASS_ACTION, _reclass_poster)
 _actions.register_reverter(RECLASS_ACTION, _reclass_reverter)
 
 
+POSTABLE_ACTION = "Make account postable"
+
+
+@frappe.whitelist()
+def make_account_postable(company=None, account=None):
+    """Turn an EMPTY group account (is_group=1, no children, no GL) into a
+    postable leaf so expenses can actually be booked to it. Common CoA bug: the
+    same account is a leaf in one company but a childless group in another
+    (e.g. Domain Name Expenses). Gated, audited, reversible (back to group)."""
+    assert_super_admin()
+    target = _target(company)
+    if not (target and account):
+        frappe.throw("Account required")
+    acc = frappe.db.get_value("Account", account, ["company", "is_group", "account_name"], as_dict=True)
+    if not acc or acc.company != target:
+        frappe.throw("Account not in this company")
+    if not acc.is_group:
+        frappe.throw("Account is already postable")
+    if frappe.db.count("Account", {"parent_account": account}):
+        frappe.throw("Group has children — convert a child, not the parent")
+    if frappe.db.count("GL Entry", {"account": account, "is_cancelled": 0}):
+        frappe.throw("Group has ledger entries — cannot convert")
+    key = f"postable:{target}:{account}"
+    return _actions.execute(
+        POSTABLE_ACTION, target, key, payload={"account": account}, amount=0,
+        notes=f"Make {account} postable (empty group → leaf)")
+
+
+def _postable_poster(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    doc = frappe.get_doc("Account", p["account"])
+    doc.is_group = 0
+    doc.save(ignore_permissions=True)
+    return {"voucher_type": "Account", "voucher_no": p["account"], "result": "now postable"}
+
+
+def _postable_reverter(action):
+    import json
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    if p.get("account") and not frappe.db.count("GL Entry", {"account": p["account"], "is_cancelled": 0}):
+        doc = frappe.get_doc("Account", p["account"])
+        doc.is_group = 1
+        doc.save(ignore_permissions=True)
+    return {"restored": p.get("account")}
+
+
+_actions.register_poster(POSTABLE_ACTION, _postable_poster)
+_actions.register_reverter(POSTABLE_ACTION, _postable_reverter)
+_actions._NO_GATE.add(POSTABLE_ACTION)  # master-data structure fix, no GL
+
+
+@frappe.whitelist()
+def make_postable_bulk(company=None, accounts=None):
+    """Convert several empty expense groups to postable leaves in one go."""
+    import json
+    assert_super_admin()
+    accounts = json.loads(accounts) if isinstance(accounts, str) else (accounts or [])
+    ok, failed = [], []
+    for a in accounts:
+        try:
+            make_account_postable(company=company, account=a); ok.append(a)
+        except Exception as e:
+            failed.append({"account": a, "error": str(e)[:120]})
+    return {"converted": len(ok), "ok": ok, "failed": failed}
+
+
 # ── Chart-of-Accounts audit (per company + across all companies) ──────────────
 
 _JUNK_KW = ("delete after", "write off", "who paid unknown", "clean this",
@@ -421,7 +488,13 @@ def _coa_scan(company, detail=True):
                                   WHERE g.account=a.name AND g.is_cancelled=0),0)) bal,
                   (SELECT COUNT(*) FROM `tabGL Entry` g WHERE g.account=a.name AND g.is_cancelled=0) n
            FROM `tabAccount` a WHERE a.company=%s ORDER BY a.account_number""", (company,), as_dict=True)
-    dead, sign, junk, spaces, miscash, outliers, grpgl = [], [], [], [], [], [], []
+    # children per account (to spot empty groups — a group with no child can't be
+    # posted to and has no leaf under it, so that expense simply can't be booked).
+    kids = dict(frappe.db.sql(
+        """SELECT parent_account, COUNT(*) FROM `tabAccount`
+           WHERE company=%s AND parent_account IS NOT NULL AND parent_account != ''
+           GROUP BY parent_account""", (company,)))
+    dead, sign, junk, spaces, miscash, outliers, grpgl, emptygrp = [], [], [], [], [], [], [], []
     byname = {}
     for a in accts:
         nm, num = (a.nm or ""), (a.num or "")
@@ -432,6 +505,9 @@ def _coa_scan(company, detail=True):
         if a.ig:
             if int(a.n or 0) > 0:
                 grpgl.append(rec)
+            # empty group with no children and no GL → should be a postable leaf
+            elif not int(kids.get(a.name, 0)) and not int(a.dis or 0):
+                emptygrp.append(rec)
             continue
         low = nm.lower()
         if rec["n"] == 0 and not rec["disabled"]:
@@ -453,13 +529,15 @@ def _coa_scan(company, detail=True):
             byname.setdefault(key, []).append({"account": a.name, "num": num, "root": a.rt})
     dups = [{"name": v[0]["num"], "accounts": v} for k, v in byname.items() if len(v) > 1]
     checks = {"dead": dead, "sign": sign, "junk": junk, "spaces": spaces,
-              "miscash": miscash, "outliers": outliers, "group_with_gl": grpgl, "duplicates": dups}
+              "miscash": miscash, "outliers": outliers, "group_with_gl": grpgl,
+              "empty_group": emptygrp, "duplicates": dups}
     counts = {k: len(v) for k, v in checks.items()}
     # weighted health score (100 = clean)
     score = 100
     score -= min(25, counts["sign"] * 2)
     score -= min(20, counts["group_with_gl"] * 10)
     score -= min(15, counts["miscash"])
+    score -= min(12, counts["empty_group"])
     score -= min(10, counts["junk"] * 3)
     score -= min(10, counts["duplicates"])
     score -= min(8, counts["spaces"] // 6)
