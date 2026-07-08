@@ -52,13 +52,18 @@
         </table>
       </div>
     </div>
-    <p class="text-[10.5px] text-ink-muted px-1">{{ L("Diagnostic preview. Post the revaluation entry in ERPNext once all rates are set.","معاينة تشخيصية. رحّل قيد إعادة التقييم في ERPNext بعد ضبط كل الأسعار.","Aperçu. Passez l'écriture dans ERPNext une fois les taux définis.") }}</p>
+    <div class="flex items-center gap-2 flex-wrap px-1">
+      <p class="text-[10.5px] text-ink-muted flex-1">{{ L("Revalues monetary FX balances at the latest rate. Posting books the net gain/loss to the Exchange Gain/Loss account — audited & reversible.","يعيد تقييم الأرصدة النقدية بالعملة الأجنبية بأحدث سعر. الترحيل بيقيّد صافي الربح/الخسارة على حساب فرق العملة — مدقّق وقابل للتراجع.","Réévaluation — passation auditée & réversible.") }}</p>
+      <button v-if="canWrite && d.summary && Math.abs(d.summary.total_unrealized || 0) >= 0.01" type="button" class="h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="posting" @click="postReval">
+        {{ posting ? L("Posting…","جارٍ…","…") : L("Post revaluation","رحّل إعادة التقييم","Passer") }} ({{ money(d.summary.total_unrealized) }})
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { fmtAmount } from "@/utils/helpers";
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -66,16 +71,34 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const { can } = useAuth();
+const toast = useToast();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const money = (n) => fmtAmount(n);
+const canWrite = computed(() => can("post_entries"));
 
 const d = ref({ rows: [], summary: {}, currency: "MAD" });
 const isLive = ref(null);
 const loading = ref(true);
+const posting = ref(false);
+async function postReval() {
+  if (posting.value) return;
+  if (!window.confirm(L(`Post the FX revaluation (net ${money(d.value.summary?.total_unrealized)})?`, `ترحيل إعادة تقييم العملة (صافي ${money(d.value.summary?.total_unrealized)})؟`, `Passer la réévaluation ?`))) return;
+  posting.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.accountant.post_fx_revaluation", { company: currentCompany() });
+    if (res && res.status === "Proposed") toast.info(L("Sent for approval", "أُرسل للموافقة", "Envoyé"));
+    else toast.success(L("Revaluation posted", "تم ترحيل إعادة التقييم", "Passée"));
+    load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 180)); }
+  finally { posting.value = false; }
+}
 
 async function load() {
   loading.value = true;

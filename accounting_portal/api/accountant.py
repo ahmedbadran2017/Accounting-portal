@@ -417,3 +417,39 @@ def fx_revaluation(company=None):
     except Exception:
         pass
     return result
+
+
+@frappe.whitelist()
+def post_fx_revaluation(company=None, posting_date=None, gain_account=None, loss_account=None):
+    """Post the unrealized FX gain/loss as a balanced Journal Entry — the missing
+    write side of the revaluation diagnostic. Each revalued account is adjusted to
+    its base-currency revalued balance; the net difference books to the exchange
+    gain/loss account. Reversible; gated on the net amount."""
+    assert_can_write()
+    companies = resolve_companies(company)
+    target = company if (company and company in companies) else (companies[0] if companies else None)
+    if not target:
+        frappe.throw("No company in scope")
+    diag = fx_revaluation(company=target)
+    priced = [r for r in diag.get("rows", []) if r.get("unrealized") is not None and abs(flt(r["unrealized"])) >= 0.01]
+    if not priced:
+        frappe.throw("Nothing to revalue (every rate is set and no movement)")
+    base = diag.get("currency") or "MAD"
+    gl = gain_account or frappe.get_cached_value("Company", target, "exchange_gain_loss_account")
+    if not gl:
+        frappe.throw("No Exchange Gain/Loss account set on the Company")
+    lines, net = [], 0.0
+    for r in priced:
+        adj = flt(r["unrealized"])   # +gain increases the base value of the account
+        net += adj
+        # asset up (Dr) for a gain, down (Cr) for a loss; the P&L side is the plug
+        lines.append({"account": r["account"],
+                      "debit": adj if adj > 0 else 0, "credit": -adj if adj < 0 else 0})
+    plug = round(net, 2)  # net gain → credit gain account; net loss → debit it
+    lines.append({"account": gl,
+                  "debit": plug if plug < 0 else 0, "credit": plug if plug > 0 else 0})
+    pd = str(posting_date or nowdate())[:10]
+    key = f"fxreval:{target}:{pd}:{round(net, 2)}"
+    return create_journal_entry(
+        company=target, posting_date=pd, lines=lines, dedupe_key=key,
+        remark=f"FX revaluation {pd} · net {'gain' if net > 0 else 'loss'} {abs(net):,.0f} {base}")
