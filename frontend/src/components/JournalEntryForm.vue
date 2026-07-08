@@ -103,8 +103,11 @@
 
       <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
         <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!balanced || mixedCurrency || posting" @click="post">
-          {{ posting ? L("Posting…", "جارٍ…", "…") : L("Post entry", "ترحيل القيد", "Passer") }}
+        <button v-if="!opening" class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-accent-dark border border-line-2 hover:bg-white disabled:opacity-50" :disabled="!hasAnyLine || posting" @click="post(true)" :title="L('Save unsubmitted — finish later from Journals','احفظ بدون ترحيل — كمّله لاحقًا من القيود','Enregistrer en brouillon')">
+          {{ posting === 'draft' ? L("Saving…","جارٍ…","…") : L("Save draft", "حفظ مسودة", "Brouillon") }}
+        </button>
+        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!balanced || mixedCurrency || posting" @click="post(false)">
+          {{ posting === 'post' ? L("Posting…", "جارٍ…", "…") : L("Post entry", "ترحيل القيد", "Passer") }}
         </button>
       </div>
     </div>
@@ -186,18 +189,23 @@ const balanced = computed(() => totalDr.value > 0 && Math.round((totalDr.value -
 const curMap = computed(() => Object.fromEntries(accounts.value.map((a) => [a.name, a.currency])));
 const usedCurrencies = computed(() => [...new Set(lines.value.filter((l) => l.account).map((l) => curMap.value[l.account]).filter(Boolean))]);
 const mixedCurrency = computed(() => usedCurrencies.value.length > 1);
+const hasAnyLine = computed(() => lines.value.some((l) => l.account && ((Number(l.debit) || 0) > 0 || (Number(l.credit) || 0) > 0)));
 
-async function post() {
+async function post(draft = false) {
   error.value = "";
   const clean = lines.value.filter((l) => l.account && ((Number(l.debit) || 0) > 0 || (Number(l.credit) || 0) > 0));
-  if (clean.length < 2) { error.value = L("Add at least two complete lines.", "أضف سطرين مكتملين على الأقل.", "Ajoutez au moins deux lignes."); return; }
-  const missingParty = clean.find((l) => needsParty(l) && !l.party);
-  if (missingParty) { error.value = L(`${missingParty.account} needs a party.`, `${missingParty.account} يحتاج طرفًا.`, "Tiers requis."); return; }
-  posting.value = true;
+  if (draft) {
+    if (!clean.length) { error.value = L("Nothing to save yet.", "لا شيء لحفظه.", "Rien à enregistrer."); return; }
+  } else {
+    if (clean.length < 2) { error.value = L("Add at least two complete lines.", "أضف سطرين مكتملين على الأقل.", "Ajoutez au moins deux lignes."); return; }
+    const missingParty = clean.find((l) => needsParty(l) && !l.party);
+    if (missingParty) { error.value = L(`${missingParty.account} needs a party.`, `${missingParty.account} يحتاج طرفًا.`, "Tiers requis."); return; }
+  }
+  posting.value = draft ? "draft" : "post";
   try {
     const method = props.opening ? "create_opening_entry" : "create_journal_entry";
     const res = await api.call(`accounting_portal.api.accountant.${method}`, {
-      company: currentCompany(), client_key: clientKey, posting_date: postingDate.value,
+      company: currentCompany(), client_key: clientKey, posting_date: postingDate.value, draft: (draft && !props.opening) ? 1 : undefined,
       lines: clean.map((l) => ({ account: l.account, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0,
         party_type: (l.party && l.party_type) || undefined, party: l.party || undefined })),
       remark: remark.value,

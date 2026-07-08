@@ -179,8 +179,26 @@ def propose_correction_pile(company=None):
 
 
 @frappe.whitelist()
-def create_journal_entry(company=None, posting_date=None, lines=None, remark=None, dedupe_key=None):
-    """Post a balanced Journal Entry through the write gateway.
+def _build_je_doc(company, posting_date, lines, remark):
+    return frappe.get_doc({
+        "doctype": "Journal Entry", "company": company,
+        "posting_date": posting_date or nowdate(), "voucher_type": "Journal Entry",
+        "multi_currency": 1, "user_remark": remark or "Posted via Accounting Portal",
+        "accounts": [
+            {"account": ln["account"],
+             "debit_in_account_currency": flt(ln.get("debit")),
+             "credit_in_account_currency": flt(ln.get("credit")),
+             "party_type": ln.get("party_type") or None, "party": ln.get("party") or None}
+            for ln in (lines or [])
+        ],
+    })
+
+
+def create_journal_entry(company=None, posting_date=None, lines=None, remark=None,
+                         dedupe_key=None, draft=0):
+    """Post a balanced Journal Entry through the write gateway. `draft=1` saves it
+    unsubmitted (docstatus 0), bypassing the approval gate, so a bookkeeper can
+    park a half-finished entry and submit it later from the Journals list.
 
     `lines`: [{account, debit, credit, party_type?, party?}, …] — debits must
     equal credits. Material entries (≥ the gateway threshold) are recorded as
@@ -200,12 +218,16 @@ def create_journal_entry(company=None, posting_date=None, lines=None, remark=Non
 
     dr = sum(flt(ln.get("debit")) for ln in lines)
     cr = sum(flt(ln.get("credit")) for ln in lines)
+    posting_date = posting_date or nowdate()
+    if int(draft or 0):
+        doc = _build_je_doc(target, posting_date, lines, remark)  # may be unbalanced; just save
+        doc.insert(ignore_permissions=True)
+        frappe.db.commit()
+        return {"draft": True, "voucher_no": doc.name, "voucher_type": "Journal Entry"}
     if round(dr - cr, 2) != 0:
         frappe.throw(f"Debits ({dr:,.2f}) and credits ({cr:,.2f}) must balance")
     if dr <= 0:
         frappe.throw("Journal entry has no amount")
-
-    posting_date = posting_date or nowdate()
     key = dedupe_key or f"je:{target}:{posting_date}:{round(dr, 2)}:{(remark or '')[:40]}"
     payload = {"posting_date": posting_date, "lines": lines, "remark": remark}
     return _actions.execute(JE_ACTION, target, key, payload=payload, amount=dr, notes=remark)
