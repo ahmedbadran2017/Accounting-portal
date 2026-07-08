@@ -1054,21 +1054,6 @@ def report_pdf(report=None, company=None, from_date=None, to_date=None,
         rows.append(["<b>TOTAL</b>", "", f"<b>{_money(d.get('total_dr'))}</b>", f"<b>{_money(d.get('total_cr'))}</b>", ""])
         body = _rows_table(["Account", "Opening", "Debit", "Credit", "Closing"], rows)
         title = "Trial Balance"
-    elif report in ("pnl", "balance_sheet"):
-        from accounting_portal.api.reports import financial_statements as _fs
-        d = _fs(company=target, from_date=from_date, to_date=to_date, compare=0)
-        key = "pnl" if report == "pnl" else "balance_sheet"
-        section = d.get(key) or d
-        rows = []
-        for grp in (section.get("groups") or section.get("sections") or []):
-            rows.append([f"<b>{grp.get('label') or grp.get('name')}</b>", f"<b>{_money(grp.get('total'))}</b>"])
-            for a in (grp.get("accounts") or grp.get("rows") or []):
-                rows.append([f"&nbsp;&nbsp;{a.get('account') or a.get('name')}", _money(a.get('amount') or a.get('balance'))])
-        if not rows:  # flat fallback
-            for a in (section.get("rows") or []):
-                rows.append([a.get("account") or a.get("name"), _money(a.get("amount") or a.get("balance"))])
-        body = _rows_table(["Account", ccy], rows)
-        title = "Profit & Loss" if report == "pnl" else "Balance Sheet"
     elif report == "party_statement":
         from accounting_portal.api.reports import party_statement as _ps
         d = _ps(party_type=party_type, party=party, company=target, from_date=from_date, to_date=to_date)

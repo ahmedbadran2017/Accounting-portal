@@ -463,9 +463,11 @@ def post_fx_revaluation(company=None, posting_date=None, gain_account=None, loss
         # asset up (Dr) for a gain, down (Cr) for a loss; the P&L side is the plug
         lines.append({"account": r["account"],
                       "debit": adj if adj > 0 else 0, "credit": -adj if adj < 0 else 0})
-    plug = round(net, 2)  # net gain → credit gain account; net loss → debit it
+    # accounts net to a Dr of `net`; the gain/loss account offsets it: Cr when
+    # net>0 (a gain), Dr its absolute value when net<0 (a loss). Never a negative amount.
+    plug = round(net, 2)
     lines.append({"account": gl,
-                  "debit": plug if plug < 0 else 0, "credit": plug if plug > 0 else 0})
+                  "debit": -plug if plug < 0 else 0, "credit": plug if plug > 0 else 0})
     pd = str(posting_date or nowdate())[:10]
     key = f"fxreval:{target}:{pd}:{round(net, 2)}"
     return create_journal_entry(

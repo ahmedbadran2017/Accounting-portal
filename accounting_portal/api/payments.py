@@ -176,9 +176,15 @@ def write_off_invoice(company=None, invoice=None, doctype=None, amount=None,
 
 def _writeoff_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    from erpnext.accounts.party import get_party_account
     company = action.company
-    party_acct = get_party_account(p["party_type"], p["party"], company)
+    # Use the invoice's OWN receivable/payable account (debit_to / credit_to), not
+    # the party default — ERPNext only drops the invoice's outstanding when the JE
+    # line hits the same account the invoice booked to.
+    acct_field = "debit_to" if p["doctype"] == "Sales Invoice" else "credit_to"
+    party_acct = frappe.db.get_value(p["doctype"], p["invoice"], acct_field)
+    if not party_acct:
+        from erpnext.accounts.party import get_party_account
+        party_acct = get_party_account(p["party_type"], p["party"], company)
     amt = flt(p["amount"])
     is_ar = p["doctype"] == "Sales Invoice"
     party_line = {"account": party_acct, "party_type": p["party_type"], "party": p["party"],
