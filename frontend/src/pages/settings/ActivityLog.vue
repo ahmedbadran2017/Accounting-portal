@@ -49,6 +49,7 @@
                   </div>
                 </span>
                 <button v-if="a.status === 'Proposed' && !isMine(a)" @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
+                <button v-else-if="a.status === 'Proposed' && canBreakGlass" @click="selfApprove(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50" :title="L('No other approver available — self-approve with a reason (logged)','لا يوجد موافِق آخر — اعتمد بنفسك بسبب مُسجّل','Auto-approuver')">{{ L("Self-approve", "اعتمد بنفسك", "Auto-approuver") }}</button>
                 <span v-else-if="a.status === 'Proposed'" class="text-[10px] text-ink-muted italic px-1" :title="L('You proposed this — another approver must approve it', 'أنت اقترحته — لازم موافِق آخر', 'Un autre approbateur est requis')">{{ L("awaiting another approver", "بانتظار موافِق آخر", "en attente d'un autre approbateur") }}</span>
                 <button v-if="a.status === 'Proposed'" @click="reject(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm">{{ L("Reject", "رفض", "Rejeter") }}</button>
                 <button v-if="a.status === 'Posted' && a.revertable && canManage" @click="revert(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1"><Icon name="arrow" :size="11" class="rotate-180" />{{ L("Undo", "تراجع", "Annuler") }}</button>
@@ -78,6 +79,10 @@ const { locale } = useI18n();
 const { entityId } = useUi();
 const { can, user } = useAuth();
 const canManage = computed(() => can("manage_users"));
+// Break-glass self-approval: only when you're a super-admin AND no other approver
+// exists (a genuine single-admin shop) — otherwise segregation of duties stands.
+const noOtherApprover = ref(false);
+const canBreakGlass = computed(() => canManage.value && noOtherApprover.value);
 // Segregation of duties: you can't approve what you proposed — so hide Approve on
 // your own proposals (the backend enforces it too; this stops the raw error).
 const isMine = (a) => !!(a.proposed_by && user.value && a.proposed_by === user.value);
@@ -104,7 +109,11 @@ async function load() {
   // Only ever show demo rows when NOT live — never mask a real (empty/failed) audit feed.
   rows.value = r.live ? (Array.isArray(r.data) ? r.data : []) : SAMPLE;
 }
-onMounted(() => { load(); loadUsers(); });
+onMounted(() => { load(); loadUsers(); checkApprovers(); });
+async function checkApprovers() {
+  try { const r = await api.call("accounting_portal.api._actions.approvers_available", {}); noOtherApprover.value = !!(r && r.am_super && r.others === 0); }
+  catch { noOtherApprover.value = false; }
+}
 watch(entityId, load);
 async function loadUsers() { try { users.value = await api.call("accounting_portal.api.docops.assignable_users", {}) || []; } catch { /* */ } }
 function assigneesOf(a) { try { return a._assign ? JSON.parse(a._assign) : []; } catch { return []; } }
@@ -127,6 +136,17 @@ const pending = computed(() => rows.value.filter((r) => r.status === "Proposed")
 async function approve(a) {
   busy.value = true;
   try { await api.call("accounting_portal.api._actions.approve_action", { name: a.name }); toast.success(L("Approved & posted", "تم الاعتماد والترحيل", "Approuvé & passé")); load(); }
+  catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
+  finally { busy.value = false; }
+}
+async function selfApprove(a) {
+  const reason = window.prompt(L(
+    "No other approver is available. Self-approve this — a reason is required and will be recorded in the audit trail:",
+    "لا يوجد موافِق آخر. اعتمده بنفسك — السبب مطلوب وسيُسجَّل في سجل التدقيق:",
+    "Auto-approuver — motif requis (journalisé) :"));
+  if (!reason || reason.trim().length < 4) return;
+  busy.value = true;
+  try { await api.call("accounting_portal.api._actions.self_approve_action", { name: a.name, reason: reason.trim() }); toast.success(L("Self-approved & posted", "اعتُمد ذاتيًا وتم الترحيل", "Auto-approuvé")); load(); }
   catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
   finally { busy.value = false; }
 }

@@ -121,6 +121,14 @@ def execute(action_type, company, dedupe_key, payload=None, amount=0,
     - otherwise posts immediately via the registered poster, fully audited.
     """
     assert_can_write()
+    # Per-submit nonce: the frontend mints a fresh `client_key` each time a create
+    # form OPENS and sends it on every submit. Double-clicking one open form reuses
+    # it (→ deduped, no double-post); a genuinely separate second identical entry
+    # gets a new form-open → new key → it posts instead of silently vanishing.
+    # Value-derived keys alone collided on legitimate same-day duplicates.
+    ck = frappe.form_dict.get("client_key") if getattr(frappe, "form_dict", None) else None
+    if ck:
+        dedupe_key = f"{dedupe_key}:{ck}"
     existing = _existing(dedupe_key)
     if existing and existing.status in ("Posted", "Rejected"):
         return existing.as_dict()
@@ -155,6 +163,44 @@ def approve_action(name):
     doc.db_set("approved_by", frappe.session.user)
     doc.db_set("status", "Approved")
     return _post(doc).as_dict()
+
+
+@frappe.whitelist()
+def self_approve_action(name, reason=None):
+    """Break-glass: a Super Admin approves their OWN proposed action when no
+    second approver exists (single-admin shops). Requires a reason and is
+    recorded distinctly in the audit trail as a self-approval — segregation of
+    duties is waived on purpose, not bypassed silently."""
+    if not can_manage_users():
+        frappe.throw("Only a Super Admin can self-approve", frappe.PermissionError)
+    reason = (reason or "").strip()
+    if len(reason) < 4:
+        frappe.throw("A reason is required for a break-glass self-approval")
+    doc = frappe.get_doc(APA, name)
+    if doc.status == "Posted":
+        return doc.as_dict()
+    if doc.proposed_by != frappe.session.user:
+        # not your own → the normal approval path applies
+        return approve_action(name)
+    doc.db_set("approved_by", frappe.session.user)
+    doc.db_set("status", "Approved")
+    doc.db_set("notes", ((doc.notes or "") + f" · SELF-APPROVED (break-glass): {reason}")[:280])
+    return _post(doc).as_dict()
+
+
+@frappe.whitelist()
+def approvers_available(company=None):
+    """How many OTHER admins could approve — the UI uses this to decide whether to
+    offer break-glass self-approval."""
+    assert_can_write()
+    me = frappe.session.user
+    admins = set()
+    for role in ("Accounting Admin", "Accounting Super Admin", "System Manager"):
+        for u in frappe.get_all("Has Role", filters={"role": role, "parenttype": "User"}, pluck="parent"):
+            if u not in ("Administrator", "Guest") and frappe.db.get_value("User", u, "enabled"):
+                admins.add(u)
+    others = admins - {me}
+    return {"others": len(others), "am_super": bool(can_manage_users())}
 
 
 @frappe.whitelist()

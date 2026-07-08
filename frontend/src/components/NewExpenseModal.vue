@@ -225,7 +225,7 @@ import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
-import { fmtMoney, getCsrfToken } from "@/utils/helpers";
+import { fmtMoney, getCsrfToken, newClientKey } from "@/utils/helpers";
 
 const props = defineProps({ prefill: { type: Object, default: null } });
 const emit = defineEmits(["close", "posted"]);
@@ -248,6 +248,7 @@ const postingDate = ref(new Date().toISOString().slice(0, 10));
 const payAccount = ref("");
 const party = ref("");
 const description = ref("");
+const clientKey = newClientKey();
 const posting = ref(false);
 const error = ref("");
 
@@ -414,7 +415,7 @@ async function submit() {
   posting.value = true;
   try {
     const common = {
-      company: currentCompany(), expense_account: expenseAccount.value,
+      company: currentCompany(), client_key: clientKey, expense_account: expenseAccount.value,
       amount: netAmount.value, posting_date: postingDate.value,
       description: description.value || undefined,
       tax_amount: taxValue.value || undefined,

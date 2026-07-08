@@ -93,7 +93,7 @@ import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
-import { getCsrfToken } from "@/utils/helpers";
+import { getCsrfToken, newClientKey } from "@/utils/helpers";
 
 const props = defineProps({ prefill: { type: Object, default: null } });
 const emit = defineEmits(["close", "posted"]);
@@ -114,6 +114,7 @@ const amount = ref(null);
 const receivedAmount = ref(null);
 const postingDate = ref(new Date().toISOString().slice(0, 10));
 const referenceNo = ref("");
+const clientKey = newClientKey();
 const posting = ref(false);
 const error = ref("");
 
@@ -167,7 +168,7 @@ async function submit() {
   posting.value = true; error.value = "";
   try {
     const res = await api.call("accounting_portal.api.reconciliation.internal_transfer", {
-      company: currentCompany(), from_account: fromAccount.value, to_account: toAccount.value,
+      company: currentCompany(), client_key: clientKey, from_account: fromAccount.value, to_account: toAccount.value,
       amount: Number(amount.value), posting_date: postingDate.value,
       received_amount: crossCurrency.value && Number(receivedAmount.value) > 0 ? Number(receivedAmount.value) : undefined,
       reference_no: referenceNo.value || undefined,

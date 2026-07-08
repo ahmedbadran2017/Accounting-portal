@@ -116,6 +116,7 @@ import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
+import { newClientKey } from "@/utils/helpers";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
@@ -133,6 +134,7 @@ const SAMPLE_ACCOUNTS = [
   { name: "320.01 - Creditors - JM" }, { name: "191.020 - VAT %20 - JM" },
 ];
 
+const clientKey = newClientKey();
 const postingDate = ref(new Date().toISOString().slice(0, 10));
 const remark = ref("");
 const newLine = () => ({ account: "", q: "", debit: null, credit: null, party_type: "", party: "", pq: "", showParty: false, _parties: [] });
@@ -195,7 +197,7 @@ async function post() {
   try {
     const method = props.opening ? "create_opening_entry" : "create_journal_entry";
     const res = await api.call(`accounting_portal.api.accountant.${method}`, {
-      company: currentCompany(), posting_date: postingDate.value,
+      company: currentCompany(), client_key: clientKey, posting_date: postingDate.value,
       lines: clean.map((l) => ({ account: l.account, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0,
         party_type: (l.party && l.party_type) || undefined, party: l.party || undefined })),
       remark: remark.value,

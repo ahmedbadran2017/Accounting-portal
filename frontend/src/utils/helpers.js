@@ -6,6 +6,13 @@
 
 let _csrfToken = null;
 
+/** Fresh per-form-open nonce so the write gateway can tell a double-click
+ * (same key → deduped) from a genuinely separate identical entry (new key → posts). */
+export function newClientKey() {
+  const c = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "";
+  return c || `ck-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /** CSRF token for Frappe API requests (cached for the session). */
 export function getCsrfToken() {
   if (_csrfToken) return _csrfToken;

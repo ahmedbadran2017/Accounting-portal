@@ -69,6 +69,7 @@ import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
+import { newClientKey } from "@/utils/helpers";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
@@ -78,6 +79,7 @@ const { entityId, entities } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const entityName = computed(() => (entities.find((e) => e.id === entityId.value) || entities[0]).name);
 
+const clientKey = newClientKey();
 const postingDate = ref(new Date().toISOString().slice(0, 10));
 const partyQuery = ref("");
 const party = ref("");
@@ -115,6 +117,7 @@ async function post() {
   posting.value = true;
   try {
     const res = await api.call("accounting_portal.api.payments.create_payment_entry", {
+      client_key: clientKey,
       company: currentCompany(), party: party.value, amount: Number(amount.value),
       account: account.value, reference_no: referenceNo.value, posting_date: postingDate.value,
       payment_type: "Receive",
