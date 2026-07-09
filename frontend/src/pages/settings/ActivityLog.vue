@@ -8,6 +8,22 @@
       <span class="text-[11px] text-ink-muted">{{ L("Every write the team makes from the portal — who, what, when, and the posted voucher.","كل عملية كتابة يقوم بها الفريق من البورتال — من، وماذا، ومتى، والمستند المُرحّل.","Chaque écriture passée depuis le portail.") }}</span>
     </div>
 
+    <!-- Approval gate control (Super Admin) -->
+    <div v-if="canManage" class="flex items-center gap-3 px-4 py-3 rounded-card border" :style="requireApproval ? 'background:#eff6ff;border-color:#bae6fd' : 'background:#fffbeb;border-color:#fde68a'">
+      <Icon name="shield" :size="16" :color="requireApproval ? '#0369a1' : '#b45309'" />
+      <div class="min-w-0">
+        <div class="text-[12.5px] font-bold">{{ L("Require an approver for material actions","اشتراط موافِق للعمليات الكبيرة","Approbation requise") }}</div>
+        <div class="text-[11px] text-ink-muted">{{ requireApproval
+          ? L(`Actions ≥ ${money0(threshold)} are held for a second approver.`, `العمليات ≥ ${money0(threshold)} تُحجز لموافِق ثانٍ.`, `Les actions ≥ ${money0(threshold)} attendent un approbateur.`)
+          : L("OFF — every action posts directly (correction period). Still fully audited below.","معطّل — كل العمليات تُرحّل مباشرة (فترة التصحيح). وكلها مُسجّلة بالأسفل.","Désactivé — tout est passé directement.") }}</div>
+      </div>
+      <button @click="toggleApproval" :disabled="apprBusy" class="ms-auto inline-flex items-center gap-2 h-8 px-3 rounded-chip text-[12px] font-bold disabled:opacity-50"
+              :class="requireApproval ? 'text-white bg-brand hover:bg-brand-dark' : 'text-amber-800 bg-amber-100 hover:bg-amber-200'">
+        <span class="w-8 h-4 rounded-full relative transition-colors" :style="requireApproval ? 'background:#0b5c4f' : 'background:#d6d3d1'"><span class="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" :style="requireApproval ? 'inset-inline-end:2px' : 'inset-inline-start:2px'"></span></span>
+        {{ requireApproval ? L("On","مفعّل","Activé") : L("Off","معطّل","Désactivé") }}
+      </button>
+    </div>
+
     <div v-if="pending" class="flex items-center gap-2.5 px-4 py-2.5 rounded-card border" style="background:#fffbeb;border-color:#fde68a">
       <Icon name="bell" :size="15" color="#b45309" />
       <span class="text-[12px] font-bold text-ink-2">{{ pending }} {{ L("action(s) awaiting your approval", "إجراء بانتظار موافقتك", "action(s) à approuver") }}</span>
@@ -179,7 +195,23 @@ async function load() {
   // Only ever show demo rows when NOT live — never mask a real (empty/failed) audit feed.
   rows.value = r.live ? (Array.isArray(r.data) ? r.data : []) : SAMPLE;
 }
-onMounted(() => { load(); loadUsers(); checkApprovers(); });
+const requireApproval = ref(true);
+const threshold = ref(10000);
+const apprBusy = ref(false);
+async function loadApprovalSetting() {
+  try { const r = await api.call("accounting_portal.api._actions.approval_settings", {}); requireApproval.value = !!r.require_approval; threshold.value = Number(r.threshold) || 10000; }
+  catch { /* */ }
+}
+async function toggleApproval() {
+  apprBusy.value = true;
+  try {
+    const r = await api.call("accounting_portal.api._actions.set_approval_required", { on: requireApproval.value ? 0 : 1 });
+    requireApproval.value = !!r.require_approval;
+    toast.success(requireApproval.value ? L("Approvals on", "تم تفعيل الموافقات", "Approbations activées") : L("Approvals off — direct posting", "تم إيقاف الموافقات — ترحيل مباشر", "Approbations désactivées"));
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
+  finally { apprBusy.value = false; }
+}
+onMounted(() => { load(); loadUsers(); checkApprovers(); if (canManage.value) loadApprovalSetting(); });
 async function checkApprovers() {
   try { const r = await api.call("accounting_portal.api._actions.approvers_available", {}); noOtherApprover.value = !!(r && r.am_super && r.others === 0); }
   catch { noOtherApprover.value = false; }

@@ -26,6 +26,38 @@ APA = "Accounting Portal Action"
 # they post. Smaller actions post straight through (still fully audited).
 MATERIAL_THRESHOLD = 10000.0
 
+# Whether the propose→approve gate is active AT ALL. During the books-correction
+# period the team posts directly (no approver) so cleanup is faster; everything is
+# still fully audited in the Activity log. Flip back on from Settings → Controls
+# when correction is done (persists in tabDefaultValue — no redeploy). This code
+# constant is only the fallback used until the toggle is first set.
+APPROVAL_DEFAULT = False
+
+
+def _approval_required():
+    v = frappe.db.get_default("ap_require_approval")
+    if v in (None, ""):
+        return APPROVAL_DEFAULT
+    return str(v) == "1"
+
+
+@frappe.whitelist()
+def approval_settings():
+    """Read the current gate state for the Settings toggle."""
+    assert_portal_access()
+    return {"require_approval": _approval_required(), "threshold": MATERIAL_THRESHOLD}
+
+
+@frappe.whitelist()
+def set_approval_required(on=None):
+    """Turn the approver gate on/off. Super-Admin only; persisted, audited."""
+    if not can_manage_users():
+        frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
+    val = "1" if str(on) in ("1", "true", "True", "yes", "on", "True") else "0"
+    frappe.db.set_default("ap_require_approval", val)
+    frappe.db.commit()
+    return {"require_approval": val == "1"}
+
 # Operational, non-GL actions that only tag/flip status (no journal posting) are
 # exempt from the approval gate regardless of magnitude — a daily Cathedis
 # remittance is large by nature but doesn't post to the ledger, so making the
@@ -145,7 +177,7 @@ def execute(action_type, company, dedupe_key, payload=None, amount=0,
         doc.insert(ignore_permissions=True)
         frappe.db.commit()
 
-    if flt(amount) >= MATERIAL_THRESHOLD and action_type not in _NO_GATE and doc.status != "Approved":
+    if _approval_required() and flt(amount) >= MATERIAL_THRESHOLD and action_type not in _NO_GATE and doc.status != "Approved":
         return doc.as_dict()  # awaits an approver
     return _post(doc).as_dict()
 
