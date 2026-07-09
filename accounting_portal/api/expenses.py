@@ -517,10 +517,18 @@ def _bill_poster(action):
     pi.posting_date = p["posting_date"]
     pi.set_posting_time = 1
     base = frappe.get_cached_value("Company", action.company, "default_currency")
-    ccy = p.get("currency") or base
-    if ccy and ccy != base:
-        pi.currency = ccy
-        pi.conversion_rate = flt(p.get("rate")) or 1.0
+    ccy = (p.get("currency") or base)
+    # ALWAYS pin currency + rate. If left unset, ERPNext's set_missing_values
+    # resolves the doc currency from the default buying price list (Standard
+    # Buying = USD) and stamps a live USD rate — so a plain TRY bill silently
+    # posts as USD @ ~44 (proven on live). Base-currency bills = rate 1.0.
+    pi.currency = ccy
+    pi.conversion_rate = (flt(p.get("rate")) or 1.0) if ccy != base else 1.0
+    # Suppress the party/company default tax template. set_missing_values would
+    # otherwise auto-attach it (e.g. "Turkey Tax") and expand a phantom 20% KDV
+    # on a bill the user entered tax-free. We add only the explicit VAT line below.
+    pi.taxes_and_charges = ""
+    pi.set("taxes", [])
     if p.get("bill_no"):
         pi.bill_no = p["bill_no"]
         pi.bill_date = p["posting_date"]
