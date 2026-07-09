@@ -6,6 +6,9 @@
         <span class="absolute top-0 inset-x-0 h-[3px]" style="background:#0b5c4f;opacity:.3"></span>
         <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#faf6f4"><Icon name="scale" :size="15" color="#0b5c4f" /></span><span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Cash position", "المركز النقدي", "Trésorerie") }}</span></div>
         <div class="text-[22px] font-extrabold tnum mt-2 leading-none" :class="ins.position < 0 ? 'text-sale' : ''">{{ money(ins.position) }}<span class="text-[11px] text-ink-muted ms-1">{{ baseCcy }}</span></div>
+        <div v-if="byCcy.length > 1" class="flex flex-wrap gap-1 mt-1.5">
+          <span v-for="c in byCcy" :key="c.ccy" class="text-[10.5px] font-semibold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-2 tnum" :class="c.total < 0 ? 'text-sale' : ''">{{ fmt0(c.total) }} {{ c.ccy }}</span>
+        </div>
         <div class="text-[11px] text-ink-muted mt-1.5">{{ counts.operating }} {{ L("operating accounts", "حساب تشغيلي", "comptes actifs") }}</div>
       </div>
       <div class="relative bg-white border border-line rounded-[16px] p-4 shadow-card overflow-hidden">
@@ -133,6 +136,7 @@ const { can } = useAuth();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt0 = (n) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
 const money = (n) => fmtAmount(n);
 const canWrite = computed(() => can("post_entries"));
 
@@ -152,6 +156,17 @@ const viewMode = ref("operating"); // operating | audit | all
 const selected = ref(new Set());
 
 const baseCcy = computed(() => accounts.value[0]?.base_ccy || "MAD");
+// Native holdings per currency across the operating accounts — "how much TRY,
+// how much USD" — since the headline is a single base-currency conversion.
+const byCcy = computed(() => {
+  const m = {};
+  for (const a of accounts.value) {
+    if (a.under_audit) continue;
+    const c = a.ccy || baseCcy.value;
+    m[c] = (m[c] || 0) + (Number(a.book) || 0);
+  }
+  return Object.entries(m).map(([ccy, total]) => ({ ccy, total })).sort((x, y) => Math.abs(y.total) - Math.abs(x.total));
+});
 const counts = computed(() => {
   const ua = accounts.value.filter((a) => a.under_audit).length;
   return { operating: accounts.value.length - ua, audit: ua, all: accounts.value.length };

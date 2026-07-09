@@ -779,18 +779,23 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
 
     # ── Cash Flow (direct — actual Bank/Cash movement; always reconciles, and
     # immune to the non-cash stock-adjustment distortion in net income) ──
+    # Operational cash flow reads OPERATING bank/cash accounts only (the under-audit
+    # ones are held out so the figure is readable). The balance sheet stays complete.
+    from accounting_portal.api.bank_status import operating_names_clause
+    _cfc, _cfe = operating_names_clause(target, "a")
+
     def _cash_at(as_on):
         return flt(frappe.db.sql(
-            """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-               WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash') AND g.posting_date<=%s""",
-            (target, as_on))[0][0])
+            f"""SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+               WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash'){_cfc} AND g.posting_date<=%s""",
+            (target,) + _cfe + (as_on,))[0][0])
     open_cash = _cash_at(prior_as_on)
     close_cash = _cash_at(to_date)
     mv = frappe.db.sql(
-        """SELECT ROUND(SUM(g.debit)) cin, ROUND(SUM(g.credit)) cout
+        f"""SELECT ROUND(SUM(g.debit)) cin, ROUND(SUM(g.credit)) cout
            FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash')
-             AND g.posting_date BETWEEN %s AND %s""", (target, from_date, to_date), as_dict=True)[0]
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash'){_cfc}
+             AND g.posting_date BETWEEN %s AND %s""", (target,) + _cfe + (from_date, to_date), as_dict=True)[0]
     cash_in = flt(mv.cin); cash_out = flt(mv.cout)
     cf_pack = {
         "open_cash": round(open_cash), "close_cash": round(close_cash),

@@ -46,6 +46,19 @@ def under_audit_set(company):
         return set()
 
 
+def operating_names_clause(company, alias="acc"):
+    """(sql_clause, params) that EXCLUDES under-audit accounts from a Bank/Cash
+    aggregate for `company` — so operational cash views (dashboard, cash flow)
+    read only the clean operating accounts. Returns ('', ()) when nothing is
+    parked. NOT for statutory reports (trial balance / balance sheet), which must
+    stay complete. Insert the clause right after the account_type filter and splice
+    `params` into the query args at the same position."""
+    ua = tuple(under_audit_set(company))
+    if not ua:
+        return "", ()
+    return f" AND {alias}.name NOT IN %s", (ua,)
+
+
 def _save(company, names):
     frappe.db.set_default(_key(company), json.dumps(sorted(set(names))))
     # The banking cockpit caches its account list — drop it so the flag shows now.

@@ -270,16 +270,19 @@ def get_cod_cockpit(company=None, from_date=None, to_date=None):
     receivable = next((flt(r.bal) for r in bal if r.t == "Receivable"), 0.0)
     payable = -next((flt(r.bal) for r in bal if r.t == "Payable"), 0.0)
 
-    # Actual liquidity — the real cash on hand (Bank + Cash account balances).
-    # The #1 CFO number; a negative Cash balance is a control flag.
+    # Actual liquidity — the real cash on hand (Bank + Cash account balances),
+    # scoped to OPERATING accounts (the under-audit ones are held out so the CFO
+    # number is readable). The #1 CFO number; a negative Cash balance is a flag.
+    from accounting_portal.api.bank_status import operating_names_clause
+    _opc, _ope = operating_names_clause(target, "acc")
     cashb = frappe.db.sql(
-        """
+        f"""
         SELECT acc.account_type AS t, SUM(gl.debit - gl.credit) AS bal
         FROM `tabGL Entry` gl JOIN `tabAccount` acc ON acc.name = gl.account
-        WHERE gl.is_cancelled = 0 AND gl.company = %s AND acc.account_type IN ('Bank', 'Cash')
+        WHERE gl.is_cancelled = 0 AND gl.company = %s AND acc.account_type IN ('Bank', 'Cash'){_opc}
         GROUP BY acc.account_type
         """,
-        (target,), as_dict=True)
+        (target,) + _ope, as_dict=True)
     bank_balance = next((flt(r.bal) for r in cashb if r.t == "Bank"), 0.0)
     cash_balance = next((flt(r.bal) for r in cashb if r.t == "Cash"), 0.0)
 
