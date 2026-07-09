@@ -41,6 +41,7 @@
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ when(a.posted_on || a.creation) }}</td>
             <td class="px-4 py-2.5 text-end whitespace-nowrap">
               <span class="inline-flex gap-1.5 items-center">
+                <button @click="openDetail(a)" class="h-7 px-2 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1" :title="L('View transaction details','عرض تفاصيل المعاملة','Voir les détails')"><Icon name="doc" :size="12" />{{ L("Details","تفاصيل","Détails") }}</button>
                 <span v-if="a.status === 'Proposed'" class="relative">
                   <button @click="assignOpen = assignOpen === a.name ? '' : a.name" class="h-7 px-2 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1"><Icon name="user" :size="12" />{{ L("Assign","إسناد","Assigner") }}</button>
                   <div v-if="assignOpen === a.name" class="absolute z-20 mt-1 end-0 w-52 bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-60 overflow-auto text-start">
@@ -59,6 +60,75 @@
           <tr v-if="!filtered.length"><td colspan="7" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ L("No portal actions here.","لا توجد إجراءات.","Aucune action.") }}</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Review modal: the full transaction behind an action, before approving -->
+    <div v-if="detailOpen" class="fixed inset-0 z-40 flex items-center justify-center p-4" @click.self="closeDetail">
+      <div class="absolute inset-0 bg-black/40"></div>
+      <div class="relative bg-white rounded-[16px] shadow-pop w-full max-w-lg max-h-[86vh] flex flex-col overflow-hidden">
+        <header class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair">
+          <span class="w-7 h-7 rounded-[9px] grid place-items-center" style="background:#eff6ff"><Icon name="doc" :size="14" color="#0369a1" /></span>
+          <div class="min-w-0">
+            <div class="text-[13px] font-bold truncate">{{ detail?.action_type || L("Loading…","تحميل…","…") }}</div>
+            <div class="text-[10.5px] text-ink-muted">{{ L("Review before approving","راجِع قبل الاعتماد","Vérifier avant d’approuver") }}</div>
+          </div>
+          <span v-if="detail" class="ms-auto text-[10.5px] font-bold px-2 py-0.5 rounded-badge border" :style="badge(detail.status)">{{ detail.status }}</span>
+          <button @click="closeDetail" class="w-7 h-7 grid place-items-center rounded-[8px] hover:bg-app-warm text-ink-muted"><Icon name="close" :size="14" /></button>
+        </header>
+
+        <div class="p-4 overflow-auto space-y-3">
+          <div v-if="detailLoading" class="py-10 text-center text-[12px] text-ink-muted">{{ L("Loading…","جارٍ التحميل…","Chargement…") }}</div>
+          <template v-else-if="detail">
+            <!-- meta strip -->
+            <div class="grid grid-cols-2 gap-2 text-[11.5px]">
+              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[10px] uppercase tracking-wide font-bold">{{ L("Amount","المبلغ","Montant") }}</div><div class="font-bold tnum">{{ detail.amount ? money0(detail.amount) : "—" }}</div></div>
+              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[10px] uppercase tracking-wide font-bold">{{ L("Company","الشركة","Société") }}</div><div class="font-semibold truncate">{{ detail.company || "—" }}</div></div>
+              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[10px] uppercase tracking-wide font-bold">{{ L("Proposed by","اقترحه","Proposé par") }}</div><div class="font-semibold truncate">{{ shortUser(detail.proposed_by) }}</div></div>
+              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[10px] uppercase tracking-wide font-bold">{{ L("When","متى","Quand") }}</div><div class="font-semibold">{{ when(detail.creation) }}</div></div>
+            </div>
+
+            <div v-if="detail.notes" class="text-[12px] text-ink-2 rounded-[10px] border border-line-hair px-3 py-2"><span class="text-ink-muted">{{ L("Note","ملاحظة","Note") }}: </span>{{ detail.notes }}</div>
+
+            <!-- scalar payload fields -->
+            <div v-if="scalarRows.length" class="rounded-[10px] border border-line-hair overflow-hidden">
+              <div class="px-3 py-2 bg-app-warm/40 text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Transaction","المعاملة","Transaction") }}</div>
+              <table class="w-full text-[12px]">
+                <tr v-for="r in scalarRows" :key="r.k" class="border-t border-line-hair">
+                  <td class="px-3 py-1.5 text-ink-muted whitespace-nowrap align-top w-[42%]">{{ r.label }}</td>
+                  <td class="px-3 py-1.5 font-medium text-end tnum break-all">{{ r.val }}</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- array payload blocks (e.g. correction lines) -->
+            <div v-for="b in tableBlocks" :key="b.k" class="rounded-[10px] border border-line-hair overflow-hidden">
+              <div class="px-3 py-2 bg-app-warm/40 text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ b.label }} · {{ b.rows.length }}</div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-[11.5px]">
+                  <thead><tr class="text-[9.5px] uppercase text-ink-muted">
+                    <th v-for="c in b.cols" :key="c" class="px-3 py-1.5 text-start font-bold whitespace-nowrap">{{ klabel(c) }}</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr v-for="(row,i) in b.rows" :key="i" class="border-t border-line-hair">
+                      <td v-for="c in b.cols" :key="c" class="px-3 py-1.5 whitespace-nowrap" :class="['debit','credit','amount','net','tax'].includes(c) ? 'text-end tnum' : ''">{{ fmtVal(c, row[c]) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div v-if="detail.voucher_no" class="text-[11.5px] text-ink-3">{{ L("Posted voucher","المستند المُرحّل","Pièce") }}: <span class="font-mono text-ink-2">{{ detail.voucher_no }}</span></div>
+          </template>
+        </div>
+
+        <!-- in-context decision for a Proposed action -->
+        <footer v-if="detail && detail.status === 'Proposed'" class="flex items-center gap-2 px-4 py-3 border-t border-line-hair bg-app-warm/30">
+          <button @click="reject(detail)" :disabled="busy" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50">{{ L("Reject","رفض","Rejeter") }}</button>
+          <button v-if="!isMine(detail)" @click="approve(detail)" :disabled="busy" class="ms-auto h-8 px-4 rounded-chip text-[12px] font-bold text-white bg-success hover:brightness-95 disabled:opacity-50">{{ L("Approve & post","اعتماد وترحيل","Approuver") }}</button>
+          <button v-else-if="canBreakGlass" @click="selfApprove(detail)" :disabled="busy" class="ms-auto h-8 px-4 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50">{{ L("Self-approve","اعتمد بنفسك","Auto-approuver") }}</button>
+          <span v-else class="ms-auto text-[11px] text-ink-muted italic">{{ L("awaiting another approver","بانتظار موافِق آخر","en attente") }}</span>
+        </footer>
+      </div>
     </div>
   </div>
 </template>
@@ -133,9 +203,65 @@ function initials(u) { const s = String(u).split("@")[0].replace(/[._-]/g, " ").
 
 const filtered = computed(() => (filter.value ? rows.value.filter((r) => r.status === filter.value) : rows.value));
 const pending = computed(() => rows.value.filter((r) => r.status === "Proposed").length);
+
+// ── Detail / review modal ──────────────────────────────────────────────
+const detailOpen = ref(false);
+const detail = ref(null);
+const detailLoading = ref(false);
+async function openDetail(a) {
+  detailOpen.value = true; detail.value = null; detailLoading.value = true;
+  if (!live.value) { detail.value = { ...a, payload: a.payload || {} }; detailLoading.value = false; return; }
+  try { detail.value = await api.call("accounting_portal.api._actions.get_action", { name: a.name }); }
+  catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); detailOpen.value = false; }
+  finally { detailLoading.value = false; }
+}
+function closeDetail() { detailOpen.value = false; detail.value = null; }
+
+const KEYLBL = {
+  supplier: ["Supplier", "المورّد", "Fournisseur"], customer: ["Customer", "العميل", "Client"],
+  party: ["Party", "الطرف", "Tiers"], party_type: ["Party type", "نوع الطرف", "Type de tiers"],
+  expense_account: ["Expense account", "حساب المصروف", "Compte de charge"],
+  tax_account: ["Tax account", "حساب الضريبة", "Compte TVA"], tax: ["Tax", "الضريبة", "Taxe"],
+  paid_from: ["Paid from", "مدفوع من", "Payé depuis"], pay_account: ["Pay account", "حساب الدفع", "Compte de paiement"],
+  account: ["Account", "الحساب", "Compte"], from_account: ["From account", "من حساب", "Depuis"],
+  to_account: ["To account", "إلى حساب", "Vers"], net: ["Net amount", "الصافي", "Net"],
+  amount: ["Amount", "المبلغ", "Montant"], debit: ["Debit", "مدين", "Débit"], credit: ["Credit", "دائن", "Crédit"],
+  currency: ["Currency", "العملة", "Devise"], rate: ["FX rate", "سعر الصرف", "Taux de change"],
+  posting_date: ["Date", "التاريخ", "Date"], bill_no: ["Bill no.", "رقم الفاتورة", "N° facture"],
+  description: ["Description", "الوصف", "Description"], reference_no: ["Reference", "المرجع", "Référence"],
+  invoice: ["Invoice", "الفاتورة", "Facture"], reason: ["Reason", "السبب", "Motif"],
+  attachment: ["Attachment", "المرفق", "Pièce jointe"], pay_amount: ["Pay amount", "مبلغ الدفع", "Montant payé"],
+};
+function klabel(k) { const m = KEYLBL[k]; return m ? L(m[0], m[1], m[2]) : String(k).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()); }
+const NUMKEYS = new Set(["net", "tax", "amount", "debit", "credit", "gross", "pay_amount", "allocated"]);
+function fmtVal(k, v) {
+  if (v === null || v === undefined || v === "") return "—";
+  if (v === true) return "✓"; if (v === false) return "—";
+  if (typeof v === "number") return NUMKEYS.has(k) ? money0(v) : v.toLocaleString("en-US");
+  return String(v);
+}
+const scalarRows = computed(() => {
+  const p = detail.value && detail.value.payload;
+  if (!p || typeof p !== "object") return [];
+  return Object.entries(p)
+    .filter(([, v]) => v !== null && v !== "" && v !== undefined && typeof v !== "object")
+    .map(([k, v]) => ({ k, label: klabel(k), val: fmtVal(k, v) }));
+});
+const tableBlocks = computed(() => {
+  const p = detail.value && detail.value.payload;
+  if (!p || typeof p !== "object") return [];
+  const out = [];
+  for (const [k, v] of Object.entries(p)) {
+    if (Array.isArray(v) && v.length && typeof v[0] === "object") {
+      const cols = [...new Set(v.flatMap((r) => Object.keys(r)))];
+      out.push({ k, label: klabel(k), cols, rows: v });
+    }
+  }
+  return out;
+});
 async function approve(a) {
   busy.value = true;
-  try { await api.call("accounting_portal.api._actions.approve_action", { name: a.name }); toast.success(L("Approved & posted", "تم الاعتماد والترحيل", "Approuvé & passé")); load(); }
+  try { await api.call("accounting_portal.api._actions.approve_action", { name: a.name }); toast.success(L("Approved & posted", "تم الاعتماد والترحيل", "Approuvé & passé")); closeDetail(); load(); }
   catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
   finally { busy.value = false; }
 }
@@ -146,14 +272,14 @@ async function selfApprove(a) {
     "Auto-approuver — motif requis (journalisé) :"));
   if (!reason || reason.trim().length < 4) return;
   busy.value = true;
-  try { await api.call("accounting_portal.api._actions.self_approve_action", { name: a.name, reason: reason.trim() }); toast.success(L("Self-approved & posted", "اعتُمد ذاتيًا وتم الترحيل", "Auto-approuvé")); load(); }
+  try { await api.call("accounting_portal.api._actions.self_approve_action", { name: a.name, reason: reason.trim() }); toast.success(L("Self-approved & posted", "اعتُمد ذاتيًا وتم الترحيل", "Auto-approuvé")); closeDetail(); load(); }
   catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
   finally { busy.value = false; }
 }
 async function reject(a) {
   const reason = window.prompt(L("Reason for rejection?", "سبب الرفض؟", "Motif du rejet ?")) || "";
   busy.value = true;
-  try { await api.call("accounting_portal.api._actions.reject_action", { name: a.name, reason }); toast.info(L("Rejected", "تم الرفض", "Rejeté")); load(); }
+  try { await api.call("accounting_portal.api._actions.reject_action", { name: a.name, reason }); toast.info(L("Rejected", "تم الرفض", "Rejeté")); closeDetail(); load(); }
   catch (e) { toast.error(L("Failed", "فشل", "Échec")); }
   finally { busy.value = false; }
 }

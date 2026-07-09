@@ -300,3 +300,35 @@ def list_actions(company=None, status=None, limit=50):
     for r in rows:
         r["revertable"] = bool(r.get("status") == "Posted" and r.get("action_type") in rtypes)
     return rows
+
+
+@frappe.whitelist()
+def get_action(name):
+    """One action with its full payload (the transaction being posted) so an
+    approver can review exactly what they're about to authorise — accounts,
+    amounts, party, currency — before hitting Approve."""
+    assert_portal_access()
+    doc = frappe.get_doc(APA, name)
+    payload = doc.get("payload")
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            payload = {"raw": payload}
+    # Attachments are URLs/base64 — keep the URL, drop bulky inline data.
+    if isinstance(payload, dict) and isinstance(payload.get("attachment"), str) and len(payload["attachment"]) > 300:
+        payload["attachment"] = payload["attachment"][:60] + "…"
+    result = doc.get("result")
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except Exception:
+            pass
+    return {
+        "name": doc.name, "action_type": doc.action_type, "status": doc.status,
+        "company": doc.company, "amount": flt(doc.amount), "notes": doc.notes,
+        "proposed_by": doc.proposed_by, "approved_by": doc.approved_by,
+        "voucher_type": doc.voucher_type, "voucher_no": doc.voucher_no,
+        "creation": str(doc.creation), "posted_on": str(doc.posted_on or ""),
+        "payload": payload, "result": result,
+    }
