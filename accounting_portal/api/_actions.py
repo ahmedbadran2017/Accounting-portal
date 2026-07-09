@@ -17,7 +17,7 @@ import frappe
 from frappe.utils import flt, now_datetime
 
 from accounting_portal.api.permissions import (
-    assert_can_write, assert_portal_access, can_manage_users,
+    assert_can_write, assert_portal_access, can_manage_users, can_write,
 )
 
 APA = "Accounting Portal Action"
@@ -252,9 +252,12 @@ def reject_action(name, reason=None):
 @frappe.whitelist()
 def revert_action(name):
     """Undo a posted action by restoring the prior values captured in its payload.
-    Super-admin only; only actions with a registered reverter (master-data writes
-    like item cost / weight / reference stamping) can be undone."""
-    if not can_manage_users():
+    Only actions with a registered reverter (voucher-creating writes, master-data
+    like item cost / weight / reference stamping) can be undone. Super-Admin only —
+    EXCEPT during the correction period (approvals off), when any writer may undo so
+    the team can self-correct quickly; it tightens back automatically once approvals
+    are turned back on."""
+    if not (can_manage_users() or (not _approval_required() and can_write())):
         frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
     doc = frappe.get_doc(APA, name)
     if doc.status != "Posted":
