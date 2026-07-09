@@ -496,6 +496,11 @@ def get_invoice(name):
     si["related_payments"] = [r.name for r in frappe.db.sql(
         """SELECT DISTINCT parent AS name FROM `tabPayment Entry Reference`
            WHERE reference_doctype='Sales Invoice' AND reference_name=%s""", (name,), as_dict=True)]
+    # A posted credit note against this invoice, if any — so the UI can show it
+    # (instead of silently letting the user try to create a duplicate).
+    si["credit_note"] = frappe.db.get_value(
+        "Sales Invoice", {"return_against": name, "docstatus": 1},
+        ["name", "grand_total", "outstanding_amount", "status"], as_dict=True) or None
     from accounting_portal.api.customers import _customer_city, _customer_contact
     si["city"] = _customer_city(si["customer"])
     si["phone"] = _customer_contact(si["customer"])["phone"] or ""
@@ -697,6 +702,10 @@ def _sr_poster(action):
     # an amendment — clear it so the credit note gets its own name. (Verified by a
     # reversible test on admin-dev: CN posts Dr Revenue+VAT / Cr Debtors.)
     ret.amended_from = None
+    # A paid original copies its advance-payment rows into the return, which then
+    # fail validation ("Reference should point to a valid Payment Entry"). A credit
+    # note doesn't carry the original's advances — drop them.
+    ret.set("advances", [])
     if p.get("reason"):
         ret.remarks = ("Refund: " + str(p["reason"]))[:500]
     ret.flags.ignore_permissions = True
@@ -709,11 +718,45 @@ def _sr_poster(action):
 _actions.register_poster(SR_ACTION, _sr_poster)
 
 
+REFUND_ACTION = "Refund Credit Note"
+
+
+def _refund_poster(action):
+    """Refund the customer for a posted credit note — a Pay Payment Entry built by
+    ERPNext's get_payment_entry (which sets the correct negative allocation against
+    the return invoice), so the credit note's outstanding clears to zero and cash
+    leaves the chosen bank/cash account. (Verified reversibly on admin-dev.)"""
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    get_pe = frappe.get_attr("erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry")
+    pe = get_pe("Sales Invoice", p["credit_note"])
+    acct = p["account"]
+    if pe.payment_type == "Pay":
+        pe.paid_from = acct
+    else:
+        pe.paid_to = acct
+    pe.reference_no = p.get("reference_no") or f"REFUND-{p['credit_note']}"
+    pe.reference_date = p.get("posting_date") or nowdate()
+    pe.flags.ignore_permissions = True
+    pe.insert()
+    pe.submit()
+    return {"voucher_type": "Payment Entry", "voucher_no": pe.name,
+            "result": {"refund_for": p["credit_note"], "amount": flt(pe.paid_amount)}}
+
+
+_actions.register_poster(REFUND_ACTION, _refund_poster)
+_actions.register_reverter(REFUND_ACTION, _actions._cancel_voucher_reverter)
+
+
 @frappe.whitelist()
-def create_sales_return(company=None, invoice=None, reason=None, dedupe_key=None):
+def create_sales_return(company=None, invoice=None, reason=None, refund_account=None, dedupe_key=None):
     """Create a return Sales Invoice (credit note) against an original — the
     financial reversal behind a refund. Through the write gateway (audited; a
-    large refund needs an approver)."""
+    large refund needs an approver).
+
+    When `refund_account` (a Bank/Cash account) is given, the customer is also
+    paid back: after the credit note posts, a second gated action creates the
+    refund Payment Entry so the credit note clears and cash leaves that account.
+    """
     assert_can_write()
     companies = resolve_companies(company)
     if not companies:
@@ -731,11 +774,31 @@ def create_sales_return(company=None, invoice=None, reason=None, dedupe_key=None
         frappe.throw("This is already a credit note")
     if frappe.db.exists("Sales Invoice", {"return_against": invoice, "docstatus": 1}):
         frappe.throw("A credit note already exists for this invoice")
+    if refund_account:
+        acc = frappe.db.get_value("Account", refund_account, ["company", "is_group", "account_type"], as_dict=True)
+        if not acc or acc.company != target or acc.is_group:
+            frappe.throw("Refund account not found in this company")
+        if acc.account_type not in ("Bank", "Cash"):
+            frappe.throw("Refund account must be a Bank or Cash account")
     key = dedupe_key or f"sireturn:{target}:{invoice}"
-    return _actions.execute(
+    res = _actions.execute(
         SR_ACTION, target, key, payload={"invoice": invoice, "reason": reason},
         reference_doctype="Sales Invoice", reference_name=invoice, amount=flt(si.grand_total),
         notes=f"Credit note for {invoice} ({flt(si.grand_total):,.0f})")
+    # Refund the cash too (customer had already paid) — a second gated, audited
+    # action so the credit note and the refund are each independently reversible.
+    if refund_account and isinstance(res, dict) and res.get("status") == "Posted" and res.get("voucher_no"):
+        cn = res["voucher_no"]
+        amt = abs(flt(frappe.db.get_value("Sales Invoice", cn, "grand_total")))
+        try:
+            res["refund"] = _actions.execute(
+                REFUND_ACTION, target, f"refund:{target}:{cn}",
+                payload={"credit_note": cn, "account": refund_account},
+                reference_doctype="Sales Invoice", reference_name=cn, amount=amt,
+                notes=f"Refund cash for {cn} ({amt:,.0f})")
+        except Exception as e:
+            res["refund_error"] = str(e)[:200]
+    return res
 
 
 # ── Bill a Delivery Note (recognise delivered-but-unbilled revenue) ──────────

@@ -14,6 +14,7 @@ function liveVM(d) {
       city: d.city && d.city !== "—" ? d.city : "", phone: d.phone || "",
       status: invStatusFromRow(d), is_return: !!d.is_return, outstanding: Number(d.outstanding_amount) || 0,
       net: d.net_total, vat: d.total_taxes_and_charges, gross: d.grand_total,
+      credit_note: d.credit_note || null,
       lines: (d.lines || []).map((l) => ({ name: l.name, image: l.image, qty: l.qty, rate: f2(l.rate), amount: f2(l.amount) })),
       track: "Cathadis", pay: "COD",
     },

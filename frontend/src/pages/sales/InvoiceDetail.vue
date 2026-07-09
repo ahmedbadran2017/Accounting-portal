@@ -21,7 +21,7 @@
           <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand px-2.5 py-1 rounded-chip" @click="openPay">
             <Icon name="coins" :size="13" color="#fff" />{{ L("Record payment","تسجيل دفعة","Encaisser") }}
           </button>
-          <button v-if="canRefund" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="showRefund = true">
+          <button v-if="canRefund" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="openRefund">
             <Icon name="refresh" :size="13" />{{ L("Credit note","إشعار دائن","Note de crédit") }}
           </button>
           <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm px-2.5 py-1 rounded-chip" @click="refundCash" :disabled="busy">
@@ -34,6 +34,16 @@
       </div>
     </div>
 
+    <!-- Existing credit note banner -->
+    <div v-if="inv && inv.credit_note" class="flex items-center gap-2 flex-wrap px-4 py-2.5 rounded-card border" style="background:#fef2f2;border-color:#fecaca">
+      <Icon name="refresh" :size="15" color="#be123c" />
+      <span class="text-[12px] text-ink-2">{{ L("Credited by","مُقابَل بإشعار دائن","Crédité par") }}
+        <button class="font-mono font-bold text-sale hover:underline" @click="openDoc('invoices', inv.credit_note.name)">{{ inv.credit_note.name }}</button>
+        · <span class="tnum">{{ fmt2(inv.credit_note.grand_total) }}</span></span>
+      <span v-if="Number(inv.credit_note.outstanding_amount) < 0" class="ms-auto text-[11px] font-semibold text-amber-700">{{ L("refund due","استرداد مستحق","à rembourser") }} {{ fmt2(Math.abs(inv.credit_note.outstanding_amount)) }}</span>
+      <span v-else class="ms-auto text-[11px] font-semibold text-success-dark">{{ L("refunded ✓","تم الاسترداد ✓","remboursé ✓") }}</span>
+    </div>
+
     <!-- Refund / credit note -->
     <div v-if="showRefund" class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(28,25,23,.45)" @click.self="showRefund = false">
       <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-md p-5">
@@ -43,6 +53,17 @@
         </div>
         <p class="text-[12px] text-ink-3 mb-3">{{ L("Reverses the invoice — credits the customer's debtor and reverses the revenue.","يعكس الفاتورة — يقفل مديونية العميل ويعكس الإيراد.","Annule la facture — crédite le débiteur.") }} <b class="font-mono">{{ inv.id }}</b></p>
         <textarea v-model="reason" rows="2" :placeholder="L('Reason (optional)','السبب (اختياري)','Motif (facultatif)')" class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[12.5px] focus:outline-none focus:border-accent/40 mb-3"></textarea>
+        <label class="flex items-center gap-2 mb-2 text-[12.5px] cursor-pointer">
+          <input type="checkbox" v-model="alsoRefund" class="accent-sale w-4 h-4" />
+          <span>{{ L("Also refund the cash to the customer","استرداد الكاش للعميل أيضًا","Rembourser aussi le client") }}</span>
+        </label>
+        <div v-if="alsoRefund" class="mb-3">
+          <label class="text-[11px] font-bold text-ink-3">{{ L("Refund from","الاسترداد من","Rembourser depuis") }}</label>
+          <select v-model="refundAccount" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
+            <option value="">{{ L("Select bank/cash account","اختر حساب بنك/كاش","Sélectionner un compte") }}</option>
+            <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.account_name }} ({{ a.account_type }})</option>
+          </select>
+        </div>
         <div v-if="refundError" class="text-[11.5px] text-sale mb-2">{{ refundError }}</div>
         <div class="flex justify-end gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="showRefund = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
@@ -196,13 +217,28 @@ async function load() {
   if (route.query.id && !vm.value) router.replace("/accounting/sales/invoices");
 }
 
+const alsoRefund = ref(false);
+const refundAccount = ref("");
+async function openRefund() {
+  refundError.value = ""; reason.value = "";
+  alsoRefund.value = !!paid.value;   // a paid invoice → the customer is owed the cash back
+  refundAccount.value = "";
+  showRefund.value = true;
+  if (!accounts.value.length) {
+    try { accounts.value = await api.call("accounting_portal.api.payments.deposit_accounts", { company: currentCompany() }); } catch { accounts.value = []; }
+  }
+  if (accounts.value.length) refundAccount.value = accounts.value[0].name;
+}
 async function createReturn() {
+  if (alsoRefund.value && !refundAccount.value) { refundError.value = L("Pick a bank/cash account for the refund.", "اختر حساب بنك/كاش للاسترداد.", "Choisissez un compte."); return; }
   busy.value = true; refundError.value = "";
   try {
-    const res = await api.call("accounting_portal.api.sales.create_sales_return", { company: currentCompany(), invoice: inv.value.id, reason: reason.value || undefined });
+    const res = await api.call("accounting_portal.api.sales.create_sales_return", { company: currentCompany(), invoice: inv.value.id, reason: reason.value || undefined, refund_account: alsoRefund.value ? refundAccount.value : undefined });
     showRefund.value = false; reason.value = "";
     if (res && res.status === "Posted") toast.success(L(`Credit note ${res.voucher_no || ""} created`, `إشعار دائن ${res.voucher_no || ""} أُنشئ`, `Note de crédit ${res.voucher_no || ""} créée`));
     else toast.info(L("Recorded — awaiting an approver", "سُجّل — بانتظار موافِق", "Enregistré — en attente"));
+    if (res && res.refund_error) toast.error(L("Credit note posted, but the refund failed: ", "أُنشئ الإشعار لكن فشل الاسترداد: ", "Note créée, remboursement échoué : ") + String(res.refund_error).slice(0, 120));
+    else if (res && res.refund) toast.success(L("Cash refunded to the customer", "تم استرداد الكاش للعميل", "Client remboursé"));
     load();
   } catch (e) { refundError.value = (e && e.message) || L("Failed to create credit note.", "فشل الإنشاء.", "Échec."); }
   finally { busy.value = false; }
@@ -246,7 +282,7 @@ const st = computed(() => INV_STATUS[inv.value?.status] || INV_STATUS.paid);
 // Only a posted, non-return, non-draft invoice can be credited.
 const canRefund = computed(() => {
   const i = inv.value;
-  return !!i && Number(i.gross) > 0 && !i.is_return && !["draft", "cancelled", "return"].includes(i.status);
+  return !!i && Number(i.gross) > 0 && !i.is_return && !i.credit_note && !["draft", "cancelled", "return"].includes(i.status);
 });
 const paid = computed(() => !!vm.value?.paid);
 const journal = computed(() => vm.value?.journal || []);
