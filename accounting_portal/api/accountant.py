@@ -178,7 +178,6 @@ def propose_correction_pile(company=None):
     }
 
 
-@frappe.whitelist()
 def _build_je_doc(company, posting_date, lines, remark):
     return frappe.get_doc({
         "doctype": "Journal Entry", "company": company,
@@ -199,6 +198,7 @@ def _first_of_next_month(d):
     return str(get_first_day(add_months(getdate(d), 1)))
 
 
+@frappe.whitelist()
 def create_journal_entry(company=None, posting_date=None, lines=None, remark=None,
                          dedupe_key=None, draft=0, auto_reverse=0):
     """Post a balanced Journal Entry through the write gateway. `draft=1` saves it
