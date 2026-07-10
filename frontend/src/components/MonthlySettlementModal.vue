@@ -1,7 +1,7 @@
 <template>
-  <div class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
-    <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden">
-      <header class="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-line-hair">
+  <div class="fixed inset-0 z-[100] overflow-y-auto flex items-start justify-center p-4" style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
+    <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-lg my-4">
+      <header class="flex items-center gap-2.5 px-5 py-3.5 border-b border-line-hair">
         <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#eef2ff"><Icon name="scale" :size="16" color="#4338ca" /></span>
         <div class="min-w-0">
           <div class="text-[14px] font-bold">{{ L("Monthly settlement","تسوية شهرية","Règlement mensuel") }}</div>
@@ -10,7 +10,7 @@
         <button @click="$emit('close')" class="ms-auto w-7 h-7 grid place-items-center rounded-[8px] hover:bg-app-warm text-ink-muted"><Icon name="close" :size="14" /></button>
       </header>
 
-      <div class="p-5 overflow-auto space-y-3.5 flex-1 min-h-0">
+      <div class="p-5 space-y-3.5">
         <!-- survivor + date -->
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
@@ -34,7 +34,7 @@
           <template v-else>
             <div class="text-[11px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Sibling accounts to sweep","الحسابات الشقيقة","Comptes à regrouper") }}</div>
             <div v-if="!data.siblings.length" class="text-[12px] text-ink-muted py-3 text-center">{{ L("No sibling accounts under the same group.","لا حسابات شقيقة تحت نفس المجموعة.","Aucun compte frère.") }}</div>
-            <div v-else class="rounded-[10px] border border-line-hair overflow-y-auto max-h-[38vh]">
+            <div v-else class="rounded-[10px] border border-line-hair" style="max-height:340px;overflow-y:auto">
               <table class="w-full text-[12px]">
                 <tr v-for="s in data.siblings" :key="s.name" class="border-b border-line-hair last:border-0" :class="s.balance ? '' : 'opacity-50'">
                   <td class="ps-3 py-2 w-8"><input type="checkbox" :value="s.name" v-model="selected" :disabled="!s.balance || !s.same_ccy" class="accent-indigo-600 w-4 h-4 align-middle" /></td>
@@ -61,7 +61,7 @@
         <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
       </div>
 
-      <footer class="shrink-0 flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30">
+      <footer class="flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30 rounded-b-[16px]">
         <button @click="$emit('close')" class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
         <button @click="post" :disabled="busy || !canPost" class="ms-auto h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
           {{ busy ? L("Posting…","جارٍ…","…") : L("Post settlement","ترحيل التسوية","Passer") }}
