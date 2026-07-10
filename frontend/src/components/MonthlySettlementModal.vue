@@ -40,7 +40,7 @@
                   <td class="ps-3 py-2 w-8"><input type="checkbox" :value="s.name" v-model="selected" :disabled="!s.balance || !s.same_ccy" class="accent-indigo-600 w-4 h-4 align-middle" /></td>
                   <td class="px-2 py-2">
                     <div class="font-semibold truncate max-w-[240px]">{{ s.account_name }}</div>
-                    <div class="text-[10px] text-ink-muted font-mono">{{ s.name.split(' - ')[0] }}<span v-if="!s.same_ccy" class="text-amber-700"> · {{ s.ccy }}</span></div>
+                    <div class="text-[10px] text-ink-muted font-mono">{{ s.name.split(' - ')[0] }}<span v-if="s.needs_party" class="text-amber-700"> · {{ L('party account — skip','حساب طرف — يُستثنى','compte tiers') }}</span><span v-else-if="!s.same_ccy" class="text-amber-700"> · {{ s.ccy }}</span></div>
                   </td>
                   <td class="px-3 py-2 text-end tnum font-semibold" :class="s.balance < 0 ? 'text-sale' : ''">{{ fmt2(s.balance) }}</td>
                 </tr>

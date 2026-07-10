@@ -60,18 +60,26 @@ def settlement_siblings(company=None, survivor=None, as_of=None):
            WHERE company=%s AND parent_account=%s AND is_group=0 AND name!=%s
            ORDER BY account_name""",
         (target, surv.parent_account, survivor), as_dict=True)
+    surv_type = frappe.db.get_value("Account", survivor, "account_type")
+    surv_party = surv_type in ("Receivable", "Payable")
     sibs = []
     for r in rows:
         b = _bal(r.name, as_of)
+        needs_party = r.account_type in ("Receivable", "Payable")
         sibs.append({"name": r.name, "account_name": r.account_name, "ccy": r.ccy,
                      "balance": round(b, 2), "disabled": int(r.disabled or 0),
-                     "same_ccy": r.ccy == surv.account_currency and surv.account_currency == base})
+                     "needs_party": needs_party,
+                     # Sweepable only if same base currency AND not a party (Receivable/
+                     # Payable) account — party accounts need per-party reconciliation.
+                     "same_ccy": r.ccy == surv.account_currency and surv.account_currency == base and not needs_party})
     sibs.sort(key=lambda x: -abs(x["balance"]))
     return {
         "survivor": {"name": survivor, "account_name": surv.account_name,
                      "ccy": surv.account_currency, "balance": round(_bal(survivor, as_of), 2)},
         "base_ccy": base, "as_of": as_of,
-        "settleable": surv.account_currency == base,   # survivor must be base-currency
+        # survivor must be base-currency and NOT a Receivable/Payable (party) account
+        "settleable": surv.account_currency == base and not surv_party,
+        "survivor_needs_party": surv_party,
         "siblings": sibs,
     }
 
@@ -129,18 +137,22 @@ def post_monthly_settlement(company=None, survivor=None, sources=None, as_of=Non
         frappe.throw("Pick at least one account to settle")
     as_of = str(as_of or nowdate())[:10]
     base = frappe.db.get_value("Company", target, "default_currency")
-    surv = frappe.db.get_value("Account", survivor, ["account_currency", "company", "is_group"], as_dict=True)
+    surv = frappe.db.get_value("Account", survivor, ["account_currency", "company", "is_group", "account_type"], as_dict=True)
     if not surv or surv.company != target or surv.is_group:
         frappe.throw("Invalid survivor account")
     if surv.account_currency != base:
         frappe.throw("Settlement supports base-currency accounts only")
+    if surv.account_type in ("Receivable", "Payable"):
+        frappe.throw("Party accounts (Receivable / Payable) can't be settled here — they need per-party reconciliation")
     clean, net = [], 0.0
     for name in srcs:
-        info = frappe.db.get_value("Account", name, ["account_currency", "company", "is_group"], as_dict=True)
+        info = frappe.db.get_value("Account", name, ["account_currency", "company", "is_group", "account_type"], as_dict=True)
         if not info or info.company != target or info.is_group:
             frappe.throw(f"Invalid account: {name}")
         if info.account_currency != base:
             frappe.throw(f"{name} isn't in the base currency — can't settle it here")
+        if info.account_type in ("Receivable", "Payable"):
+            frappe.throw(f"{name} is a party (Receivable/Payable) account — reconcile it per party, not via settlement")
         if name == survivor:
             continue
         b = _bal(name, as_of)
