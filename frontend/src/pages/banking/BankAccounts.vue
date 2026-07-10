@@ -38,6 +38,7 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="14" color="#0369a1" /></span>
         <span class="text-[13px] font-bold">{{ L("Bank & cash accounts", "حسابات البنوك والنقد", "Comptes bancaires & caisse") }}</span>
         <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+        <button v-if="canWrite" @click="showSettle = true" class="h-8 px-2.5 rounded-chip text-[11.5px] font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 inline-flex items-center gap-1.5"><Icon name="scale" :size="13" color="#4338ca" />{{ L("Monthly settlement","تسوية شهرية","Règlement") }}</button>
         <!-- Operating / Under audit / All -->
         <div class="inline-flex rounded-[10px] border border-line-2 overflow-hidden bg-app-warm/40 text-[11.5px] font-semibold">
           <button v-for="m in modes" :key="m.k" @click="viewMode = m.k" class="px-2.5 h-8 transition-colors" :class="viewMode === m.k ? 'bg-white text-accent-dark shadow-sm' : 'text-ink-muted hover:text-ink-2'">{{ m.label }} <span class="text-[10px] opacity-70">{{ m.n }}</span></button>
@@ -108,6 +109,8 @@
       </div>
       <TablePager :t="tt" />
     </div>
+
+    <MonthlySettlementModal v-if="showSettle" :accounts="accounts" @close="showSettle = false" @posted="load" />
   </div>
 </template>
 
@@ -127,6 +130,7 @@ import { useFiscalYear } from "@/composables/useFiscalYear";
 import { useTableTools } from "@/composables/useTableTools";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import MonthlySettlementModal from "@/components/MonthlySettlementModal.vue";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -154,6 +158,7 @@ const loading = ref(false);
 const busy = ref(false);
 const viewMode = ref("operating"); // operating | audit | all
 const selected = ref(new Set());
+const showSettle = ref(false);
 
 const baseCcy = computed(() => accounts.value[0]?.base_ccy || "MAD");
 // Native holdings per currency across the operating accounts — "how much TRY,
