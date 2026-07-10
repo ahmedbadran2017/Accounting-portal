@@ -10,7 +10,7 @@
         <button @click="$emit('close')" class="ms-auto w-7 h-7 grid place-items-center rounded-[8px] hover:bg-app-warm text-ink-muted"><Icon name="close" :size="14" /></button>
       </header>
 
-      <div class="p-5 overflow-auto space-y-3.5">
+      <div class="p-5 overflow-auto space-y-3.5 flex-1 min-h-0">
         <!-- survivor + date -->
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
