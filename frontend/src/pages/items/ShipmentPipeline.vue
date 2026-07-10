@@ -103,10 +103,7 @@
         </div>
         <div v-if="manual" class="px-4 py-3 border-b border-line-hair bg-app-warm/30 flex items-center gap-2 flex-wrap">
           <input v-model.trim="mCharge.description" :placeholder="L('description','الوصف','description')" class="flex-1 min-w-[140px] h-8 bg-white border border-line-2 rounded-chip px-2.5 text-[11px] focus:outline-none" />
-          <select v-model="mCharge.expense_account" class="w-[210px] h-8 bg-white border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none">
-            <option value="">{{ L("expense account…","حساب المصروف…","compte…") }}</option>
-            <option v-for="a in inboxAccounts" :key="a" :value="a">{{ a }}</option>
-          </select>
+          <div class="w-[210px]"><SearchSelect v-model="mCharge.expense_account" :items="inboxAccountItems" :placeholder="L('expense account…','حساب المصروف…','compte…')" :empty-text="L('No account','لا حساب','Aucun')" input-class="h-8 text-[11px] bg-white" /></div>
           <input v-model.number="mCharge.amount" type="number" min="0" step="0.01" placeholder="0.00" class="w-[100px] h-8 bg-white border border-line-2 rounded-chip px-2.5 text-[11px] tnum text-end focus:outline-none" />
           <button type="button" class="h-8 px-3 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="!(mCharge.amount>0) || !mCharge.expense_account" @click="addManual">{{ L("Add","أضف","OK") }}</button>
         </div>
@@ -194,6 +191,7 @@
 import { ref, reactive, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -227,6 +225,7 @@ const preview = ref(null);
 const previewing = ref(false), posting = ref(false);
 
 const inboxAccounts = computed(() => [...new Set(inbox.value.map((c) => c.account))]);
+const inboxAccountItems = computed(() => inboxAccounts.value.map((a) => ({ value: a, label: a })));
 const chargesTotal = computed(() =>
   selCharges.value.reduce((s, i) => s + Number(inbox.value[i]?.amount || 0), 0) +
   manualCharges.value.reduce((s, m) => s + Number(m.amount || 0), 0));

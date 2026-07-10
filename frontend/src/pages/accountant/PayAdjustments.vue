@@ -61,10 +61,7 @@
         <div class="p-5 space-y-3.5">
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Employee","الموظف","Employé") }}</span>
-            <select v-model="form.employee" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
-              <option value="">—</option>
-              <option v-for="e in emps" :key="e.name" :value="e.name">{{ e.nm }}</option>
-            </select>
+            <div class="mt-1"><SearchSelect v-model="form.employee" :items="empItems" :placeholder="L('Search employee…','ابحث عن موظف…','Rechercher…')" :empty-text="L('No employee','لا موظف','Aucun')" /></div>
           </label>
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Type","النوع","Type") }}</span>
@@ -99,6 +96,7 @@
 import { ref, reactive, computed, h, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -134,6 +132,7 @@ const loading = ref(true);
 const open = reactive({});
 const busy = ref("");
 const emps = ref([]);
+const empItems = computed(() => [{ value: "", label: "—" }, ...emps.value.map((e) => ({ value: e.name, label: e.nm }))]);
 const comp = ref({ earnings: [], deductions: [] });
 const ccy = computed(() => d.value.currency || "MAD");
 

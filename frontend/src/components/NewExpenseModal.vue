@@ -104,28 +104,20 @@
             </label>
             <label class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Payment", "الدفع", "Paiement") }}</span>
-              <select v-model="payNow" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
-                <option value="">{{ L("Not paid yet → goes to 'To Pay'", "لسه ماتدفعتش ← تروح To Pay", "Impayée → À payer") }}</option>
-                <option v-for="a in cashBankAccounts" :key="a.name" :value="a.name">{{ L("Paid from", "اتدفعت من", "Payée de") }} {{ a.nm }}</option>
-              </select>
+              <div class="mt-1"><SearchSelect v-model="payNow" :items="payNowItems" :placeholder="L('Search…','ابحث…','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div>
             </label>
           </div>
 
           <!-- cash mode: pay from -->
           <label v-if="modeType==='cash'" class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Paid from", "مدفوع من", "Payé depuis") }}</span>
-            <select v-model="payAccount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
-              <option v-for="a in opt.pay_accounts" :key="a.name" :value="a.name">{{ payLabel(a) }}</option>
-            </select>
+            <div class="mt-1"><SearchSelect v-model="payAccount" :items="payAccountItems" :placeholder="L('Search account…','ابحث عن حساب…','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div>
           </label>
 
           <!-- cash mode: supplier (only meaningful for a payable/credit account) -->
           <label v-if="modeType==='cash' && isPayable" class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Supplier", "المورّد", "Fournisseur") }} <span class="text-ink-muted font-normal">({{ L("optional", "اختياري", "facultatif") }})</span></span>
-            <select v-model="party" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
-              <option value="">—</option>
-              <option v-for="s in opt.suppliers" :key="s" :value="s">{{ s }}</option>
-            </select>
+            <div class="mt-1"><SearchSelect v-model="party" :items="partyItems" :placeholder="L('Search supplier…','ابحث عن مورّد…','Rechercher…')" :empty-text="L('No supplier','لا مورّد','Aucun')" /></div>
           </label>
 
           <label class="block">
@@ -143,10 +135,7 @@
               <div class="grid grid-cols-2 gap-3">
                 <label class="block">
                   <span class="text-[10.5px] font-semibold text-ink-3">{{ L("Input-VAT account", "حساب ضريبة المدخلات", "Compte TVA déductible") }}</span>
-                  <select v-model="taxAccount" class="mt-1 w-full border border-line-2 rounded-chip px-2.5 py-2 text-[12px] focus:outline-none cursor-pointer">
-                    <option value="">—</option>
-                    <option v-for="v in opt.vat_accounts || []" :key="v.name" :value="v.name">{{ (v.num ? v.num + " · " : "") + v.nm }}</option>
-                  </select>
+                  <div class="mt-1"><SearchSelect v-model="taxAccount" :items="taxItems" :placeholder="L('Search VAT account…','ابحث…','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div>
                 </label>
                 <label class="block">
                   <span class="text-[10.5px] font-semibold text-ink-3">{{ L("Amount entered is", "المبلغ المدخل فوق", "Montant saisi") }}</span>
@@ -222,6 +211,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
@@ -408,6 +398,12 @@ function payLabel(a) {
   return `${a.nm} · ${t}`;
 }
 function shortAcct(name) { const a = (opt.value.expense_accounts || []).concat(opt.value.pay_accounts || []).find((x) => x.name === name); return a ? (a.num ? a.num + " " : "") + a.nm : name; }
+
+// Searchable-picker option lists (keep the empty sentinels the selects had).
+const payNowItems = computed(() => [{ value: "", label: L("Not paid yet → To Pay", "لسه ماتدفعتش ← To Pay", "Impayée → À payer") }, ...cashBankAccounts.value.map((a) => ({ value: a.name, label: a.nm, sub: a.num || "" }))]);
+const payAccountItems = computed(() => (opt.value.pay_accounts || []).map((a) => ({ value: a.name, label: payLabel(a), sub: a.num || "" })));
+const partyItems = computed(() => [{ value: "", label: "—" }, ...(opt.value.suppliers || []).map((s) => ({ value: s, label: s }))]);
+const taxItems = computed(() => [{ value: "", label: "—" }, ...(opt.value.vat_accounts || []).map((v) => ({ value: v.name, label: v.nm, sub: v.num || "" }))]);
 
 async function submit() {
   error.value = "";

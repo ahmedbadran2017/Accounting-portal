@@ -117,10 +117,7 @@
               <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-bold text-white bg-ink">3</span><span class="text-[12px] font-bold">{{ L('Pay salaries','دفع الرواتب','Payer') }}</span></div>
               <div class="text-[11px] text-ink-muted flex-1">{{ money(pv.to_pay_net) }} {{ ccy }} · {{ pv.to_pay_count || 0 }} {{ L('unpaid','غير مدفوع','non payés') }}</div>
               <div class="flex gap-1.5">
-                <select v-model="payBank" class="h-8 min-w-0 flex-1 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none">
-                  <option value="">{{ L('bank…','البنك…','banque…') }}</option>
-                  <option v-for="b in pv.banks || []" :key="b.name" :value="b.name">{{ b.nm }}</option>
-                </select>
+                <div class="min-w-0 flex-1"><SearchSelect v-model="payBank" :items="payBankItems" :placeholder="L('bank…','البنك…','banque…')" :empty-text="L('No bank','لا بنك','Aucun')" input-class="h-8 text-[11px] bg-app-warm/40" /></div>
                 <button type="button" :disabled="runBusy || !(pv.to_pay_count>0) || !payBank" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" @click="doPay">
                   <Icon :name="runBusy==='pay' ? 'clock' : 'wallet'" :size="12" class="inline -mt-0.5" />
                 </button>
@@ -325,6 +322,7 @@ import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { h } from "vue";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import AssignStructureModal from "@/components/AssignStructureModal.vue";
 import EmployeeEditModal from "@/components/EmployeeEditModal.vue";
@@ -377,6 +375,7 @@ const k = ref({}), kLoad = ref(true);
 const gl = ref({}), gLoad = ref(true);
 const cl = ref({ months: [], missing: [], runs: [], checklist: [] }), clLoad = ref(true), clMonth = ref(""), clBusy = ref(false);
 const pv = ref({}), payBank = ref(""), runBusy = ref("");
+const payBankItems = computed(() => (pv.value.banks || []).map((b) => ({ value: b.name, label: b.nm })));
 const ccy = computed(() => c.value.currency || cl.value.currency || "MAD");
 const df = useDateFilter("payroll", () => { loadCockpit(); loadComponents(); if (view.value === "accounting") loadGL(); }, "year");
 

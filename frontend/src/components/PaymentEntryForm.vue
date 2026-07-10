@@ -39,10 +39,7 @@
 
         <label class="block">
           <span class="text-[11px] font-semibold text-ink-3">{{ L("Deposit to", "إيداع في", "Déposé sur") }}</span>
-          <select v-model="account" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
-            <option value="">{{ L("Select bank / cash account…", "اختر حساب بنك / نقدية…", "Choisir un compte…") }}</option>
-            <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.account_name }} · {{ a.currency }}</option>
-          </select>
+          <div class="mt-1"><SearchSelect v-model="account" :items="accountItems" :placeholder="L('Search bank / cash account…', 'ابحث عن حساب بنك / نقدية…', 'Rechercher…')" :empty-text="L('No account', 'لا حساب', 'Aucun')" /></div>
         </label>
 
         <label class="block">
@@ -68,6 +65,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { newClientKey } from "@/utils/helpers";
 import { currentCompany } from "@/composables/useLive";
@@ -92,6 +90,7 @@ const accounts = ref([]);
 const posting = ref(false);
 const error = ref("");
 
+const accountItems = computed(() => accounts.value.map((a) => ({ value: a.name, label: a.account_name || a.name, sub: (a.name.includes(" - ") ? a.name.split(" - ")[0] : "") + (a.currency ? " · " + a.currency : "") })));
 const canPost = computed(() => party.value && Number(amount.value) > 0 && account.value);
 
 onMounted(async () => {

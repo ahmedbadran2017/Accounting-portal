@@ -15,10 +15,7 @@
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Keep balance in (survivor)","الحساب الناجي","Compte survivant") }}</label>
-            <select v-model="survivor" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
-              <option value="">{{ L("Select account…","اختر حساب…","Choisir…") }}</option>
-              <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.account_name }} · {{ a.name.split(' - ')[0] }}</option>
-            </select>
+            <div class="mt-1"><SearchSelect v-model="survivor" :items="survivorItems" :placeholder="L('Search account…','ابحث عن حساب…','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun compte')" /></div>
           </div>
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Settlement date","تاريخ التسوية","Date") }}</label>
@@ -78,6 +75,7 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
@@ -96,6 +94,7 @@ function lastPrevMonthEnd() {
 }
 
 const survivor = ref("");
+const survivorItems = computed(() => (props.accounts || []).map((a) => ({ value: a.name, label: a.account_name || a.name, sub: a.name.split(" - ")[0] + (a.ccy ? " · " + a.ccy : "") })));
 const asOf = ref(lastPrevMonthEnd());
 const data = ref(null);
 const selected = ref([]);

@@ -59,10 +59,7 @@
         </label>
         <div v-if="alsoRefund" class="mb-3">
           <label class="text-[11px] font-bold text-ink-3">{{ L("Refund from","الاسترداد من","Rembourser depuis") }}</label>
-          <select v-model="refundAccount" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
-            <option value="">{{ L("Select bank/cash account","اختر حساب بنك/كاش","Sélectionner un compte") }}</option>
-            <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.account_name }} ({{ a.account_type }})</option>
-          </select>
+          <div class="mt-1"><SearchSelect v-model="refundAccount" :items="accountItems" :placeholder="L('Search bank/cash account','ابحث عن حساب بنك/كاش','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div>
         </div>
         <div v-if="refundError" class="text-[11.5px] text-sale mb-2">{{ refundError }}</div>
         <div class="flex justify-end gap-2">
@@ -85,9 +82,7 @@
         <div class="space-y-2.5">
           <div><label class="text-[11px] font-bold text-ink-3">{{ L("Amount","المبلغ","Montant") }}</label><input v-model.number="pay.amount" type="number" min="0" :max="inv.outstanding" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
           <div><label class="text-[11px] font-bold text-ink-3">{{ L("Deposit to","الإيداع في","Déposer sur") }}</label>
-            <select v-model="pay.account" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
-              <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.account_name }} ({{ a.account_type }})</option>
-            </select></div>
+            <div class="mt-1"><SearchSelect v-model="pay.account" :items="accountItems" :placeholder="L('Search account','ابحث عن حساب','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div></div>
           <div class="grid grid-cols-2 gap-2">
             <div><label class="text-[11px] font-bold text-ink-3">{{ L("Reference","المرجع","Référence") }}</label><input v-model.trim="pay.reference_no" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" :placeholder="L('e.g. COD batch','مثال: تحصيل','réf')" /></div>
             <div><label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label><input v-model="pay.posting_date" type="date" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
@@ -189,6 +184,7 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import DocHub from "@/components/DocHub.vue";
 import { INV_STATUS, invStatusLabel, fmt2 } from "@/data/invoices";
 import { useInvoices } from "@/composables/useInvoices";
@@ -298,6 +294,7 @@ const canPay = computed(() => {
 const showPay = ref(false);
 const payError = ref("");
 const accounts = ref([]);
+const accountItems = computed(() => accounts.value.map((a) => ({ value: a.name, label: a.account_name || a.name, sub: a.account_type || (a.name.includes(" - ") ? a.name.split(" - ")[0] : "") })));
 const pay = ref({ amount: 0, account: "", reference_no: "", posting_date: "" });
 async function openPay() {
   payError.value = "";

@@ -46,10 +46,7 @@
               <td class="px-4 py-2.5 text-end tnum font-semibold">{{ money(b.outstanding_amount) }} <span class="text-[9px] text-ink-muted">{{ b.currency }}</span></td>
               <td class="px-4 py-2.5 text-end whitespace-nowrap">
                 <div v-if="canWrite" class="inline-flex items-center gap-1.5">
-                  <select v-model="settleWith[b.name]" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none max-w-[150px]">
-                    <option value="">{{ L("via…","عبر…","via…") }}</option>
-                    <option v-for="i in opt.intermediaries || []" :key="i.name" :value="i.name">{{ i.nm }}</option>
-                  </select>
+                  <div class="w-[160px]"><SearchSelect v-model="settleWith[b.name]" :items="interItems" :placeholder="L('via…','عبر…','via…')" :empty-text="L('None','لا شيء','Aucun')" input-class="h-7 text-[11px] bg-app-warm/40" /></div>
                   <button type="button" :disabled="!settleWith[b.name] || busy===b.name" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" @click="settle(b)">{{ busy===b.name ? '…' : L('Settle','سدّد','Régler') }}</button>
                 </div>
               </td>
@@ -75,7 +72,7 @@
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3 flex items-center">{{ L("Intermediary","الوسيط","Intermédiaire") }}
               <button type="button" class="ms-auto text-[10.5px] font-bold text-brand hover:underline" @click="creating = !creating">{{ creating ? L("Pick existing","اختر موجود","Choisir") : L("+ New intermediary","+ وسيط جديد","+ Nouveau") }}</button></span>
-            <select v-if="!creating" v-model="fund.intermediary" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none"><option value="">—</option><option v-for="i in opt.intermediaries || []" :key="i.name" :value="i.name">{{ i.nm }}</option></select>
+            <div v-if="!creating" class="mt-1"><SearchSelect v-model="fund.intermediary" :items="interItems" :placeholder="L('Search intermediary…','ابحث عن وسيط…','Rechercher…')" :empty-text="L('None','لا شيء','Aucun')" /></div>
           </label>
           <div v-if="creating" class="rounded-[12px] border border-line-2 bg-app-warm/40 p-3 space-y-2.5">
             <div class="text-[10.5px] text-ink-muted">{{ L("One clean account per intermediary — created under “Due From Intermediaries” and reused for every transfer.","حساب واحد نضيف لكل وسيط — بيتعمل تحت «Due From Intermediaries» ويتعاد استخدامه في كل تحويلة.","Un compte propre par intermédiaire, réutilisé.") }}</div>
@@ -89,7 +86,7 @@
             <div v-if="acctErr" class="text-[11px] text-sale">{{ acctErr }}</div>
           </div>
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("From bank","من بنك","Banque") }}</span>
-            <select v-model="fund.bank" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none"><option value="">—</option><option v-for="b in opt.banks || []" :key="b.name" :value="b.name">{{ b.nm }}</option></select></label>
+            <div class="mt-1"><SearchSelect v-model="fund.bank" :items="bankItems" :placeholder="L('Search bank…','ابحث عن بنك…','Rechercher…')" :empty-text="L('No bank','لا بنك','Aucun')" /></div></label>
           <div class="grid grid-cols-2 gap-3">
             <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Amount","المبلغ","Montant") }} ({{ ccy }})</span><input type="number" min="0" step="0.01" v-model.number="fund.amount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum text-end font-semibold focus:outline-none" placeholder="0.00" /></label>
             <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Date","التاريخ","Date") }}</span><input type="date" v-model="fund.date" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none" /></label>
@@ -109,6 +106,7 @@
 import { ref, reactive, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -130,6 +128,8 @@ const opt = ref({ intermediaries: [], banks: [], bills: [] });
 const loading = ref(true);
 const busy = ref("");
 const settleWith = reactive({});
+const interItems = computed(() => [{ value: "", label: "—" }, ...(opt.value.intermediaries || []).map((i) => ({ value: i.name, label: i.nm }))]);
+const bankItems = computed(() => [{ value: "", label: "—" }, ...(opt.value.banks || []).map((b) => ({ value: b.name, label: b.nm }))]);
 const ccy = computed(() => d.value.currency || "MAD");
 
 async function load() {

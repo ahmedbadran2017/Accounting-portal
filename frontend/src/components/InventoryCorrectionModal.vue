@@ -34,9 +34,7 @@
             <tbody>
               <tr v-for="(ln, i) in lines" :key="i" class="border-t border-line-hair">
                 <td class="px-3 py-2">
-                  <select v-model="ln.account" class="w-full h-8 border border-line-2 rounded-[8px] px-1.5 text-[11.5px] bg-white focus:outline-none focus:border-accent/40">
-                    <option v-for="a in accounts" :key="a.name" :value="a.name">{{ a.name }}</option>
-                  </select>
+                  <SearchSelect v-model="ln.account" :items="accountItems" :placeholder="L('Account…','حساب…','Compte…')" :empty-text="L('No account','لا حساب','Aucun')" input-class="h-8 text-[11.5px] bg-white" />
                 </td>
                 <td class="px-3 py-2"><input v-model.number="ln.debit" type="number" min="0" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[11.5px] text-end tnum focus:outline-none focus:border-accent/40" /></td>
                 <td class="px-3 py-2"><input v-model.number="ln.credit" type="number" min="0" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[11.5px] text-end tnum focus:outline-none focus:border-accent/40" /></td>
@@ -71,6 +69,7 @@ import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
@@ -87,6 +86,7 @@ const shortAcct = (a) => String(a || "").split(" - ").slice(0, 2).join(" ");
 
 const p = ref(null);
 const accounts = ref([]);
+const accountItems = computed(() => accounts.value.map((a) => ({ value: a.name, label: a.account_name || (a.name.includes(" - ") ? a.name.split(" - ").slice(1).join(" - ") : a.name), sub: a.name.includes(" - ") ? a.name.split(" - ")[0] : "" })));
 const lines = ref([]);
 const remark = ref("");
 const target = ref("stock");
