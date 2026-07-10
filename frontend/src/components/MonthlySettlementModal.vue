@@ -1,7 +1,7 @@
 <template>
   <div class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
     <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden">
-      <header class="flex items-center gap-2.5 px-5 py-3.5 border-b border-line-hair">
+      <header class="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-line-hair">
         <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#eef2ff"><Icon name="scale" :size="16" color="#4338ca" /></span>
         <div class="min-w-0">
           <div class="text-[14px] font-bold">{{ L("Monthly settlement","تسوية شهرية","Règlement mensuel") }}</div>
@@ -61,7 +61,7 @@
         <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
       </div>
 
-      <footer class="flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30">
+      <footer class="shrink-0 flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30">
         <button @click="$emit('close')" class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
         <button @click="post" :disabled="busy || !canPost" class="ms-auto h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
           {{ busy ? L("Posting…","جارٍ…","…") : L("Post settlement","ترحيل التسوية","Passer") }}
