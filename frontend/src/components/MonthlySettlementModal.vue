@@ -34,7 +34,7 @@
           <template v-else>
             <div class="text-[11px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Sibling accounts to sweep","الحسابات الشقيقة","Comptes à regrouper") }}</div>
             <div v-if="!data.siblings.length" class="text-[12px] text-ink-muted py-3 text-center">{{ L("No sibling accounts under the same group.","لا حسابات شقيقة تحت نفس المجموعة.","Aucun compte frère.") }}</div>
-            <div v-else class="rounded-[10px] border border-line-hair overflow-hidden">
+            <div v-else class="rounded-[10px] border border-line-hair overflow-y-auto max-h-[38vh]">
               <table class="w-full text-[12px]">
                 <tr v-for="s in data.siblings" :key="s.name" class="border-b border-line-hair last:border-0" :class="s.balance ? '' : 'opacity-50'">
                   <td class="ps-3 py-2 w-8"><input type="checkbox" :value="s.name" v-model="selected" :disabled="!s.balance || !s.same_ccy" class="accent-indigo-600 w-4 h-4 align-middle" /></td>
