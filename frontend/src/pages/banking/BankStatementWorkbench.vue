@@ -46,14 +46,14 @@
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
               <th v-if="canWrite" class="ps-4 py-2 w-8"><input type="checkbox" :checked="allPendingSel" class="accent-emerald-700" @change="toggleAllPending" /></th>
-              <th class="px-4 py-2 text-start">{{ L("Date","التاريخ","Date") }}</th>
-              <th class="px-3 py-2 text-start">{{ L("Description","الوصف","Description") }}</th>
-              <th class="px-3 py-2 text-end">{{ L("Amount","المبلغ","Montant") }}</th>
+              <th class="px-4 py-2 text-start cursor-pointer select-none hover:text-ink-2" @click="toggleSort('date')">{{ L("Date","التاريخ","Date") }}<span v-if="sortKey==='date'" class="text-accent-dark">{{ sortDir===1 ? ' ↑' : ' ↓' }}</span></th>
+              <th class="px-3 py-2 text-start cursor-pointer select-none hover:text-ink-2" @click="toggleSort('description')">{{ L("Description","الوصف","Description") }}<span v-if="sortKey==='description'" class="text-accent-dark">{{ sortDir===1 ? ' ↑' : ' ↓' }}</span></th>
+              <th class="px-3 py-2 text-end cursor-pointer select-none hover:text-ink-2" @click="toggleSort('amount')">{{ L("Amount","المبلغ","Montant") }}<span v-if="sortKey==='amount'" class="text-accent-dark">{{ sortDir===1 ? ' ↑' : ' ↓' }}</span></th>
               <th class="px-3 py-2 text-start">{{ L("Status","الحالة","Statut") }}</th>
               <th class="px-4 py-2 text-end">{{ L("Action","الإجراء","Action") }}</th>
             </tr></thead>
             <tbody>
-              <tr v-for="l in visible" :key="l.i" class="border-t border-line-hair" :class="[l.status==='pending' ? 'hover:bg-amber-50/40' : 'hover:bg-app-warm/30', sel.includes(l.i) ? 'bg-emerald-50/40' : '']">
+              <tr v-for="l in sortedVisible" :key="l.i" class="border-t border-line-hair" :class="[l.status==='pending' ? 'hover:bg-amber-50/40' : 'hover:bg-app-warm/30', sel.includes(l.i) ? 'bg-emerald-50/40' : '']">
                 <td v-if="canWrite" class="ps-4 py-2 w-8"><input v-if="l.status==='pending'" type="checkbox" :checked="sel.includes(l.i)" class="accent-emerald-700" @change="toggleSel(l)" /></td>
                 <td class="px-4 py-2 whitespace-nowrap text-ink-3">{{ l.date }}</td>
                 <td class="px-3 py-2 max-w-[340px]"><div class="truncate" :title="l.description">{{ l.description || "—" }}</div>
@@ -245,6 +245,27 @@ const FILTERS = [
   { k: "ignored", label: () => L("Ignored", "متجاهَل", "Ignoré"), n: () => lines.value.filter((l) => l.status === "ignored").length },
 ];
 const visible = computed(() => (filter.value === "all" ? lines.value : lines.value.filter((l) => l.status === filter.value)));
+
+// Click a column header to sort the current view (a 3rd click clears back to
+// the statement's original order). Sorting the description groups similar
+// transfers together — much easier to reconcile in bulk.
+const sortKey = ref(null);
+const sortDir = ref(1);
+function toggleSort(k) {
+  if (sortKey.value === k) {
+    if (sortDir.value === 1) sortDir.value = -1;
+    else { sortKey.value = null; sortDir.value = 1; }
+  } else { sortKey.value = k; sortDir.value = 1; }
+}
+const sortedVisible = computed(() => {
+  if (!sortKey.value) return visible.value;
+  const k = sortKey.value, dir = sortDir.value;
+  return [...visible.value].sort((a, b) => {
+    if (k === "amount") return ((Number(a.amount) || 0) - (Number(b.amount) || 0)) * dir;
+    const va = String(a[k] ?? "").toLowerCase(), vb = String(b[k] ?? "").toLowerCase();
+    return va < vb ? -dir : va > vb ? dir : 0;
+  });
+});
 
 // ---- bulk selection (register a batch of same-direction lines at once) ----
 const sel = ref([]);
