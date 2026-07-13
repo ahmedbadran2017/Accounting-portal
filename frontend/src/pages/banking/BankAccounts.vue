@@ -191,10 +191,13 @@ const tt = useTableTools(visible, cols, { storeKey: "bankaccts", keyField: "name
 
 // Cards read ONLY operating accounts, summed in the company base currency so a
 // TRY-based entity (Maslak) doesn't show 0 while all its cash is TRY.
+// Base value per account = native balance converted at today's rate (book_base_live);
+// the historical GL base (book_base) is corrupt on FX accounts, so prefer live.
+const bbase = (a) => Number(a.book_base_live ?? a.book_base) || 0;
 const ins = computed(() => {
   const op = accounts.value.filter((a) => !a.under_audit);
-  const sum = (f) => op.reduce((s, a) => s + (f(a) ? Number(a.book_base) || 0 : 0), 0);
-  const od = op.filter((a) => Number(a.book_base) < 0);
+  const sum = (f) => op.reduce((s, a) => s + (f(a) ? bbase(a) : 0), 0);
+  const od = op.filter((a) => bbase(a) < 0);
   const parked = accounts.value.filter((a) => a.under_audit);
   return {
     position: sum(() => true),
@@ -203,8 +206,8 @@ const ins = computed(() => {
     uncleared: op.reduce((s, a) => s + (Number(a.uncleared_v) || 0), 0),
     uncleared_n: op.reduce((s, a) => s + (Number(a.uncleared_n) || 0), 0),
     overdraft_n: od.length,
-    overdraft_v: od.reduce((s, a) => s + (Number(a.book_base) || 0), 0),
-    parked_v: parked.reduce((s, a) => s + (Number(a.book_base) || 0), 0),
+    overdraft_v: od.reduce((s, a) => s + bbase(a), 0),
+    parked_v: parked.reduce((s, a) => s + bbase(a), 0),
   };
 });
 

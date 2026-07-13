@@ -275,16 +275,28 @@ def get_cod_cockpit(company=None, from_date=None, to_date=None):
     # number is readable). The #1 CFO number; a negative Cash balance is a flag.
     from accounting_portal.api.bank_status import operating_names_clause
     _opc, _ope = operating_names_clause(target, "acc")
+    # Convert each account's NATIVE balance at today's FX rate (the historical GL
+    # base legs are corrupt on FX accounts) — grouped by type + currency.
     cashb = frappe.db.sql(
         f"""
-        SELECT acc.account_type AS t, SUM(gl.debit - gl.credit) AS bal
+        SELECT acc.account_type AS t, IFNULL(acc.account_currency, %s) AS ccy,
+               SUM(CASE WHEN IFNULL(acc.account_currency, %s) != %s
+                     THEN gl.debit_in_account_currency - gl.credit_in_account_currency
+                     ELSE gl.debit - gl.credit END) AS book
         FROM `tabGL Entry` gl JOIN `tabAccount` acc ON acc.name = gl.account
         WHERE gl.is_cancelled = 0 AND gl.company = %s AND acc.account_type IN ('Bank', 'Cash'){_opc}
-        GROUP BY acc.account_type
+        GROUP BY acc.account_type, ccy
         """,
-        (target,) + _ope, as_dict=True)
-    bank_balance = next((flt(r.bal) for r in cashb if r.t == "Bank"), 0.0)
-    cash_balance = next((flt(r.bal) for r in cashb if r.t == "Cash"), 0.0)
+        (currency, currency, currency, target) + _ope, as_dict=True)
+    from accounting_portal.api.expenses import _fx_rate
+    _rc = {currency: 1.0}
+
+    def _lr(c):
+        if c not in _rc:
+            _rc[c] = flt(_fx_rate(c, currency, nowdate())) or 0.0
+        return _rc[c]
+    bank_balance = sum(flt(r.book) * _lr(r.ccy) for r in cashb if r.t == "Bank")
+    cash_balance = sum(flt(r.book) * _lr(r.ccy) for r in cashb if r.t == "Cash")
 
     # COD pipeline funnel + the collection gap (the heart of the control tower).
     # Reuses the cached cod_summary / cohort so this stays cheap.

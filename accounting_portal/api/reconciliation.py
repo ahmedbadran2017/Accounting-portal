@@ -348,6 +348,17 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
     # the clean operating cash separately (a view classification, not a GL move).
     from accounting_portal.api.bank_status import under_audit_set
     ua = under_audit_set(target)
+    # Live base-currency value: convert each account's NATIVE balance at today's FX
+    # rate, instead of summing the historical GL base legs — those are corrupt on
+    # the FX accounts (booked at inconsistent rates), which threw the cash cards.
+    from accounting_portal.api.expenses import _fx_rate
+    _fx_today = nowdate()
+    _rate_cache = {base_ccy: 1.0}
+
+    def _live_rate(ccy):
+        if ccy not in _rate_cache:
+            _rate_cache[ccy] = flt(_fx_rate(ccy, base_ccy, _fx_today)) or 0.0
+        return _rate_cache[ccy]
     for r in accts:
         dp = {"c": target, "a": r.name}
         if from_date:
@@ -376,6 +387,9 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
         r["closing"] = round(op + i - o) if period else flt(r["book"])
         r["period"] = period
         r["book_base"] = flt(r.get("book_base"))
+        # book (native) × today's rate; fall back to the GL base only if no rate.
+        _lr = _live_rate(r.ccy)
+        r["book_base_live"] = round(flt(r["book"]) * _lr, 2) if _lr else flt(r.get("book_base"))
         r["base_ccy"] = base_ccy
         r["under_audit"] = 1 if r.name in ua else 0
     frappe.cache().set_value(ck, accts, expires_in_sec=180)
