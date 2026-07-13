@@ -12,6 +12,9 @@
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
         <input v-model.trim="st.search.value" :placeholder="L('Journal / remark / type…', 'قيد / بيان…', 'Écriture / libellé…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
       </div>
+      <button v-if="canWrite" class="inline-flex items-center gap-1.5 h-[33px] px-3 rounded-[9px] text-[12px] font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100" @click="showReclass = true">
+        <Icon name="refresh" :size="13" color="#4338ca" />{{ L("Reclassify", "إعادة تصنيف", "Reclasser") }}
+      </button>
       <button class="inline-flex items-center gap-1.5 h-[33px] px-3 rounded-[9px] text-white text-[12px] font-bold" style="background:linear-gradient(135deg,#0f766e,#0b5c4f)" @click="showForm = true">
         <Icon name="plus" :size="13" />{{ L("New JE", "قيد جديد", "Nouvelle écriture") }}
       </button>
@@ -48,6 +51,7 @@
     <ServerPager :t="st" />
     </div>
     <JournalEntryForm v-if="showForm" @close="showForm = false" @posted="onPosted" />
+    <ReclassifyModal v-if="showReclass" @close="showReclass = false" @posted="onPosted" />
   </div>
 </template>
 
@@ -59,6 +63,8 @@ import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import JournalEntryForm from "@/components/JournalEntryForm.vue";
+import ReclassifyModal from "@/components/ReclassifyModal.vue";
+import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
@@ -91,8 +97,11 @@ const cols = [
   { key: "status", label: L("Status", "الحالة", "Statut"), align: "s" },
 ];
 
+const { can } = useAuth();
+const canWrite = computed(() => can("post_entries"));
 const isLive = ref(null);
 const showForm = ref(false);
+const showReclass = ref(false);
 const df = useDateFilter("journals", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.accountant.list_journals", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
