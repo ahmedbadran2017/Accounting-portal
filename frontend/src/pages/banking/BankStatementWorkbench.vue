@@ -361,7 +361,12 @@ async function rematch() {
   try {
     const res = await api.call("accounting_portal.api.bank_workbench.rematch_import",
       { company: currentCompany(), name: d.value.name });
-    toast.success(L(`${res.newly_matched} newly matched`, `اتطابق ${res.newly_matched} جديد`, `${res.newly_matched} liés`));
+    const n = res.newly_matched || 0;
+    if (n > 0) toast.success(L(`${n} newly matched`, `اتطابق ${n} جديد`, `${n} liés`));
+    else toast.info(L(
+      "No new matches — these lines aren't in the books yet. Use “Register” to book them.",
+      "لا مطابقات جديدة — السطور دي مش في الدفاتر بعد. استخدم «Register» لتسجيلها.",
+      "Aucune correspondance — utilisez « Register » pour les enregistrer."));
     await load();
   } catch (e) { toast.error(String(e?.message || e).slice(0, 180)); }
   finally { rematching.value = false; }
