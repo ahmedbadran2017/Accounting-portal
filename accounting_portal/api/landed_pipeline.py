@@ -266,6 +266,48 @@ def _del_draft_poster(action):
     return {"voucher_type": "Landed Cost Voucher", "voucher_no": p["name"], "result": "draft deleted"}
 
 
+CANCEL_LCV_ACTION = "Un-capitalise landed cost"
+
+
+@frappe.whitelist()
+def cancel_lcv(company=None, name=None, notes=None):
+    """Cancel a SUBMITTED Landed Cost Voucher — reverses its GL (Dr charge acct /
+    Cr stock) and reposts every later stock move so item valuation and COGS drop
+    back to pre-LCV. Use to un-capitalise the pre-portal LCVs that charged P&L
+    (770.07) accounts, then rebuild the shipment cleanly through the cockpit onto
+    153.03. Gated/audited. Not auto-revertible — rebuild via the cockpit to redo."""
+    assert_can_write()
+    target = _target(company)
+    doc = frappe.get_doc("Landed Cost Voucher", name)
+    if doc.company != target:
+        frappe.throw("Voucher is not in this company")
+    if doc.docstatus != 1:
+        frappe.throw(f"{name} is not a submitted voucher")
+    return _actions.execute(
+        CANCEL_LCV_ACTION, target, f"lcvcancel:{name}",
+        payload={"name": name}, amount=flt(doc.total_taxes_and_charges),
+        reference_doctype="Landed Cost Voucher", reference_name=name,
+        notes=notes or f"Un-capitalise (cancel) landed cost {name} ({flt(doc.total_taxes_and_charges):,.0f}) — rebuild via cockpit")
+
+
+def _cancel_lcv_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    doc = frappe.get_doc("Landed Cost Voucher", p["name"])
+    if doc.docstatus == 1:
+        doc.cancel()
+    return {"voucher_type": "Landed Cost Voucher", "voucher_no": p["name"],
+            "result": "cancelled — inventory & COGS reposted back to pre-LCV"}
+
+
+def _cancel_lcv_reverter(action):
+    frappe.throw("Un-capitalising an LCV can't be auto-reversed — rebuild the shipment "
+                 "in the Landed Cockpit to re-capitalise the cost onto 153.03.")
+
+
+_actions.register_poster(CANCEL_LCV_ACTION, _cancel_lcv_poster)
+_actions.register_reverter(CANCEL_LCV_ACTION, _cancel_lcv_reverter)
+
+
 def _load_receipt_items(receipts):
     return frappe.db.sql(
         """SELECT pri.parent receipt, pri.name detail, pri.item_code, pri.description,

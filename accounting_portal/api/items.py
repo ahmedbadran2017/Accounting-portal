@@ -287,11 +287,17 @@ def list_landed_costs(company=None, limit=100):
            ORDER BY modified DESC LIMIT %s""", (companies[0], limit), as_dict=True)
     for r in rows:
         split = {"freight": 0, "customs": 0, "duties": 0, "insurance": 0, "other": 0}
+        on_pl = False
         for t in frappe.db.sql(
-                "SELECT description, base_amount FROM `tabLanded Cost Taxes and Charges` WHERE parent=%s",
+                "SELECT description, base_amount, expense_account FROM `tabLanded Cost Taxes and Charges` WHERE parent=%s",
                 (r["name"],), as_dict=True):
             split[_classify(t.description)] += float(t.base_amount or 0)
+            if frappe.get_cached_value("Account", t.expense_account, "root_type") == "Expense":
+                on_pl = True
         r["freight"] = round(split["freight"]); r["customs"] = round(split["customs"]); r["duties"] = round(split["duties"])
+        # on a P&L (770.07) account → distorts the P&L; should be un-capitalised and
+        # rebuilt onto the 153.03 clearing account via the cockpit.
+        r["on_pl"] = on_pl
         r["status"] = "Posted" if r["docstatus"] == 1 else ("Cancelled" if r["docstatus"] == 2 else "Draft")
         r["shipment"] = frappe.db.get_value(
             "Landed Cost Purchase Receipt", {"parent": r["name"]}, "receipt_document") or "—"

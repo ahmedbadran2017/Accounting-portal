@@ -64,6 +64,39 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Posted LCVs — review / un-capitalise the ones on P&L accounts -->
+      <div v-if="posted.length" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair">
+          <h3 class="text-[13px] font-bold">{{ L("Posted landed cost","تكاليف مُرحّلة","Coûts capitalisés") }}</h3>
+          <span v-if="onPlCount" class="text-[10.5px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-chip px-2 py-0.5">{{ onPlCount }} {{ L("on P&L → un-capitalise & rebuild","على P&L → ألغِ وأعد البناء","sur P&L") }}</span>
+        </div>
+        <table class="w-full text-[12px]">
+          <thead class="bg-app-warm/40 text-[10px] uppercase text-ink-muted">
+            <tr><th class="text-start px-2.5 py-1.5">{{ L("Voucher","السند","Bon") }}</th><th class="text-start px-2 py-1.5">{{ L("Shipment","الشحنة","Expédition") }}</th><th class="text-end px-2 py-1.5">{{ L("Total","الإجمالي","Total") }}</th><th class="px-2 py-1.5">{{ L("Account","الحساب","Compte") }}</th><th class="px-3 py-1.5"></th></tr>
+          </thead>
+          <tbody class="divide-y divide-line-hair">
+            <tr v-for="v in posted" :key="v.name" :class="v.on_pl ? 'bg-amber-50/40' : ''">
+              <td class="px-2.5 py-1.5 font-medium">{{ v.name }} <span class="text-ink-muted">· {{ v.basis }}</span></td>
+              <td class="px-2 py-1.5 truncate max-w-[150px] text-ink-3">{{ v.shipment }}</td>
+              <td class="px-2 py-1.5 text-end tnum">{{ fmt0(v.total) }}</td>
+              <td class="px-2 py-1.5 text-center">
+                <span v-if="v.on_pl" class="text-[10px] font-bold text-amber-700">770.07 (P&L)</span>
+                <span v-else class="text-[10px] font-bold text-emerald-700">153.03 ✓</span>
+              </td>
+              <td class="px-3 py-1.5 text-end">
+                <button v-if="canWrite && v.on_pl" @click="uncapitalise(v)" :disabled="busy===v.name"
+                        class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-rose-600 border border-rose-200 hover:bg-rose-50 disabled:opacity-40">
+                  {{ busy===v.name ? '…' : L('Un-capitalise','ألغِ الرسملة','Décapitaliser') }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-if="onPlCount" class="px-4 py-2 text-[10.5px] text-ink-muted border-t border-line-hair">
+          {{ L("After un-capitalising, kick the repost queue (Valuation → reposts) so stock & COGS revert, then rebuild the shipment above onto 153.03.","بعد الإلغاء، كِك الـrepost queue (Valuation) عشان المخزون وCOGS يرجعوا، وبعدين أعد بناء الشحنة على 153.03.","Relancer les reposts puis reconstruire.") }}
+        </div>
+      </div>
     </template>
 
     <LandedCostAllocModal v-if="modal" :prefill="modal" @close="modal=null" @posted="onPosted" />
@@ -90,26 +123,47 @@ const toast = useToast();
 const ov = ref({});
 const recs = ref([]);
 const inbox = ref([]);
+const posted = ref([]);
 const sel = ref([]);
 const modal = ref(null);
 const loading = ref(true);
+const busy = ref("");
 const ccy = ref("MAD");
 const clearingOk = computed(() => Math.abs(Number(ov.value.clearing_balance || 0)) < 1);
+const onPlCount = computed(() => posted.value.filter((v) => v.on_pl).length);
 
 async function load() {
   loading.value = true;
   try {
     const c = currentCompany();
-    const [o, u, ib] = await Promise.all([
+    const [o, u, ib, lc] = await Promise.all([
       api.call("accounting_portal.api.landed_pipeline.pipeline_overview", { company: c }),
       api.call("accounting_portal.api.landed_pipeline.receipts_uncovered", { company: c, limit: 100 }),
       api.call("accounting_portal.api.landed_pipeline.charge_inbox", { company: c }),
+      api.call("accounting_portal.api.items.list_landed_costs", { company: c, limit: 200 }),
     ]);
     ov.value = o || {}; recs.value = u || []; inbox.value = ib || [];
+    posted.value = (lc || []).filter((v) => v.status === "Posted");
   } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); }
   finally { loading.value = false; }
 }
 load();
+
+async function uncapitalise(v) {
+  if (busy.value) return;
+  if (!window.confirm(L(
+    `Un-capitalise ${v.name} (${fmt0(v.total)})? Reverses inventory & COGS. Then kick the repost queue and rebuild the shipment onto 153.03.`,
+    `إلغاء رسملة ${v.name} (${fmt0(v.total)})؟ بيعكس المخزون وCOGS. بعدها كِك الـrepost وأعد البناء على 153.03.`,
+    `Décapitaliser ${v.name} ?`))) return;
+  busy.value = v.name;
+  try {
+    const r = await api.call("accounting_portal.api.landed_pipeline.cancel_lcv", { company: currentCompany(), name: v.name });
+    if (r && r.status === "Proposed") toast.info(L("Sent for approval", "اتبعت للموافقة", "Envoyé"));
+    else toast.success(L("Un-capitalised — kick reposts, then rebuild", "اتلغت الرسملة — كِك الـrepost وأعد البناء", "Décapitalisé"));
+    load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 200)); }
+  finally { busy.value = ""; }
+}
 
 function toggle(name) { const i = sel.value.indexOf(name); if (i >= 0) sel.value.splice(i, 1); else sel.value.push(name); }
 function toggleAll() { sel.value = sel.value.length === recs.value.length ? [] : recs.value.map((r) => r.name); }
