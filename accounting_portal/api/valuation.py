@@ -250,6 +250,97 @@ _actions.register_poster(FIX_ACTION, _valfix_poster)
 _actions.register_reverter(FIX_ACTION, _valfix_reverter)
 
 
+REVAL_ACTION = "Revalue inventory (bulk)"
+
+
+def _reval_rows(target, bins, date):
+    """Resolve the requested bins to reconciliation rows at the FX-corrected
+    landed benchmark, carrying each bin's qty AS OF `date`. Skips bins with no
+    benchmark, no stock on that date, or already at the right rate."""
+    item_codes = list({b["item_code"] for b in bins})
+    bench = _benchmarks(target, item_codes)
+    rows, impact = [], 0.0
+    for b in bins:
+        ic, wh = b.get("item_code"), b.get("warehouse")
+        bm = bench.get(ic)
+        if not bm or bm <= 0:
+            continue
+        q = _qty_asof(ic, wh, date)
+        if q <= 0:
+            continue
+        old = flt(frappe.db.get_value("Bin", {"item_code": ic, "warehouse": wh}, "valuation_rate"))
+        if abs(bm - old) < 0.01:
+            continue
+        delta = round((bm - old) * q, 2)
+        rows.append({"item_code": ic, "warehouse": wh, "qty": q,
+                     "old_rate": round(old, 2), "rate": bm, "delta": delta})
+        impact += abs(delta)
+    return rows, round(impact, 2)
+
+
+@frappe.whitelist()
+def revalue_bins(company=None, bins=None, effective_date=None, dry_run=1, notes=None):
+    """The bulk revaluation loop the single-bin fix was missing: heal MANY bins to
+    their FX-corrected landed benchmark in ONE back-dated Stock Reconciliation, so
+    the books' inventory value (and later COGS via repost) is corrected in a single
+    voucher — not item master only, and not one voucher per SKU. dry_run=1 returns
+    the preview (per bin old→new, total impact) and posts nothing. Gated on the
+    total absolute impact; revert cancels the reconciliation."""
+    assert_can_write()
+    target = _target(company)
+    bins = json.loads(bins) if isinstance(bins, str) else (bins or [])
+    if not (target and bins):
+        frappe.throw("company and bins are required")
+    date = str(effective_date or _POLICY_FLOOR)[:10]
+    if date < _POLICY_FLOOR:
+        date = _POLICY_FLOOR
+    if date > nowdate():
+        frappe.throw("Effective date cannot be in the future")
+    rows, impact = _reval_rows(target, bins, date)
+    if not rows:
+        frappe.throw("Nothing to revalue (no benchmark, no stock on that date, or already correct)")
+    if int(dry_run or 0):
+        return {"dry_run": 1, "date": date, "rows": rows, "n": len(rows), "impact": impact}
+    key = "reval:" + frappe.generate_hash(f"{target}:{date}:{sorted((r['item_code'], r['warehouse']) for r in rows)}:{impact}", 14)
+    return _actions.execute(
+        REVAL_ACTION, target, key,
+        payload={"date": date, "rows": [{"item_code": r["item_code"], "warehouse": r["warehouse"], "rate": r["rate"]} for r in rows]},
+        amount=impact,
+        notes=notes or f"Bulk revaluation — {len(rows)} bins, impact {impact:,.0f} ({date})")
+
+
+def _revalue_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    company = action.company
+    date = p["date"]
+    # Re-resolve qty AS OF the effective date at post time (approval may lag) and
+    # drop any bin now empty — a back-dated reco with today's qty rewrites history.
+    items = []
+    for r in p["rows"]:
+        q = _qty_asof(r["item_code"], r["warehouse"], date)
+        if q > 0:
+            items.append({"item_code": r["item_code"], "warehouse": r["warehouse"],
+                          "qty": q, "valuation_rate": flt(r["rate"])})
+    if not items:
+        frappe.throw("No stock on the effective date for any selected bin — re-propose with a later date")
+    doc = frappe.get_doc({
+        "doctype": "Stock Reconciliation", "company": company,
+        "purpose": "Stock Reconciliation",
+        "posting_date": date, "posting_time": "23:59:00", "set_posting_time": 1,
+        "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
+        "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
+        "items": items,
+    })
+    doc.insert(ignore_permissions=True)
+    doc.submit()
+    return {"voucher_type": "Stock Reconciliation", "voucher_no": doc.name,
+            "result": f"revalued {len(items)} bins @ {date}"}
+
+
+_actions.register_poster(REVAL_ACTION, _revalue_poster)
+_actions.register_reverter(REVAL_ACTION, _valfix_reverter)
+
+
 @frappe.whitelist()
 def repost_queue(company=None):
     """Repost Item Valuation jobs — the engine that heals history. Back-dated
