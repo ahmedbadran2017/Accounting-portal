@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3.5">
     <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-[11px] text-ink-muted">{{ L("Charge → shipment → capitalised into product cost. Posting credits the same expense account, so the P&L charge zeroes out and later deliveries repost with true COGS.","مصروف ← شحنة ← يترسمل في تكلفة المنتج. الترحيل بيصفّر حساب المصروف في الأرباح والخسائر ويعيد حساب COGS للتسليمات اللاحقة.","Charge → expédition → capitalisé.") }}</span>
+      <span class="text-[11px] text-ink-muted">{{ L("Charge → shipment → capitalised into product cost. Charges credit the 153.03 clearing account (Dr stock / Cr 153.03), so the clearing account nets to zero, the P&L stays clean, and later deliveries repost with true COGS.","مصروف ← شحنة ← يترسمل في تكلفة المنتج. الترحيل بيقفل على حساب 153.03 الوسيط، فيتصفّى صفر والأرباح والخسائر تفضل نظيفة، وإعادة حساب COGS للتسليمات اللاحقة.","Charge → expédition → capitalisé via 153.03.") }}</span>
       <button type="button" class="ms-auto text-[11px] font-semibold text-accent-dark hover:underline" @click="load">{{ L("Refresh","تحديث","Actualiser") }}</button>
     </div>
 
@@ -143,14 +143,21 @@
         </select>
         <div class="ms-auto inline-flex items-center gap-2">
           <button type="button" class="h-8 px-3.5 rounded-chip text-[12px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-40" :disabled="!canPreview || previewing" @click="doPreview">{{ previewing ? '…' : L("Preview","عاين","Aperçu") }}</button>
-          <button type="button" class="h-8 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-40" :disabled="!preview || posting || !canWrite" @click="doPost">{{ posting ? '…' : L("Post landed cost","رحّل التحميل","Valider") }}</button>
+          <button type="button" class="h-8 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-40" :disabled="!preview || posting || !canWrite || preview.blocked" @click="doPost">{{ posting ? '…' : L("Post landed cost","رحّل التحميل","Valider") }}</button>
         </div>
       </div>
       <div v-if="preview" class="px-4 py-2 border-b border-line-hair text-[11px] text-ink-3 flex items-center gap-3 flex-wrap" style="background:#f0fdf4">
         <span class="font-bold text-emerald-700">{{ money(preview.total_charge) }} {{ L("over","على","sur") }} {{ preview.lines_n }} {{ L("item lines","سطر","lignes") }}</span>
-        <span>· {{ preview.later_moves_to_repost.toLocaleString() }} {{ L("later stock moves will be reposted (COGS heals)","حركة لاحقة هيتعاد حسابها (الـ COGS يتصلح)","mouvements recalculés") }}</span>
-        <span v-if="preview.weightless_n" class="text-amber-700 font-semibold">· ⚠ {{ preview.weightless_n }} {{ L("lines have no weight → get 0 share","سطر بدون وزن ← نصيبه صفر","lignes sans poids") }}</span>
-        <span v-if="basis==='Weight' && weightChargeCount > 1" class="text-ink-3">· {{ L(`posts as ${weightChargeCount} vouchers (one per charge — ERPNext rule)`, `هيترحّل ${weightChargeCount} سندات (سند لكل مصروف — قاعدة ERPNext)`, `${weightChargeCount} bons`) }}</span>
+        <span v-for="(v,b) in preview.by_basis" :key="b" class="rounded-chip bg-white border border-line px-2 py-0.5">{{ b }} · {{ money(v) }}</span>
+        <span>· {{ (preview.later_moves_to_repost||0).toLocaleString() }} {{ L("later stock moves reposted (COGS heals)","حركة لاحقة هيتعاد حسابها (الـ COGS يتصلح)","mouvements recalculés") }}</span>
+      </div>
+      <!-- guardrails: block Post on FX out of band / missing weight; warn on legacy P&L -->
+      <div v-if="preview && (preview.blocked || (preview.legacy_pl_charges && preview.legacy_pl_charges.length))"
+           class="px-4 py-2 border-b border-line-hair text-[11px] space-y-0.5"
+           :class="preview.blocked ? 'text-rose-700 bg-rose-50' : 'text-amber-700 bg-amber-50'">
+        <div v-for="(f,i) in preview.fx_offenders" :key="'fx'+i" class="flex items-start gap-1.5"><Icon name="alert" :size="11" color="#e11d48" class="mt-px" />{{ L("FX out of band — fix the purchase rate first","سعر صرف خارج النطاق — صلّح سعر الشراء الأول","FX hors bande") }}: {{ f.receipt }} {{ f.currency }}@{{ f.rate }}</div>
+        <div v-if="preview.needs_weight" class="flex items-start gap-1.5"><Icon name="alert" :size="11" color="#e11d48" class="mt-px" />{{ L("Freight by weight but items have no weight — fill weights first (Costing → fix weights).","شحن بالوزن بس الأصناف بلا وزن — املأ الأوزان الأول.","Poids manquant.") }}</div>
+        <div v-if="preview.legacy_pl_charges && preview.legacy_pl_charges.length" class="flex items-start gap-1.5"><Icon name="alert" :size="11" color="#b45309" class="mt-px" />{{ L("Some charges sit on a P&L account — capitalises OK but re-point them to 153.03 to keep the P&L clean.","بعض التكاليف على حساب مصروف — يفضل تحويلها لـ153.03.","Charges sur compte P&L.") }}</div>
       </div>
       <div v-if="preview" class="overflow-x-auto max-h-[300px] overflow-y-auto">
         <table class="w-full text-[12px]">
@@ -176,7 +183,7 @@
       </div>
       <div v-else class="px-4 py-6 text-center text-[11.5px] text-ink-muted">{{ L("Pick receipts + charges, then Preview — nothing posts until step 4.","اختار استلامات ومصاريف وبعدين عاين — مفيش ترحيل قبل الخطوة ٤.","Choisissez puis aperçu.") }}</div>
       <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
-        <Icon name="alert" :size="11" color="#9a8f86" />{{ L("Posting: Dr stock / Cr the charge's own expense account — audited, gated over 10K, revert = cancel the voucher.","الترحيل: مدين المخزون / دائن نفس حساب المصروف — مدقّق، فوق 10K موافقة، والتراجع = إلغاء السند.","Validation auditée & réversible.") }}
+        <Icon name="alert" :size="11" color="#9a8f86" />{{ L("Posting: Dr stock / Cr 153.03 clearing — one voucher per basis (freight→weight, customs→value). Audited, gated over 10K, revert = cancel the voucher(s).","الترحيل: مدين المخزون / دائن 153.03 الوسيط — سند لكل أساس (شحن→وزن، جمرك→قيمة). مدقّق، فوق 10K موافقة، والتراجع = إلغاء السند.","Dr stock / Cr 153.03 — audité & réversible.") }}
       </div>
     </div>
 

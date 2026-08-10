@@ -7,8 +7,12 @@ so item valuation (and every Delivery Note's COGS) misses the landed component.
 
 Flow: charge inbox (booked charges not yet capitalised) → shipment builder
 (pick receipts + charges, preview the per-item allocation) → post via the
-audited gateway (LCV: Dr stock / Cr the same expense account — the P&L charge
-zeroes out and the cost is absorbed; ERPNext reposts later SLEs so COGS heals)
+audited gateway. Landed charges are billed to the 153.03 "Expenses Included In
+Valuation" clearing account (a balance-sheet holding account, NOT a P&L 770.07
+account); the LCV posts Dr stock / Cr 153.03 so 153.03 nets back to zero and the
+cost lands in inventory — never in the P&L until it sells as COGS. Each charge is
+allocated by its own basis (freight→weight, customs→value, agent→qty), posting
+one voucher per basis-group. ERPNext reposts later SLEs so COGS heals.
 → draft triage for the LCVs the team already started.
 """
 import json
@@ -23,12 +27,50 @@ from accounting_portal.api.landed_engine import _INBOUND
 LCV_ACTION = "Post landed cost"
 _FROM = "2026-01-01"  # working window agreed with the CFO — 2025 stays in P&L
 
+# A charge's natural distribution basis, keyed by category. Freight/handling ride
+# on weight; duties/insurance scale with value; per-piece fees with quantity.
+_CATEGORY_BASIS = {
+    "freight": "Weight", "sea_freight": "Weight", "air_freight": "Weight",
+    "handling": "Weight", "haulage": "Weight", "demurrage": "Weight", "forklift": "Weight",
+    "customs": "Amount", "duty": "Amount", "insurance": "Amount", "vat": "Amount",
+    "agent": "Qty", "clearance": "Qty", "stamp": "Qty",
+}
+# Sane conversion-rate band per source currency → MAD. A receipt booked outside
+# the band (e.g. USD@45 or the TRY ×1e6 typos) is corrupt; block capitalisation.
+_FX_BAND = {"USD": (8.0, 12.0), "TRY": (0.15, 0.45), "EUR": (9.0, 13.0), "MAD": (1.0, 1.0)}
+
 
 def _target(company):
     companies = resolve_companies(company)
     if not companies:
         return None
     return company if (company and company in companies) else companies[0]
+
+
+def _valuation_clearing(company):
+    """The balance-sheet clearing account landed charges must sit on
+    (Company → Expenses Included In Valuation, e.g. 153.03). Landed cost is a
+    pending inventory cost, never a period expense — parking it here (not a P&L
+    770.07 account) keeps the P&L clean and lets the account net back to zero."""
+    acc = frappe.get_cached_value("Company", company, "expenses_included_in_valuation")
+    if not acc:
+        frappe.throw("Set the company's 'Expenses Included In Valuation' account (e.g. 153.03) first")
+    return acc
+
+
+def _account_root(account):
+    return frappe.get_cached_value("Account", account, "root_type") if account else None
+
+
+def _fx_offenders(receipts):
+    """Receipts whose conversion_rate is outside the sane band for their currency."""
+    bad = []
+    for r in receipts:
+        cur, rate = frappe.db.get_value("Purchase Receipt", r, ["currency", "conversion_rate"])
+        lo, hi = _FX_BAND.get(cur, (0, 1e9))
+        if flt(rate) < lo or flt(rate) > hi:
+            bad.append({"receipt": r, "currency": cur, "rate": flt(rate), "band": [lo, hi]})
+    return bad
 
 
 def _used_charge_sources(target):
@@ -66,10 +108,19 @@ def pipeline_overview(company=None):
         """SELECT COUNT(*), SUM(total_taxes_and_charges) FROM `tabLanded Cost Voucher`
            WHERE company=%s AND docstatus=1 AND posting_date>=%s""", (target, _FROM))[0]
     inbox = charge_inbox(company=target)
+    # 153.03 clearing: landed charges billed but not yet capitalised. Trends to ~0
+    # when every inbound cost has flowed onto inventory via an LCV.
+    clearing_acc = frappe.get_cached_value("Company", target, "expenses_included_in_valuation")
+    clearing_bal = flt(frappe.db.sql(
+        """SELECT SUM(debit-credit) FROM `tabGL Entry`
+           WHERE company=%s AND account=%s AND is_cancelled=0""", (target, clearing_acc))[0][0]) if clearing_acc else 0.0
+    uncovered_n = int(uncovered[0] or 0)
     return {"company": target, "from_date": _FROM,
-            "uncovered_receipts": {"n": int(uncovered[0] or 0), "value": flt(uncovered[1])},
+            "uncovered_receipts": {"n": uncovered_n, "value": flt(uncovered[1])},
             "drafts": {"n": int(drafts[0] or 0), "value": flt(drafts[1])},
             "posted": {"n": int(posted[0] or 0), "value": flt(posted[1])},
+            "clearing_account": clearing_acc, "clearing_balance": round(clearing_bal, 2),
+            "is_month_closeable": abs(clearing_bal) < 1.0 and uncovered_n == 0,
             "inbox_total": round(sum(flt(c["amount"]) for c in inbox), 2), "inbox_n": len(inbox)}
 
 
@@ -81,16 +132,19 @@ def charge_inbox(company=None):
     target = _target(company)
     if not target:
         return []
+    clearing = frappe.get_cached_value("Company", target, "expenses_included_in_valuation")
     rows = frappe.db.sql(
         f"""SELECT g.voucher_type vt, g.voucher_no vn, g.account, a.account_name,
-                   g.posting_date dt, SUM(g.debit-g.credit) amount,
+                   a.root_type, g.posting_date dt, SUM(g.debit-g.credit) amount,
                    MAX(IFNULL(g.remarks,'')) remarks
             FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-            WHERE g.company=%s AND g.is_cancelled=0 AND g.posting_date>=%s
-              AND g.voucher_type != 'Landed Cost Voucher' AND {_INBOUND}
-            GROUP BY g.voucher_type, g.voucher_no, g.account, a.account_name, g.posting_date
+            WHERE g.company=%(c)s AND g.is_cancelled=0 AND g.posting_date>=%(f)s
+              AND g.voucher_type != 'Landed Cost Voucher'
+              AND ({_INBOUND} OR g.account = %(clr)s)
+            GROUP BY g.voucher_type, g.voucher_no, g.account, a.account_name, a.root_type, g.posting_date
             HAVING SUM(g.debit-g.credit) > 0.5
-            ORDER BY g.posting_date DESC LIMIT 500""", (target, _FROM), as_dict=True)
+            ORDER BY g.posting_date DESC LIMIT 500""",
+        {"c": target, "f": _FROM, "clr": clearing}, as_dict=True)
     used = _used_charge_sources(target)
     # Credits these accounts received from receipt-GL reposts = charges ALREADY
     # capitalised by earlier LCVs (incl. the pre-portal drafts, which carry no
@@ -109,6 +163,9 @@ def charge_inbox(company=None):
         r["dt"] = str(r.dt)[:10]
         r["remarks"] = (r.remarks or "")[:120]
         r["account_absorbed"] = flt(absorbed.get(r.account))
+        # A charge sitting on a P&L (Expense) account distorts the P&L and won't
+        # net cleanly — it should be re-pointed to the 153.03 clearing account.
+        r["is_legacy_pl"] = (r.get("root_type") == "Expense")
         out.append(r)
     return out
 
@@ -221,10 +278,19 @@ def _basis(i, mode):
     return flt(i.get("amount"))
 
 
+def _charge_basis(c, default_basis):
+    """Resolve a charge's distribution basis: explicit category → its natural
+    basis, else an explicit 'basis', else the voucher-level default."""
+    cat = (c.get("category") or "").lower().strip()
+    return _CATEGORY_BASIS.get(cat) or c.get("basis") or default_basis
+
+
 @frappe.whitelist()
 def preview_lcv(company=None, receipts=None, charges=None, distribute_by="Amount"):
-    """Allocation preview — NOTHING is posted. Per item: allocated charge and
-    old → new unit cost, plus how many later stock moves would be reposted."""
+    """Allocation preview — NOTHING is posted. Each charge is allocated over the
+    items by ITS OWN basis (freight by weight, customs by value, agent by qty),
+    so per-item landed cost is accurate. Returns per-item old→new unit cost, a
+    per-basis breakdown, and blocking guardrail flags (FX out of band, no weight)."""
     assert_portal_access()
     target = _target(company)
     receipts = json.loads(receipts) if isinstance(receipts, str) else (receipts or [])
@@ -234,38 +300,56 @@ def preview_lcv(company=None, receipts=None, charges=None, distribute_by="Amount
     items = _load_receipt_items(receipts)
     if not items:
         frappe.throw("No items on those receipts")
-    total_charge = sum(flt(c.get("amount")) for c in charges)
-    base = sum(_basis(i, distribute_by) for i in items)
-    weightless = sum(1 for i in items if distribute_by == "Weight" and flt(i.wpu) <= 0)
-    if distribute_by == "Weight" and base <= 0:
-        frappe.throw("None of these items has a weight — set item weights first, or distribute by value/qty")
+
+    acc = {i.item_code: {"receipt": i.receipt, "item_code": i.item_code, "qty": flt(i.qty),
+                         "rate": flt(i.rate, 2), "alloc": 0.0} for i in items}
+    by_basis = {}
+    needs_weight = False
+    for c in charges:
+        b = _charge_basis(c, distribute_by)
+        amt = flt(c.get("amount"))
+        by_basis[b] = round(by_basis.get(b, 0.0) + amt, 2)
+        base = sum(_basis(i, b) for i in items)
+        if b == "Weight" and base <= 0:
+            needs_weight = True
+            continue
+        for i in items:
+            share = _basis(i, b) / base if base else 0
+            acc[i.item_code]["alloc"] += amt * share
     rows = []
-    for i in items:
-        share = _basis(i, distribute_by) / base if base else 0
-        alloc = round(total_charge * share, 2)
-        i_qty = flt(i.qty) or 1
-        rows.append({"receipt": i.receipt, "item_code": i.item_code,
-                     "qty": flt(i.qty), "rate": flt(i.rate, 2),
-                     "alloc": alloc, "per_unit": round(alloc / i_qty, 2),
-                     "new_rate": round(flt(i.rate) + alloc / i_qty, 2)})
+    for r in acc.values():
+        q = r["qty"] or 1
+        r["alloc"] = round(r["alloc"], 2)
+        r["per_unit"] = round(r["alloc"] / q, 2)
+        r["new_rate"] = round(r["rate"] + r["alloc"] / q, 2)
+        rows.append(r)
     rows.sort(key=lambda r: -r["alloc"])
+
+    fx_bad = _fx_offenders(receipts)
+    pl_charges = [c.get("description") or c.get("expense_account") for c in charges
+                  if _account_root(c.get("expense_account")) == "Expense"]
     min_dt = frappe.db.sql(
         "SELECT MIN(posting_date) FROM `tabPurchase Receipt` WHERE name IN %s", (tuple(receipts),))[0][0]
     later_moves = frappe.db.sql(
         """SELECT COUNT(*) FROM `tabStock Ledger Entry`
            WHERE is_cancelled=0 AND posting_date >= %s AND item_code IN %s""",
         (min_dt, tuple({r["item_code"] for r in rows})))[0][0]
-    return {"total_charge": round(total_charge, 2), "distribute_by": distribute_by,
-            "lines": rows[:250], "lines_n": len(rows), "weightless_n": weightless,
-            "later_moves_to_repost": int(later_moves or 0)}
+    return {"total_charge": round(sum(by_basis.values()), 2), "by_basis": by_basis,
+            "lines": rows[:250], "lines_n": len(rows),
+            "later_moves_to_repost": int(later_moves or 0),
+            "blocked": bool(fx_bad) or needs_weight,
+            "fx_offenders": fx_bad, "needs_weight": needs_weight,
+            "legacy_pl_charges": pl_charges}
 
 
 @frappe.whitelist()
 def post_lcv(company=None, receipts=None, charges=None, distribute_by="Amount", posting_date=None, notes=None):
-    """Create + submit the Landed Cost Voucher via the audited gateway.
-    Each charge line carries 'src:<voucher>' so the inbox never re-offers it.
-    Accounting: Dr stock in hand / Cr the same expense account each charge was
-    booked on — the P&L expense zeroes and the cost is capitalised."""
+    """Create + submit the Landed Cost Voucher(s) via the audited gateway.
+    Charges are grouped by basis (freight→weight, customs→value, agent→qty) and
+    post one voucher per group; each carries 'src:<voucher>' so the inbox never
+    re-offers it. Accounting: Dr stock in hand / Cr the account each charge sits
+    on (153.03 clearing for new charges) — the cost is capitalised into inventory.
+    Blocks on FX out of band before posting."""
     assert_can_write()
     target = _target(company)
     receipts = json.loads(receipts) if isinstance(receipts, str) else (receipts or [])
@@ -276,6 +360,10 @@ def post_lcv(company=None, receipts=None, charges=None, distribute_by="Amount", 
         row = frappe.db.get_value("Purchase Receipt", r, ["company", "docstatus"], as_dict=True)
         if not row or row.company != target or row.docstatus != 1:
             frappe.throw(f"{r} is not a submitted receipt of {target}")
+    fx_bad = _fx_offenders(receipts)
+    if fx_bad:
+        frappe.throw("FX out of band — fix the purchase rate before capitalising: "
+                     + ", ".join(f"{b['receipt']} {b['currency']}@{b['rate']}" for b in fx_bad))
     total = 0.0
     for c in charges:
         amt = flt(c.get("amount"))
@@ -291,6 +379,34 @@ def post_lcv(company=None, receipts=None, charges=None, distribute_by="Amount", 
                  "distribute_by": distribute_by, "posting_date": str(posting_date or nowdate())[:10]},
         amount=total,
         notes=notes or f"Landed cost {total:,.0f} over {len(receipts)} receipt(s)")
+
+
+@frappe.whitelist()
+def record_landed_charge(company=None, supplier=None, category=None, amount=None,
+                         posting_date=None, bill_no=None, description=None,
+                         tax_amount=0, tax_account=None, paid_from=None,
+                         currency=None, exchange_rate=None,
+                         attachment=None, attachment_name=None):
+    """Book a freight / customs / clearance vendor bill onto the 153.03 clearing
+    account (never a P&L 770.07 account) so it can be capitalised cleanly by an
+    LCV. A thin wrapper over create_supplier_bill that pins the expense account to
+    the company's Expenses-Included-In-Valuation account and tags the category so
+    the cockpit picks the right distribution basis. Gated/audited/reversible."""
+    from accounting_portal.api.expenses import create_supplier_bill
+    assert_can_write()
+    target = _target(company)
+    cat = (category or "").lower().strip()
+    if cat and cat not in _CATEGORY_BASIS:
+        frappe.throw(f"Unknown landed-cost category '{category}'. Use one of: {', '.join(sorted(_CATEGORY_BASIS))}")
+    clearing = _valuation_clearing(target)
+    label = (description or category or "Landed charge").strip()
+    desc = f"[{cat or 'landed'}] {label}"[:180]
+    return create_supplier_bill(
+        company=target, supplier=supplier, expense_account=clearing, amount=amount,
+        posting_date=posting_date, bill_no=bill_no, description=desc,
+        tax_amount=tax_amount, tax_account=tax_account, paid_from=paid_from,
+        currency=currency, exchange_rate=exchange_rate,
+        attachment=attachment, attachment_name=attachment_name)
 
 
 def _charge_desc(c):
@@ -341,35 +457,40 @@ def _lcv_poster(action):
         doc = frappe.get_doc("Landed Cost Voucher", p["name"])
         doc.submit()
         return {"voucher_type": "Landed Cost Voucher", "voucher_no": doc.name, "result": "submitted"}
-    mode = p.get("distribute_by") or "Amount"
-    if mode == "Weight":
-        # ERPNext's 'Distribute Manually' (our weight vehicle) allows exactly ONE
-        # charge row per voucher — so weight mode posts one voucher per charge,
-        # each weight-allocated over the same receipts. Cleaner accounting too:
-        # every charge credits its own account on its own voucher.
-        created = []
-        for c in p["charges"]:
-            doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], "Distribute Manually")
-            _apply_weight_shares(doc, flt(c["amount"]))
-            doc.append("taxes", {"expense_account": c["expense_account"],
-                                 "description": _charge_desc(c), "amount": flt(c["amount"])})
+    default_basis = p.get("distribute_by") or "Amount"
+    # Group charges by their resolved basis so freight rides on weight and customs
+    # on value even inside one shipment. Each group posts its own voucher(s).
+    groups = {}
+    for c in p["charges"]:
+        groups.setdefault(_charge_basis(c, default_basis), []).append(c)
+    created = []
+    for basis, charges in groups.items():
+        if basis == "Weight":
+            # 'Distribute Manually' (our weight vehicle) allows exactly ONE charge
+            # row per voucher — so weight charges post one voucher each.
+            for c in charges:
+                doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], "Distribute Manually")
+                _apply_weight_shares(doc, flt(c["amount"]))
+                doc.append("taxes", {"expense_account": c["expense_account"],
+                                     "description": _charge_desc(c), "amount": flt(c["amount"])})
+                doc.insert(ignore_permissions=True)
+                doc.submit()
+                created.append(doc.name)
+        else:
+            doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], basis)
+            for c in charges:
+                doc.append("taxes", {"expense_account": c["expense_account"],
+                                     "description": _charge_desc(c), "amount": flt(c["amount"])})
             doc.insert(ignore_permissions=True)
             doc.submit()
             created.append(doc.name)
-        # stash every voucher on the action so revert can cancel them all
-        frappe.db.set_value(action.doctype, action.name, "payload",
-                            json.dumps({**p, "created": created}, default=str), update_modified=False)
-        total = sum(flt(c.get("amount")) for c in p["charges"])
-        return {"voucher_type": "Landed Cost Voucher", "voucher_no": created[0],
-                "result": f"{total:,.0f} by weight → {len(created)} voucher(s): {', '.join(created)}"[:130]}
-    doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], mode)
-    for c in p["charges"]:
-        doc.append("taxes", {"expense_account": c["expense_account"],
-                             "description": _charge_desc(c), "amount": flt(c["amount"])})
-    doc.insert(ignore_permissions=True)
-    doc.submit()
-    return {"voucher_type": "Landed Cost Voucher", "voucher_no": doc.name,
-            "result": f"{flt(doc.total_taxes_and_charges):,.0f} over {len(p['receipts'])} receipts"}
+    # stash every voucher on the action so revert can cancel them all
+    frappe.db.set_value(action.doctype, action.name, "payload",
+                        json.dumps({**p, "created": created}, default=str), update_modified=False)
+    total = sum(flt(c.get("amount")) for c in p["charges"])
+    bases = ", ".join(f"{b}×{len(cs)}" for b, cs in groups.items())
+    return {"voucher_type": "Landed Cost Voucher", "voucher_no": created[0],
+            "result": f"{total:,.0f} → {len(created)} LCV [{bases}]: {', '.join(created)}"[:140]}
 
 
 def _lcv_reverter(action):
