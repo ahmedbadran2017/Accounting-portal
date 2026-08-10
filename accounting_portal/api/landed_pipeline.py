@@ -225,6 +225,14 @@ def submit_draft_lcv(company=None, name=None):
         frappe.throw("Voucher is not in this company")
     if doc.docstatus != 0:
         frappe.throw(f"{name} is not a draft")
+    # Guard the trap: a pre-portal draft that charges a P&L (770.07) account would
+    # post Dr stock / Cr P&L, leaving the abnormal balances we're fixing. Block it
+    # — rebuild the shipment through the cockpit so charges credit 153.03 instead.
+    pl = [t.expense_account for t in doc.get("taxes") or []
+          if frappe.get_cached_value("Account", t.expense_account, "root_type") == "Expense"]
+    if pl:
+        frappe.throw("This draft charges a P&L account (" + ", ".join(sorted(set(pl))[:2])
+                     + "…) — rebuild it in the Landed Cockpit so charges credit the 153.03 clearing account, then delete this draft.")
     return _actions.execute(
         LCV_ACTION, target, f"lcvsubmit:{name}",
         payload={"mode": "submit_draft", "name": name},

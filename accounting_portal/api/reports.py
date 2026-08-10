@@ -492,6 +492,19 @@ def period_close_status(company=None, month=None):
         "FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
         "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Tax' "
         "AND DATE_FORMAT(g.posting_date,'%%Y-%%m')=%s", (target, ym)))
+    # Landed cost: the 153.03 clearing must be ~0 (every inbound cost capitalised)
+    # and no import receipt left without an LCV, or COGS is understated at close.
+    clearing_acc = frappe.get_cached_value("Company", target, "expenses_included_in_valuation")
+    clearing_bal = one(frappe.db.sql(
+        "SELECT SUM(debit-credit) FROM `tabGL Entry` WHERE company=%s AND account=%s AND is_cancelled=0",
+        (target, clearing_acc))) if clearing_acc else 0.0
+    uncov_lcv = int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tabPurchase Receipt` pr WHERE pr.company=%s AND pr.docstatus=1 "
+        "AND pr.currency!=%s AND pr.posting_date>='2026-01-01' AND pr.name NOT IN "
+        "(SELECT lpr.receipt_document FROM `tabLanded Cost Purchase Receipt` lpr "
+        " JOIN `tabLanded Cost Voucher` l ON l.name=lpr.parent WHERE l.docstatus=1)",
+        (target, frappe.get_cached_value("Company", target, "default_currency")))))
+    landed_clean = abs(clearing_bal) < 1 and uncov_lcv == 0
 
     items = [
         {"key": "drafts", "en": "All documents submitted", "ar": "كل المستندات مُرحّلة", "fr": "Documents tous soumis",
@@ -506,6 +519,11 @@ def period_close_status(company=None, month=None):
          "state": "done" if chq == 0 else "pending", "value": chq, "unit": "cheques", "link": "/accounting/purchases/cheques"},
         {"key": "vat", "en": "VAT computed for the period", "ar": "الضريبة محسوبة للفترة", "fr": "TVA calculée",
          "state": "done", "value": round(vat_net), "unit": "MAD", "link": "/accounting/reports/taxreports"},
+        {"key": "landed", "en": "Landed cost capitalised (153.03 clear, imports covered)",
+         "ar": "تكلفة الشحن مُرسملة (153.03 صفر، الاستيراد مغطّى)", "fr": "Coût de revient capitalisé (153.03 net)",
+         "state": "done" if landed_clean else "blocked",
+         "value": round(clearing_bal) if abs(clearing_bal) >= 1 else uncov_lcv,
+         "unit": "MAD" if abs(clearing_bal) >= 1 else "receipts", "link": "/accounting/items/cockpit"},
     ]
     return {"company": target, "month": ym,
             "ready": all(i["state"] == "done" for i in items),
