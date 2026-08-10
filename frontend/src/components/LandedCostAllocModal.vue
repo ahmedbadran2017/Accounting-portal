@@ -91,11 +91,14 @@ import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
+import { useAuth } from "@/composables/useAuth";
 
 const props = defineProps({ prefill: { type: Object, required: true } });
 const emit = defineEmits(["close", "posted"]);
 const { locale } = useI18n();
 const toast = useToast();
+const { can } = useAuth();
+const canWrite = computed(() => can("post_entries"));
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt2 = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -140,7 +143,7 @@ const pv = ref(null);
 const loading = ref(false);
 const busy = ref(false);
 const error = ref("");
-const canPost = computed(() => pv.value && !pv.value.blocked && charges.value.length && receipts.value.length);
+const canPost = computed(() => canWrite.value && pv.value && !pv.value.blocked && charges.value.length && receipts.value.length);
 
 function payloadCharges() {
   return charges.value.map((c) => ({ expense_account: c.expense_account, description: c.label, amount: c.amount, category: c.category, source: c.source }));

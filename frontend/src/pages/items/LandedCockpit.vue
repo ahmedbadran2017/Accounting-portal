@@ -16,6 +16,11 @@
 
     <div v-if="loading" class="py-10 text-center text-[12px] text-ink-muted">{{ L("Loading…","جارٍ التحميل…","Chargement…") }}</div>
 
+    <div v-else-if="err" class="bg-rose-50 border border-rose-200 rounded-card px-4 py-6 text-center">
+      <p class="text-[12px] text-rose-700 font-medium">{{ err }}</p>
+      <button @click="load" class="mt-3 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-rose-600 hover:bg-rose-700">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+    </div>
+
     <template v-else>
       <!-- Uncovered receipts -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
@@ -127,13 +132,16 @@ const posted = ref([]);
 const sel = ref([]);
 const modal = ref(null);
 const loading = ref(true);
+const err = ref("");
 const busy = ref("");
-const ccy = ref("MAD");
+// currency follows the company, not a hardcoded MAD — take it from the overview or the first uncovered receipt
+const ccy = computed(() => ov.value.currency || recs.value[0]?.currency || "");
 const clearingOk = computed(() => Math.abs(Number(ov.value.clearing_balance || 0)) < 1);
 const onPlCount = computed(() => posted.value.filter((v) => v.on_pl).length);
 
 async function load() {
   loading.value = true;
+  err.value = "";
   try {
     const c = currentCompany();
     const [o, u, ib, lc] = await Promise.all([
@@ -144,7 +152,7 @@ async function load() {
     ]);
     ov.value = o || {}; recs.value = u || []; inbox.value = ib || [];
     posted.value = (lc || []).filter((v) => v.status === "Posted");
-  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); }
+  } catch (e) { err.value = String(e?.message || e).slice(0, 200); toast.error(err.value); }
   finally { loading.value = false; }
 }
 load();

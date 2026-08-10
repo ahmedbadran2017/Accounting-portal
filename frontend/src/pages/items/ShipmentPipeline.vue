@@ -237,7 +237,6 @@ const chargesTotal = computed(() =>
   selCharges.value.reduce((s, i) => s + Number(inbox.value[i]?.amount || 0), 0) +
   manualCharges.value.reduce((s, m) => s + Number(m.amount || 0), 0));
 const canPreview = computed(() => selReceipts.value.length && (selCharges.value.length || manualCharges.value.length));
-const weightChargeCount = computed(() => selCharges.value.length + manualCharges.value.length);
 
 async function load() {
   loading.value = true;
