@@ -22,11 +22,14 @@
     </div>
 
     <template v-else>
-      <!-- Uncovered receipts -->
+      <!-- Uncovered import receipts (domestic/local suppliers excluded — they carry their cost already) -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair">
-          <h3 class="text-[13px] font-bold">{{ L("Shipments awaiting landed cost","شحنات مستنية التكلفة","Expéditions à couvrir") }}</h3>
-          <span class="text-[11px] text-ink-muted">{{ recs.length }}</span>
+        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair flex-wrap">
+          <h3 class="text-[13px] font-bold">{{ L("Import shipments awaiting landed cost","شحنات استيراد مستنية التكلفة","Imports à couvrir") }}</h3>
+          <span class="text-[11px] text-ink-muted">{{ (recsT.total.value || 0).toLocaleString() }}</span>
+          <input v-model="recsT.search.value" type="search"
+                 :placeholder="L('Search receipt / supplier…','ابحث باسم الاستلام / المورد…','Rechercher…')"
+                 class="h-8 w-56 px-3 rounded-chip text-[12px] border border-line-2 bg-app-warm/30 focus:bg-white outline-none" />
           <button v-if="canWrite && sel.length" @click="openAlloc" class="ms-auto h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700">
             {{ L("Capitalise "+sel.length+" selected","ترسيم "+sel.length+" مختار","Capitaliser "+sel.length) }}
           </button>
@@ -34,7 +37,7 @@
         <table class="w-full text-[12px]">
           <thead class="bg-app-warm/40 text-[10px] uppercase text-ink-muted">
             <tr>
-              <th class="w-8 px-2 py-1.5"><input type="checkbox" :checked="sel.length===recs.length && recs.length>0" @change="toggleAll" /></th>
+              <th class="w-8 px-2 py-1.5"><input type="checkbox" :checked="pageAllSel" @change="toggleAll" /></th>
               <th class="text-start px-2 py-1.5">{{ L("Receipt","الاستلام","Réception") }}</th>
               <th class="text-start px-2 py-1.5">{{ L("Supplier","المورد","Fournisseur") }}</th>
               <th class="text-end px-2 py-1.5">{{ L("Value","القيمة","Valeur") }}</th>
@@ -43,7 +46,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-line-hair">
-            <tr v-for="r in recs" :key="r.name" class="hover:bg-app-warm/30 cursor-pointer" @click="toggle(r.name)">
+            <tr v-for="r in recsT.rows.value" :key="r.name" class="hover:bg-app-warm/30 cursor-pointer" @click="toggle(r.name)">
               <td class="px-2 py-1.5"><input type="checkbox" :checked="sel.includes(r.name)" @click.stop="toggle(r.name)" /></td>
               <td class="px-2 py-1.5 font-medium">{{ r.name }} <span class="text-ink-muted">· {{ r.currency }}</span></td>
               <td class="px-2 py-1.5 truncate max-w-[160px]">{{ r.supplier }}</td>
@@ -51,9 +54,11 @@
               <td class="px-2 py-1.5 text-end tnum">{{ r.items }}</td>
               <td class="px-3 py-1.5 text-end text-ink-muted">{{ r.dt }}</td>
             </tr>
-            <tr v-if="!recs.length"><td colspan="6" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ L("Every shipment is covered ✓","كل الشحنات مغطّاة ✓","Tout est couvert ✓") }}</td></tr>
+            <tr v-if="recsT.loading.value"><td colspan="6" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ L("Loading…","جارٍ التحميل…","Chargement…") }}</td></tr>
+            <tr v-else-if="!recsT.rows.value.length"><td colspan="6" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ recsT.search.value ? L("No match","لا نتائج","Aucun résultat") : L("Every import shipment is covered ✓","كل شحنات الاستيراد مغطّاة ✓","Tout est couvert ✓") }}</td></tr>
           </tbody>
         </table>
+        <ServerPager v-if="recsT.total.value > recsT.pageSize.value" :t="recsT" />
       </div>
 
       <!-- Charge inbox preview -->
@@ -115,7 +120,9 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import { useServerTable } from "@/composables/useServerTable";
 import StatCard from "@/components/StatCard.vue";
+import ServerPager from "@/components/ServerPager.vue";
 import LandedCostAllocModal from "@/components/LandedCostAllocModal.vue";
 
 const { locale } = useI18n();
@@ -126,7 +133,6 @@ const canWrite = computed(() => can("post_entries"));
 const toast = useToast();
 
 const ov = ref({});
-const recs = ref([]);
 const inbox = ref([]);
 const posted = ref([]);
 const sel = ref([]);
@@ -134,23 +140,33 @@ const modal = ref(null);
 const loading = ref(true);
 const err = ref("");
 const busy = ref("");
+
+// Uncovered import receipts: server-paginated + searchable so the whole backlog
+// is reachable (not just the first page), and domestic suppliers are excluded.
+const recsT = useServerTable(
+  (p) => api.call("accounting_portal.api.landed_pipeline.receipts_uncovered_page",
+    { company: currentCompany(), start: p.start, page_size: p.page_size, search: p.search }, { fresh: true }),
+  { pageSize: 25 },
+);
+recsT.load();
+
 // currency follows the company, not a hardcoded MAD — take it from the overview or the first uncovered receipt
-const ccy = computed(() => ov.value.currency || recs.value[0]?.currency || "");
+const ccy = computed(() => ov.value.currency || recsT.rows.value[0]?.currency || "");
 const clearingOk = computed(() => Math.abs(Number(ov.value.clearing_balance || 0)) < 1);
 const onPlCount = computed(() => posted.value.filter((v) => v.on_pl).length);
+const pageAllSel = computed(() => recsT.rows.value.length > 0 && recsT.rows.value.every((r) => sel.value.includes(r.name)));
 
 async function load() {
   loading.value = true;
   err.value = "";
   try {
     const c = currentCompany();
-    const [o, u, ib, lc] = await Promise.all([
+    const [o, ib, lc] = await Promise.all([
       api.call("accounting_portal.api.landed_pipeline.pipeline_overview", { company: c }),
-      api.call("accounting_portal.api.landed_pipeline.receipts_uncovered", { company: c, limit: 100 }),
       api.call("accounting_portal.api.landed_pipeline.charge_inbox", { company: c }),
       api.call("accounting_portal.api.items.list_landed_costs", { company: c, limit: 200 }),
     ]);
-    ov.value = o || {}; recs.value = u || []; inbox.value = ib || [];
+    ov.value = o || {}; inbox.value = ib || [];
     posted.value = (lc || []).filter((v) => v.status === "Posted");
   } catch (e) { err.value = String(e?.message || e).slice(0, 200); toast.error(err.value); }
   finally { loading.value = false; }
@@ -168,17 +184,20 @@ async function uncapitalise(v) {
     const r = await api.call("accounting_portal.api.landed_pipeline.cancel_lcv", { company: currentCompany(), name: v.name });
     if (r && r.status === "Proposed") toast.info(L("Sent for approval", "اتبعت للموافقة", "Envoyé"));
     else toast.success(L("Un-capitalised — kick reposts, then rebuild", "اتلغت الرسملة — كِك الـrepost وأعد البناء", "Décapitalisé"));
-    load();
+    load(); recsT.load();
   } catch (e) { toast.error(String(e?.message || e).slice(0, 200)); }
   finally { busy.value = ""; }
 }
 
 function toggle(name) { const i = sel.value.indexOf(name); if (i >= 0) sel.value.splice(i, 1); else sel.value.push(name); }
-function toggleAll() { sel.value = sel.value.length === recs.value.length ? [] : recs.value.map((r) => r.name); }
+function toggleAll() {
+  const names = recsT.rows.value.map((r) => r.name);
+  sel.value = pageAllSel.value ? sel.value.filter((n) => !names.includes(n)) : [...new Set([...sel.value, ...names])];
+}
 
 function openAlloc() {
   if (!sel.value.length) return;
   modal.value = { receipts: [...sel.value], charges: inbox.value, clearing_account: ov.value.clearing_account };
 }
-function onPosted() { sel.value = []; load(); }
+function onPosted() { sel.value = []; load(); recsT.load(); }
 </script>

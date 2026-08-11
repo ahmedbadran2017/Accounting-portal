@@ -27,6 +27,14 @@ from accounting_portal.api.landed_engine import _INBOUND
 LCV_ACTION = "Post landed cost"
 _FROM = "2026-01-01"  # working window agreed with the CFO — 2025 stays in P&L
 
+# Domestic (Moroccan) purchases already carry their full cost — there is no import
+# freight/customs to allocate — so they never need a landed cost voucher. We key
+# off supplier_group, NOT country: the local sellers (keyza, Beauty Mall, …) are
+# mis-tagged country="Turkey" but correctly grouped as "Morocco Local Suppliers".
+_DOMESTIC_SUPPLIER_GROUPS = ("Morocco Local Suppliers", "Local")
+_DOMESTIC_SQL = "COALESCE(sup.supplier_group,'') NOT IN (" + \
+    ",".join("'" + g.replace("'", "''") + "'" for g in _DOMESTIC_SUPPLIER_GROUPS) + ")"
+
 # A charge's natural distribution basis, keyed by category. Freight/handling ride
 # on weight; duties/insurance scale with value; per-piece fees with quantity.
 _CATEGORY_BASIS = {
@@ -95,8 +103,10 @@ def pipeline_overview(company=None):
     if not target:
         return {}
     uncovered = frappe.db.sql(
-        """SELECT COUNT(*), SUM(pr.base_grand_total) FROM `tabPurchase Receipt` pr
+        f"""SELECT COUNT(*), SUM(pr.base_grand_total) FROM `tabPurchase Receipt` pr
+           JOIN `tabSupplier` sup ON sup.name = pr.supplier
            WHERE pr.company=%s AND pr.docstatus=1 AND pr.posting_date>=%s
+           AND {_DOMESTIC_SQL}
            AND pr.name NOT IN (
              SELECT lpr.receipt_document FROM `tabLanded Cost Purchase Receipt` lpr
              JOIN `tabLanded Cost Voucher` l ON l.name=lpr.parent WHERE l.docstatus=1)""",
@@ -170,26 +180,59 @@ def charge_inbox(company=None):
     return out
 
 
+def _uncovered_where(target, search):
+    """Shared WHERE for the uncovered-import-receipt lists. Excludes domestic
+    (Moroccan-local) suppliers — those carry their full cost already."""
+    cond = ""
+    params = {"c": target, "f": _FROM}
+    if search:
+        cond = " AND (pr.name LIKE %(q)s OR pr.supplier LIKE %(q)s)"
+        params["q"] = f"%{search}%"
+    where = (f"""FROM `tabPurchase Receipt` pr
+            JOIN `tabSupplier` sup ON sup.name = pr.supplier
+            WHERE pr.company=%(c)s AND pr.docstatus=1 AND pr.posting_date>=%(f)s
+            AND {_DOMESTIC_SQL} {cond}
+            AND pr.name NOT IN (
+              SELECT lpr.receipt_document FROM `tabLanded Cost Purchase Receipt` lpr
+              JOIN `tabLanded Cost Voucher` l ON l.name=lpr.parent WHERE l.docstatus=1)""")
+    return where, params
+
+
 @frappe.whitelist()
 def receipts_uncovered(company=None, q=None, limit=100):
-    """Submitted 2026 Purchase Receipts with no posted LCV over them."""
+    """Submitted 2026 import Purchase Receipts with no posted LCV over them
+    (array form, used by the shipment pipeline). Domestic suppliers excluded."""
     assert_portal_access()
     target = _target(company)
     if not target:
         return []
-    cond, params = "", {"c": target, "f": _FROM, "lim": min(int(limit or 100), 300)}
-    if q:
-        cond = " AND (pr.name LIKE %(q)s OR pr.supplier LIKE %(q)s)"
-        params["q"] = f"%{q}%"
+    where, params = _uncovered_where(target, q)
+    params["lim"] = min(int(limit or 100), 300)
     return frappe.db.sql(
         f"""SELECT pr.name, pr.supplier, pr.posting_date dt, pr.base_grand_total value,
                    pr.currency, (SELECT COUNT(*) FROM `tabPurchase Receipt Item` i WHERE i.parent=pr.name) items
-            FROM `tabPurchase Receipt` pr
-            WHERE pr.company=%(c)s AND pr.docstatus=1 AND pr.posting_date>=%(f)s {cond}
-            AND pr.name NOT IN (
-              SELECT lpr.receipt_document FROM `tabLanded Cost Purchase Receipt` lpr
-              JOIN `tabLanded Cost Voucher` l ON l.name=lpr.parent WHERE l.docstatus=1)
+            {where}
             ORDER BY pr.posting_date DESC LIMIT %(lim)s""", params, as_dict=True)
+
+
+@frappe.whitelist()
+def receipts_uncovered_page(company=None, start=0, page_size=25, search=None, **kwargs):
+    """Server-paginated + searchable form for the cockpit table. Returns
+    {rows, total} so the whole backlog is reachable, not just the first page."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": [], "total": 0}
+    where, params = _uncovered_where(target, search)
+    total = frappe.db.sql(f"SELECT COUNT(*) {where}", params)[0][0]
+    params["start"] = max(int(start or 0), 0)
+    params["ps"] = min(max(int(page_size or 25), 1), 200)
+    rows = frappe.db.sql(
+        f"""SELECT pr.name, pr.supplier, pr.posting_date dt, pr.base_grand_total value,
+                   pr.currency, (SELECT COUNT(*) FROM `tabPurchase Receipt Item` i WHERE i.parent=pr.name) items
+            {where}
+            ORDER BY pr.posting_date DESC LIMIT %(ps)s OFFSET %(start)s""", params, as_dict=True)
+    return {"rows": rows, "total": int(total or 0)}
 
 
 @frappe.whitelist()
