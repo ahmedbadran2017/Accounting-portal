@@ -150,6 +150,10 @@ def charge_inbox(company=None):
             FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
             WHERE g.company=%(c)s AND g.is_cancelled=0 AND g.posting_date>=%(f)s
               AND g.voucher_type != 'Landed Cost Voucher'
+              -- landed charges are supplier-side only; exclude sales-side postings
+              -- (COD return/refund delivery fees hit the same Freight account but are
+              -- P&L operating cost, never inventory landed cost)
+              AND g.voucher_type NOT IN ('Sales Invoice', 'Delivery Note', 'Sales Order', 'POS Invoice')
               AND ({_INBOUND} OR g.account = %(clr)s)
             GROUP BY g.voucher_type, g.voucher_no, g.account, a.account_name, a.root_type, g.posting_date
             HAVING SUM(g.debit-g.credit) > 0.5
