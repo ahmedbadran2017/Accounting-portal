@@ -28,7 +28,8 @@
             <td class="px-4 py-2.5 text-ink-3">{{ L("By","حسب","Par") }} {{ r.basis }}</td>
             <td class="px-4 py-2.5"><span class="text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="statusBadge(r.status)">{{ r.status }}</span></td>
           </tr>
-          <tr v-if="!rows.length"><td colspan="7" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No landed-cost vouchers.","لا سندات.","Aucun bon.") }}</td></tr>
+          <tr v-if="err"><td colspan="7" class="px-4 py-12 text-center text-rose-600 text-[12px]">{{ L("Couldn't load vouchers","تعذّر تحميل السندات","Échec de chargement") }} — <button @click="load" class="underline font-semibold">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button></td></tr>
+          <tr v-else-if="!rows.length"><td colspan="7" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No landed-cost vouchers.","لا سندات.","Aucun bon.") }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -54,11 +55,12 @@ const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const SAMPLE = [{ name: "LCV-0042", shipment: "Maslak — denim", freight: 18400, customs: 9200, duties: 22600, total: 53300, basis: "Value", status: "Posted" }];
+const err = ref("");
 async function load() {
-  loading.value = true;
+  loading.value = true; err.value = "";
+  // never fall back to sample vouchers — fake rows in a live ledger tool mislead
   try { rows.value = await api.call("accounting_portal.api.items.list_landed_costs", { company: currentCompany() }); isLive.value = true; }
-  catch { rows.value = SAMPLE; isLive.value = false; }
+  catch (e) { rows.value = []; isLive.value = null; err.value = String(e?.message || e).slice(0, 200) || "load failed"; }
   finally { loading.value = false; }
 }
 onMounted(load);

@@ -411,8 +411,15 @@ def preview_lcv(company=None, receipts=None, charges=None, distribute_by="Amount
     if not items:
         frappe.throw("No items on those receipts")
 
-    acc = {i.item_code: {"receipt": i.receipt, "item_code": i.item_code, "qty": flt(i.qty),
-                         "rate": flt(i.rate, 2), "alloc": 0.0} for i in items}
+    # Aggregate per SKU across ALL lines (same item can repeat on two receipts or
+    # two lines) — sum qty and keep a qty-weighted rate, so per-unit isn't divided
+    # by just one line's quantity.
+    acc = {}
+    for i in items:
+        a = acc.setdefault(i.item_code, {"receipt": i.receipt, "item_code": i.item_code,
+                                         "qty": 0.0, "_rateqty": 0.0, "alloc": 0.0})
+        a["qty"] += flt(i.qty)
+        a["_rateqty"] += flt(i.qty) * flt(i.rate)
     by_basis = {}
     needs_weight = False
     for c in charges:
@@ -429,6 +436,7 @@ def preview_lcv(company=None, receipts=None, charges=None, distribute_by="Amount
     rows = []
     for r in acc.values():
         q = r["qty"] or 1
+        r["rate"] = round(r.pop("_rateqty") / q, 2)
         r["alloc"] = round(r["alloc"], 2)
         r["per_unit"] = round(r["alloc"] / q, 2)
         r["new_rate"] = round(r["rate"] + r["alloc"] / q, 2)
@@ -499,7 +507,11 @@ def post_lcv(company=None, receipts=None, charges=None, distribute_by="Amount", 
     if any(_charge_basis(c, distribute_by) == "Weight" for c in charges):
         if sum(_basis(i, "Weight") for i in _load_receipt_items(receipts)) <= 0:
             frappe.throw("A charge distributes by weight but the items have no weight — set item weights first.")
-    key = "lcv:" + frappe.generate_hash(f"{target}:{sorted(receipts)}:{total}:{distribute_by}", 12)
+    # idempotency key must fingerprint the actual charges, not just their total —
+    # two different charge sets with the same sum over the same receipts must NOT
+    # collide (the second would silently vanish behind the first).
+    charge_sig = sorted((c.get("expense_account"), round(flt(c.get("amount")), 2), c.get("source")) for c in charges)
+    key = "lcv:" + frappe.generate_hash(f"{target}:{sorted(receipts)}:{charge_sig}:{distribute_by}", 12)
     return _actions.execute(
         LCV_ACTION, target, key,
         payload={"mode": "create", "receipts": receipts, "charges": charges,
