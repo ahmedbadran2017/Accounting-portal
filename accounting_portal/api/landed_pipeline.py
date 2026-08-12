@@ -623,3 +623,83 @@ _actions.register_poster(LCV_ACTION, _lcv_poster)
 _actions.register_reverter(LCV_ACTION, _lcv_reverter)
 _actions.register_poster(DEL_ACTION, _del_draft_poster)
 _actions._NO_GATE.add(DEL_ACTION)  # draft-only, no GL — audited but ungated
+
+
+# ── Stale base_grand_total repair ──────────────────────────────────────────
+# When a receipt's conversion_rate was corrected after posting (e.g. USD 43.7 →
+# 9.5), ERPNext recomputed the line amounts and base_net_total but left
+# base_grand_total at the OLD rate — a stale, inflated display field (no GL/stock
+# impact). This detects and repairs it: base_grand_total = base_net + base_taxes
+# − base_discount. Audited + reversible; changes a stored total only.
+FIX_TOTALS_ACTION = "Fix receipt base total"
+
+
+def _correct_base_grand(row):
+    return flt(row.base_net_total) + flt(row.get("base_taxes_and_charges_added")) - flt(row.get("base_discount_amount"))
+
+
+@frappe.whitelist()
+def stale_receipt_totals(company=None, limit=200):
+    """Submitted receipts whose base_grand_total disagrees with base_net + taxes
+    (the stale-FX signature) — surfaced so the portal can repair them."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return []
+    rows = frappe.db.sql(
+        """SELECT name, supplier, currency, conversion_rate, posting_date dt,
+                  ROUND(base_grand_total, 2) current,
+                  ROUND(base_net_total + IFNULL(base_taxes_and_charges_added,0)
+                        - IFNULL(base_discount_amount,0), 2) correct
+           FROM `tabPurchase Receipt`
+           WHERE company=%(c)s AND docstatus=1
+             AND ABS(base_grand_total - (base_net_total + IFNULL(base_taxes_and_charges_added,0)
+                     - IFNULL(base_discount_amount,0))) > 1
+             AND (base_net_total + IFNULL(base_taxes_and_charges_added,0)) > 0
+           ORDER BY base_grand_total DESC LIMIT %(lim)s""",
+        {"c": target, "lim": min(int(limit or 200), 500)}, as_dict=True)
+    for r in rows:
+        r["dt"] = str(r.dt)[:10]
+        r["ratio"] = round(flt(r.current) / flt(r.correct), 2) if flt(r.correct) else 0
+    return rows
+
+
+@frappe.whitelist()
+def fix_receipt_totals(company=None, receipt=None, notes=None):
+    """Repair one receipt's stale base_grand_total via the audited gateway."""
+    assert_can_write()
+    target = _target(company)
+    row = frappe.db.get_value(
+        "Purchase Receipt", receipt,
+        ["company", "docstatus", "base_grand_total", "base_net_total",
+         "base_taxes_and_charges_added", "base_discount_amount"], as_dict=True)
+    if not row or row.company != target or row.docstatus != 1:
+        frappe.throw(f"{receipt} is not a submitted receipt of {target}")
+    correct = _correct_base_grand(row)
+    old = flt(row.base_grand_total)
+    if abs(old - correct) <= 1:
+        return {"status": "ok", "result": "already correct"}
+    key = "fixtot:" + frappe.generate_hash(f"{receipt}:{round(correct,2)}", 12)
+    return _actions.execute(
+        FIX_TOTALS_ACTION, target, key,
+        payload={"receipt": receipt, "old": old, "new": correct},
+        amount=abs(old - correct),
+        notes=notes or f"Repair stale base total on {receipt}: {old:,.0f} → {correct:,.0f}")
+
+
+def _fix_totals_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    frappe.db.set_value("Purchase Receipt", p["receipt"], "base_grand_total", flt(p["new"]), update_modified=False)
+    return {"voucher_type": "Purchase Receipt", "voucher_no": p["receipt"],
+            "result": f"{flt(p['old']):,.0f} → {flt(p['new']):,.0f}"}
+
+
+def _fix_totals_reverter(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    frappe.db.set_value("Purchase Receipt", p["receipt"], "base_grand_total", flt(p["old"]), update_modified=False)
+    return {"voucher_type": "Purchase Receipt", "voucher_no": p["receipt"],
+            "result": f"restored {flt(p['old']):,.0f}"}
+
+
+_actions.register_poster(FIX_TOTALS_ACTION, _fix_totals_poster)
+_actions.register_reverter(FIX_TOTALS_ACTION, _fix_totals_reverter)

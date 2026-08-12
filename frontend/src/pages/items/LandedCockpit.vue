@@ -22,6 +22,38 @@
     </div>
 
     <template v-else>
+      <!-- Stale FX totals — receipts whose base_grand_total kept an old conversion rate -->
+      <div v-if="staleTotals.length" class="bg-amber-50 rounded-card border border-amber-200 overflow-hidden">
+        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-amber-200">
+          <Icon name="alert" :size="14" color="#b45309" />
+          <h3 class="text-[13px] font-bold text-amber-800">{{ staleTotals.length }} {{ L("shipments show a stale FX total (display only)","شحنة عندها إجمالي بسعر صرف قديم (عرض فقط)","totaux FX périmés") }}</h3>
+          <button v-if="canWrite" @click="fixAllTotals" :disabled="busy==='all'" class="ms-auto h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40">
+            {{ busy==='all' ? '…' : L('Fix all '+staleTotals.length,'صلّح الكل '+staleTotals.length,'Corriger tout') }}
+          </button>
+        </div>
+        <table class="w-full text-[12px]">
+          <thead class="bg-amber-100/40 text-[10px] uppercase text-amber-800/70">
+            <tr><th class="text-start px-3 py-1.5">{{ L("Receipt","الاستلام","Réception") }}</th><th class="text-end px-2 py-1.5">{{ L("Shown","المعروض","Affiché") }}</th><th class="text-end px-2 py-1.5">{{ L("Correct","الصحيح","Correct") }}</th><th class="text-center px-2 py-1.5">×</th><th class="px-3 py-1.5"></th></tr>
+          </thead>
+          <tbody class="divide-y divide-amber-200/60">
+            <tr v-for="r in staleTotals" :key="r.name">
+              <td class="px-3 py-1.5 font-medium">{{ r.name }} <span class="text-ink-muted">· {{ r.currency }}@{{ r.conversion_rate }}</span></td>
+              <td class="px-2 py-1.5 text-end tnum text-rose-600">{{ fmt0(r.current) }}</td>
+              <td class="px-2 py-1.5 text-end tnum text-emerald-700 font-semibold">{{ fmt0(r.correct) }}</td>
+              <td class="px-2 py-1.5 text-center tnum text-ink-muted">{{ r.ratio }}</td>
+              <td class="px-3 py-1.5 text-end">
+                <button v-if="canWrite" @click="fixTotals(r)" :disabled="busy===r.name" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-amber-700 border border-amber-300 hover:bg-amber-100 disabled:opacity-40">
+                  {{ busy===r.name ? '…' : L('Fix','صلّح','Corriger') }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="px-4 py-2 text-[10.5px] text-amber-700/80 border-t border-amber-200">
+          {{ L("Recomputes base grand total at the corrected rate (base net + taxes). No GL/stock impact — a display field only. Audited & reversible.","بيعيد حساب الإجمالي بالسعر المصحّح (صافي + ضرائب). مايمسّش القيود/المخزون — حقل عرض فقط. مدقّق وقابل للتراجع.","Recalcule le total. Aucun impact comptable.") }}
+        </div>
+      </div>
+
       <!-- Uncovered import receipts (domestic/local suppliers excluded — they carry their cost already) -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair flex-wrap">
@@ -144,6 +176,7 @@ const toast = useToast();
 const ov = ref({});
 const inbox = ref([]);
 const posted = ref([]);
+const staleTotals = ref([]);
 const sel = ref([]);
 const modal = ref(null);
 const loading = ref(true);
@@ -170,13 +203,15 @@ async function load() {
   err.value = "";
   try {
     const c = currentCompany();
-    const [o, ib, lc] = await Promise.all([
+    const [o, ib, lc, st] = await Promise.all([
       api.call("accounting_portal.api.landed_pipeline.pipeline_overview", { company: c }),
       api.call("accounting_portal.api.landed_pipeline.charge_inbox", { company: c }),
       api.call("accounting_portal.api.items.list_landed_costs", { company: c, limit: 200 }),
+      api.call("accounting_portal.api.landed_pipeline.stale_receipt_totals", { company: c }),
     ]);
     ov.value = o || {}; inbox.value = ib || [];
     posted.value = (lc || []).filter((v) => v.status === "Posted");
+    staleTotals.value = st || [];
   } catch (e) { err.value = String(e?.message || e).slice(0, 200); toast.error(err.value); }
   finally { loading.value = false; }
 }
@@ -220,4 +255,30 @@ function openAlloc() {
   modal.value = { receipts: [...sel.value], charges: inbox.value.map((c) => ({ ...c, include: true, matched: true })), clearing_account: ov.value.clearing_account };
 }
 function onPosted() { sel.value = []; modal.value = null; load(); recsT.load(); }
+
+async function fixTotals(r) {
+  if (busy.value) return;
+  busy.value = r.name;
+  try {
+    await api.call("accounting_portal.api.landed_pipeline.fix_receipt_totals", { company: currentCompany(), receipt: r.name });
+    staleTotals.value = staleTotals.value.filter((x) => x.name !== r.name);
+    toast.success(L(`Fixed ${r.name}`, `اتصلّح ${r.name}`, `Corrigé ${r.name}`));
+    recsT.load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 200)); }
+  finally { busy.value = ""; }
+}
+async function fixAllTotals() {
+  if (busy.value) return;
+  busy.value = "all";
+  const rows = [...staleTotals.value];
+  try {
+    for (const r of rows) {
+      await api.call("accounting_portal.api.landed_pipeline.fix_receipt_totals", { company: currentCompany(), receipt: r.name });
+      staleTotals.value = staleTotals.value.filter((x) => x.name !== r.name);
+    }
+    toast.success(L(`Fixed ${rows.length} shipments`, `اتصلّح ${rows.length} شحنة`, `Corrigé ${rows.length}`));
+    recsT.load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 200)); }
+  finally { busy.value = ""; }
+}
 </script>
