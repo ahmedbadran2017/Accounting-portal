@@ -467,13 +467,20 @@ def post_lcv(company=None, receipts=None, charges=None, distribute_by="Amount", 
     if not (target and receipts and charges):
         frappe.throw("receipts and charges are required")
     for r in receipts:
-        row = frappe.db.get_value("Purchase Receipt", r, ["company", "docstatus"], as_dict=True)
+        row = frappe.db.get_value("Purchase Receipt", r, ["company", "docstatus", "is_return"], as_dict=True)
         if not row or row.company != target or row.docstatus != 1:
             frappe.throw(f"{r} is not a submitted receipt of {target}")
+        # a return (negative) receipt can't carry positive landed cost
+        if row.is_return:
+            frappe.throw(f"{r} is a return receipt — landed cost cannot be capitalised onto a return.")
     fx_bad = _fx_offenders(receipts)
     if fx_bad:
         frappe.throw("FX out of band — fix the purchase rate before capitalising: "
                      + ", ".join(f"{b['receipt']} {b['currency']}@{b['rate']}" for b in fx_bad))
+    # HARD double-capitalisation guard: a charge must name its source bill, and that
+    # bill must not already be stamped into a submitted LCV. This is the backend
+    # gate the accountant relies on — the inbox src-stamp is only a UI convenience.
+    used = _used_charge_sources(target)
     total = 0.0
     for c in charges:
         amt = flt(c.get("amount"))
@@ -481,7 +488,17 @@ def post_lcv(company=None, receipts=None, charges=None, distribute_by="Amount", 
             frappe.throw("Every charge needs a positive amount")
         if not c.get("expense_account"):
             frappe.throw("Every charge needs an expense account")
+        src = c.get("source")
+        if not src:
+            frappe.throw("Each charge must reference its source bill (double-capitalisation guard).")
+        if src in used:
+            frappe.throw(f"Charge {src} is already capitalised by a submitted LCV — refusing to double-capitalise.")
         total += amt
+    # weight guard (server-side, not just preview): a weight-basis charge needs items
+    # that actually carry weight, else ERPNext would mis-distribute or throw.
+    if any(_charge_basis(c, distribute_by) == "Weight" for c in charges):
+        if sum(_basis(i, "Weight") for i in _load_receipt_items(receipts)) <= 0:
+            frappe.throw("A charge distributes by weight but the items have no weight — set item weights first.")
     key = "lcv:" + frappe.generate_hash(f"{target}:{sorted(receipts)}:{total}:{distribute_by}", 12)
     return _actions.execute(
         LCV_ACTION, target, key,

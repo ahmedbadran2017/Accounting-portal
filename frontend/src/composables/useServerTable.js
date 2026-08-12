@@ -11,6 +11,7 @@ export function useServerTable(fetcher, opts = {}) {
   const total = ref(0);
   const extra = ref({}); // full payload (e.g. state_counts)
   const loading = ref(true);
+  const error = ref(""); // set when a fetch throws — callers must NOT render empty-success on error
   const search = ref("");
   const sortField = ref(opts.sortField || "date");
   const sortDir = ref(opts.sortDir || "desc");
@@ -23,6 +24,7 @@ export function useServerTable(fetcher, opts = {}) {
   let seq = 0;
   async function load() {
     loading.value = true;
+    error.value = "";
     const my = ++seq;
     try {
       const res = await fetcher({
@@ -37,8 +39,9 @@ export function useServerTable(fetcher, opts = {}) {
       rows.value = res.rows || [];
       total.value = res.total || 0;
       extra.value = res || {};
-    } catch {
-      if (my === seq) { rows.value = []; total.value = 0; }
+    } catch (e) {
+      // surface the failure — an empty table on error must never read as "all clear"
+      if (my === seq) { rows.value = []; total.value = 0; error.value = String(e?.message || e).slice(0, 200) || "load failed"; }
     } finally {
       if (my === seq) loading.value = false;
     }
@@ -59,7 +62,7 @@ export function useServerTable(fetcher, opts = {}) {
   watch(search, () => { clearTimeout(t); t = setTimeout(() => { page.value = 1; load(); }, 300); });
 
   return {
-    page, pageSize, rows, total, extra, loading, search, sortField, sortDir, filters,
+    page, pageSize, rows, total, extra, loading, error, search, sortField, sortDir, filters,
     totalPages, rangeStart, rangeEnd, load, go, next, prev, setFilters, setSort,
   };
 }

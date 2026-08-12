@@ -88,7 +88,8 @@
                 <td class="px-2 py-2 text-ink-3 whitespace-nowrap">{{ String(r.dt).slice(0,10) }}</td>
                 <td class="px-3 py-2 text-end tnum whitespace-nowrap">{{ money(r.value) }} <span class="text-[9px] text-ink-muted">· {{ r.items }} {{ L("items","صنف","art.") }}</span></td>
               </tr>
-              <tr v-if="!receipts.length"><td colspan="5" class="px-4 py-6 text-center text-ink-muted text-[11px]">{{ L("All 2026 receipts are covered 🎉","كل استلامات 2026 متغطية 🎉","Tout est couvert") }}</td></tr>
+              <tr v-if="err"><td colspan="5" class="px-4 py-6 text-center text-rose-600 text-[11px]">{{ L("Couldn't load — ","تعذّر التحميل — ","Échec — ") }}<button @click="load" class="underline font-semibold">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button></td></tr>
+              <tr v-else-if="!receipts.length"><td colspan="5" class="px-4 py-6 text-center text-ink-muted text-[11px]">{{ L("All 2026 receipts are covered 🎉","كل استلامات 2026 متغطية 🎉","Tout est couvert") }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -125,7 +126,8 @@
                 <td class="px-3 py-2 text-end tnum font-semibold">{{ money(m.amount) }}</td>
               </tr>
               <tr v-if="inbox.length >= 500"><td colspan="4" class="px-4 py-2 text-center text-[10px] text-amber-700">{{ L("Showing the latest 500 charges — post some to surface older ones.","بيعرض أحدث 500 مصروف — رحّل شوية عشان الأقدم يظهر.","500 dernières charges.") }}</td></tr>
-              <tr v-if="!inbox.length && !manualCharges.length"><td colspan="4" class="px-4 py-6 text-center text-ink-muted text-[11px]">{{ L("No unallocated charges — add one manually if the bill isn't booked yet.","مفيش مصاريف غير موزعة — أضف يدوي لو الفاتورة لسه ماتسجلتش.","Aucune charge.") }}</td></tr>
+              <tr v-if="err && !inbox.length"><td colspan="4" class="px-4 py-6 text-center text-rose-600 text-[11px]">{{ L("Couldn't load charges","تعذّر تحميل المصاريف","Échec de chargement") }}</td></tr>
+              <tr v-else-if="!inbox.length && !manualCharges.length"><td colspan="4" class="px-4 py-6 text-center text-ink-muted text-[11px]">{{ L("No unallocated charges — add one manually if the bill isn't booked yet.","مفيش مصاريف غير موزعة — أضف يدوي لو الفاتورة لسه ماتسجلتش.","Aucune charge.") }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -220,6 +222,7 @@ const drafts = ref([]);
 const receipts = ref([]);
 const inbox = ref([]);
 const loading = ref(true);
+const err = ref("");
 const busy = ref("");
 const rq = ref("");
 const selReceipts = ref([]);
@@ -239,7 +242,7 @@ const chargesTotal = computed(() =>
 const canPreview = computed(() => selReceipts.value.length && (selCharges.value.length || manualCharges.value.length));
 
 async function load() {
-  loading.value = true;
+  loading.value = true; err.value = "";
   preview.value = null; selReceipts.value = []; selCharges.value = [];
   try {
     const c = { company: currentCompany() };
@@ -249,7 +252,7 @@ async function load() {
       api.call("accounting_portal.api.landed_pipeline.receipts_uncovered", c, { fresh: true }),
       api.call("accounting_portal.api.landed_pipeline.charge_inbox", c, { fresh: true }),
     ]);
-  } catch { /* keep last */ }
+  } catch (e) { err.value = String(e?.message || e).slice(0, 200) || "load failed"; }
   finally { loading.value = false; }
 }
 load();
