@@ -114,7 +114,7 @@ def pipeline_overview(company=None):
     if not target:
         return {}
     uncovered = frappe.db.sql(
-        f"""SELECT COUNT(*), SUM(pr.base_grand_total) FROM `tabPurchase Receipt` pr
+        f"""SELECT COUNT(*), SUM(pr.base_net_total) FROM `tabPurchase Receipt` pr
            JOIN `tabSupplier` sup ON sup.name = pr.supplier
            WHERE pr.company=%s AND pr.docstatus=1 AND pr.posting_date>=%s
            AND {_DOMESTIC_SQL}
@@ -226,7 +226,7 @@ def receipts_uncovered(company=None, q=None, limit=100):
     where, params = _uncovered_where(target, q)
     params["lim"] = min(int(limit or 100), 300)
     return frappe.db.sql(
-        f"""SELECT pr.name, pr.supplier, pr.posting_date dt, pr.base_grand_total value,
+        f"""SELECT pr.name, pr.supplier, pr.posting_date dt, pr.base_net_total value,
                    pr.currency, (SELECT COUNT(*) FROM `tabPurchase Receipt Item` i WHERE i.parent=pr.name) items
             {where}
             ORDER BY pr.posting_date DESC LIMIT %(lim)s""", params, as_dict=True)
@@ -245,7 +245,7 @@ def receipts_uncovered_page(company=None, start=0, page_size=25, search=None, **
     params["start"] = max(int(start or 0), 0)
     params["ps"] = min(max(int(page_size or 25), 1), 200)
     rows = frappe.db.sql(
-        f"""SELECT pr.name, pr.supplier, pr.posting_date dt, pr.base_grand_total value,
+        f"""SELECT pr.name, pr.supplier, pr.posting_date dt, pr.base_net_total value,
                    pr.currency, (SELECT COUNT(*) FROM `tabPurchase Receipt Item` i WHERE i.parent=pr.name) items
             {where}
             ORDER BY pr.posting_date DESC LIMIT %(ps)s OFFSET %(start)s""", params, as_dict=True)
@@ -532,10 +532,13 @@ def _new_lcv(company, posting_date, receipts, basis):
     doc.posting_date = posting_date or nowdate()
     doc.distribute_charges_based_on = basis
     for r in receipts:
-        pr = frappe.db.get_value("Purchase Receipt", r, ["supplier", "base_grand_total"], as_dict=True)
+        # base_net_total, not base_grand_total: the latter is a stale field on
+        # FX-corrected receipts (computed at the old conversion_rate) and would
+        # both mis-weight multi-receipt distribution and show an inflated value.
+        pr = frappe.db.get_value("Purchase Receipt", r, ["supplier", "base_net_total"], as_dict=True)
         doc.append("purchase_receipts", {
             "receipt_document_type": "Purchase Receipt", "receipt_document": r,
-            "supplier": pr.supplier, "grand_total": pr.base_grand_total})
+            "supplier": pr.supplier, "grand_total": pr.base_net_total})
     doc.get_items_from_purchase_receipts()
     if not doc.get("items"):
         frappe.throw("The selected receipts carry no item lines")
