@@ -561,6 +561,11 @@ def _lcv_poster(action):
     for c in p["charges"]:
         groups.setdefault(_charge_basis(c, default_basis), []).append(c)
     created = []
+    # Charge amounts reach us already in the company's base currency (the inbox
+    # reads GL base debits). Pin every tax row to company currency @ rate 1 so a
+    # foreign-flagged expense account (e.g. a Sea Freight account mis-set to USD)
+    # can't multiply the amount by an FX rate and blow up total_taxes_and_charges.
+    _ccy = frappe.get_cached_value("Company", action.company, "default_currency")
     for basis, charges in groups.items():
         if basis == "Weight":
             # 'Distribute Manually' (our weight vehicle) allows exactly ONE charge
@@ -569,7 +574,8 @@ def _lcv_poster(action):
                 doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], "Distribute Manually")
                 _apply_weight_shares(doc, flt(c["amount"]))
                 doc.append("taxes", {"expense_account": c["expense_account"],
-                                     "description": _charge_desc(c), "amount": flt(c["amount"])})
+                                     "description": _charge_desc(c), "amount": flt(c["amount"]),
+                                 "account_currency": _ccy, "exchange_rate": 1})
                 doc.insert(ignore_permissions=True)
                 doc.submit()
                 created.append(doc.name)
@@ -577,7 +583,8 @@ def _lcv_poster(action):
             doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], basis)
             for c in charges:
                 doc.append("taxes", {"expense_account": c["expense_account"],
-                                     "description": _charge_desc(c), "amount": flt(c["amount"])})
+                                     "description": _charge_desc(c), "amount": flt(c["amount"]),
+                                 "account_currency": _ccy, "exchange_rate": 1})
             doc.insert(ignore_permissions=True)
             doc.submit()
             created.append(doc.name)
