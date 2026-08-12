@@ -566,28 +566,47 @@ def _lcv_poster(action):
     # foreign-flagged expense account (e.g. a Sea Freight account mis-set to USD)
     # can't multiply the amount by an FX rate and blow up total_taxes_and_charges.
     _ccy = frappe.get_cached_value("Company", action.company, "default_currency")
-    for basis, charges in groups.items():
-        if basis == "Weight":
-            # 'Distribute Manually' (our weight vehicle) allows exactly ONE charge
-            # row per voucher — so weight charges post one voucher each.
-            for c in charges:
-                doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], "Distribute Manually")
-                _apply_weight_shares(doc, flt(c["amount"]))
-                doc.append("taxes", {"expense_account": c["expense_account"],
-                                     "description": _charge_desc(c), "amount": flt(c["amount"]),
-                                 "account_currency": _ccy, "exchange_rate": 1})
+    # Atomic: a shipment's charges span several basis-groups, each posting its own
+    # voucher. If ANY voucher fails to submit, roll the whole set back — and
+    # defensively cancel/delete any that slipped a nested commit — so we never
+    # strand a half-capitalised shipment (the earlier non-atomic loop did exactly
+    # that when the second voucher hit the FX validation error).
+    frappe.db.savepoint("lcv_atomic")
+    try:
+        for basis, charges in groups.items():
+            if basis == "Weight":
+                # 'Distribute Manually' (our weight vehicle) allows exactly ONE charge
+                # row per voucher — so weight charges post one voucher each.
+                for c in charges:
+                    doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], "Distribute Manually")
+                    _apply_weight_shares(doc, flt(c["amount"]))
+                    doc.append("taxes", {"expense_account": c["expense_account"],
+                                         "description": _charge_desc(c), "amount": flt(c["amount"]),
+                                         "account_currency": _ccy, "exchange_rate": 1})
+                    doc.insert(ignore_permissions=True)
+                    doc.submit()
+                    created.append(doc.name)
+            else:
+                doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], basis)
+                for c in charges:
+                    doc.append("taxes", {"expense_account": c["expense_account"],
+                                         "description": _charge_desc(c), "amount": flt(c["amount"]),
+                                         "account_currency": _ccy, "exchange_rate": 1})
                 doc.insert(ignore_permissions=True)
                 doc.submit()
                 created.append(doc.name)
-        else:
-            doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], basis)
-            for c in charges:
-                doc.append("taxes", {"expense_account": c["expense_account"],
-                                     "description": _charge_desc(c), "amount": flt(c["amount"]),
-                                 "account_currency": _ccy, "exchange_rate": 1})
-            doc.insert(ignore_permissions=True)
-            doc.submit()
-            created.append(doc.name)
+    except Exception:
+        frappe.db.rollback(save_point="lcv_atomic")
+        for n in created:
+            if frappe.db.exists("Landed Cost Voucher", n):
+                try:
+                    d = frappe.get_doc("Landed Cost Voucher", n)
+                    if d.docstatus == 1:
+                        d.cancel()
+                    frappe.delete_doc("Landed Cost Voucher", n, force=True, ignore_permissions=True)
+                except Exception:
+                    pass
+        raise
     # stash every voucher on the action so revert can cancel them all
     frappe.db.set_value(action.doctype, action.name, "payload",
                         json.dumps({**p, "created": created}, default=str), update_modified=False)
