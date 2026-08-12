@@ -529,25 +529,6 @@ def _new_lcv(company, posting_date, receipts, basis):
     return doc
 
 
-def _apply_weight_shares(doc, total):
-    """Manual per-item allocation = weight share × total, residual on the
-    heaviest line so the sum ties out to the charge exactly."""
-    weights = dict(frappe.db.sql(
-        "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
-        (tuple({it.item_code for it in doc.items}),)))
-    base = sum(flt(it.qty) * flt(weights.get(it.item_code)) for it in doc.items)
-    if base <= 0:
-        frappe.throw("None of these items has a weight — cannot distribute by weight")
-    allocated, heaviest = 0.0, None
-    for it in doc.items:
-        share = flt(it.qty) * flt(weights.get(it.item_code)) / base
-        it.applicable_charges = round(total * share, 2)
-        allocated += it.applicable_charges
-        if heaviest is None or it.applicable_charges > heaviest.applicable_charges:
-            heaviest = it
-    heaviest.applicable_charges = round(heaviest.applicable_charges + (total - allocated), 2)
-
-
 def _lcv_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     if p.get("mode") == "submit_draft":
@@ -573,28 +554,20 @@ def _lcv_poster(action):
     # that when the second voucher hit the FX validation error).
     frappe.db.savepoint("lcv_atomic")
     try:
+        # One voucher per basis-group. 'Weight' is a native codx_erp distribute
+        # option (distributes on the LCV item's weight), so every basis — Amount,
+        # Qty, Weight — takes the same path: append all the group's charges and let
+        # ERPNext distribute. (Earlier we faked weight via 'Distribute Manually',
+        # which caps at one charge/voucher and mislabels the basis in the UI.)
         for basis, charges in groups.items():
-            if basis == "Weight":
-                # 'Distribute Manually' (our weight vehicle) allows exactly ONE charge
-                # row per voucher — so weight charges post one voucher each.
-                for c in charges:
-                    doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], "Distribute Manually")
-                    _apply_weight_shares(doc, flt(c["amount"]))
-                    doc.append("taxes", {"expense_account": c["expense_account"],
-                                         "description": _charge_desc(c), "amount": flt(c["amount"]),
-                                         "account_currency": _ccy, "exchange_rate": 1})
-                    doc.insert(ignore_permissions=True)
-                    doc.submit()
-                    created.append(doc.name)
-            else:
-                doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], basis)
-                for c in charges:
-                    doc.append("taxes", {"expense_account": c["expense_account"],
-                                         "description": _charge_desc(c), "amount": flt(c["amount"]),
-                                         "account_currency": _ccy, "exchange_rate": 1})
-                doc.insert(ignore_permissions=True)
-                doc.submit()
-                created.append(doc.name)
+            doc = _new_lcv(action.company, p.get("posting_date"), p["receipts"], basis)
+            for c in charges:
+                doc.append("taxes", {"expense_account": c["expense_account"],
+                                     "description": _charge_desc(c), "amount": flt(c["amount"]),
+                                     "account_currency": _ccy, "exchange_rate": 1})
+            doc.insert(ignore_permissions=True)
+            doc.submit()
+            created.append(doc.name)
     except Exception:
         frappe.db.rollback(save_point="lcv_atomic")
         for n in created:
