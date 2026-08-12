@@ -34,9 +34,20 @@ BULK_COST_ACTION = "Set item costs (bulk)"
 _INBOUND = (
     "((a.account_name LIKE '%%Freight%%' OR a.account_name LIKE '%%Sea%%' "
     "  OR a.account_name LIKE '%%Cargo%%' OR a.account_name LIKE '%%Customs%%' "
-    "  OR a.account_name LIKE '%%Duty%%' OR a.account_name LIKE '%%Forwarding%%') "
+    "  OR a.account_name LIKE '%%Duty%%' OR a.account_name LIKE '%%Forwarding%%' "
+    "  OR a.account_name LIKE '%%Haulage%%' OR a.account_name LIKE '%%Demurrage%%' "
+    "  OR a.account_name LIKE '%%Clearance%%' OR a.account_name LIKE '%%Agent%%' "
+    "  OR a.account_name LIKE '%%Stuffing%%' OR a.account_name LIKE '%%Forklift%%' "
+    "  OR a.account_name LIKE '%%Inspection%%' OR a.account_name LIKE '%%Container%%' "
+    # landed-cost sub-accounts under the 770.07 tree (Morocco): warehouse FEE,
+    # storage, logistics etc. Matched by code so we catch them without also
+    # sweeping in period-cost warehouse RENT accounts (770.001.01.x).
+    "  OR a.name LIKE '770.07.%%' OR a.name LIKE '770.0.7.%%') "
     " AND a.account_name NOT LIKE '%%Cathadis%%' "
-    " AND a.account_name NOT LIKE '%%Aramex%%' AND a.account_name NOT LIKE '%%Cash Plus%%')")
+    " AND a.account_name NOT LIKE '%%Aramex%%' AND a.account_name NOT LIKE '%%Cash Plus%%' "
+    # never treat warehouse/office rent as an import landed charge — it is a
+    # period operating cost, not attributable to any one shipment.
+    " AND a.account_name NOT LIKE '%%Rent%%')")
 
 _WEIGHT_HI = 20.0     # kg — above this is implausible for this catalogue
 _WEIGHT_LO = 0.01     # kg — below this (10 g) is suspiciously light
