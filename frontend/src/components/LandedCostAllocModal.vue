@@ -15,21 +15,29 @@
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="text-[11px] font-bold text-ink-3">{{ L("Charges to add to product cost","التكاليف اللي هتدخل التكلفة","Charges à capitaliser") }}</label>
-            <span class="text-[10.5px] text-ink-muted">{{ L("account locked to","الحساب مقفول على","compte") }}: <b class="text-emerald-700">{{ clearingShort }}</b></span>
+            <span class="text-[10.5px] text-ink-muted">{{ L("credited to the account it sits on","تُدائن على حسابها","compte d'origine") }}</span>
           </div>
+          <div v-if="hasMatched" class="text-[10.5px] text-emerald-700 mb-1 flex items-center gap-1"><Icon name="check" :size="12" />{{ L("auto-matched to this shipment by the bill reference","اترابطت بالشحنة تلقائيًا من مرجع الفاتورة","liées automatiquement") }}</div>
           <div class="border border-line rounded-[10px] divide-y divide-line-hair">
-            <div v-for="(c,idx) in charges" :key="idx" class="flex items-center gap-2 px-2.5 py-2 text-[12px]">
+            <div v-for="(c,idx) in charges" :key="idx" class="flex items-center gap-2 px-2.5 py-2 text-[12px]" :class="c.include ? '' : 'opacity-55'">
+              <input type="checkbox" v-model="c.include" class="shrink-0" />
               <div class="flex-1 min-w-0">
-                <div class="truncate">{{ c.label }}</div>
-                <div v-if="c.is_legacy_pl" class="text-[10px] text-amber-600">{{ L("legacy P&L account — re-point to clearing","حساب مصروف قديم — لازم يتحوّل للوسيط","compte P&L hérité") }}</div>
+                <div class="truncate">{{ c.label }}
+                  <span v-if="!c.matched" class="text-[10px] text-amber-600 ms-1">· {{ c.shipment ? L('other shipment','شحنة أخرى','autre') : L('unassigned — add if it belongs','غير مربوطة — أضِفها لو تخص الشحنة','non liée') }}</span>
+                </div>
+                <div v-if="c.is_legacy_pl" class="text-[10px] text-amber-600">{{ L("on a P&L account","على حساب مصروف","compte P&L") }}</div>
               </div>
               <select v-model="c.category" class="h-8 border border-line-2 rounded-[8px] px-1.5 text-[11.5px] bg-white">
                 <option v-for="cat in CATS" :key="cat.k" :value="cat.k">{{ cat.label() }} · {{ cat.basis }}</option>
               </select>
               <span class="tnum font-semibold w-24 text-end">{{ fmt2(c.amount) }}</span>
             </div>
+            <div v-if="!charges.length" class="px-2.5 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No charges in the clearing inbox yet","مفيش تكاليف في صندوق الترسيم","Aucune charge") }}</div>
           </div>
-          <div class="flex justify-end mt-1 text-[11px] text-ink-3"><span class="me-2">{{ L("Total","الإجمالي","Total") }}:</span><b class="tnum">{{ fmt2(totalCharge) }}</b></div>
+          <div class="flex justify-between mt-1 text-[11px] text-ink-3">
+            <span>{{ included.length }} {{ L("selected","مختار","sélectionné") }}</span>
+            <span><span class="me-2">{{ L("Total","الإجمالي","Total") }}:</span><b class="tnum">{{ fmt2(totalCharge) }}</b></span>
+          </div>
         </div>
 
         <div v-if="loading" class="py-4 text-center text-[12px] text-ink-muted">{{ L("Computing per-product cost…","جارٍ حساب التكلفة/منتج…","Calcul…") }}</div>
@@ -134,24 +142,31 @@ const charges = ref((props.prefill.charges || []).map((c) => ({
   expense_account: c.account,
   source: c.vn,
   is_legacy_pl: !!c.is_legacy_pl,
+  shipment: c.shipment || null,
+  matched: !!c.matched,          // bill remark tags this shipment → auto-attached
+  include: c.include !== false,  // matched charges are on by default, suggestions off
   category: guessCat(c.account_name || c.description || c.account),
 })));
-const totalCharge = computed(() => charges.value.reduce((s, c) => s + Number(c.amount || 0), 0));
+// only ticked charges are previewed / posted
+const included = computed(() => charges.value.filter((c) => c.include));
+const suggestions = computed(() => charges.value.filter((c) => !c.matched));
+const hasMatched = computed(() => charges.value.some((c) => c.matched));
+const totalCharge = computed(() => included.value.reduce((s, c) => s + Number(c.amount || 0), 0));
 const clearingShort = ref(props.prefill.clearing_account ? String(props.prefill.clearing_account).split(" - ")[0] : "153.03");
 
 const pv = ref(null);
 const loading = ref(false);
 const busy = ref(false);
 const error = ref("");
-const canPost = computed(() => canWrite.value && pv.value && !pv.value.blocked && charges.value.length && receipts.value.length);
+const canPost = computed(() => canWrite.value && pv.value && !pv.value.blocked && included.value.length && receipts.value.length);
 
 function payloadCharges() {
-  return charges.value.map((c) => ({ expense_account: c.expense_account, description: c.label, amount: c.amount, category: c.category, source: c.source }));
+  return included.value.map((c) => ({ expense_account: c.expense_account, description: c.label, amount: c.amount, category: c.category, source: c.source }));
 }
 
 let seq = 0;
 async function loadPreview() {
-  if (!receipts.value.length || !charges.value.length) { pv.value = null; return; }
+  if (!receipts.value.length || !included.value.length) { pv.value = null; return; }
   loading.value = true; error.value = "";
   const my = ++seq;
   try {

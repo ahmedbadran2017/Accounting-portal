@@ -16,9 +16,20 @@ one voucher per basis-group. ERPNext reposts later SLEs so COGS heals.
 → draft triage for the LCVs the team already started.
 """
 import json
+import re
 
 import frappe
 from frappe.utils import flt, nowdate
+
+# Charge bills carry the shipment in their remark/description, e.g.
+# "Landed Cost - MAT-PRE-2026-00548 - ...". Pull the receipt code so the cockpit
+# can auto-attach each charge to its shipment (untagged charges stay unassigned).
+_SHIPMENT_RE = re.compile(r"(MAT-PRE-\d{4}-\d+(?:-\d+)?)")
+
+
+def _parse_shipment(text):
+    m = _SHIPMENT_RE.search(text or "")
+    return m.group(1) if m else None
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
 from accounting_portal.api import _actions
@@ -180,6 +191,8 @@ def charge_inbox(company=None):
         # A charge sitting on a P&L (Expense) account distorts the P&L and won't
         # net cleanly — it should be re-pointed to the 153.03 clearing account.
         r["is_legacy_pl"] = (r.get("root_type") == "Expense")
+        # shipment tag (from the bill remark) so the cockpit can auto-attach it
+        r["shipment"] = _parse_shipment(r.get("remarks"))
         out.append(r)
     return out
 

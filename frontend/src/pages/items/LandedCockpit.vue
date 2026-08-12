@@ -41,21 +41,30 @@
               <th class="text-start px-2 py-1.5">{{ L("Receipt","الاستلام","Réception") }}</th>
               <th class="text-start px-2 py-1.5">{{ L("Supplier","المورد","Fournisseur") }}</th>
               <th class="text-end px-2 py-1.5">{{ L("Value","القيمة","Valeur") }}</th>
-              <th class="text-end px-2 py-1.5">{{ L("Items","أصناف","Articles") }}</th>
+              <th class="text-end px-2 py-1.5">{{ L("Matched charges","تكاليف مربوطة","Charges liées") }}</th>
               <th class="text-end px-3 py-1.5">{{ L("Date","التاريخ","Date") }}</th>
+              <th class="px-3 py-1.5"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line-hair">
-            <tr v-for="r in recsT.rows.value" :key="r.name" class="hover:bg-app-warm/30 cursor-pointer" @click="toggle(r.name)">
+            <tr v-for="r in recsT.rows.value" :key="r.name" class="hover:bg-app-warm/30 cursor-pointer" @click="openOne(r.name)">
               <td class="px-2 py-1.5"><input type="checkbox" :checked="sel.includes(r.name)" @click.stop="toggle(r.name)" /></td>
               <td class="px-2 py-1.5 font-medium">{{ r.name }} <span class="text-ink-muted">· {{ r.currency }}</span></td>
-              <td class="px-2 py-1.5 truncate max-w-[160px]">{{ r.supplier }}</td>
+              <td class="px-2 py-1.5 truncate max-w-[150px]">{{ r.supplier }}</td>
               <td class="px-2 py-1.5 text-end tnum">{{ fmt0(r.value) }}</td>
-              <td class="px-2 py-1.5 text-end tnum">{{ r.items }}</td>
+              <td class="px-2 py-1.5 text-end tnum">
+                <span v-if="matchedFor(r.name).length" class="text-emerald-700 font-semibold">{{ fmt0(matchedSum(r.name)) }}</span>
+                <span v-else class="text-ink-muted">—</span>
+              </td>
               <td class="px-3 py-1.5 text-end text-ink-muted">{{ r.dt }}</td>
+              <td class="px-3 py-1.5 text-end">
+                <button v-if="canWrite" @click.stop="openOne(r.name)" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700">
+                  {{ L("Capitalise","ترسيم","Capitaliser") }}
+                </button>
+              </td>
             </tr>
-            <tr v-if="recsT.loading.value"><td colspan="6" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ L("Loading…","جارٍ التحميل…","Chargement…") }}</td></tr>
-            <tr v-else-if="!recsT.rows.value.length"><td colspan="6" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ recsT.search.value ? L("No match","لا نتائج","Aucun résultat") : L("Every import shipment is covered ✓","كل شحنات الاستيراد مغطّاة ✓","Tout est couvert ✓") }}</td></tr>
+            <tr v-if="recsT.loading.value"><td colspan="7" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ L("Loading…","جارٍ التحميل…","Chargement…") }}</td></tr>
+            <tr v-else-if="!recsT.rows.value.length"><td colspan="7" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ recsT.search.value ? L("No match","لا نتائج","Aucun résultat") : L("Every import shipment is covered ✓","كل شحنات الاستيراد مغطّاة ✓","Tout est couvert ✓") }}</td></tr>
           </tbody>
         </table>
         <ServerPager v-if="recsT.total.value > recsT.pageSize.value" :t="recsT" />
@@ -195,9 +204,20 @@ function toggleAll() {
   sel.value = pageAllSel.value ? sel.value.filter((n) => !names.includes(n)) : [...new Set([...sel.value, ...names])];
 }
 
+// charges whose bill remark tags THIS shipment
+function matchedFor(receipt) { return inbox.value.filter((c) => c.shipment === receipt); }
+function matchedSum(receipt) { return matchedFor(receipt).reduce((s, c) => s + Number(c.amount || 0), 0); }
+
+// Self-service single-shipment flow: its tagged charges come in pre-selected;
+// every other unassigned charge is offered as an unchecked suggestion to add.
+function openOne(receipt) {
+  const mine = matchedFor(receipt).map((c) => ({ ...c, include: true, matched: true }));
+  const others = inbox.value.filter((c) => c.shipment !== receipt).map((c) => ({ ...c, include: false, matched: false }));
+  modal.value = { receipts: [receipt], charges: [...mine, ...others], clearing_account: ov.value.clearing_account };
+}
 function openAlloc() {
   if (!sel.value.length) return;
-  modal.value = { receipts: [...sel.value], charges: inbox.value, clearing_account: ov.value.clearing_account };
+  modal.value = { receipts: [...sel.value], charges: inbox.value.map((c) => ({ ...c, include: true, matched: true })), clearing_account: ov.value.clearing_account };
 }
-function onPosted() { sel.value = []; load(); recsT.load(); }
+function onPosted() { sel.value = []; modal.value = null; load(); recsT.load(); }
 </script>
