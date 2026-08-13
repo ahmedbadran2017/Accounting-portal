@@ -19,7 +19,7 @@ import json
 import re
 
 import frappe
-from frappe.utils import flt, nowdate
+from frappe.utils import flt, nowdate, money_in_words
 
 # Charge bills carry the shipment in their remark/description, e.g.
 # "Landed Cost - MAT-PRE-2026-00548 - ...". Pull the receipt code so the cockpit
@@ -654,17 +654,31 @@ _actions.register_poster(DEL_ACTION, _del_draft_poster)
 _actions._NO_GATE.add(DEL_ACTION)  # draft-only, no GL — audited but ungated
 
 
-# ── Stale base_grand_total repair ──────────────────────────────────────────
-# When a receipt's conversion_rate was corrected after posting (e.g. USD 43.7 →
-# 9.5), ERPNext recomputed the line amounts and base_net_total but left
-# base_grand_total at the OLD rate — a stale, inflated display field (no GL/stock
-# impact). This detects and repairs it: base_grand_total = base_net + base_taxes
-# − base_discount. Audited + reversible; changes a stored total only.
+# ── Stale base-currency totals repair ──────────────────────────────────────
+# When a receipt's conversion_rate is corrected after posting (e.g. USD 43.7 →
+# 9.5), ERPNext recomputes the line amounts + base_net_total but leaves the HEADER
+# base-currency rollups at the OLD rate — stale, inflated display fields with no
+# GL/stock impact: grand total, rounded total, tax-withholding net, and in-words.
+# This resyncs EVERY base_* header field to (doc value × conversion_rate) and
+# recomputes base_in_words. Audited + fully reversible; touches stored totals only.
 FIX_TOTALS_ACTION = "Fix receipt base total"
 
+# every base_* header total must equal its doc-currency counterpart × conversion_rate
+_BASE_TOTAL_FIELDS = ("base_total", "base_net_total", "base_grand_total",
+                      "base_rounded_total", "base_rounding_adjustment",
+                      "base_tax_withholding_net_total", "base_taxes_and_charges_added",
+                      "base_discount_amount")
 
-def _correct_base_grand(row):
-    return flt(row.base_net_total) + flt(row.get("base_taxes_and_charges_added")) - flt(row.get("base_discount_amount"))
+
+def _base_total_fixes(row, rate):
+    """{base_field: corrected} and {base_field: old} for every stale base_* total."""
+    new, old = {}, {}
+    for bf in _BASE_TOTAL_FIELDS:
+        correct = round(flt(row.get(bf[len("base_"):])) * rate, 2)
+        if abs(flt(row.get(bf)) - correct) > 0.01:
+            new[bf] = correct
+            old[bf] = flt(row.get(bf))
+    return new, old
 
 
 @frappe.whitelist()
@@ -695,39 +709,47 @@ def stale_receipt_totals(company=None, limit=200):
 
 @frappe.whitelist()
 def fix_receipt_totals(company=None, receipt=None, notes=None):
-    """Repair one receipt's stale base_grand_total via the audited gateway."""
+    """Resync ALL of a receipt's stale base-currency header totals (+ in-words) to
+    the live conversion rate, via the audited gateway. No GL/stock impact."""
     assert_can_write()
     target = _target(company)
-    row = frappe.db.get_value(
-        "Purchase Receipt", receipt,
-        ["company", "docstatus", "base_grand_total", "base_net_total",
-         "base_taxes_and_charges_added", "base_discount_amount"], as_dict=True)
+    fields = ["company", "docstatus", "conversion_rate", "base_in_words"]
+    fields += list(_BASE_TOTAL_FIELDS) + [bf[len("base_"):] for bf in _BASE_TOTAL_FIELDS]
+    row = frappe.db.get_value("Purchase Receipt", receipt, fields, as_dict=True)
     if not row or row.company != target or row.docstatus != 1:
         frappe.throw(f"{receipt} is not a submitted receipt of {target}")
-    correct = _correct_base_grand(row)
-    old = flt(row.base_grand_total)
-    if abs(old - correct) <= 1:
+    rate = flt(row.conversion_rate) or 1.0
+    new, old = _base_total_fixes(row, rate)
+    if not new:
         return {"status": "ok", "result": "already correct"}
-    key = "fixtot:" + frappe.generate_hash(f"{receipt}:{round(correct,2)}", 12)
+    # refresh the amount-in-words to match the corrected grand total
+    ccy = frappe.get_cached_value("Company", target, "default_currency")
+    new_bgt = new.get("base_grand_total", flt(row.base_grand_total))
+    new["base_in_words"] = money_in_words(new_bgt, ccy)
+    old["base_in_words"] = row.base_in_words
+    old_bgt = flt(row.base_grand_total)
+    key = "fixtot:" + frappe.generate_hash(f"{receipt}:{round(new_bgt,2)}", 12)
     return _actions.execute(
         FIX_TOTALS_ACTION, target, key,
-        payload={"receipt": receipt, "old": old, "new": correct},
-        amount=abs(old - correct),
-        notes=notes or f"Repair stale base total on {receipt}: {old:,.0f} → {correct:,.0f}")
+        payload={"receipt": receipt, "new": new, "old": old},
+        amount=abs(old_bgt - new_bgt),
+        notes=notes or f"Resync base totals on {receipt}: grand {old_bgt:,.0f} → {new_bgt:,.0f}")
 
 
 def _fix_totals_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    frappe.db.set_value("Purchase Receipt", p["receipt"], "base_grand_total", flt(p["new"]), update_modified=False)
+    for field, val in p["new"].items():
+        frappe.db.set_value("Purchase Receipt", p["receipt"], field, val, update_modified=False)
     return {"voucher_type": "Purchase Receipt", "voucher_no": p["receipt"],
-            "result": f"{flt(p['old']):,.0f} → {flt(p['new']):,.0f}"}
+            "result": f"resynced {len(p['new'])} base fields"}
 
 
 def _fix_totals_reverter(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    frappe.db.set_value("Purchase Receipt", p["receipt"], "base_grand_total", flt(p["old"]), update_modified=False)
+    for field, val in p["old"].items():
+        frappe.db.set_value("Purchase Receipt", p["receipt"], field, val, update_modified=False)
     return {"voucher_type": "Purchase Receipt", "voucher_no": p["receipt"],
-            "result": f"restored {flt(p['old']):,.0f}"}
+            "result": f"restored {len(p['old'])} base fields"}
 
 
 _actions.register_poster(FIX_TOTALS_ACTION, _fix_totals_poster)
