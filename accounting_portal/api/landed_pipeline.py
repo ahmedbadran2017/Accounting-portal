@@ -689,17 +689,21 @@ def stale_receipt_totals(company=None, limit=200):
     target = _target(company)
     if not target:
         return []
+    # A receipt is stale if ANY base_* header total drifts from doc_value × rate —
+    # not just base_grand_total. (base_grand_total can be repaired while
+    # base_rounded_total / base_tax_withholding_net_total are still on the old rate.)
     rows = frappe.db.sql(
         """SELECT name, supplier, currency, conversion_rate, posting_date dt,
                   ROUND(base_grand_total, 2) current,
-                  ROUND(base_net_total + IFNULL(base_taxes_and_charges_added,0)
-                        - IFNULL(base_discount_amount,0), 2) correct
+                  ROUND(grand_total * conversion_rate, 2) correct
            FROM `tabPurchase Receipt`
-           WHERE company=%(c)s AND docstatus=1
-             AND ABS(base_grand_total - (base_net_total + IFNULL(base_taxes_and_charges_added,0)
-                     - IFNULL(base_discount_amount,0))) > 1
-             AND (base_net_total + IFNULL(base_taxes_and_charges_added,0)) > 0
-           ORDER BY base_grand_total DESC LIMIT %(lim)s""",
+           WHERE company=%(c)s AND docstatus=1 AND conversion_rate > 0
+             AND grand_total > 0
+             AND ( ABS(base_grand_total          - grand_total          * conversion_rate) > 1
+                OR ABS(base_rounded_total        - rounded_total        * conversion_rate) > 1
+                OR ABS(IFNULL(base_tax_withholding_net_total,0)
+                       - IFNULL(tax_withholding_net_total,0) * conversion_rate) > 1 )
+           ORDER BY ABS(base_grand_total - grand_total * conversion_rate) DESC LIMIT %(lim)s""",
         {"c": target, "lim": min(int(limit or 200), 500)}, as_dict=True)
     for r in rows:
         r["dt"] = str(r.dt)[:10]
