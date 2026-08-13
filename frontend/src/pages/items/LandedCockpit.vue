@@ -37,7 +37,7 @@
           </thead>
           <tbody class="divide-y divide-amber-200/60">
             <tr v-for="r in staleTotals" :key="r.name">
-              <td class="px-3 py-1.5 font-medium">{{ r.name }} <span class="text-ink-muted">· {{ r.currency }}@{{ r.conversion_rate }}</span></td>
+              <td class="px-3 py-1.5 font-medium"><router-link :to="{ path: '/accounting/purchases/received', query: { id: r.name } }" class="text-accent-dark hover:underline">{{ r.name }}</router-link> <span class="text-ink-muted">· {{ r.currency }}@{{ r.conversion_rate }}</span></td>
               <td class="px-2 py-1.5 text-end tnum text-rose-600">{{ fmt0(r.current) }}</td>
               <td class="px-2 py-1.5 text-end tnum text-emerald-700 font-semibold">{{ fmt0(r.correct) }}</td>
               <td class="px-2 py-1.5 text-center tnum text-ink-muted">{{ r.ratio }}</td>
@@ -76,7 +76,7 @@
           </thead>
           <tbody class="divide-y divide-line-hair">
             <tr v-for="r in recsT.rows.value" :key="r.name" class="hover:bg-app-warm/30 cursor-pointer" @click="openOne(r.name)">
-              <td class="px-3 py-1.5 font-medium">{{ r.name }} <span class="text-ink-muted">· {{ r.currency }}</span></td>
+              <td class="px-3 py-1.5 font-medium"><router-link :to="{ path: '/accounting/purchases/received', query: { id: r.name } }" class="text-accent-dark hover:underline" @click.stop>{{ r.name }}</router-link> <span class="text-ink-muted">· {{ r.currency }}</span></td>
               <td class="px-2 py-1.5 truncate max-w-[150px]">{{ r.supplier }}</td>
               <td class="px-2 py-1.5 text-end tnum">{{ fmt0(r.value) }}</td>
               <td class="px-2 py-1.5 text-end tnum">
@@ -125,7 +125,7 @@
           <tbody class="divide-y divide-line-hair">
             <tr v-for="v in posted" :key="v.name" :class="v.on_pl ? 'bg-amber-50/40' : ''">
               <td class="px-2.5 py-1.5 font-medium">{{ v.name }} <span class="text-ink-muted">· {{ v.basis }}</span></td>
-              <td class="px-2 py-1.5 truncate max-w-[150px] text-ink-3">{{ v.shipment }}</td>
+              <td class="px-2 py-1.5 truncate max-w-[150px]"><router-link v-if="v.shipment && v.shipment !== '—'" :to="{ path: '/accounting/purchases/received', query: { id: v.shipment } }" class="text-accent-dark hover:underline">{{ v.shipment }}</router-link><span v-else class="text-ink-3">{{ v.shipment }}</span></td>
               <td class="px-2 py-1.5 text-end tnum">{{ fmt0(v.total) }}</td>
               <td class="px-2 py-1.5 text-center">
                 <span v-if="v.on_pl" class="text-[10px] font-bold text-amber-700">770.07 (P&L)</span>
