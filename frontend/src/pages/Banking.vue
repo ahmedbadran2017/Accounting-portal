@@ -26,6 +26,7 @@
     <RemittanceDetail v-else-if="activeSub === 'remittance' && route.query.id" />
     <RemittanceList v-else-if="activeSub === 'remittance'" />
     <VarianceQueue v-else-if="activeSub === 'variance'" />
+    <CathedisClose v-else-if="activeSub === 'codclose'" />
     <CarrierSettlements v-else-if="activeSub === 'settlements'" />
     <CarrierAging v-else-if="activeSub === 'aging'" />
     <BankRec v-else-if="activeSub === 'bankrec'" />
@@ -49,6 +50,7 @@ import BankTransactions from "@/pages/banking/BankTransactions.vue";
 import RemittanceList from "@/pages/banking/RemittanceList.vue";
 import RemittanceDetail from "@/pages/banking/RemittanceDetail.vue";
 import VarianceQueue from "@/pages/banking/VarianceQueue.vue";
+import CathedisClose from "@/pages/banking/CathedisClose.vue";
 import CarrierAging from "@/pages/banking/CarrierAging.vue";
 import CarrierSettlements from "@/pages/banking/CarrierSettlements.vue";
 import BankRec from "@/pages/banking/BankRec.vue";
