@@ -370,7 +370,7 @@ _actions.register_reverter(CANCEL_LCV_ACTION, _cancel_lcv_reverter)
 
 def _load_receipt_items(receipts):
     return frappe.db.sql(
-        """SELECT pri.parent receipt, pri.name detail, pri.item_code, pri.description,
+        """SELECT pri.parent receipt, pri.name detail, pri.item_code, pri.item_name, pri.description,
                   pri.qty, pri.base_rate rate, pri.base_amount amount, pri.cost_center,
                   IFNULL(it.weight_per_unit, 0) wpu
            FROM `tabPurchase Receipt Item` pri
@@ -417,6 +417,7 @@ def preview_lcv(company=None, receipts=None, charges=None, distribute_by="Amount
     acc = {}
     for i in items:
         a = acc.setdefault(i.item_code, {"receipt": i.receipt, "item_code": i.item_code,
+                                         "item_name": i.get("item_name"),
                                          "qty": 0.0, "_rateqty": 0.0, "alloc": 0.0})
         a["qty"] += flt(i.qty)
         a["_rateqty"] += flt(i.qty) * flt(i.rate)

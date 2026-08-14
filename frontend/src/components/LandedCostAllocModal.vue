@@ -66,7 +66,10 @@
               </thead>
               <tbody class="divide-y divide-line-hair">
                 <tr v-for="r in pv.lines.slice(0,20)" :key="r.item_code">
-                  <td class="px-2.5 py-1.5 truncate max-w-[180px]">{{ r.item_code }}</td>
+                  <td class="px-2.5 py-1.5 max-w-[240px]">
+                    <router-link :to="{ path: '/accounting/items/items', query: { id: r.item_code } }" class="text-accent-dark hover:underline block truncate">{{ r.item_name || r.item_code }}</router-link>
+                    <div v-if="r.item_name" class="text-[10px] text-ink-muted font-mono truncate">{{ r.item_code }}</div>
+                  </td>
                   <td class="px-2 py-1.5 text-end tnum">{{ r.qty }}</td>
                   <td class="px-2 py-1.5 text-end tnum text-ink-muted">{{ fmt2(r.rate) }}</td>
                   <td class="px-2 py-1.5 text-end tnum text-emerald-700">+{{ fmt2(r.per_unit) }}</td>
