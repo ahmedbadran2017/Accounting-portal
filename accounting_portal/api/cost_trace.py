@@ -230,16 +230,19 @@ def _item_procurement(item_codes):
     if not item_codes:
         return {}
     codes = tuple(item_codes)
+    # rank 0 = Maslak invoice (the real manufacturer) so it wins the "primary"
+    # supplier over rank 1 = Morocco receipt (often the "Maslak LTD" intercompany
+    # transfer, which is not a useful supplier name for the audit).
     rows = frappe.db.sql(
         """SELECT item_code, supplier, mo FROM (
-             SELECT pii.item_code, pi.supplier, DATE_FORMAT(pi.posting_date,'%%Y-%%m') mo, pi.posting_date dt
+             SELECT pii.item_code, pi.supplier, DATE_FORMAT(pi.posting_date,'%%Y-%%m') mo, pi.posting_date dt, 0 rk
              FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
              WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s
              UNION ALL
-             SELECT pri.item_code, pr.supplier, DATE_FORMAT(pr.posting_date,'%%Y-%%m') mo, pr.posting_date dt
+             SELECT pri.item_code, pr.supplier, DATE_FORMAT(pr.posting_date,'%%Y-%%m') mo, pr.posting_date dt, 1 rk
              FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
              WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s
-           ) u ORDER BY dt DESC""", (SOURCING, codes, SALES, codes), as_dict=True)
+           ) u ORDER BY rk, dt DESC""", (SOURCING, codes, SALES, codes), as_dict=True)
     out = {}
     for r in rows:
         d = out.setdefault(r.item_code, {"supplier": r.supplier, "pairs": set(), "months": set()})
