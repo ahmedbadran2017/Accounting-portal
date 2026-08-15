@@ -26,7 +26,7 @@ from frappe.utils import flt, nowdate
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
 from accounting_portal.api import _actions
-from accounting_portal.api.landed_engine import _live_fx, _freight_stats
+from accounting_portal.api.landed_engine import _freight_stats
 
 FIX_ACTION = "Correct stock valuation"
 _POLICY_FLOOR = "2026-01-01"   # never restate closed years — fix-forward
@@ -41,37 +41,23 @@ def _target(company):
 
 
 def _benchmarks(target, item_codes):
-    """FX-corrected weighted-avg purchase cost per item (batch version of the
-    Costing screen's math), + freight/kg × weight → landed benchmark."""
+    """TRUE product cost per item (MAD), anchored on the sourcing company's ACTUAL
+    supplier invoice (Maslak, TRY) via cost_trace._true_cost_bulk — NOT the
+    Morocco-side purchase docs, which carry a paper USD transfer price at the
+    wrong FX. Falls back to a Morocco direct receipt (FX-corrected) when no
+    Maslak invoice exists.
+
+    PRODUCT COST ONLY — inbound landed freight/customs is a SEPARATE layer,
+    capitalized on top via the Landed Cockpit (153.03). Keeping freight out of
+    this benchmark is deliberate: it prevents double-counting when the two
+    correction passes (valuation fix here + landed capitalization there) run.
+    """
     if not item_codes:
         return {}
-    lines = frappe.db.sql(
-        """SELECT pii.item_code item, pi.currency cur, pi.posting_date dt,
-                  pii.qty, pii.rate rate_fc, pii.base_rate rate_book
-           FROM `tabPurchase Invoice Item` pii
-           JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
-           WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s
-           ORDER BY pi.posting_date DESC""", (target, tuple(item_codes)), as_dict=True)
-    fxc, agg = {}, {}
-    for p in lines:
-        a = agg.setdefault(p.item, [0.0, 0.0])   # qty, corrected value
-        if a[0] >= 60:  # recent-enough basis per item
-            continue
-        lf = _live_fx(p.cur, p.dt, fxc)
-        rate = flt(p.rate_book) if (p.cur == "MAD" or lf <= 0) else flt(p.rate_fc) * lf
-        a[0] += flt(p.qty)
-        a[1] += rate * flt(p.qty)
-    fs = _freight_stats(target)
-    fpk = fs["rate"]
-    weights = dict(frappe.db.sql(
-        "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s", (tuple(item_codes),)))
-    out = {}
-    for item, (q, v) in agg.items():
-        if q <= 0:
-            continue
-        product = v / q
-        out[item] = round(product + fpk * flt(weights.get(item)), 2)
-    return out
+    from accounting_portal.api.cost_trace import _true_cost_bulk, _fx_series
+    tc = _true_cost_bulk(list(item_codes), _fx_series())
+    return {item: round(flt(t["cost_mad"]), 2)
+            for item, t in tc.items() if t and flt(t.get("cost_mad")) > 0}
 
 
 @frappe.whitelist()
