@@ -140,6 +140,158 @@ def true_cost(item_code=None):
             "note": "No Maslak invoice and no Morocco receipt — needs estimated/manual cost"}
 
 
+# ── Bulk true-cost engine (Phase 2) — computes the whole catalogue at once ──
+
+def _fx_series():
+    """Pre-load USD→X rate history so per-item conversion needs no extra queries.
+    Returns {currency: [(date_str, usd_to_ccy), …] sorted ascending}."""
+    rows = frappe.db.sql(
+        """SELECT to_currency cur, date, exchange_rate rate FROM `tabCurrency Exchange`
+           WHERE from_currency='USD' ORDER BY date""", as_dict=True)
+    s = {}
+    for r in rows:
+        s.setdefault(r.cur, []).append((str(r.date), flt(r.rate)))
+    return s
+
+
+def _asof(series, cur, date):
+    """USD→cur at/just-before `date` (fallback: earliest)."""
+    lst = series.get(cur)
+    if not lst:
+        return 0.0
+    val = None
+    for d, rate in lst:
+        if d <= date:
+            val = rate
+        else:
+            break
+    return flt(val if val is not None else lst[0][1])
+
+
+def _to_mad_fast(rate_fc, currency, date, fx):
+    """Same conversion as _to_mad but off the pre-loaded FX series (no queries)."""
+    if currency == "MAD":
+        return flt(rate_fc)
+    date = str(date or frappe.utils.nowdate())[:10]
+    um = _asof(fx, "MAD", date)
+    if currency == "USD":
+        return flt(rate_fc) * um
+    uc = _asof(fx, currency, date)
+    return flt(rate_fc) * um / uc if (um > 0 and uc > 0) else 0.0
+
+
+def _true_cost_bulk(item_codes, fx):
+    """True MAD cost for many items at once. Maslak PI first, then Morocco PR.
+    Returns {item_code: {"cost_mad", "source", "basis_qty"}}."""
+    if not item_codes:
+        return {}
+    codes = tuple(item_codes)
+    out = {}
+
+    def _agg(rows, is_try, source):
+        by = {}
+        for r in rows:
+            by.setdefault(r.item_code, []).append(r)
+        for item, lines in by.items():
+            if item in out:
+                continue
+            q = v = 0.0
+            for r in lines:              # already ordered newest-first
+                if q >= _BASIS_QTY:
+                    break
+                cur = "TRY" if is_try else r.cur
+                m = _to_mad_fast(r.rate, cur, r.dt, fx)
+                q += flt(r.qty); v += m * flt(r.qty)
+            if q > 0 and v > 0:
+                out[item] = {"cost_mad": round(v / q, 2), "source": source, "basis_qty": round(q)}
+
+    pi = frappe.db.sql(
+        """SELECT pii.item_code, pii.base_rate rate, pi.posting_date dt, pii.qty
+           FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+           WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+           ORDER BY pi.posting_date DESC""", (SOURCING, codes), as_dict=True)
+    _agg(pi, True, "maslak_pi")
+
+    missing = [c for c in item_codes if c not in out]
+    if missing:
+        pr = frappe.db.sql(
+            """SELECT pri.item_code, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
+               FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+               WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
+               ORDER BY pr.posting_date DESC""", (SALES, tuple(missing)), as_dict=True)
+        _agg(pr, False, "morocco_pr")
+    return out
+
+
+@frappe.whitelist()
+def cost_overview(company=None):
+    """Catalogue-wide KPI: current book value vs true value of stock on hand,
+    the total overvaluation, and the breakdown by cost source."""
+    assert_portal_access()
+    fx = _fx_series()
+    bins = frappe.db.sql(
+        """SELECT b.item_code, SUM(b.actual_qty) qty, SUM(b.stock_value) sv
+           FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
+           WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""", (SALES,), as_dict=True)
+    tc = _true_cost_bulk([b.item_code for b in bins], fx)
+    n = {"maslak_pi": 0, "morocco_pr": 0, "unpriced": 0}
+    cur_val = true_val = over = 0.0
+    priced_qty = 0.0
+    for b in bins:
+        cur_val += flt(b.sv)
+        t = tc.get(b.item_code)
+        if t:
+            n[t["source"]] += 1
+            tv = flt(t["cost_mad"]) * flt(b.qty)
+            true_val += tv; over += flt(b.sv) - tv; priced_qty += flt(b.qty)
+        else:
+            n["unpriced"] += 1
+    return {
+        "company": SALES, "items": len(bins),
+        "current_value": round(cur_val), "true_value_priced": round(true_val),
+        "overvaluation": round(over),
+        "maslak_pi": n["maslak_pi"], "morocco_pr": n["morocco_pr"], "unpriced": n["unpriced"],
+    }
+
+
+@frappe.whitelist()
+def cost_table(company=None, start=0, page_size=50, source=None, search=None):
+    """The bulk true-cost worklist: every stocked item with its true cost, current
+    valuation and distortion — the feed for the valuation correction. `source`
+    filters maslak_pi|morocco_pr|unpriced; sorted by absolute overvaluation."""
+    assert_portal_access()
+    fx = _fx_series()
+    conds = ["w.company=%(c)s", "b.actual_qty>0"]
+    params = {"c": SALES}
+    if search:
+        conds.append("(b.item_code LIKE %(s)s OR i.item_name LIKE %(s)s OR i.custom_sku LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    bins = frappe.db.sql(
+        f"""SELECT b.item_code, SUM(b.actual_qty) qty, SUM(b.stock_value) sv,
+                   MAX(i.item_name) item_name, MAX(i.custom_sku) sku
+            FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
+            JOIN `tabItem` i ON i.name=b.item_code
+            WHERE {' AND '.join(conds)} GROUP BY b.item_code""", params, as_dict=True)
+    tc = _true_cost_bulk([b.item_code for b in bins], fx)
+    rows = []
+    for b in bins:
+        t = tc.get(b.item_code)
+        cur_rate = round(flt(b.sv) / flt(b.qty), 2) if flt(b.qty) else 0
+        src = t["source"] if t else "unpriced"
+        cost = flt(t["cost_mad"]) if t else None
+        over = round((flt(b.sv) - cost * flt(b.qty))) if cost is not None else None
+        dev = round((cur_rate - cost) / cost * 100, 1) if (cost and cost > 0) else None
+        rows.append({"item_code": b.item_code, "sku": b.sku, "item_name": b.item_name,
+                     "qty": round(flt(b.qty)), "current_rate": cur_rate, "true_cost": cost,
+                     "source": src, "overvaluation": over, "dev_pct": dev})
+    if source in ("maslak_pi", "morocco_pr", "unpriced"):
+        rows = [r for r in rows if r["source"] == source]
+    rows.sort(key=lambda r: -abs(r["overvaluation"] or 0))
+    total = len(rows)
+    start, page_size = int(start or 0), min(int(page_size or 50), 500)
+    return {"rows": rows[start:start + page_size], "total": total}
+
+
 def _current_valuation(item_code):
     """Weighted-average current Morocco valuation across all its bins."""
     row = frappe.db.sql(

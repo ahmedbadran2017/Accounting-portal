@@ -29,8 +29,77 @@
 
     <div v-if="err" class="rounded-[10px] border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-[12px]">{{ err }}</div>
 
+    <!-- Catalogue overview + worklist (shown when no single item is picked) -->
+    <template v-if="!trace">
+      <div v-if="ov" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div class="bg-white rounded-[12px] border border-line p-3.5 shadow-card">
+          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Current book value","القيمة الحالية","Valeur actuelle") }}</div>
+          <div class="text-[18px] font-bold tnum mt-[3px]">{{ fmtNum(ov.current_value) }}</div>
+          <div class="text-[10px] text-ink-3">{{ fmtNum(ov.items) }} {{ L("stocked items","صنف بالمخزن","articles") }}</div>
+        </div>
+        <div class="bg-white rounded-[12px] border border-line p-3.5 shadow-card">
+          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("True value (priced)","القيمة الحقيقية","Valeur vraie") }}</div>
+          <div class="text-[18px] font-bold tnum mt-[3px] text-emerald-700">{{ fmtNum(ov.true_value_priced) }}</div>
+          <div class="text-[10px] text-ink-3">{{ fmtNum(ov.maslak_pi + ov.morocco_pr) }} {{ L("priced","مسعّر","tarifés") }}</div>
+        </div>
+        <div class="bg-white rounded-[12px] border p-3.5 shadow-card" style="border-color:#fecaca">
+          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Overvaluation","التشوّه","Survalorisation") }}</div>
+          <div class="text-[18px] font-bold tnum mt-[3px]" style="color:#b91c1c">{{ fmtNum(ov.overvaluation) }}</div>
+          <div class="text-[10px] text-ink-3">{{ L("to remove from stock","يتشال من المخزون","à retirer") }}</div>
+        </div>
+        <div class="bg-white rounded-[12px] border p-3.5 shadow-card" style="border-color:#fde68a">
+          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Unpriced (no source)","بلا مصدر","sans source") }}</div>
+          <div class="text-[18px] font-bold tnum mt-[3px]" style="color:#b45309">{{ fmtNum(ov.unpriced) }}</div>
+          <div class="text-[10px] text-ink-3">{{ L("need manual cost","محتاجة تسعير يدوي","coût manuel") }}</div>
+        </div>
+      </div>
+
+      <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+        <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
+          <span class="text-[13px] font-bold">{{ L("Catalogue — true cost vs book","الكتالوج — الحقيقة مقابل الدفاتر","Catalogue") }}</span>
+          <div class="flex-1"></div>
+          <select v-model="srcFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+            <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
+            <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
+            <option value="morocco_pr">{{ L("Morocco-direct","مغرب مباشر","Maroc") }}</option>
+            <option value="unpriced">{{ L("Unpriced","بلا سعر","Sans prix") }}</option>
+          </select>
+        </div>
+        <div v-if="ct.error.value" class="py-8 text-center text-[12px] text-sale">{{ ct.error.value }}</div>
+        <div v-else class="overflow-x-auto">
+          <table class="w-full text-[12px]">
+            <thead>
+              <tr style="background:#fafaf9">
+                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Product","المنتج","Produit") }}</th>
+                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Source","المصدر","Source") }}</th>
+                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
+                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("True","الحقيقي","Vrai") }}</th>
+                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Overvaluation","التشوّه","Survalo.") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in ct.rows.value" :key="r.item_code" class="border-t border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="pick(r.item_code)">
+                <td class="px-4 py-2.5 truncate max-w-[220px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><div class="text-[10px] text-ink-muted truncate">{{ r.item_name }}</div></td>
+                <td class="px-4 py-2.5"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" :style="srcChip(r.source)">{{ srcShort(r.source) }}</span></td>
+                <td class="px-4 py-2.5 text-end tnum text-ink-3">{{ fmtNum(r.qty) }}</td>
+                <td class="px-4 py-2.5 text-end tnum">{{ fmtNum(r.current_rate, 1) }}</td>
+                <td class="px-4 py-2.5 text-end tnum font-semibold text-emerald-700">{{ r.true_cost != null ? fmtNum(r.true_cost, 1) : "—" }}</td>
+                <td class="px-4 py-2.5 text-end tnum font-bold" :style="{ color: (r.overvaluation || 0) > 0 ? '#b91c1c' : '#78716c' }">{{ r.overvaluation != null ? fmtNum(r.overvaluation) : "—" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="!ct.loading.value && !ct.rows.value.length && !ct.error.value" class="py-10 text-center text-[12px] text-ink-muted">{{ L("No items.","لا أصناف.","Aucun.") }}</div>
+        <ServerPager :t="ct" />
+      </div>
+    </template>
+
     <!-- Trace result -->
     <div v-if="trace" class="space-y-3">
+      <button class="text-[11.5px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="trace = null; q = ''">
+        <Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ L("Back to catalogue","رجوع للكتالوج","Retour") }}
+      </button>
       <!-- Product header + KPIs -->
       <div class="bg-white border border-line rounded-[14px] shadow-card p-4">
         <div class="flex items-start gap-3 flex-wrap">
@@ -107,9 +176,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import ServerPager from "@/components/ServerPager.vue";
+import { useServerTable } from "@/composables/useServerTable";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
 
@@ -156,6 +227,24 @@ async function pick(itemCode) {
     loading.value = false;
   }
 }
+
+// ── Catalogue overview + worklist table ──
+const ov = ref(null);
+const srcFilter = ref("");
+api.call(`${M}.cost_overview`, {}).then((r) => { ov.value = r; }).catch(() => {});
+const ct = useServerTable(
+  (params) => api.call(`${M}.cost_table`, { source: srcFilter.value || undefined, ...params }),
+  { pageSize: 50 });
+ct.load();
+watch(srcFilter, () => { ct.page.value = 1; ct.load(); });
+
+const SRC = {
+  maslak_pi: [L("Maslak", "Maslak", "Maslak"), "background:#ecfdf5;color:#047857"],
+  morocco_pr: [L("Morocco", "مغرب", "Maroc"), "background:#eff6ff;color:#2563eb"],
+  unpriced: [L("unpriced", "بلا سعر", "sans prix"), "background:#fffbeb;color:#b45309"],
+};
+const srcShort = (s) => (SRC[s] ? SRC[s][0] : s);
+const srcChip = (s) => (SRC[s] ? SRC[s][1] : "");
 
 const srcLabel = computed(() => ({
   maslak_pi: L("Maslak invoice", "فاتورة Maslak", "Facture Maslak"),
