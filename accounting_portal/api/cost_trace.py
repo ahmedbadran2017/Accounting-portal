@@ -64,6 +64,28 @@ def _to_mad(rate_fc, currency, date, cache):
 
 
 @frappe.whitelist()
+def search_items(query=None, limit=25):
+    """Find products by SKU / name / code for the Cost Trace picker. Ranks items
+    that currently hold Morocco stock first (those are the ones worth tracing)."""
+    assert_portal_access()
+    q = (query or "").strip()
+    if len(q) < 2:
+        return []
+    like = f"%{q}%"
+    rows = frappe.db.sql(
+        """SELECT i.name item_code, i.item_name, i.custom_sku sku,
+                  IFNULL(b.qty, 0) stock_qty
+           FROM `tabItem` i
+           LEFT JOIN (SELECT b.item_code, SUM(b.actual_qty) qty FROM `tabBin` b
+                      JOIN `tabWarehouse` w ON w.name=b.warehouse AND w.company=%s
+                      GROUP BY b.item_code) b ON b.item_code = i.name
+           WHERE i.disabled=0 AND (i.name LIKE %s OR i.item_name LIKE %s OR i.custom_sku LIKE %s)
+           ORDER BY (IFNULL(b.qty,0) > 0) DESC, i.modified DESC
+           LIMIT %s""", (SALES, like, like, like, int(limit)), as_dict=True)
+    return rows
+
+
+@frappe.whitelist()
 def true_cost(item_code=None):
     """The product's TRUE unit cost in MAD, anchored on Maslak's actual supplier
     invoices (TRY) converted at the correct FX. Product cost ONLY — inbound landed
