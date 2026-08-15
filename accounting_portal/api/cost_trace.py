@@ -223,6 +223,50 @@ def _true_cost_bulk(item_codes, fx):
     return out
 
 
+def _item_procurement(item_codes):
+    """Per item → its procurement footprint: primary (most-recent) supplier, and
+    the set of (supplier, month) pairs it was purchased in — from Maslak invoices
+    AND Morocco receipts. Powers the supplier / month audit filters."""
+    if not item_codes:
+        return {}
+    codes = tuple(item_codes)
+    rows = frappe.db.sql(
+        """SELECT item_code, supplier, mo FROM (
+             SELECT pii.item_code, pi.supplier, DATE_FORMAT(pi.posting_date,'%%Y-%%m') mo, pi.posting_date dt
+             FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+             WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s
+             UNION ALL
+             SELECT pri.item_code, pr.supplier, DATE_FORMAT(pr.posting_date,'%%Y-%%m') mo, pr.posting_date dt
+             FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+             WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s
+           ) u ORDER BY dt DESC""", (SOURCING, codes, SALES, codes), as_dict=True)
+    out = {}
+    for r in rows:
+        d = out.setdefault(r.item_code, {"supplier": r.supplier, "pairs": set(), "months": set()})
+        d["pairs"].add((r.supplier, r.mo))
+        d["months"].add(r.mo)
+    return out
+
+
+@frappe.whitelist()
+def cost_filters(company=None):
+    """Distinct suppliers (with item counts) and months for the audit filters —
+    scoped to items currently in Morocco stock."""
+    assert_portal_access()
+    stocked = frappe.db.sql(
+        """SELECT DISTINCT b.item_code FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
+           WHERE w.company=%s AND b.actual_qty>0""", (SALES,), pluck=True)
+    proc = _item_procurement(stocked)
+    sup_count, months = {}, set()
+    for it, d in proc.items():
+        months |= d["months"]
+        for s in {p[0] for p in d["pairs"]}:
+            sup_count[s] = sup_count.get(s, 0) + 1
+    suppliers = sorted(({"supplier": s, "items": n} for s, n in sup_count.items()),
+                       key=lambda x: -x["items"])
+    return {"suppliers": suppliers, "months": sorted(months, reverse=True)}
+
+
 @frappe.whitelist()
 def cost_overview(company=None):
     """Catalogue-wide KPI: current book value vs true value of stock on hand,
@@ -255,10 +299,13 @@ def cost_overview(company=None):
 
 
 @frappe.whitelist()
-def cost_table(company=None, start=0, page_size=50, source=None, search=None):
+def cost_table(company=None, start=0, page_size=50, source=None, search=None,
+               supplier=None, month=None):
     """The bulk true-cost worklist: every stocked item with its true cost, current
-    valuation and distortion — the feed for the valuation correction. `source`
-    filters maslak_pi|morocco_pr|unpriced; sorted by absolute overvaluation."""
+    valuation, distortion, and its supplier — the feed for the valuation
+    correction and the SKU-by-SKU audit. Filters: `source`
+    (maslak_pi|morocco_pr|unpriced), `supplier`, `month` (YYYY-MM, honours the
+    chosen supplier), free-text `search`. Sorted by absolute overvaluation."""
     assert_portal_access()
     fx = _fx_series()
     conds = ["w.company=%(c)s", "b.actual_qty>0"]
@@ -272,9 +319,24 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None):
             FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
             JOIN `tabItem` i ON i.name=b.item_code
             WHERE {' AND '.join(conds)} GROUP BY b.item_code""", params, as_dict=True)
-    tc = _true_cost_bulk([b.item_code for b in bins], fx)
+    item_codes = [b.item_code for b in bins]
+    tc = _true_cost_bulk(item_codes, fx)
+    proc = _item_procurement(item_codes)   # supplier + (supplier,month) pairs per item
     rows = []
     for b in bins:
+        # supplier / month audit filter
+        if supplier or month:
+            d = proc.get(b.item_code)
+            pairs = d["pairs"] if d else set()
+            if supplier and month:
+                if (supplier, month) not in pairs:
+                    continue
+            elif supplier:
+                if supplier not in {p[0] for p in pairs}:
+                    continue
+            elif month:
+                if month not in {p[1] for p in pairs}:
+                    continue
         t = tc.get(b.item_code)
         cur_rate = round(flt(b.sv) / flt(b.qty), 2) if flt(b.qty) else 0
         src = t["source"] if t else "unpriced"
@@ -283,7 +345,8 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None):
         dev = round((cur_rate - cost) / cost * 100, 1) if (cost and cost > 0) else None
         rows.append({"item_code": b.item_code, "sku": b.sku, "item_name": b.item_name,
                      "qty": round(flt(b.qty)), "current_rate": cur_rate, "true_cost": cost,
-                     "source": src, "overvaluation": over, "dev_pct": dev})
+                     "source": src, "overvaluation": over, "dev_pct": dev,
+                     "supplier": (proc.get(b.item_code) or {}).get("supplier")})
     if source in ("maslak_pi", "morocco_pr", "unpriced"):
         rows = [r for r in rows if r["source"] == source]
     rows.sort(key=lambda r: -abs(r["overvaluation"] or 0))

@@ -58,6 +58,15 @@
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
           <span class="text-[13px] font-bold">{{ L("Catalogue — true cost vs book","الكتالوج — الحقيقة مقابل الدفاتر","Catalogue") }}</span>
           <div class="flex-1"></div>
+          <!-- supplier → month audit filter -->
+          <select v-model="supFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line max-w-[180px]">
+            <option value="">{{ L("All suppliers","كل الموردين","Fournisseurs") }}</option>
+            <option v-for="s in filters.suppliers" :key="s.supplier" :value="s.supplier">{{ shortSup(s.supplier) }} ({{ s.items }})</option>
+          </select>
+          <select v-model="moFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+            <option value="">{{ L("All months","كل الشهور","Mois") }}</option>
+            <option v-for="m in filters.months" :key="m" :value="m">{{ m }}</option>
+          </select>
           <select v-model="srcFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
             <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
             <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
@@ -71,6 +80,7 @@
             <thead>
               <tr style="background:#fafaf9">
                 <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Product","المنتج","Produit") }}</th>
+                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Supplier","المورّد","Fournisseur") }}</th>
                 <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Source","المصدر","Source") }}</th>
                 <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
                 <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
@@ -81,6 +91,7 @@
             <tbody>
               <tr v-for="r in ct.rows.value" :key="r.item_code" class="border-t border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="pick(r.item_code)">
                 <td class="px-4 py-2.5 truncate max-w-[220px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><div class="text-[10px] text-ink-muted truncate">{{ r.item_name }}</div></td>
+                <td class="px-4 py-2.5 text-ink-3 truncate max-w-[130px] text-[11px]">{{ shortSup(r.supplier) || "—" }}</td>
                 <td class="px-4 py-2.5"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" :style="srcChip(r.source)">{{ srcShort(r.source) }}</span></td>
                 <td class="px-4 py-2.5 text-end tnum text-ink-3">{{ fmtNum(r.qty) }}</td>
                 <td class="px-4 py-2.5 text-end tnum">{{ fmtNum(r.current_rate, 1) }}</td>
@@ -231,12 +242,23 @@ async function pick(itemCode) {
 // ── Catalogue overview + worklist table ──
 const ov = ref(null);
 const srcFilter = ref("");
+const supFilter = ref("");
+const moFilter = ref("");
+const filters = ref({ suppliers: [], months: [] });
 api.call(`${M}.cost_overview`, {}).then((r) => { ov.value = r; }).catch(() => {});
+api.call(`${M}.cost_filters`, {}).then((r) => { filters.value = r; }).catch(() => {});
 const ct = useServerTable(
-  (params) => api.call(`${M}.cost_table`, { source: srcFilter.value || undefined, ...params }),
+  (params) => api.call(`${M}.cost_table`, {
+    source: srcFilter.value || undefined,
+    supplier: supFilter.value || undefined,
+    month: moFilter.value || undefined,
+    ...params,
+  }),
   { pageSize: 50 });
 ct.load();
-watch(srcFilter, () => { ct.page.value = 1; ct.load(); });
+watch([srcFilter, supFilter, moFilter], () => { ct.page.value = 1; ct.load(); });
+// a Turkish supplier name can be very long — trim for chips/cells
+const shortSup = (s) => (s ? String(s).replace(/\s*(T[İI]C\.?|SAN\.?|LTD\.?|Ş[Tt][İI]\.?|A\.?Ş\.?|İMALAT).*$/i, "").trim().slice(0, 22) || String(s).slice(0, 22) : "");
 
 const SRC = {
   maslak_pi: [L("Maslak", "Maslak", "Maslak"), "background:#ecfdf5;color:#047857"],
