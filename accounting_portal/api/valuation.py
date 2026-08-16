@@ -327,6 +327,112 @@ _actions.register_poster(REVAL_ACTION, _revalue_poster)
 _actions.register_reverter(REVAL_ACTION, _valfix_reverter)
 
 
+# ── Per-product verify-and-fix (the human-in-the-loop cutover) ───────────────
+# The accounting/purchasing team reviews ONE product at a time: see the source
+# evidence (the actual Maslak supplier-invoice lines behind the true cost),
+# confirm the figure is right, preview the per-bin impact, then click Fix —
+# which posts ONE today-dated Stock Reconciliation covering every bin of the
+# product. Today-dated on purpose: nothing follows it in the ledger, so there is
+# no heavy back-dated repost (the failure mode of the first canary), and all
+# bins move together so no old-rate stock re-contaminates the average.
+
+def _fix_bins(target, item_code):
+    return frappe.db.sql(
+        """SELECT b.warehouse, b.actual_qty qty, b.valuation_rate vr
+           FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
+           WHERE w.company=%s AND b.item_code=%s AND b.actual_qty>0
+           ORDER BY b.stock_value DESC""", (target, item_code), as_dict=True)
+
+
+def _fixed_action(item_code):
+    """The posted fix action for this product, if any (drives the ✓ badge)."""
+    return frappe.db.get_value(
+        "Accounting Portal Action",
+        {"action_type": REVAL_ACTION, "status": "Posted",
+         "reference_doctype": "Item", "reference_name": item_code},
+        ["name", "voucher_no", "posted_on"], as_dict=True)
+
+
+@frappe.whitelist()
+def item_fix_preview(company=None, item_code=None):
+    """Everything the reviewer needs to verify ONE product's cost: the true-cost
+    figure + the actual purchase-document lines behind it (the evidence), the
+    per-bin dry-run at that rate, and whether it was already fixed."""
+    assert_portal_access()
+    target = _target(company)
+    if not (target and item_code):
+        frappe.throw("company and item_code required")
+    from accounting_portal.api.cost_trace import (
+        SOURCING, _fx_series, _to_mad_fast, true_cost as _tc)
+    tc = _tc(item_code=item_code)
+    fx = _fx_series()
+    # evidence: the most recent source lines (Maslak invoices; else Morocco receipts)
+    ev = frappe.db.sql(
+        """SELECT pi.name doc, pi.posting_date dt, pi.supplier, 'TRY' cur,
+                  ROUND(pii.qty,0) qty, ROUND(pii.base_rate,2) rate
+           FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+           WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code=%s AND pii.qty>0
+           ORDER BY pi.posting_date DESC LIMIT 5""", (SOURCING, item_code), as_dict=True)
+    if not ev:
+        ev = frappe.db.sql(
+            """SELECT pr.name doc, pr.posting_date dt, pr.supplier, pr.currency cur,
+                      ROUND(pri.qty,0) qty, ROUND(pri.rate,2) rate
+               FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+               WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code=%s AND pri.qty>0
+               ORDER BY pr.posting_date DESC LIMIT 5""", (target, item_code), as_dict=True)
+    for e in ev:
+        e["rate_mad"] = round(_to_mad_fast(e["rate"], e["cur"], e["dt"], fx), 2)
+        e["dt"] = str(e["dt"] or "")
+    # per-bin dry-run at the true cost (None-safe when unpriced)
+    rate = flt(tc.get("cost_mad")) if tc.get("cost_mad") else 0
+    bins, writedown = [], 0.0
+    for b in _fix_bins(target, item_code):
+        delta = round((rate - flt(b.vr)) * flt(b.qty), 2) if rate > 0 else None
+        if delta is not None:
+            writedown += delta
+        bins.append({"warehouse": b.warehouse, "qty": round(flt(b.qty)),
+                     "old_rate": round(flt(b.vr), 2), "new_rate": rate or None, "delta": delta})
+    return {"item_code": item_code, "true_cost": tc, "evidence": ev,
+            "bins": bins, "net_change": round(writedown, 2),
+            "fixed": _fixed_action(item_code)}
+
+
+@frappe.whitelist()
+def fix_item_cost(company=None, item_code=None, rate=None, note=None):
+    """The reviewer's Fix button: revalue EVERY bin of this product to the
+    verified rate in ONE today-dated Stock Reconciliation. `rate` defaults to
+    the true-cost benchmark; overriding it (reviewer found a different verified
+    figure) requires a note. Gated, audited, reversible; the action references
+    the Item so the catalogue can show it as fixed."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and item_code):
+        frappe.throw("company and item_code required")
+    from accounting_portal.api.cost_trace import true_cost as _tc
+    tc = _tc(item_code=item_code)
+    bench = flt(tc.get("cost_mad")) if tc.get("cost_mad") else 0
+    r = flt(rate) if rate not in (None, "") else bench
+    if r <= 0:
+        frappe.throw("A positive verified rate is required (this product has no cost source — enter it manually)")
+    if bench > 0 and abs(r - bench) / bench > 0.005 and not (note or "").strip():
+        frappe.throw(f"Rate {r} differs from the evidence-based cost {bench} — a note explaining the override is required")
+    date = nowdate()   # today-dated cutover: no back-dated repost, cheap + safe
+    rows, impact = [], 0.0
+    for b in _fix_bins(target, item_code):
+        if abs(r - flt(b.vr)) < 0.01:
+            continue
+        rows.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
+        impact += abs((r - flt(b.vr)) * flt(b.qty))
+    if not rows:
+        frappe.throw("Nothing to fix — every bin is already at this rate")
+    return _actions.execute(
+        REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}",
+        payload={"date": date, "rows": rows},
+        amount=round(impact, 2),
+        reference_doctype="Item", reference_name=item_code,
+        notes=(note or f"Verified cost fix — {item_code} → {r} ({tc.get('source')})"))
+
+
 @frappe.whitelist()
 def repost_queue(company=None):
     """Repost Item Valuation jobs — the engine that heals history. Back-dated

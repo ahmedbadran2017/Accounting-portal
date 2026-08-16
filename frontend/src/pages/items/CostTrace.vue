@@ -73,6 +73,11 @@
             <option value="morocco_pr">{{ L("Morocco-direct","مغرب مباشر","Maroc") }}</option>
             <option value="unpriced">{{ L("Unpriced","بلا سعر","Sans prix") }}</option>
           </select>
+          <select v-model="fixFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+            <option value="">{{ L("All statuses","كل الحالات","Tous") }}</option>
+            <option value="pending">{{ L("Pending review","في انتظار المراجعة","En attente") }}</option>
+            <option value="fixed">{{ L("Fixed ✓","متظبطة ✓","Corrigés ✓") }}</option>
+          </select>
         </div>
         <div v-if="ct.error.value" class="py-8 text-center text-[12px] text-sale">{{ ct.error.value }}</div>
         <div v-else class="overflow-x-auto">
@@ -86,6 +91,7 @@
                 <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
                 <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("True","الحقيقي","Vrai") }}</th>
                 <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Overvaluation","التشوّه","Survalo.") }}</th>
+                <th class="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Fixed","متظبط","OK") }}</th>
               </tr>
             </thead>
             <tbody>
@@ -97,6 +103,7 @@
                 <td class="px-4 py-2.5 text-end tnum">{{ fmtNum(r.current_rate, 1) }}</td>
                 <td class="px-4 py-2.5 text-end tnum font-semibold text-emerald-700">{{ r.true_cost != null ? fmtNum(r.true_cost, 1) : "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum font-bold" :style="{ color: (r.overvaluation || 0) > 0 ? '#b91c1c' : '#78716c' }">{{ r.overvaluation != null ? fmtNum(r.overvaluation) : "—" }}</td>
+                <td class="px-4 py-2.5 text-center">{{ r.fixed ? "✅" : "" }}</td>
               </tr>
             </tbody>
           </table>
@@ -139,6 +146,76 @@
         </div>
         <div class="text-[10.5px] text-ink-muted mt-2.5 pt-2.5 border-t border-line-hair">
           ⓘ {{ L("Product cost only — inbound landed freight/customs is added on top separately (Landed Cockpit).","تكلفة المنتج فقط — الشحن/الجمارك الوارد يُضاف فوقها منفصلًا (Landed Cockpit).","Coût produit uniquement — le fret entrant s'ajoute séparément.") }}
+        </div>
+      </div>
+
+      <!-- Verification & Fix (human-in-the-loop) -->
+      <div v-if="fixPrev" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="fixPrev.fixed ? 'border-color:#a7f3d0' : 'border-color:#fde68a'">
+        <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
+          <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" :style="fixPrev.fixed ? 'background:#ecfdf5' : 'background:#fffbeb'">
+            <Icon :name="fixPrev.fixed ? 'check' : 'shield'" :size="14" :color="fixPrev.fixed ? '#047857' : '#b45309'" />
+          </span>
+          <span class="text-[13px] font-bold">{{ fixPrev.fixed ? L("Cost verified & fixed","التكلفة متحققة ومتظبطة","Coût vérifié") : L("Verify & fix this product's cost","تحقق وظبّط تكلفة المنتج","Vérifier & corriger") }}</span>
+          <span v-if="fixPrev.fixed" class="text-[11px] text-ink-muted">{{ fixPrev.fixed.voucher_no }} · {{ String(fixPrev.fixed.posted_on || "").slice(0,16) }}</span>
+        </div>
+        <div class="p-4 space-y-3">
+          <!-- Evidence -->
+          <div>
+            <div class="text-[11px] font-bold text-ink-2 mb-1.5">{{ L("Evidence — the actual purchase documents","الدليل — مستندات الشراء الفعلية","Preuves") }}</div>
+            <table class="w-full text-[11.5px] border border-line rounded-[8px] overflow-hidden">
+              <thead><tr style="background:#fafaf9">
+                <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Document","المستند","Doc") }}</th>
+                <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورّد","Fourn.") }}</th>
+                <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Rate","السعر","Taux") }}</th>
+                <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">→ MAD</th>
+              </tr></thead>
+              <tbody>
+                <tr v-for="e in fixPrev.evidence" :key="e.doc" class="border-t border-line-hair">
+                  <td class="px-3 py-1.5 font-mono text-[10.5px]">{{ e.doc }}<span class="text-ink-muted font-sans"> · {{ e.dt }}</span></td>
+                  <td class="px-3 py-1.5 truncate max-w-[140px]">{{ shortSup(e.supplier) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(e.qty) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmtNum(e.rate, 2) }} {{ e.cur }}</td>
+                  <td class="px-3 py-1.5 text-end tnum font-bold text-emerald-700">{{ fmtNum(e.rate_mad, 2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="!fixPrev.evidence.length" class="text-[11px] text-amber-700 mt-1">{{ L("No purchase documents — enter the verified cost manually below (a note is required).","مفيش مستندات شراء — أدخل التكلفة المتحققة يدويًا (النوت إجباري).","Aucun document — saisir manuellement.") }}</div>
+          </div>
+          <!-- Impact preview -->
+          <div v-if="fixPrev.bins.length">
+            <div class="text-[11px] font-bold text-ink-2 mb-1.5">{{ L("Impact — every bin moves to the verified cost (one today-dated entry)","الأثر — كل المخازن تتظبط بقيد واحد بتاريخ اليوم","Impact") }}</div>
+            <div class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
+              <table class="w-full text-[11.5px]">
+                <tbody>
+                  <tr v-for="b in fixPrev.bins" :key="b.warehouse" class="border-t border-line-hair first:border-0">
+                    <td class="px-3 py-1.5 truncate max-w-[180px]">{{ b.warehouse }}</td>
+                    <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ fmtNum(b.qty) }}</td>
+                    <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(b.old_rate, 1) }} → <b>{{ fmtNum(fixRate || b.new_rate, 1) }}</b></td>
+                    <td class="px-3 py-1.5 text-end tnum font-semibold" :style="{ color: (b.delta || 0) < 0 ? '#b91c1c' : '#047857' }">{{ b.delta != null ? fmtNum(b.delta) : "—" }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="text-[11px] text-ink-3 mt-1">{{ L("Net inventory change","صافي تغيير المخزون","Δ stock") }}: <b class="tnum" :style="{ color: fixPrev.net_change < 0 ? '#b91c1c' : '#047857' }">{{ fmtNum(fixPrev.net_change) }}</b> MAD</div>
+          </div>
+          <!-- Confirm + fix -->
+          <div v-if="canWrite && !fixPrev.fixed" class="pt-2 border-t border-line-hair space-y-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <label class="text-[11.5px] text-ink-2 font-semibold">{{ L("Verified cost (MAD/unit)","التكلفة المتحققة (درهم/وحدة)","Coût vérifié") }}</label>
+              <input v-model.number="fixRate" type="number" step="0.01" class="h-[30px] w-[110px] text-[12.5px] px-2 rounded-[8px] border border-line tnum" />
+              <input v-model.trim="fixNote" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيّرت الرقم)','Note')"
+                     class="h-[30px] flex-1 min-w-[180px] text-[12px] px-2 rounded-[8px] border border-line" />
+            </div>
+            <label class="flex items-center gap-2 text-[12px] text-ink-2 cursor-pointer">
+              <input type="checkbox" v-model="fixConfirm" class="accent-accent w-3.5 h-3.5" />
+              {{ L("I verified this figure against the actual supplier invoice","اتحققت من الرقم ده من فاتورة المورّد الفعلية","J'ai vérifié ce chiffre") }}
+            </label>
+            <button class="h-[32px] px-4 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+                    :disabled="!fixConfirm || fixing || !(fixRate > 0)" @click="applyFix">
+              {{ fixing ? L("Fixing…","جارٍ الظبط…","…") : L("Approve & fix cost","اعتمد وظبّط التكلفة","Approuver & corriger") }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -224,14 +301,25 @@ function onSearch() {
   }, 250);
 }
 
+// ── Verify & Fix (human-in-the-loop) ──
+const V = "accounting_portal.api.valuation";
+const fixPrev = ref(null);
+const fixRate = ref(null);
+const fixNote = ref("");
+const fixConfirm = ref(false);
+const fixing = ref(false);
+
 async function pick(itemCode) {
   showResults.value = false;
   loading.value = true;
   err.value = "";
   trace.value = null;
+  fixPrev.value = null; fixConfirm.value = false; fixNote.value = "";
   try {
     trace.value = await api.call(`${M}.trace_item`, { item_code: itemCode });
     q.value = trace.value.sku || itemCode;
+    fixPrev.value = await api.call(`${V}.item_fix_preview`, { item_code: itemCode }, { fresh: true });
+    fixRate.value = fixPrev.value?.true_cost?.cost_mad ?? null;
   } catch (e) {
     err.value = e.message || "Failed to load trace";
   } finally {
@@ -239,11 +327,27 @@ async function pick(itemCode) {
   }
 }
 
+async function applyFix() {
+  if (fixing.value || !trace.value) return;
+  fixing.value = true;
+  try {
+    const res = await api.call(`${V}.fix_item_cost`, {
+      item_code: trace.value.item_code, rate: fixRate.value, note: fixNote.value || undefined,
+    });
+    if (res.status === "Posted") toast.success(L("Cost fixed — one today-dated entry posted", "اتظبطت — قيد واحد بتاريخ اليوم", "Corrigé"));
+    else toast.info(res.status);
+    fixPrev.value = await api.call(`${V}.item_fix_preview`, { item_code: trace.value.item_code }, { fresh: true });
+    ct.load();
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { fixing.value = false; }
+}
+
 // ── Catalogue overview + worklist table ──
 const ov = ref(null);
 const srcFilter = ref("");
 const supFilter = ref("");
 const moFilter = ref("");
+const fixFilter = ref("");
 const filters = ref({ suppliers: [], months: [] });
 api.call(`${M}.cost_overview`, {}).then((r) => { ov.value = r; }).catch(() => {});
 api.call(`${M}.cost_filters`, {}).then((r) => { filters.value = r; }).catch(() => {});
@@ -252,11 +356,12 @@ const ct = useServerTable(
     source: srcFilter.value || undefined,
     supplier: supFilter.value || undefined,
     month: moFilter.value || undefined,
+    fix_status: fixFilter.value || undefined,
     ...params,
   }),
   { pageSize: 50 });
 ct.load();
-watch([srcFilter, supFilter, moFilter], () => { ct.page.value = 1; ct.load(); });
+watch([srcFilter, supFilter, moFilter, fixFilter], () => { ct.page.value = 1; ct.load(); });
 // a Turkish supplier name can be very long — trim for chips/cells
 const shortSup = (s) => (s ? String(s).replace(/\s*(T[İI]C\.?|SAN\.?|LTD\.?|Ş[Tt][İI]\.?|A\.?Ş\.?|İMALAT).*$/i, "").trim().slice(0, 22) || String(s).slice(0, 22) : "");
 

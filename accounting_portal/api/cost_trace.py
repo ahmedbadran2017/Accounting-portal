@@ -301,9 +301,19 @@ def cost_overview(company=None):
     }
 
 
+def _fixed_items():
+    """Items whose cost was already verified+fixed (posted revaluation actions
+    referencing the Item) — drives the ✓ column and the pending/fixed filter."""
+    return set(frappe.db.get_all(
+        "Accounting Portal Action",
+        filters={"action_type": "Revalue inventory (bulk)", "status": "Posted",
+                 "reference_doctype": "Item"},
+        pluck="reference_name"))
+
+
 @frappe.whitelist()
 def cost_table(company=None, start=0, page_size=50, source=None, search=None,
-               supplier=None, month=None):
+               supplier=None, month=None, fix_status=None):
     """The bulk true-cost worklist: every stocked item with its true cost, current
     valuation, distortion, and its supplier — the feed for the valuation
     correction and the SKU-by-SKU audit. Filters: `source`
@@ -325,6 +335,7 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
     item_codes = [b.item_code for b in bins]
     tc = _true_cost_bulk(item_codes, fx)
     proc = _item_procurement(item_codes)   # supplier + (supplier,month) pairs per item
+    fixed = _fixed_items()
     rows = []
     for b in bins:
         # supplier / month audit filter
@@ -349,9 +360,14 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
         rows.append({"item_code": b.item_code, "sku": b.sku, "item_name": b.item_name,
                      "qty": round(flt(b.qty)), "current_rate": cur_rate, "true_cost": cost,
                      "source": src, "overvaluation": over, "dev_pct": dev,
-                     "supplier": (proc.get(b.item_code) or {}).get("supplier")})
+                     "supplier": (proc.get(b.item_code) or {}).get("supplier"),
+                     "fixed": b.item_code in fixed})
     if source in ("maslak_pi", "morocco_pr", "unpriced"):
         rows = [r for r in rows if r["source"] == source]
+    if fix_status == "fixed":
+        rows = [r for r in rows if r["fixed"]]
+    elif fix_status == "pending":
+        rows = [r for r in rows if not r["fixed"]]
     rows.sort(key=lambda r: -abs(r["overvaluation"] or 0))
     total = len(rows)
     start, page_size = int(start or 0), min(int(page_size or 50), 500)
