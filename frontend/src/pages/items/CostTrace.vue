@@ -194,7 +194,7 @@
                       <span v-else-if="b.disabled" class="ms-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f5f4;color:#78716c">{{ L("disabled wh — skipped","مخزن موقوف — هيتعدّى","désactivé") }}</span>
                     </td>
                     <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ fmtNum(b.qty) }}</td>
-                    <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(b.old_rate, 1) }} → <b>{{ (b.reserved || b.disabled) ? fmtNum(b.old_rate, 1) : fmtNum(fixRate || b.new_rate, 1) }}</b></td>
+                    <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(b.old_rate, 1) }} → <b>{{ (b.reserved || b.disabled) ? fmtNum(b.old_rate, 1) : fmtNum(appliedRate || b.new_rate, 1) }}</b></td>
                     <td class="px-3 py-1.5 text-end tnum font-semibold" :style="{ color: (b.delta || 0) < 0 ? '#b91c1c' : '#047857' }">{{ b.delta != null ? fmtNum(b.delta) : "—" }}</td>
                   </tr>
                 </tbody>
@@ -209,19 +209,31 @@
           </div>
           <!-- Confirm + fix -->
           <div v-if="canWrite && !fixPrev.fixed" class="pt-2 border-t border-line-hair space-y-2">
+            <!-- B5: landed basis state + full-rate split -->
+            <div v-if="!fixPrev.landed?.frozen" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[11.5px]">
+              ⚠ {{ L("Landed basis is NOT frozen — freeze it in the Landed Cockpit first. Fixing is blocked so the catalogue is crawled once at the full cost.",
+                     "أساس الشحن مش مجمّد — جمّده من الـLanded Cockpit الأول. الفيكس متقفل عشان الكتالوج يتمشى مرة واحدة بالتكلفة الكاملة.",
+                     "Base landed non gelée — geler d'abord.") }}
+            </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <label class="text-[11.5px] text-ink-2 font-semibold">{{ L("Verified cost (MAD/unit)","التكلفة المتحققة (درهم/وحدة)","Coût vérifié") }}</label>
+              <label class="text-[11.5px] text-ink-2 font-semibold">{{ L("Verified product cost (MAD/unit)","تكلفة المنتج المتحققة (درهم/وحدة)","Coût produit vérifié") }}</label>
               <input v-model.number="fixRate" type="number" step="0.01" class="h-[30px] w-[110px] text-[12.5px] px-2 rounded-[8px] border border-line tnum" />
               <input v-model.trim="fixNote" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيّرت الرقم)','Note')"
                      class="h-[30px] flex-1 min-w-[180px] text-[12px] px-2 rounded-[8px] border border-line" />
+            </div>
+            <div v-if="fixPrev.landed?.frozen" class="text-[12px] tnum bg-app-warm/60 rounded-[8px] px-3 py-2">
+              {{ L("Product","منتج","Produit") }} <b>{{ fmtNum(fixRate || 0, 2) }}</b>
+              + {{ L("landed","شحن","landed") }} <b>{{ fmtNum(fixPrev.landed.unit, 2) }}</b>
+              <span class="text-ink-muted">({{ fixPrev.landed.weight }}kg × {{ fixPrev.landed.rate_kg }})</span>
+              = <b class="text-emerald-700">{{ fmtNum(appliedRate, 2) }} {{ L("applied","المعتمد","appliqué") }}</b>
             </div>
             <label class="flex items-center gap-2 text-[12px] text-ink-2 cursor-pointer">
               <input type="checkbox" v-model="fixConfirm" class="accent-accent w-3.5 h-3.5" />
               {{ L("I verified this figure against the actual supplier invoice","اتحققت من الرقم ده من فاتورة المورّد الفعلية","J'ai vérifié ce chiffre") }}
             </label>
             <button class="h-[32px] px-4 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                    :disabled="!fixConfirm || fixing || !(fixRate > 0)" @click="applyFix">
-              {{ fixing ? L("Fixing…","جارٍ الظبط…","…") : L("Approve & fix cost","اعتمد وظبّط التكلفة","Approuver & corriger") }}
+                    :disabled="!fixConfirm || fixing || !(fixRate > 0) || !fixPrev.landed?.frozen" @click="applyFix">
+              {{ fixing ? L("Fixing…","جارٍ الظبط…","…") : L("Approve & fix at full cost","اعتمد وظبّط بالتكلفة الكاملة","Approuver & corriger") }}
             </button>
           </div>
         </div>
@@ -320,6 +332,12 @@ const fixRate = ref(null);
 const fixNote = ref("");
 const fixConfirm = ref(false);
 const fixing = ref(false);
+// B5: the FULL rate that will actually be applied = verified product + frozen landed
+const appliedRate = computed(() => {
+  const p = Number(fixRate.value) || 0;
+  const l = Number(fixPrev.value?.landed?.unit) || 0;
+  return p > 0 ? Math.round((p + l) * 100) / 100 : 0;
+});
 
 async function pick(itemCode) {
   showResults.value = false;

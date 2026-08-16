@@ -444,9 +444,14 @@ def item_fix_preview(company=None, item_code=None):
     for e in ev:
         e["rate_mad"] = round(_to_mad_fast(e["rate"], e["cur"], e["dt"], fx), 2)
         e["dt"] = str(e["dt"] or "")
-    # per-bin dry-run at the true cost (None-safe when unpriced); reserved bins
-    # are marked skipped — ERPNext blocks a reco on them until un-reserved.
-    rate = flt(tc.get("cost_mad")) if tc.get("cost_mad") else 0
+    # landed layer (B5): frozen basis × item weight — added ON TOP of product cost
+    from accounting_portal.api.landed_prep import get_basis, landed_unit
+    basis = get_basis()
+    landed = landed_unit(item_code) if basis else 0.0
+    # per-bin dry-run at the FULL rate (product + landed); None-safe when unpriced.
+    # Reserved/disabled bins are marked skipped — ERPNext blocks recos on them.
+    product = flt(tc.get("cost_mad")) if tc.get("cost_mad") else 0
+    rate = round(product + landed, 2) if product > 0 else 0
     reserved = _reserved_by_wh(item_code)
     bins, writedown, skipped = [], 0.0, 0
     for b in _fix_bins(target, item_code):
@@ -463,28 +468,38 @@ def item_fix_preview(company=None, item_code=None):
                      "disabled": int(b.wh_disabled or 0) or None})
     return {"item_code": item_code, "true_cost": tc, "evidence": ev,
             "bins": bins, "net_change": round(writedown, 2), "skipped_reserved": skipped,
+            "landed": {"frozen": bool(basis), "rate_kg": flt((basis or {}).get("rate_kg")),
+                       "weight": flt(frappe.db.get_value("Item", item_code, "weight_per_unit")),
+                       "unit": landed},
             "fixed": _fixed_action(item_code)}
 
 
 @frappe.whitelist()
 def fix_item_cost(company=None, item_code=None, rate=None, note=None):
-    """The reviewer's Fix button: revalue EVERY bin of this product to the
-    verified rate in ONE today-dated Stock Reconciliation. `rate` defaults to
-    the true-cost benchmark; overriding it (reviewer found a different verified
-    figure) requires a note. Gated, audited, reversible; the action references
-    the Item so the catalogue can show it as fixed."""
+    """The reviewer's Fix button: revalue EVERY bin of this product in ONE
+    today-dated Stock Reconciliation at the FULL rate = verified PRODUCT cost
+    (`rate`, defaults to the evidence-based figure; overriding requires a note)
+    + the frozen landed layer (rate/kg × item weight). Requires the landed basis
+    to be frozen first — enforces the single-crawl discipline. Gated, audited,
+    reversible; the action references the Item for the catalogue's ✓."""
     assert_can_write()
     target = _target(company)
     if not (target and item_code):
         frappe.throw("company and item_code required")
     from accounting_portal.api.cost_trace import true_cost as _tc
+    from accounting_portal.api.landed_prep import get_basis, landed_unit
+    if not get_basis():
+        frappe.throw("Landed basis is not frozen yet — review & freeze it in the Landed Cockpit first, "
+                     "so the catalogue is crawled ONCE at the full (product + landed) cost")
     tc = _tc(item_code=item_code)
     bench = flt(tc.get("cost_mad")) if tc.get("cost_mad") else 0
-    r = flt(rate) if rate not in (None, "") else bench
-    if r <= 0:
-        frappe.throw("A positive verified rate is required (this product has no cost source — enter it manually)")
-    if bench > 0 and abs(r - bench) / bench > 0.005 and not (note or "").strip():
-        frappe.throw(f"Rate {r} differs from the evidence-based cost {bench} — a note explaining the override is required")
+    product = flt(rate) if rate not in (None, "") else bench
+    if product <= 0:
+        frappe.throw("A positive verified product cost is required (this product has no cost source — enter it manually)")
+    if bench > 0 and abs(product - bench) / bench > 0.005 and not (note or "").strip():
+        frappe.throw(f"Rate {product} differs from the evidence-based cost {bench} — a note explaining the override is required")
+    landed = landed_unit(item_code)
+    r = round(product + landed, 2)   # the FULL applied rate
     date = nowdate()   # today-dated cutover: no back-dated repost, cheap + safe
     reserved = _reserved_by_wh(item_code)   # ERPNext blocks recos on reserved bins
     rows, impact, skipped = [], 0.0, []
@@ -511,8 +526,9 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None):
         payload={"date": date, "rows": rows},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
-        notes=((note or f"Verified cost fix — {item_code} → {r} ({tc.get('source')})")
-               + (f" · skipped reserved: {'; '.join(skipped)}" if skipped else "")))
+        notes=((note or f"Verified cost fix — {item_code}")
+               + f" · product {product} + landed {landed} = {r} ({tc.get('source')})"
+               + (f" · skipped: {'; '.join(skipped)}" if skipped else "")))
     if isinstance(res, dict):
         res["skipped_reserved"] = skipped
     return res
