@@ -344,6 +344,23 @@ def _fix_bins(target, item_code):
            ORDER BY b.stock_value DESC""", (target, item_code), as_dict=True)
 
 
+def _reserved_by_wh(item_code):
+    """Active stock reservations per warehouse for this item. ERPNext blocks a
+    Stock Reconciliation on a reserved bin ('units are reserved… please
+    un-reserve') — so the fix must SKIP those bins and catch them later once
+    the reservation ships or is released."""
+    try:
+        rows = frappe.db.sql(
+            """SELECT warehouse, SUM(reserved_qty - IFNULL(delivered_qty,0)) q
+               FROM `tabStock Reservation Entry`
+               WHERE item_code=%s AND docstatus=1
+                 AND status NOT IN ('Delivered','Cancelled')
+               GROUP BY warehouse HAVING q>0""", (item_code,), as_dict=True)
+        return {r.warehouse: flt(r.q) for r in rows}
+    except Exception:
+        return {}   # site without the reservation doctype
+
+
 def _fixed_action(item_code):
     """The posted fix action for this product, if any (drives the ✓ badge)."""
     return frappe.db.get_value(
@@ -385,17 +402,23 @@ def item_fix_preview(company=None, item_code=None):
     for e in ev:
         e["rate_mad"] = round(_to_mad_fast(e["rate"], e["cur"], e["dt"], fx), 2)
         e["dt"] = str(e["dt"] or "")
-    # per-bin dry-run at the true cost (None-safe when unpriced)
+    # per-bin dry-run at the true cost (None-safe when unpriced); reserved bins
+    # are marked skipped — ERPNext blocks a reco on them until un-reserved.
     rate = flt(tc.get("cost_mad")) if tc.get("cost_mad") else 0
-    bins, writedown = [], 0.0
+    reserved = _reserved_by_wh(item_code)
+    bins, writedown, skipped = [], 0.0, 0
     for b in _fix_bins(target, item_code):
-        delta = round((rate - flt(b.vr)) * flt(b.qty), 2) if rate > 0 else None
+        rsv = flt(reserved.get(b.warehouse))
+        delta = round((rate - flt(b.vr)) * flt(b.qty), 2) if (rate > 0 and not rsv) else None
         if delta is not None:
             writedown += delta
+        if rsv:
+            skipped += 1
         bins.append({"warehouse": b.warehouse, "qty": round(flt(b.qty)),
-                     "old_rate": round(flt(b.vr), 2), "new_rate": rate or None, "delta": delta})
+                     "old_rate": round(flt(b.vr), 2), "new_rate": rate or None,
+                     "delta": delta, "reserved": round(rsv) or None})
     return {"item_code": item_code, "true_cost": tc, "evidence": ev,
-            "bins": bins, "net_change": round(writedown, 2),
+            "bins": bins, "net_change": round(writedown, 2), "skipped_reserved": skipped,
             "fixed": _fixed_action(item_code)}
 
 
@@ -419,20 +442,29 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None):
     if bench > 0 and abs(r - bench) / bench > 0.005 and not (note or "").strip():
         frappe.throw(f"Rate {r} differs from the evidence-based cost {bench} — a note explaining the override is required")
     date = nowdate()   # today-dated cutover: no back-dated repost, cheap + safe
-    rows, impact = [], 0.0
+    reserved = _reserved_by_wh(item_code)   # ERPNext blocks recos on reserved bins
+    rows, impact, skipped = [], 0.0, []
     for b in _fix_bins(target, item_code):
         if abs(r - flt(b.vr)) < 0.01:
+            continue
+        if flt(reserved.get(b.warehouse)):
+            skipped.append(f"{b.warehouse} ({round(flt(reserved[b.warehouse]))} reserved)")
             continue
         rows.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
         impact += abs((r - flt(b.vr)) * flt(b.qty))
     if not rows:
-        frappe.throw("Nothing to fix — every bin is already at this rate")
-    return _actions.execute(
+        frappe.throw("Nothing fixable now — every bin is already correct or blocked by reservations: "
+                     + ("; ".join(skipped) or "none"))
+    res = _actions.execute(
         REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}",
         payload={"date": date, "rows": rows},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
-        notes=(note or f"Verified cost fix — {item_code} → {r} ({tc.get('source')})"))
+        notes=((note or f"Verified cost fix — {item_code} → {r} ({tc.get('source')})")
+               + (f" · skipped reserved: {'; '.join(skipped)}" if skipped else "")))
+    if isinstance(res, dict):
+        res["skipped_reserved"] = skipped
+    return res
 
 
 @frappe.whitelist()
