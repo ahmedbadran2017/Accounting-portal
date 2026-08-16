@@ -188,12 +188,13 @@
             <div class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
               <table class="w-full text-[11.5px]">
                 <tbody>
-                  <tr v-for="b in fixPrev.bins" :key="b.warehouse" class="border-t border-line-hair first:border-0" :style="b.reserved ? 'opacity:.55' : ''">
+                  <tr v-for="b in fixPrev.bins" :key="b.warehouse" class="border-t border-line-hair first:border-0" :style="(b.reserved || b.disabled) ? 'opacity:.55' : ''">
                     <td class="px-3 py-1.5 truncate max-w-[180px]">{{ b.warehouse }}
                       <span v-if="b.reserved" class="ms-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ b.reserved }} {{ L("reserved — skipped","محجوز — هيتعدّى","réservé") }}</span>
+                      <span v-else-if="b.disabled" class="ms-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f5f4;color:#78716c">{{ L("disabled wh — skipped","مخزن موقوف — هيتعدّى","désactivé") }}</span>
                     </td>
                     <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ fmtNum(b.qty) }}</td>
-                    <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(b.old_rate, 1) }} → <b>{{ b.reserved ? fmtNum(b.old_rate, 1) : fmtNum(fixRate || b.new_rate, 1) }}</b></td>
+                    <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(b.old_rate, 1) }} → <b>{{ (b.reserved || b.disabled) ? fmtNum(b.old_rate, 1) : fmtNum(fixRate || b.new_rate, 1) }}</b></td>
                     <td class="px-3 py-1.5 text-end tnum font-semibold" :style="{ color: (b.delta || 0) < 0 ? '#b91c1c' : '#047857' }">{{ b.delta != null ? fmtNum(b.delta) : "—" }}</td>
                   </tr>
                 </tbody>
@@ -201,9 +202,9 @@
             </div>
             <div class="text-[11px] text-ink-3 mt-1">{{ L("Net inventory change","صافي تغيير المخزون","Δ stock") }}: <b class="tnum" :style="{ color: fixPrev.net_change < 0 ? '#b91c1c' : '#047857' }">{{ fmtNum(fixPrev.net_change) }}</b> MAD</div>
             <div v-if="fixPrev.skipped_reserved" class="text-[11px] text-amber-700 mt-0.5">
-              ⚠ {{ L(`${fixPrev.skipped_reserved} bin(s) have reserved stock — they will be skipped now; re-run the fix after the reservations ship or are released.`,
-                     `${fixPrev.skipped_reserved} مخزن فيه كمية محجوزة لأوردرات — هيتعدّى دلوقتي؛ أعد الفيكس بعد ما الحجز يتشحن أو يتفك.`,
-                     `${fixPrev.skipped_reserved} emplacement(s) réservé(s) — ignorés.`) }}
+              ⚠ {{ L(`${fixPrev.skipped_reserved} bin(s) blocked (reserved stock / disabled warehouse) — skipped now; re-run the fix once the reservation ships or the warehouse is re-enabled.`,
+                     `${fixPrev.skipped_reserved} مخزن متعطّل (حجز أوردرات / مخزن موقوف) — هيتعدّى دلوقتي؛ أعد الفيكس بعد فكّ الحجز أو تفعيل المخزن.`,
+                     `${fixPrev.skipped_reserved} emplacement(s) bloqué(s) — ignorés.`) }}
             </div>
           </div>
           <!-- Confirm + fix -->

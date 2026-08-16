@@ -338,7 +338,8 @@ _actions.register_reverter(REVAL_ACTION, _valfix_reverter)
 
 def _fix_bins(target, item_code):
     return frappe.db.sql(
-        """SELECT b.warehouse, b.actual_qty qty, b.valuation_rate vr
+        """SELECT b.warehouse, b.actual_qty qty, b.valuation_rate vr,
+                  IFNULL(w.disabled,0) wh_disabled
            FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
            WHERE w.company=%s AND b.item_code=%s AND b.actual_qty>0
            ORDER BY b.stock_value DESC""", (target, item_code), as_dict=True)
@@ -409,14 +410,16 @@ def item_fix_preview(company=None, item_code=None):
     bins, writedown, skipped = [], 0.0, 0
     for b in _fix_bins(target, item_code):
         rsv = flt(reserved.get(b.warehouse))
-        delta = round((rate - flt(b.vr)) * flt(b.qty), 2) if (rate > 0 and not rsv) else None
+        blocked = bool(rsv) or bool(b.wh_disabled)   # ERPNext rejects recos on both
+        delta = round((rate - flt(b.vr)) * flt(b.qty), 2) if (rate > 0 and not blocked) else None
         if delta is not None:
             writedown += delta
-        if rsv:
+        if blocked:
             skipped += 1
         bins.append({"warehouse": b.warehouse, "qty": round(flt(b.qty)),
                      "old_rate": round(flt(b.vr), 2), "new_rate": rate or None,
-                     "delta": delta, "reserved": round(rsv) or None})
+                     "delta": delta, "reserved": round(rsv) or None,
+                     "disabled": int(b.wh_disabled or 0) or None})
     return {"item_code": item_code, "true_cost": tc, "evidence": ev,
             "bins": bins, "net_change": round(writedown, 2), "skipped_reserved": skipped,
             "fixed": _fixed_action(item_code)}
@@ -449,6 +452,9 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None):
             continue
         if flt(reserved.get(b.warehouse)):
             skipped.append(f"{b.warehouse} ({round(flt(reserved[b.warehouse]))} reserved)")
+            continue
+        if b.wh_disabled:
+            skipped.append(f"{b.warehouse} (disabled warehouse)")
             continue
         rows.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
         impact += abs((r - flt(b.vr)) * flt(b.qty))
