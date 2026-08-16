@@ -270,17 +270,12 @@ def cost_filters(company=None):
     return {"suppliers": suppliers, "months": sorted(months, reverse=True)}
 
 
-def _landed_rate_and_weights(item_codes):
-    """(rate_kg, {item: weight}) from the FROZEN basis — (0, {}) when not frozen.
-    Keeps every catalogue number consistent with the FULL rate the fix applies."""
-    from accounting_portal.api.landed_prep import get_basis
-    basis = get_basis()
-    rate_kg = flt((basis or {}).get("rate_kg"))
-    if not (rate_kg > 0 and item_codes):
-        return 0.0, {}
-    return rate_kg, dict(frappe.db.sql(
-        "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
-        (tuple(item_codes),)))
+def _landed_map(item_codes):
+    """{item: landed/unit} from the FROZEN two-channel basis — {} when not
+    frozen. Keeps every catalogue number consistent with the FULL rate the fix
+    applies (air receipts at their date's tariff, sea at the pooled rate)."""
+    from accounting_portal.api.landed_prep import _landed_units_bulk
+    return _landed_units_bulk(list(item_codes)) if item_codes else {}
 
 
 @frappe.whitelist()
@@ -295,7 +290,7 @@ def cost_overview(company=None):
            FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
            WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""", (SALES,), as_dict=True)
     tc = _true_cost_bulk([b.item_code for b in bins], fx)
-    rate_kg, weights = _landed_rate_and_weights([b.item_code for b in bins])
+    landed = _landed_map([b.item_code for b in bins])
     n = {"maslak_pi": 0, "morocco_pr": 0, "unpriced": 0}
     cur_val = true_val = over = 0.0
     priced_qty = 0.0
@@ -304,7 +299,7 @@ def cost_overview(company=None):
         t = tc.get(b.item_code)
         if t:
             n[t["source"]] += 1
-            full = flt(t["cost_mad"]) + rate_kg * flt(weights.get(b.item_code))
+            full = flt(t["cost_mad"]) + flt(landed.get(b.item_code))
             tv = full * flt(b.qty)
             true_val += tv; over += flt(b.sv) - tv; priced_qty += flt(b.qty)
         else:
@@ -312,7 +307,7 @@ def cost_overview(company=None):
     return {
         "company": SALES, "items": len(bins),
         "current_value": round(cur_val), "true_value_priced": round(true_val),
-        "overvaluation": round(over), "landed_rate_kg": rate_kg,
+        "overvaluation": round(over),
         "maslak_pi": n["maslak_pi"], "morocco_pr": n["morocco_pr"], "unpriced": n["unpriced"],
     }
 
@@ -352,7 +347,7 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
     tc = _true_cost_bulk(item_codes, fx)
     proc = _item_procurement(item_codes)   # supplier + (supplier,month) pairs per item
     fixed = _fixed_items()
-    rate_kg, weights = _landed_rate_and_weights(item_codes)
+    landed = _landed_map(item_codes)
     rows = []
     for b in bins:
         # supplier / month audit filter
@@ -373,7 +368,7 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
         src = t["source"] if t else "unpriced"
         # FULL cost (product + frozen landed) — the same rate the fix applies,
         # so a fixed item reads ~0 overvaluation instead of a phantom negative
-        cost = round(flt(t["cost_mad"]) + rate_kg * flt(weights.get(b.item_code)), 2) if t else None
+        cost = round(flt(t["cost_mad"]) + flt(landed.get(b.item_code)), 2) if t else None
         over = round((flt(b.sv) - cost * flt(b.qty))) if cost is not None else None
         dev = round((cur_rate - cost) / cost * 100, 1) if (cost and cost > 0) else None
         is_fixed = b.item_code in fixed
@@ -417,17 +412,14 @@ def control_tower(company=None):
            WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""", (SALES,), as_dict=True)
     tc = _true_cost_bulk([b.item_code for b in bins], fx)
     fixed = _fixed_items()
-    rate_kg = flt((basis or {}).get("rate_kg"))
-    weights = dict(frappe.db.sql(
-        "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
-        (tuple(b.item_code for b in bins),))) if bins else {}
+    landed = _landed_map([b.item_code for b in bins])
     total_over = remaining_over = 0.0
     n_fixed = 0
     for b in bins:
         t = tc.get(b.item_code)
         if not t:
             continue
-        full = flt(t["cost_mad"]) + rate_kg * flt(weights.get(b.item_code))
+        full = flt(t["cost_mad"]) + flt(landed.get(b.item_code))
         over = flt(b.sv) - full * flt(b.qty)
         total_over += over
         if b.item_code in fixed:

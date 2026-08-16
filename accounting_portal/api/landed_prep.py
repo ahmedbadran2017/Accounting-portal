@@ -156,20 +156,186 @@ def get_basis(year=2026):
         return None
 
 
+# ── Two-channel model: AIR (door-to-door tariff per kg, date-banded) vs SEA
+# (pooled bills ÷ sea kg). The unit of classification is the PURCHASE RECEIPT —
+# one PR = one shipment, so each PR carries its channel and its landed cost. ──
+
+def _air_key(year):
+    return f"ap_air_rates_{year}"
+
+
+def _chan_key(year):
+    return f"ap_pr_channel_{year}"
+
+
+def get_air_rates(year=2026):
+    """Date-banded air tariff [{from, rate}] sorted ascending. The team edits
+    these (100 → 110 → 126 MAD/kg over 2026)."""
+    try:
+        rates = json.loads(frappe.db.get_default(_air_key(int(year))) or "[]")
+    except Exception:
+        rates = []
+    return sorted(rates, key=lambda r: r.get("from") or "")
+
+
+def _air_rate_at(rates, date):
+    val = 0.0
+    for r in rates:
+        if str(r.get("from") or "")[:10] <= str(date)[:10]:
+            val = flt(r.get("rate"))
+    return val
+
+
+@frappe.whitelist()
+def set_air_rates(year=2026, rates=None):
+    """Replace the air-tariff bands. Blocked once frozen."""
+    assert_can_write()
+    if get_basis(year=year):
+        frappe.throw("Basis is frozen — unfreeze before editing air rates")
+    rates = json.loads(rates) if isinstance(rates, str) else (rates or [])
+    clean = []
+    for r in rates:
+        d, v = str(r.get("from") or "")[:10], flt(r.get("rate"))
+        if len(d) == 10 and v > 0:
+            clean.append({"from": d, "rate": v})
+    frappe.db.set_default(_air_key(int(year)), json.dumps(sorted(clean, key=lambda x: x["from"])))
+    frappe.db.commit()
+    return get_air_rates(year)
+
+
+def _channels(year):
+    try:
+        return json.loads(frappe.db.get_default(_chan_key(int(year))) or "{}")
+    except Exception:
+        return {}
+
+
+def _import_receipts(target, year):
+    """The year's import PRs (non-local) with their kg and suggested channel
+    (sea when any line landed in a Container* warehouse, else air)."""
+    rows = frappe.db.sql(
+        """SELECT pr.name, pr.posting_date dt, pr.supplier,
+                  ROUND(SUM(pri.qty),0) qty,
+                  ROUND(SUM(pri.qty*IFNULL(i.weight_per_unit,0)),1) kg,
+                  MAX(CASE WHEN pri.warehouse LIKE 'Container%%' THEN 1 ELSE 0 END) has_container
+           FROM `tabPurchase Receipt` pr
+           JOIN `tabPurchase Receipt Item` pri ON pri.parent=pr.name
+           JOIN `tabItem` i ON i.name=pri.item_code
+           LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
+           WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date)=%s
+             AND IFNULL(s.supplier_group,'') NOT IN %s
+           GROUP BY pr.name ORDER BY pr.posting_date DESC""",
+        (target, int(year), _DOMESTIC_GROUPS), as_dict=True)
+    ov = _channels(year)
+    for r in rows:
+        r["suggested"] = "sea" if r.has_container else "air"
+        r["channel"] = ov.get(r.name) or r["suggested"]
+        r["dt"] = str(r.dt or "")
+    return rows
+
+
+@frappe.whitelist()
+def set_pr_channel(company=None, year=2026, pr=None, channel=None):
+    """Team decision: this shipment (PR) came by air or sea. Blocked when frozen."""
+    assert_can_write()
+    if get_basis(year=year):
+        frappe.throw("Basis is frozen — unfreeze before reclassifying shipments")
+    if not pr or channel not in ("air", "sea"):
+        frappe.throw("pr + channel (air|sea) required")
+    ov = _channels(int(year))
+    ov[pr] = channel
+    frappe.db.set_default(_chan_key(int(year)), json.dumps(ov))
+    frappe.db.commit()
+    return {"pr": pr, "channel": channel}
+
+
+@frappe.whitelist()
+def shipment_review(company=None, year=2026):
+    """The full two-channel picture for the basis screen: air tariff bands, the
+    PR classification list (each with its computed landed), sea pool ÷ sea kg,
+    and totals. This is what freeze_basis snapshots."""
+    assert_portal_access()
+    target = _target(company) or SALES
+    year = int(year)
+    air_rates = get_air_rates(year)
+    prs = _import_receipts(target, year)
+    pool_snap = charge_pool(company=target, year=year)
+    sea_kg = sum(flt(r["kg"]) for r in prs if r["channel"] == "sea")
+    sea_rate = round(flt(pool_snap["pool"]) / sea_kg, 2) if sea_kg > 0 else 0.0
+    air_kg = air_cost = 0.0
+    for r in prs:
+        if r["channel"] == "air":
+            rate = _air_rate_at(air_rates, r["dt"])
+            r["rate_kg"] = rate
+            r["landed"] = round(flt(r["kg"]) * rate)
+            air_kg += flt(r["kg"]); air_cost += r["landed"]
+        else:
+            r["rate_kg"] = sea_rate
+            r["landed"] = round(flt(r["kg"]) * sea_rate)
+    return {"company": target, "year": year,
+            "air_rates": air_rates, "receipts": prs,
+            "pool_rows": pool_snap["rows"],   # the account table (one call for the card)
+            "sea": {"pool": pool_snap["pool"], "kg": round(sea_kg, 1), "rate_kg": sea_rate},
+            "air": {"kg": round(air_kg, 1), "cost": round(air_cost)},
+            "frozen": get_basis(year=year)}
+
+
+def _landed_units_bulk(item_codes, year=2026):
+    """{item: landed cost per UNIT} — the weighted average over the item's
+    import-receipt lines: air lines at the tariff of their date, sea lines at
+    the pooled sea rate. Returns {} until the basis is frozen (single-crawl
+    discipline: every consumer sees landed only once it is locked)."""
+    basis = get_basis(year=year)
+    if not (basis and item_codes):
+        return {}
+    air_rates = basis.get("air_rates") or []
+    sea_rate = flt(basis.get("sea_rate_kg"))
+    chan = _channels(year)
+    rows = frappe.db.sql(
+        """SELECT pri.item_code ic, pr.name pr, pr.posting_date dt,
+                  pri.qty, IFNULL(i.weight_per_unit,0) w,
+                  MAX(CASE WHEN pri.warehouse LIKE 'Container%%' THEN 1 ELSE 0 END) has_c
+           FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           JOIN `tabItem` i ON i.name=pri.item_code
+           LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
+           WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date)=%s
+             AND pri.item_code IN %s
+             AND IFNULL(s.supplier_group,'') NOT IN %s
+           GROUP BY pri.name""",
+        (SALES, int(year), tuple(item_codes), _DOMESTIC_GROUPS), as_dict=True)
+    agg = {}
+    for r in rows:
+        ch = chan.get(r.pr) or ("sea" if r.has_c else "air")
+        rate = _air_rate_at(air_rates, str(r.dt)) if ch == "air" else sea_rate
+        a = agg.setdefault(r.ic, [0.0, 0.0])   # qty, landed value
+        q = flt(r.qty)
+        a[0] += q
+        a[1] += q * flt(r.w) * rate
+    return {ic: round(v / q, 2) for ic, (q, v) in agg.items() if q > 0}
+
+
 @frappe.whitelist()
 def freeze_basis(company=None, year=2026, rate_kg=None):
-    """Super Admin locks the landed basis. rate_kg defaults to the computed
-    pool÷kg; an explicit override is recorded as such. After freezing, the
-    Verify & Fix screen starts adding landed_unit = rate × weight."""
+    """Super Admin locks the two-channel landed basis: the air tariff bands +
+    the pooled sea rate + (implicitly) the PR channel map, which becomes
+    read-only. After freezing, landed_unit() starts returning per-item landed
+    and the Verify & Fix crawl applies product + landed."""
     if not can_manage_users():
         frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
-    snap = charge_pool(company=company, year=year)
-    r = flt(rate_kg) if rate_kg not in (None, "") else flt(snap["rate_kg"])
-    if r <= 0:
-        frappe.throw("Cannot freeze a zero rate — review the pool first")
-    basis = {"rate_kg": round(r, 2), "pool": snap["pool"], "est_kg": snap["kg"]["est_kg"],
-             "coverage_pct": snap["kg"]["coverage_pct"],
-             "overridden": rate_kg not in (None, ""),
+    snap = shipment_review(company=company, year=year)
+    air_rates = snap["air_rates"]
+    sea_rate = flt(snap["sea"]["rate_kg"])
+    has_sea = flt(snap["sea"]["kg"]) > 0
+    if not air_rates and not has_sea:
+        frappe.throw("Nothing to freeze — set the air tariff bands and/or classify sea shipments first")
+    if has_sea and sea_rate <= 0:
+        frappe.throw("Sea shipments exist but the sea rate is 0 — review the charge pool first")
+    basis = {"air_rates": air_rates, "sea_rate_kg": sea_rate,
+             "sea_pool": snap["sea"]["pool"], "sea_kg": snap["sea"]["kg"],
+             "air_kg": snap["air"]["kg"], "air_cost": snap["air"]["cost"],
+             # legacy single-rate field kept for old readers (≈ blended, info only)
+             "rate_kg": sea_rate or (flt(air_rates[-1]["rate"]) if air_rates else 0),
              "by": frappe.session.user, "on": str(now_datetime())[:19]}
     frappe.db.set_default(_basis_key(int(year)), json.dumps(basis))
     frappe.db.commit()
@@ -186,9 +352,7 @@ def unfreeze_basis(year=2026):
 
 
 def landed_unit(item_code, year=2026):
-    """The landed add-on per unit for this item (0 until the basis is frozen)."""
-    b = get_basis(year=year)
-    if not b:
-        return 0.0
-    w = flt(frappe.db.get_value("Item", item_code, "weight_per_unit"))
-    return round(flt(b["rate_kg"]) * w, 2)
+    """The landed add-on per unit for this item (0 until the basis is frozen):
+    weighted over its import receipts — air lines at the tariff of their date,
+    sea lines at the pooled sea rate."""
+    return flt(_landed_units_bulk([item_code], year=year).get(item_code))

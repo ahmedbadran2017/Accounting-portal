@@ -52,9 +52,8 @@ def _true_month_costs(target, year):
     """{month: {"true": Σ qty×(product+landed), "qty": all units, "priced_qty"}}
     computed off the same engines the crawl uses."""
     from accounting_portal.api.cost_trace import _true_cost_bulk, _fx_series
-    from accounting_portal.api.landed_prep import get_basis
+    from accounting_portal.api.landed_prep import get_basis, _landed_units_bulk
     basis = get_basis(year=year)
-    rate_kg = flt((basis or {}).get("rate_kg"))
     rows = frappe.db.sql(
         """SELECT MONTH(dn.posting_date) m, dni.item_code ic, SUM(dni.qty) q
            FROM `tabDelivery Note Item` dni JOIN `tabDelivery Note` dn ON dn.name=dni.parent
@@ -62,9 +61,7 @@ def _true_month_costs(target, year):
            GROUP BY m, dni.item_code""", (target, int(year)), as_dict=True)
     items = list({r.ic for r in rows})
     tc = _true_cost_bulk(items, _fx_series()) if items else {}
-    weights = dict(frappe.db.sql(
-        "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
-        (tuple(items),))) if items else {}
+    landed = _landed_units_bulk(items, year=year) if items else {}
     out = {}
     for r in rows:
         d = out.setdefault(int(r.m), {"true": 0.0, "qty": 0.0, "priced_qty": 0.0})
@@ -72,7 +69,7 @@ def _true_month_costs(target, year):
         d["qty"] += q
         t = tc.get(r.ic)
         if t:
-            full = flt(t["cost_mad"]) + rate_kg * flt(weights.get(r.ic))
+            full = flt(t["cost_mad"]) + flt(landed.get(r.ic))
             d["true"] += q * full
             d["priced_qty"] += q
     return out, bool(basis)

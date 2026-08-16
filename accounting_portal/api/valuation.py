@@ -466,11 +466,12 @@ def item_fix_preview(company=None, item_code=None):
                      "old_rate": round(flt(b.vr), 2), "new_rate": rate or None,
                      "delta": delta, "reserved": round(rsv) or None,
                      "disabled": int(b.wh_disabled or 0) or None})
+    w = flt(frappe.db.get_value("Item", item_code, "weight_per_unit"))
     return {"item_code": item_code, "true_cost": tc, "evidence": ev,
             "bins": bins, "net_change": round(writedown, 2), "skipped_reserved": skipped,
-            "landed": {"frozen": bool(basis), "rate_kg": flt((basis or {}).get("rate_kg")),
-                       "weight": flt(frappe.db.get_value("Item", item_code, "weight_per_unit")),
-                       "unit": landed},
+            # rate_kg = this item's EFFECTIVE rate (its receipts' air/sea mix), not a global
+            "landed": {"frozen": bool(basis), "weight": w, "unit": landed,
+                       "rate_kg": round(landed / w, 2) if w > 0 else 0},
             "fixed": _fixed_action(item_code)}
 
 
