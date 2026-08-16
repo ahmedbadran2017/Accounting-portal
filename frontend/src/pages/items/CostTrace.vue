@@ -31,6 +31,46 @@
 
     <!-- Catalogue overview + worklist (shown when no single item is picked) -->
     <template v-if="!trace">
+      <!-- ══ Cost Control Tower — the 5-step guided process ══ -->
+      <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
+        <div class="flex items-center gap-1.5 flex-wrap text-[11px] font-semibold">
+          <span v-for="(s, i) in steps" :key="i" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px]"
+                :style="s.state==='done' ? 'background:#ecfdf5;color:#047857' : s.state==='active' ? 'background:#eef2ff;color:#4338ca' : 'background:#f5f5f4;color:#a8a29e'">
+            <b>{{ i+1 }}</b> {{ s.label }}
+            <span v-if="s.state==='done'">✅</span><span v-else-if="s.state==='locked'">🔒</span>
+          </span>
+        </div>
+        <div class="text-[11px] text-ink-muted mt-1.5">{{ nextHint }}</div>
+      </div>
+
+      <!-- ① secure the source -->
+      <div v-if="tower" class="bg-white border rounded-[14px] shadow-card px-4 py-3 flex items-center gap-2 flex-wrap"
+           :style="tower.guard.enabled ? 'border-color:#a7f3d0' : 'border-color:#fecaca'">
+        <span class="text-[13px] font-bold">① {{ L("Secure the source","أمّن المنبع","Sécuriser la source") }}</span>
+        <span v-if="tower.guard.enabled" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">
+          {{ L("FX guard ON","حارس الصرف شغّال","Garde FX ON") }} · ±{{ Math.round(tower.guard.tolerance * 100) }}%
+        </span>
+        <span v-else class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">{{ L("FX guard OFF!","الحارس متوقف!","OFF!") }}</span>
+        <span class="text-[11px] text-ink-muted flex-1">{{ L("Every new purchase document with an implausible exchange rate is rejected at entry — no new contamination.","أي مستند شراء جديد بسعر صرف غلط بيترفض لحظة الإدخال — مفيش تلوّث جديد.","Tout document au taux invraisemblable est rejeté.") }}</span>
+      </div>
+
+      <!-- ② freeze the landed basis -->
+      <LandedBasisCard @changed="loadTower" />
+
+      <!-- ③ the catalogue crawl -->
+      <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-[13px] font-bold">③ {{ L("The catalogue crawl","زحفة التكلفة","La revue catalogue") }}</span>
+          <span class="text-[11px] font-bold tnum">{{ fmtNum(tower.crawl.fixed) }} / {{ fmtNum(tower.crawl.total) }} {{ L("fixed","متظبط","corrigés") }}</span>
+          <span class="text-[11px] text-ink-muted flex-1">{{ L("remaining distortion","التشوّه المتبقّي","distorsion restante") }}: <b class="tnum" style="color:#b91c1c">{{ fmtNum(tower.crawl.remaining_over) }}</b> MAD</span>
+          <span v-if="!tower.basis" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">🔒 {{ L("freeze the basis first (②)","جمّد الأساس الأول (②)","geler d'abord (②)") }}</span>
+        </div>
+        <div class="h-[7px] bg-app-warm rounded-full mt-2 overflow-hidden">
+          <div class="h-full rounded-full" style="background:#047857"
+               :style="{ width: (tower.crawl.total ? Math.round(100 * tower.crawl.fixed / tower.crawl.total) : 0) + '%' }"></div>
+        </div>
+      </div>
+
       <div v-if="ov" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         <div class="bg-white rounded-[12px] border border-line p-3.5 shadow-card">
           <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Current book value","القيمة الحالية","Valeur actuelle") }}</div>
@@ -54,50 +94,9 @@
         </div>
       </div>
 
-      <!-- B6: Monthly COGS true-up -->
-      <div v-if="tu" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="tu.basis_frozen ? 'border-color:#e7e5e4' : 'border-color:#fde68a'">
-        <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap cursor-pointer" @click="tuOpen = !tuOpen">
-          <span class="text-[13px] font-bold">{{ L("Monthly COGS true-up","تسوية COGS الشهرية","Régularisation COGS mensuelle") }} {{ tu.year }}</span>
-          <span v-if="!tu.basis_frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("landed basis not frozen — posting blocked","أساس الشحن مش مجمّد — الترحيل متقفل","base non gelée") }}</span>
-          <span class="text-[11px] text-ink-muted flex-1">{{ L("Restates each month's ledger COGS to the true full cost — GL-only, reversible, zero net-profit impact.","بتظبط COGS كل شهر في الدفاتر على التكلفة الكاملة — GL فقط، قابلة للعكس، صافي الربح لا يتغيّر.","GL uniquement, réversible.") }}</span>
-          <span class="text-ink-3">{{ tuOpen ? "▾" : "▸" }}</span>
-        </div>
-        <div v-if="tuOpen" class="overflow-x-auto">
-          <table class="w-full text-[12px]">
-            <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Booked COGS","المسجّل","Comptabilisé") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("True COGS","الحقيقي","Vrai") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">Δ</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Coverage","تغطية","Couv.") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted"></th>
-            </tr></thead>
-            <tbody>
-              <tr v-for="r in tu.rows" :key="r.month" class="border-t border-line-hair">
-                <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.month }}
-                  <span v-if="r.open_month" class="text-[9.5px] font-bold text-amber-600">· {{ L("open","مفتوح","ouvert") }}</span>
-                </td>
-                <td class="px-4 py-2 text-end tnum">{{ fmtNum(r.booked) }}</td>
-                <td class="px-4 py-2 text-end tnum text-emerald-700 font-semibold">{{ fmtNum(r.true) }}</td>
-                <td class="px-4 py-2 text-end tnum font-bold" :style="{ color: r.delta > 0 ? '#b91c1c' : '#2563eb' }">{{ fmtNum(r.delta) }}</td>
-                <td class="px-4 py-2 text-end tnum text-ink-3">{{ r.coverage_pct }}%</td>
-                <td class="px-4 py-2 text-end whitespace-nowrap">
-                  <span v-if="r.posted" class="text-[10.5px] font-bold text-emerald-700">✅ {{ r.posted.voucher_no }}</span>
-                  <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                          :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1"
-                          @click="postTrueup(r)">
-                    {{ tuBusy === r.month ? L("…","…","…") : L("Post true-up","رحّل التسوية","Poster") }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
-          <span class="text-[13px] font-bold">{{ L("Catalogue — true cost vs book","الكتالوج — الحقيقة مقابل الدفاتر","Catalogue") }}</span>
+          <span class="text-[13px] font-bold">{{ L("③ Catalogue — true cost vs book","③ الكتالوج — الحقيقة مقابل الدفاتر","③ Catalogue") }}</span>
           <div class="flex-1"></div>
           <!-- supplier → month audit filter -->
           <select v-model="supFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line max-w-[180px]">
@@ -151,6 +150,63 @@
         </div>
         <div v-if="!ct.loading.value && !ct.rows.value.length && !ct.error.value" class="py-10 text-center text-[12px] text-ink-muted">{{ L("No items.","لا أصناف.","Aucun.") }}</div>
         <ServerPager :t="ct" />
+      </div>
+
+      <!-- B6: Monthly COGS true-up -->
+      <div v-if="tu" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="tu.basis_frozen ? 'border-color:#e7e5e4' : 'border-color:#fde68a'">
+        <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap cursor-pointer" @click="tuOpen = !tuOpen">
+          <span class="text-[13px] font-bold">④ {{ L("Monthly COGS true-up","تسوية COGS الشهرية","Régularisation COGS mensuelle") }} {{ tu.year }}</span>
+          <span v-if="!tu.basis_frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("landed basis not frozen — posting blocked","أساس الشحن مش مجمّد — الترحيل متقفل","base non gelée") }}</span>
+          <span class="text-[11px] text-ink-muted flex-1">{{ L("Restates each month's ledger COGS to the true full cost — GL-only, reversible, zero net-profit impact.","بتظبط COGS كل شهر في الدفاتر على التكلفة الكاملة — GL فقط، قابلة للعكس، صافي الربح لا يتغيّر.","GL uniquement, réversible.") }}</span>
+          <span class="text-ink-3">{{ tuOpen ? "▾" : "▸" }}</span>
+        </div>
+        <div v-if="tuOpen" class="overflow-x-auto">
+          <table class="w-full text-[12px]">
+            <thead><tr style="background:#fafaf9">
+              <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Booked COGS","المسجّل","Comptabilisé") }}</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("True COGS","الحقيقي","Vrai") }}</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">Δ</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Coverage","تغطية","Couv.") }}</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted"></th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="r in tu.rows" :key="r.month" class="border-t border-line-hair">
+                <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.month }}
+                  <span v-if="r.open_month" class="text-[9.5px] font-bold text-amber-600">· {{ L("open","مفتوح","ouvert") }}</span>
+                </td>
+                <td class="px-4 py-2 text-end tnum">{{ fmtNum(r.booked) }}</td>
+                <td class="px-4 py-2 text-end tnum text-emerald-700 font-semibold">{{ fmtNum(r.true) }}</td>
+                <td class="px-4 py-2 text-end tnum font-bold" :style="{ color: r.delta > 0 ? '#b91c1c' : '#2563eb' }">{{ fmtNum(r.delta) }}</td>
+                <td class="px-4 py-2 text-end tnum text-ink-3">{{ r.coverage_pct }}%</td>
+                <td class="px-4 py-2 text-end whitespace-nowrap">
+                  <span v-if="r.posted" class="text-[10.5px] font-bold text-emerald-700">✅ {{ r.posted.voucher_no }}</span>
+                  <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                          :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1"
+                          @click="postTrueup(r)">
+                    {{ tuBusy === r.month ? L("…","…","…") : L("Post true-up","رحّل التسوية","Poster") }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ⑤ closings -->
+      <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-[13px] font-bold">⑤ {{ L("Closings","الإقفالات","Clôtures") }}</span>
+          <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
+                :style="tower.close2025.done ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">
+            {{ L("2025 dummy-customer residual","متبقّي العميل المجمّع 2025","résidu 2025") }}: {{ fmtNum(tower.close2025.dummy_balance) }}
+          </span>
+          <span class="text-[11px] text-ink-muted flex-1">
+            {{ L("Plan: docs/CLOSE_2025_PLAN.md — 3 open decisions (entry dating per tax filing, VAT treatment, single vs monthly) must be settled before posting. Then intercompany / Maslak / consolidation.",
+                 "الخطة: docs/CLOSE_2025_PLAN.md — لازم حسم 3 قرارات (التأريخ حسب الإقرار الضريبي، الـVAT، قيد واحد أم شهري) قبل الترحيل. بعدها الانتر-كومباني / Maslak / التوحيد.",
+                 "Plan: docs/CLOSE_2025_PLAN.md.") }}
+          </span>
+        </div>
       </div>
     </template>
 
@@ -329,6 +385,7 @@ import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import LandedBasisCard from "@/components/LandedBasisCard.vue";
 import { useServerTable } from "@/composables/useServerTable";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -410,6 +467,7 @@ async function applyFix() {
     else toast.info(res.status);
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: trace.value.item_code }, { fresh: true });
     ct.load();
+    loadTower();
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { fixing.value = false; }
 }
@@ -437,6 +495,43 @@ watch([srcFilter, supFilter, moFilter, fixFilter], () => { ct.page.value = 1; ct
 // a Turkish supplier name can be very long — trim for chips/cells
 const shortSup = (s) => (s ? String(s).replace(/\s*(T[İI]C\.?|SAN\.?|LTD\.?|Ş[Tt][İI]\.?|A\.?Ş\.?|İMALAT).*$/i, "").trim().slice(0, 22) || String(s).slice(0, 22) : "");
 
+// ── Cost Control Tower: the 5-step process status ──
+const tower = ref(null);
+async function loadTower() {
+  try { tower.value = await api.call(`${M}.control_tower`, { company: currentCompany() }, { fresh: true }); }
+  catch (e) { tower.value = null; }
+}
+loadTower();
+
+const steps = computed(() => {
+  const t = tower.value;
+  if (!t) return [];
+  const s1 = t.guard.enabled ? "done" : "active";
+  const s2 = t.basis ? "done" : (t.guard.enabled ? "active" : "locked");
+  const crawlDone = t.crawl.total > 0 && t.crawl.fixed >= t.crawl.total;
+  const s3 = !t.basis ? "locked" : (crawlDone ? "done" : "active");
+  const tuDone = t.trueup.closable_months > 0 && t.trueup.posted_months.length >= t.trueup.closable_months;
+  const s4 = !t.basis ? "locked" : (tuDone ? "done" : (s3 === "active" || s3 === "done" ? "active" : "locked"));
+  const s5 = t.close2025.done ? "done" : (s4 === "done" ? "active" : "locked");
+  return [
+    { label: L("Secure the source", "أمّن المنبع", "Source"), state: s1 },
+    { label: L("Freeze landed basis", "جمّد الأساس", "Base landed"), state: s2 },
+    { label: L("Catalogue crawl", "زحفة التكلفة", "Revue"), state: s3 },
+    { label: L("Monthly true-ups", "التسوية الرجعية", "Régularisations"), state: s4 },
+    { label: L("Closings", "الإقفالات", "Clôtures"), state: s5 },
+  ];
+});
+const nextHint = computed(() => {
+  const t = tower.value;
+  if (!t) return "";
+  if (!t.guard.enabled) return L("Next: turn the FX guard ON (Super Admin).", "التالي: شغّل حارس الصرف (Super Admin).", "Activer la garde FX.");
+  if (!t.basis) return L("Next: review the charge pool below and freeze the landed basis (②).", "التالي: راجعوا مجمّع المصاريف تحت وجمّدوا الأساس (②).", "Geler la base (②).");
+  if (t.crawl.fixed < t.crawl.total) return L(`Next: keep crawling the catalogue (③) — ${fmtNum(t.crawl.total - t.crawl.fixed)} products left, ${fmtNum(t.crawl.remaining_over)} MAD distortion remaining.`, `التالي: كمّلوا الزحفة (③) — فاضل ${fmtNum(t.crawl.total - t.crawl.fixed)} منتج و${fmtNum(t.crawl.remaining_over)} درهم تشوّه.`, "Continuer la revue (③).");
+  if (t.trueup.posted_months.length < t.trueup.closable_months) return L("Next: post the monthly true-ups (④).", "التالي: رحّلوا تسويات الشهور (④).", "Poster les régularisations (④).");
+  if (!t.close2025.done) return L("Next: settle the 3 open decisions and execute the 2025 close (⑤).", "التالي: احسموا القرارات الثلاثة ونفّذوا قفل 2025 (⑤).", "Clôturer 2025 (⑤).");
+  return L("All steps complete — costs are clean and protected. 🎉", "كل الخطوات خلصت — التكاليف نضيفة ومحمية. 🎉", "Terminé. 🎉");
+});
+
 // ── B6: monthly COGS true-up ──
 const TU = "accounting_portal.api.cogs_trueup";
 const tu = ref(null);
@@ -458,6 +553,7 @@ async function postTrueup(r) {
     if (res.status === "Posted") toast.success(L("True-up posted","اترحّلت التسوية","Posté"));
     else toast.info(res.status);
     await loadTu();
+    loadTower();
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { tuBusy.value = ""; }
 }

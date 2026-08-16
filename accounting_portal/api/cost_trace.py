@@ -374,6 +374,70 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
     return {"rows": rows[start:start + page_size], "total": total}
 
 
+@frappe.whitelist()
+def control_tower(company=None):
+    """One call → the live status of the 5-step cost-correction process, so the
+    Cost Trace screen renders as a guided stepper for the human team:
+      ① secure the source (FX guard)   ② freeze the landed basis
+      ③ the catalogue crawl (progress) ④ monthly true-ups   ⑤ closings."""
+    assert_portal_access()
+    from accounting_portal.api.fx_guard import _enabled as _fx_on, _tolerance as _fx_tol
+    from accounting_portal.api.landed_prep import get_basis
+
+    # ② landed basis
+    basis = get_basis()
+
+    # ③ crawl progress: fixed vs total, and the overvaluation still uncorrected
+    fx = _fx_series()
+    bins = frappe.db.sql(
+        """SELECT b.item_code, SUM(b.actual_qty) qty, SUM(b.stock_value) sv
+           FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
+           WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""", (SALES,), as_dict=True)
+    tc = _true_cost_bulk([b.item_code for b in bins], fx)
+    fixed = _fixed_items()
+    rate_kg = flt((basis or {}).get("rate_kg"))
+    weights = dict(frappe.db.sql(
+        "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
+        (tuple(b.item_code for b in bins),))) if bins else {}
+    total_over = remaining_over = 0.0
+    n_fixed = 0
+    for b in bins:
+        t = tc.get(b.item_code)
+        if not t:
+            continue
+        full = flt(t["cost_mad"]) + rate_kg * flt(weights.get(b.item_code))
+        over = flt(b.sv) - full * flt(b.qty)
+        total_over += over
+        if b.item_code in fixed:
+            n_fixed += 1
+        else:
+            remaining_over += over
+
+    # ④ true-ups posted (2026 months)
+    from accounting_portal.api.cogs_trueup import TRUEUP_ACTION, _posted_trueups
+    posted_months = sorted(_posted_trueups(SALES, 2026).keys())
+    today = frappe.utils.nowdate()
+    closable_months = max(int(today[5:7]) - 1, 0) if today[:4] == "2026" else 12
+
+    # ⑤ 2025 close: the dummy-customer residual is the headline signal
+    dummy_bal = flt(frappe.db.sql(
+        """SELECT SUM(debit-credit) FROM `tabGL Entry`
+           WHERE company=%s AND account LIKE '120.01%%' AND party=%s AND is_cancelled=0""",
+        (SALES, "Justyol Morocco Sales 2025"))[0][0] or 0)
+
+    return {
+        "guard": {"enabled": _fx_on(), "tolerance": _fx_tol()},
+        "basis": basis,
+        "crawl": {"fixed": n_fixed, "total": len(bins),
+                  "total_over": round(total_over), "remaining_over": round(remaining_over)},
+        "trueup": {"posted_months": posted_months, "closable_months": closable_months,
+                   "basis_frozen": bool(basis)},
+        "close2025": {"dummy_balance": round(dummy_bal),
+                      "done": abs(dummy_bal) < 100,
+                      "plan_doc": "docs/CLOSE_2025_PLAN.md"},
+    }
+
+
 def _current_valuation(item_code):
     """Weighted-average current Morocco valuation across all its bins."""
     row = frappe.db.sql(
