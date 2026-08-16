@@ -54,6 +54,47 @@
         </div>
       </div>
 
+      <!-- B6: Monthly COGS true-up -->
+      <div v-if="tu" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="tu.basis_frozen ? 'border-color:#e7e5e4' : 'border-color:#fde68a'">
+        <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap cursor-pointer" @click="tuOpen = !tuOpen">
+          <span class="text-[13px] font-bold">{{ L("Monthly COGS true-up","تسوية COGS الشهرية","Régularisation COGS mensuelle") }} {{ tu.year }}</span>
+          <span v-if="!tu.basis_frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("landed basis not frozen — posting blocked","أساس الشحن مش مجمّد — الترحيل متقفل","base non gelée") }}</span>
+          <span class="text-[11px] text-ink-muted flex-1">{{ L("Restates each month's ledger COGS to the true full cost — GL-only, reversible, zero net-profit impact.","بتظبط COGS كل شهر في الدفاتر على التكلفة الكاملة — GL فقط، قابلة للعكس، صافي الربح لا يتغيّر.","GL uniquement, réversible.") }}</span>
+          <span class="text-ink-3">{{ tuOpen ? "▾" : "▸" }}</span>
+        </div>
+        <div v-if="tuOpen" class="overflow-x-auto">
+          <table class="w-full text-[12px]">
+            <thead><tr style="background:#fafaf9">
+              <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Booked COGS","المسجّل","Comptabilisé") }}</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("True COGS","الحقيقي","Vrai") }}</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">Δ</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Coverage","تغطية","Couv.") }}</th>
+              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted"></th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="r in tu.rows" :key="r.month" class="border-t border-line-hair">
+                <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.month }}
+                  <span v-if="r.open_month" class="text-[9.5px] font-bold text-amber-600">· {{ L("open","مفتوح","ouvert") }}</span>
+                </td>
+                <td class="px-4 py-2 text-end tnum">{{ fmtNum(r.booked) }}</td>
+                <td class="px-4 py-2 text-end tnum text-emerald-700 font-semibold">{{ fmtNum(r.true) }}</td>
+                <td class="px-4 py-2 text-end tnum font-bold" :style="{ color: r.delta > 0 ? '#b91c1c' : '#2563eb' }">{{ fmtNum(r.delta) }}</td>
+                <td class="px-4 py-2 text-end tnum text-ink-3">{{ r.coverage_pct }}%</td>
+                <td class="px-4 py-2 text-end whitespace-nowrap">
+                  <span v-if="r.posted" class="text-[10.5px] font-bold text-emerald-700">✅ {{ r.posted.voucher_no }}</span>
+                  <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                          :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1"
+                          @click="postTrueup(r)">
+                    {{ tuBusy === r.month ? L("…","…","…") : L("Post true-up","رحّل التسوية","Poster") }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
           <span class="text-[13px] font-bold">{{ L("Catalogue — true cost vs book","الكتالوج — الحقيقة مقابل الدفاتر","Catalogue") }}</span>
@@ -395,6 +436,31 @@ ct.load();
 watch([srcFilter, supFilter, moFilter, fixFilter], () => { ct.page.value = 1; ct.load(); });
 // a Turkish supplier name can be very long — trim for chips/cells
 const shortSup = (s) => (s ? String(s).replace(/\s*(T[İI]C\.?|SAN\.?|LTD\.?|Ş[Tt][İI]\.?|A\.?Ş\.?|İMALAT).*$/i, "").trim().slice(0, 22) || String(s).slice(0, 22) : "");
+
+// ── B6: monthly COGS true-up ──
+const TU = "accounting_portal.api.cogs_trueup";
+const tu = ref(null);
+const tuOpen = ref(false);
+const tuBusy = ref("");
+async function loadTu() {
+  try { tu.value = await api.call(`${TU}.monthly_review`, { company: currentCompany() }, { fresh: true }); }
+  catch (e) { tu.value = null; }
+}
+loadTu();
+async function postTrueup(r) {
+  if (!window.confirm(L(
+    `Post the ${r.month} true-up? COGS ${fmtNum(r.booked)} → ${fmtNum(r.true)} (Δ ${fmtNum(r.delta)}). GL-only, reversible.`,
+    `ترحيل تسوية ${r.month}؟ COGS ${fmtNum(r.booked)} → ${fmtNum(r.true)} (Δ ${fmtNum(r.delta)}). قيد GL فقط وقابل للعكس.`,
+    `Poster la régularisation ${r.month} ?`))) return;
+  tuBusy.value = r.month;
+  try {
+    const res = await api.call(`${TU}.post_trueup`, { company: currentCompany(), year: tu.value.year, month: Number(r.month.split("-")[1]) });
+    if (res.status === "Posted") toast.success(L("True-up posted","اترحّلت التسوية","Posté"));
+    else toast.info(res.status);
+    await loadTu();
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { tuBusy.value = ""; }
+}
 
 const SRC = {
   maslak_pi: [L("Maslak", "Maslak", "Maslak"), "background:#ecfdf5;color:#047857"],
