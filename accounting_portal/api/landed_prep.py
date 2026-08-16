@@ -32,9 +32,13 @@ _DOMESTIC_GROUPS = ("Morocco Local Suppliers", "Local")
 _OUTBOUND_HINTS = ("cathadis cargo", "cathedis cargo", "aramex", "local delivery",
                    "bisfor logistic", "last mile")
 # Accounts that are INBOUND import costs — suggested included.
+# NOTE: 153.03 (Expenses Included In Valuation) is deliberately NOT here — a
+# charge parked in that clearing account may still get capitalized onto a
+# specific receipt via a Landed Cost Voucher; including it in the pool AND
+# LCV-ing it would double-count. It surfaces as "review" for the team to decide.
 _INBOUND_HINTS = ("sea freight", "custom duty", "custom agent", "customs",
                   "inspection", "stuffing", "haulage", "demurrage", "container",
-                  "clearance", "forklift", "expenses included in valuation")
+                  "clearance", "forklift")
 
 
 def _target(company):

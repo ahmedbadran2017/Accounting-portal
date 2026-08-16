@@ -143,7 +143,9 @@
                 <td class="px-4 py-2.5 text-end tnum">{{ fmtNum(r.current_rate, 1) }}</td>
                 <td class="px-4 py-2.5 text-end tnum font-semibold text-emerald-700">{{ r.true_cost != null ? fmtNum(r.true_cost, 1) : "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum font-bold" :style="{ color: (r.overvaluation || 0) > 0 ? '#b91c1c' : '#78716c' }">{{ r.overvaluation != null ? fmtNum(r.overvaluation) : "—" }}</td>
-                <td class="px-4 py-2.5 text-center">{{ r.fixed ? "✅" : "" }}</td>
+                <td class="px-4 py-2.5 text-center" :title="r.repolluted ? L('Fixed before but drifted again — a new bad inbound entry needs source-fixing','اتظبط قبل كده ورجع انحرف — فيه إدخال جديد غلط لازم يتصلح من مصدره','Re-pollué') : ''">
+                  {{ r.repolluted ? "⚠️" : (r.fixed ? "✅" : "") }}
+                </td>
               </tr>
             </tbody>
           </table>

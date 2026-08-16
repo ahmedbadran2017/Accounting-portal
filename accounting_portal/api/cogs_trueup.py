@@ -166,10 +166,12 @@ def post_trueup(company=None, year=2026, month=None, note=None):
 def _trueup_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     delta = flt(p["delta"])
+    # P&L accounts require a cost center on JE lines in most configs
+    cc = frappe.get_cached_value("Company", action.company, "cost_center")
     # overstated (delta>0): Cr COGS / Dr bucket · understated: mirror
-    cogs_leg = {"account": p["cogs_account"],
+    cogs_leg = {"account": p["cogs_account"], "cost_center": cc,
                 ("credit_in_account_currency" if delta > 0 else "debit_in_account_currency"): abs(delta)}
-    bucket_leg = {"account": p["bucket_account"],
+    bucket_leg = {"account": p["bucket_account"], "cost_center": cc,
                   ("debit_in_account_currency" if delta > 0 else "credit_in_account_currency"): abs(delta)}
     frappe.db.savepoint("trueup_atomic")
     try:

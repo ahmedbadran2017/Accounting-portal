@@ -270,10 +270,24 @@ def cost_filters(company=None):
     return {"suppliers": suppliers, "months": sorted(months, reverse=True)}
 
 
+def _landed_rate_and_weights(item_codes):
+    """(rate_kg, {item: weight}) from the FROZEN basis — (0, {}) when not frozen.
+    Keeps every catalogue number consistent with the FULL rate the fix applies."""
+    from accounting_portal.api.landed_prep import get_basis
+    basis = get_basis()
+    rate_kg = flt((basis or {}).get("rate_kg"))
+    if not (rate_kg > 0 and item_codes):
+        return 0.0, {}
+    return rate_kg, dict(frappe.db.sql(
+        "SELECT name, IFNULL(weight_per_unit,0) FROM `tabItem` WHERE name IN %s",
+        (tuple(item_codes),)))
+
+
 @frappe.whitelist()
 def cost_overview(company=None):
-    """Catalogue-wide KPI: current book value vs true value of stock on hand,
-    the total overvaluation, and the breakdown by cost source."""
+    """Catalogue-wide KPI: current book value vs true FULL value (product +
+    frozen landed) of stock on hand, the total overvaluation, and the source
+    breakdown. Uses the same full rate the fix applies, so fixed items read 0."""
     assert_portal_access()
     fx = _fx_series()
     bins = frappe.db.sql(
@@ -281,6 +295,7 @@ def cost_overview(company=None):
            FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
            WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""", (SALES,), as_dict=True)
     tc = _true_cost_bulk([b.item_code for b in bins], fx)
+    rate_kg, weights = _landed_rate_and_weights([b.item_code for b in bins])
     n = {"maslak_pi": 0, "morocco_pr": 0, "unpriced": 0}
     cur_val = true_val = over = 0.0
     priced_qty = 0.0
@@ -289,14 +304,15 @@ def cost_overview(company=None):
         t = tc.get(b.item_code)
         if t:
             n[t["source"]] += 1
-            tv = flt(t["cost_mad"]) * flt(b.qty)
+            full = flt(t["cost_mad"]) + rate_kg * flt(weights.get(b.item_code))
+            tv = full * flt(b.qty)
             true_val += tv; over += flt(b.sv) - tv; priced_qty += flt(b.qty)
         else:
             n["unpriced"] += 1
     return {
         "company": SALES, "items": len(bins),
         "current_value": round(cur_val), "true_value_priced": round(true_val),
-        "overvaluation": round(over),
+        "overvaluation": round(over), "landed_rate_kg": rate_kg,
         "maslak_pi": n["maslak_pi"], "morocco_pr": n["morocco_pr"], "unpriced": n["unpriced"],
     }
 
@@ -336,6 +352,7 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
     tc = _true_cost_bulk(item_codes, fx)
     proc = _item_procurement(item_codes)   # supplier + (supplier,month) pairs per item
     fixed = _fixed_items()
+    rate_kg, weights = _landed_rate_and_weights(item_codes)
     rows = []
     for b in bins:
         # supplier / month audit filter
@@ -354,14 +371,19 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
         t = tc.get(b.item_code)
         cur_rate = round(flt(b.sv) / flt(b.qty), 2) if flt(b.qty) else 0
         src = t["source"] if t else "unpriced"
-        cost = flt(t["cost_mad"]) if t else None
+        # FULL cost (product + frozen landed) — the same rate the fix applies,
+        # so a fixed item reads ~0 overvaluation instead of a phantom negative
+        cost = round(flt(t["cost_mad"]) + rate_kg * flt(weights.get(b.item_code)), 2) if t else None
         over = round((flt(b.sv) - cost * flt(b.qty))) if cost is not None else None
         dev = round((cur_rate - cost) / cost * 100, 1) if (cost and cost > 0) else None
+        is_fixed = b.item_code in fixed
         rows.append({"item_code": b.item_code, "sku": b.sku, "item_name": b.item_name,
                      "qty": round(flt(b.qty)), "current_rate": cur_rate, "true_cost": cost,
                      "source": src, "overvaluation": over, "dev_pct": dev,
                      "supplier": (proc.get(b.item_code) or {}).get("supplier"),
-                     "fixed": b.item_code in fixed})
+                     "fixed": is_fixed,
+                     # a fixed item drifting again = a NEW bad inbound — surface it
+                     "repolluted": bool(is_fixed and dev is not None and abs(dev) > 15)})
     if source in ("maslak_pi", "morocco_pr", "unpriced"):
         rows = [r for r in rows if r["source"] == source]
     if fix_status == "fixed":
