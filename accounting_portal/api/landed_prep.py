@@ -26,13 +26,19 @@ here posts to the GL.
 import json
 
 import frappe
-from frappe.utils import flt, now_datetime
+from frappe.utils import flt, now_datetime, nowdate
 
 from accounting_portal.api.permissions import (
     assert_can_write, assert_portal_access, can_manage_users, resolve_companies)
 
 SALES = "Justyol Morocco"
 _DOMESTIC_GROUPS = ("Morocco Local Suppliers", "Local")
+
+
+def _year(year=None):
+    """Default the basis year to TODAY's year — never a hardcoded one, so the
+    module keeps working past 2026 without silently reusing a stale basis."""
+    return int(year) if year else int(nowdate()[:4])
 
 # Accounts that are OUTBOUND (selling/delivery) by nature — suggested excluded.
 _OUTBOUND_HINTS = ("cathadis cargo", "cathedis cargo", "aramex", "local delivery",
@@ -48,10 +54,14 @@ _INBOUND_HINTS = ("sea freight", "custom duty", "custom agent", "customs",
 
 
 def _target(company):
-    companies = resolve_companies(company)
-    if not companies:
-        return None
-    return company if (company and company in companies) else companies[0]
+    """The landed basis is a MOROCCO-ONLY mechanism (import shipments into the
+    sales entity) and its storage keys are shared per-year. Always pin to
+    Justyol Morocco — a stray UI company selection must never scan another
+    company's GL or freeze another company's PRs into the shared basis."""
+    companies = resolve_companies(None)
+    if SALES not in (companies or []):
+        frappe.throw("Landed basis is restricted to Justyol Morocco", frappe.PermissionError)
+    return SALES
 
 
 def _suggest(account_name):
@@ -75,20 +85,20 @@ def _basis_key(year):
 
 def _get_overrides(year):
     try:
-        return json.loads(frappe.db.get_default(_overrides_key(year)) or "{}")
+        return json.loads(frappe.db.get_default(_overrides_key(_year(year))) or "{}")
     except Exception:
         return {}
 
 
 @frappe.whitelist()
-def charge_pool(company=None, year=2026):
+def charge_pool(company=None, year=None):
     """The year's charge accounts with net amounts, suggested classification and
     the team's include/exclude decision. Included accounts are the BILL SOURCES:
     their vouchers appear in the bill list for shipment allocation.
     (71.002.503 is scanned too — Bisfor air bills were mislabeled there.)"""
     assert_portal_access()
     target = _target(company) or SALES
-    year = int(year)
+    year = _year(year)
     rows = frappe.db.sql(
         """SELECT g.account, ROUND(SUM(g.debit-g.credit),0) net, COUNT(*) entries
            FROM `tabGL Entry` g
@@ -127,7 +137,7 @@ def kg_stats(target, year):
            LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
            WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date)=%s
              AND IFNULL(s.supplier_group,'') NOT IN %s""",
-        (target, int(year), _DOMESTIC_GROUPS), as_dict=True)[0]
+        (target, _year(year), _DOMESTIC_GROUPS), as_dict=True)[0]
     kg_w, units_w, units_all = flt(row.kg_w), flt(row.units_w), flt(row.units_all)
     avg = kg_w / units_w if units_w else 0.0
     return {"kg_weighted": round(kg_w), "units_weighted": round(units_w),
@@ -137,7 +147,7 @@ def kg_stats(target, year):
 
 
 @frappe.whitelist()
-def set_pool_include(company=None, year=2026, account=None, included=None):
+def set_pool_include(company=None, year=None, account=None, included=None):
     """Team decision: include/exclude one account from the bill sources.
     Blocked once the basis is frozen (unfreeze first)."""
     assert_can_write()
@@ -145,18 +155,18 @@ def set_pool_include(company=None, year=2026, account=None, included=None):
         frappe.throw("Basis is frozen — a Super Admin must unfreeze before reclassifying")
     if not account:
         frappe.throw("account required")
-    ov = _get_overrides(int(year))
+    ov = _get_overrides(_year(year))
     ov[account] = 1 if str(included) in ("1", "true", "True", "yes") else 0
-    frappe.db.set_default(_overrides_key(int(year)), json.dumps(ov))
+    frappe.db.set_default(_overrides_key(_year(year)), json.dumps(ov))
     frappe.db.commit()
     return charge_pool(company=company, year=year)
 
 
 @frappe.whitelist()
-def get_basis(year=2026):
+def get_basis(year=None):
     """The frozen landed basis for the year, or None."""
     try:
-        b = json.loads(frappe.db.get_default(_basis_key(int(year))) or "null")
+        b = json.loads(frappe.db.get_default(_basis_key(_year(year))) or "null")
         return b or None
     except Exception:
         return None
@@ -185,16 +195,16 @@ def _excluded_bills(year):
     """Vouchers the team excluded from the freight-bill list (e.g. the non-
     freight entries sharing a mixed account like 71.002.503, or reversal JEs)."""
     try:
-        return set(json.loads(frappe.db.get_default(_excl_key(int(year))) or "[]"))
+        return set(json.loads(frappe.db.get_default(_excl_key(_year(year))) or "[]"))
     except Exception:
         return set()
 
 
-def get_air_rates(year=2026):
+def get_air_rates(year=None):
     """Date-banded air tariff [{from, rate}] sorted ascending (100 → 110 → 126
     MAD/kg over 2026, at their real change dates)."""
     try:
-        rates = json.loads(frappe.db.get_default(_air_key(int(year))) or "[]")
+        rates = json.loads(frappe.db.get_default(_air_key(_year(year))) or "[]")
     except Exception:
         rates = []
     return sorted(rates, key=lambda r: r.get("from") or "")
@@ -209,7 +219,7 @@ def _air_rate_at(rates, date):
 
 
 @frappe.whitelist()
-def set_air_rates(year=2026, rates=None):
+def set_air_rates(year=None, rates=None):
     """Replace the air-tariff bands. Blocked once frozen."""
     assert_can_write()
     if get_basis(year=year):
@@ -220,14 +230,14 @@ def set_air_rates(year=2026, rates=None):
         d, v = str(r.get("from") or "")[:10], flt(r.get("rate"))
         if len(d) == 10 and v > 0:
             clean.append({"from": d, "rate": v})
-    frappe.db.set_default(_air_key(int(year)), json.dumps(sorted(clean, key=lambda x: x["from"])))
+    frappe.db.set_default(_air_key(_year(year)), json.dumps(sorted(clean, key=lambda x: x["from"])))
     frappe.db.commit()
     return get_air_rates(year)
 
 
 def _channels(year):
     try:
-        return json.loads(frappe.db.get_default(_chan_key(int(year))) or "{}")
+        return json.loads(frappe.db.get_default(_chan_key(_year(year))) or "{}")
     except Exception:
         return {}
 
@@ -235,7 +245,7 @@ def _channels(year):
 def _allocs(year):
     """{voucher_no: [pr, pr, …]} — which shipments each freight bill covers."""
     try:
-        return json.loads(frappe.db.get_default(_alloc_key(int(year))) or "{}")
+        return json.loads(frappe.db.get_default(_alloc_key(_year(year))) or "{}")
     except Exception:
         return {}
 
@@ -255,7 +265,7 @@ def _import_receipts(target, year):
            WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date)=%s
              AND IFNULL(s.supplier_group,'') NOT IN %s
            GROUP BY pr.name ORDER BY pr.posting_date DESC""",
-        (target, int(year), _DOMESTIC_GROUPS), as_dict=True)
+        (target, _year(year), _DOMESTIC_GROUPS), as_dict=True)
     ov = _channels(year)
     for r in rows:
         r["suggested"] = "sea" if r.has_container else "air"
@@ -265,16 +275,16 @@ def _import_receipts(target, year):
 
 
 @frappe.whitelist()
-def set_pr_channel(company=None, year=2026, pr=None, channel=None):
+def set_pr_channel(company=None, year=None, pr=None, channel=None):
     """Team decision: this shipment (PR) came by air or sea. Blocked when frozen."""
     assert_can_write()
     if get_basis(year=year):
         frappe.throw("Basis is frozen — unfreeze before reclassifying shipments")
     if not pr or channel not in ("air", "sea"):
         frappe.throw("pr + channel (air|sea) required")
-    ov = _channels(int(year))
+    ov = _channels(_year(year))
     ov[pr] = channel
-    frappe.db.set_default(_chan_key(int(year)), json.dumps(ov))
+    frappe.db.set_default(_chan_key(_year(year)), json.dumps(ov))
     frappe.db.commit()
     return {"pr": pr, "channel": channel}
 
@@ -298,7 +308,7 @@ def _bill_rows(target, year, pool=None):
              AND g.account IN %s
            GROUP BY g.voucher_type, g.voucher_no
            HAVING ABS(SUM(g.debit-g.credit))>1
-           ORDER BY MIN(g.posting_date)""", (target, int(year), accounts), as_dict=True)
+           ORDER BY MIN(g.posting_date)""", (target, _year(year), accounts), as_dict=True)
     pis = [r.voucher for r in rows if r.vt == "Purchase Invoice"]
     sup = {}
     if pis:
@@ -313,7 +323,7 @@ def _bill_rows(target, year, pool=None):
 
 
 @frappe.whitelist()
-def exclude_bill(company=None, year=2026, voucher=None, excluded=None):
+def exclude_bill(company=None, year=None, voucher=None, excluded=None):
     """Team decision: this voucher on a freight account is NOT a freight bill
     (mixed account / reversal JE) — drop it from the list and the freeze gate.
     Blocked when frozen."""
@@ -322,18 +332,21 @@ def exclude_bill(company=None, year=2026, voucher=None, excluded=None):
         frappe.throw("Basis is frozen — unfreeze before excluding bills")
     if not voucher:
         frappe.throw("voucher required")
-    ex = _excluded_bills(int(year))
+    known = {b["voucher"] for b in _bill_rows(_target(company), _year(year))}
+    if voucher not in known:
+        frappe.throw(f"{voucher} is not on the included freight accounts for {_year(year)}")
+    ex = _excluded_bills(_year(year))
     if str(excluded) in ("1", "true", "True", "yes"):
         ex.add(voucher)
     else:
         ex.discard(voucher)
-    frappe.db.set_default(_excl_key(int(year)), json.dumps(sorted(ex)))
+    frappe.db.set_default(_excl_key(_year(year)), json.dumps(sorted(ex)))
     frappe.db.commit()
     return {"voucher": voucher, "excluded": voucher in ex}
 
 
 @frappe.whitelist()
-def allocate_bill(company=None, year=2026, voucher=None, prs=None):
+def allocate_bill(company=None, year=None, voucher=None, prs=None):
     """Attach one freight bill to the shipment(s) it covers. `prs` = JSON list
     of Purchase Receipt names (empty list clears the allocation). The bill's
     amount is split across its PRs by kg. Blocked when frozen."""
@@ -342,21 +355,33 @@ def allocate_bill(company=None, year=2026, voucher=None, prs=None):
         frappe.throw("Basis is frozen — unfreeze before re-allocating bills")
     if not voucher:
         frappe.throw("voucher required")
+    target, yr = _target(company), _year(year)
+    bills = {b["voucher"]: b for b in _bill_rows(target, yr)}
+    b = bills.get(voucher)
+    if not b:
+        frappe.throw(f"{voucher} is not a freight bill on the included accounts for {yr}")
+    if b["excluded"]:
+        frappe.throw(f"{voucher} is excluded (marked not-freight) — restore it before allocating")
     prs = json.loads(prs) if isinstance(prs, str) else (prs or [])
     prs = [p for p in prs if p]
     if prs:
+        # scope-checked: PR names are globally unique in Frappe, so an existence
+        # check alone would accept another company's / another year's receipt —
+        # the share would then never reach any shipment while still counting as
+        # "allocated" in the freeze gate.
         found = frappe.db.sql(
-            "SELECT name FROM `tabPurchase Receipt` WHERE name IN %s AND docstatus=1",
-            (tuple(prs),))
+            """SELECT name FROM `tabPurchase Receipt`
+               WHERE name IN %s AND docstatus=1 AND company=%s AND YEAR(posting_date)=%s""",
+            (tuple(prs), target, yr))
         missing = set(prs) - {f[0] for f in found}
         if missing:
-            frappe.throw(f"Unknown/unsubmitted receipts: {', '.join(sorted(missing))}")
-    al = _allocs(int(year))
+            frappe.throw(f"Not {target} {yr} submitted receipts: {', '.join(sorted(missing))}")
+    al = _allocs(_year(year))
     if prs:
         al[voucher] = prs
     else:
         al.pop(voucher, None)
-    frappe.db.set_default(_alloc_key(int(year)), json.dumps(al))
+    frappe.db.set_default(_alloc_key(_year(year)), json.dumps(al))
     frappe.db.commit()
     return {"voucher": voucher, "prs": prs}
 
@@ -379,8 +404,14 @@ def _pr_costs_from_bills(bill_rows, allocs, kg_by_pr, qty_by_pr):
             w = {p: 1.0 for p in prs}
             base = float(len(prs))
         allocated += flt(b["amount"])
-        for p in prs:
-            share = round(flt(b["amount"]) * w[p] / base, 2)
+        given = 0.0
+        for i, p in enumerate(prs):
+            # last share takes the rounding residual so Σ shares == bill amount
+            if i == len(prs) - 1:
+                share = round(flt(b["amount"]) - given, 2)
+            else:
+                share = round(flt(b["amount"]) * w[p] / base, 2)
+            given += share
             costs[p] = round(costs.get(p, 0.0) + share, 2)
             detail.setdefault(p, []).append(
                 {"voucher": b["voucher"], "supplier": b.get("supplier") or "",
@@ -389,14 +420,14 @@ def _pr_costs_from_bills(bill_rows, allocs, kg_by_pr, qty_by_pr):
 
 
 @frappe.whitelist()
-def shipment_review(company=None, year=2026):
+def shipment_review(company=None, year=None):
     """The whole basis screen in one call: bill sources (accounts), the freight
     BILLS with their allocations, the shipment list with each PR's ACTUAL cost
     (or tariff estimate while its bills are missing), the reconciliation
     counter, and the air-tariff cross-check."""
     assert_portal_access()
     target = _target(company) or SALES
-    year = int(year)
+    year = _year(year)
     air_rates = get_air_rates(year)
     prs = _import_receipts(target, year)
     pool_snap = charge_pool(company=target, year=year)
@@ -416,7 +447,9 @@ def shipment_review(company=None, year=2026):
         kg = flt(r["kg"])
         actual = flt(costs.get(r["name"]))
         r["bills"] = detail.get(r["name"]) or []
-        if actual:
+        # "has bills" (not amount truthiness): a bill + full reversal netting to
+        # 0 is a DELIBERATE zero cost, not a case for the tariff estimate
+        if r["bills"]:
             r["source"] = "bills"
             r["landed"] = round(actual)
             r["rate_kg"] = round(actual / kg, 2) if kg > 0 else 0
@@ -439,8 +472,19 @@ def shipment_review(company=None, year=2026):
     bills_total = round(sum(flt(b["amount"]) for b in live_bills), 2)
     unallocated = [b for b in live_bills if not b["prs"]]
     chan_by_pr = {r["name"]: r["channel"] for r in prs}
-    air_bills = round(sum(flt(b["amount"]) for b in live_bills
-                          if b["prs"] and any(chan_by_pr.get(p) == "air" for p in b["prs"])), 2)
+    # exact: sum the SHARES that land on air receipts (a mixed air+sea bill
+    # contributes only its air portion to the cross-check)
+    air_bills = round(sum(bb["share"] for p, lst in detail.items()
+                          if chan_by_pr.get(p) == "air" for bb in lst), 2)
+    # allocations pointing at receipts outside the current list (cancelled /
+    # amended PRs): their cost reaches no shipment — must be re-allocated
+    orphan_prs = sorted(set(costs) - set(kg_by_pr))
+    orphan_amount = round(sum(costs[p] for p in orphan_prs), 2)
+    # shipments received AFTER the freeze aren't in the snapshot — their landed
+    # is missing until a re-freeze (cheap: allocations persist independently)
+    frozen = get_basis(year=year)
+    post_freeze = ([r["name"] for r in prs
+                    if r["name"] not in (frozen.get("pr_costs") or {})] if frozen else [])
     return {"company": target, "year": year,
             "air_rates": air_rates, "receipts": prs,
             "pool_rows": pool_snap["rows"],
@@ -449,14 +493,16 @@ def shipment_review(company=None, year=2026):
                       "unallocated": round(bills_total - allocated, 2),
                       "unallocated_count": len(unallocated),
                       "uncosted_receipts": est_count,
-                      "actual_total": round(actual_total, 2)},
+                      "actual_total": round(actual_total, 2),
+                      "orphan_prs": orphan_prs, "orphan_amount": orphan_amount,
+                      "post_freeze_receipts": len(post_freeze)},
             "crosscheck": {"air_kg": round(air_kg, 1),
                            "air_tariff_cost": round(air_cost_est),
                            "air_bills": air_bills},
-            "frozen": get_basis(year=year)}
+            "frozen": frozen}
 
 
-def _landed_units_bulk(item_codes, year=2026):
+def _landed_units_bulk(item_codes, year=None):
     """{item: landed cost per UNIT} — each item's weighted share of its import
     receipts' ACTUAL costs (frozen snapshot). Within a PR the cost spreads over
     the lines by kg (fallback: by qty). Returns {} until the basis is frozen
@@ -479,11 +525,13 @@ def _landed_units_bulk(item_codes, year=2026):
         pc = pr_costs.get(r.pr) or {}
         cost, pr_kg, pr_qty = flt(pc.get("cost")), flt(pc.get("kg")), flt(pc.get("qty"))
         q = flt(r.qty)
-        if cost <= 0 or q <= 0:
-            share = 0.0
-        elif pr_kg > 0:
+        if q <= 0:
+            continue   # return lines: no share AND no denominator dilution
+        if pr_kg > 0:
             # weighted PR: kg split — a zero-weight line gets 0 (fix its weight,
-            # don't let it double-dip on top of the fully-distributed kg shares)
+            # don't let it double-dip on top of the fully-distributed kg shares).
+            # cost may be NEGATIVE (reversal bills) — it flows through the same
+            # split so recon totals and item landed stay tied.
             share = cost * (q * flt(r.w)) / pr_kg
         elif pr_qty > 0:
             # whole PR unweighted: fall back to qty split
@@ -497,7 +545,7 @@ def _landed_units_bulk(item_codes, year=2026):
 
 
 @frappe.whitelist()
-def freeze_basis(company=None, year=2026):
+def freeze_basis(company=None, year=None):
     """Super Admin locks the basis: snapshots each shipment's ACTUAL landed cost
     (from its allocated bills; air shipments still missing bills freeze at the
     tariff estimate, flagged). Blocked while any freight bill is unallocated —
@@ -508,6 +556,10 @@ def freeze_basis(company=None, year=2026):
     if snap["recon"]["unallocated_count"]:
         frappe.throw(f"{snap['recon']['unallocated_count']} freight bill(s) are not allocated "
                      "to any shipment — allocate (or exclude their account) before freezing")
+    if snap["recon"]["orphan_prs"]:
+        frappe.throw("Allocations point at receipts outside this year's import list "
+                     f"(cancelled/amended?): {', '.join(snap['recon']['orphan_prs'][:5])} — "
+                     "re-allocate their bills first, or that cost reaches no shipment")
     pr_costs, est, uncosted = {}, 0, []
     for r in snap["receipts"]:
         if r["source"] == "none":
@@ -525,27 +577,28 @@ def freeze_basis(company=None, year=2026):
     if not any(flt(v["cost"]) > 0 for v in pr_costs.values()):
         frappe.throw("Nothing to freeze — no shipment has a cost yet (allocate bills "
                      "or set the air tariff first)")
-    basis = {"pr_costs": pr_costs,
+    basis = {"company": snap["company"], "year": snap["year"],
+             "pr_costs": pr_costs,
              "air_rates": snap["air_rates"],
              "bills_total": snap["recon"]["bills_total"],
              "actual_total": snap["recon"]["actual_total"],
              "estimated_receipts": est, "uncosted_receipts": uncosted,
              "by": frappe.session.user, "on": str(now_datetime())[:19]}
-    frappe.db.set_default(_basis_key(int(year)), json.dumps(basis))
+    frappe.db.set_default(_basis_key(_year(year)), json.dumps(basis))
     frappe.db.commit()
     return basis
 
 
 @frappe.whitelist()
-def unfreeze_basis(year=2026):
+def unfreeze_basis(year=None):
     if not can_manage_users():
         frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
-    frappe.db.set_default(_basis_key(int(year)), "")
+    frappe.db.set_default(_basis_key(_year(year)), "")
     frappe.db.commit()
     return {"frozen": None}
 
 
-def landed_unit(item_code, year=2026):
+def landed_unit(item_code, year=None):
     """The landed add-on per unit for this item (0 until the basis is frozen):
     its weighted share of its import receipts' actual costs."""
     return flt(_landed_units_bulk([item_code], year=year).get(item_code))

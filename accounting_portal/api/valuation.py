@@ -209,17 +209,24 @@ def _valfix_poster(action):
     qty_then = _qty_asof(p["item_code"], p["warehouse"], p["date"])
     if qty_then <= 0:
         frappe.throw(f"No stock in {p['warehouse']} on {p['date']} — re-propose with a later date")
-    doc = frappe.get_doc({
-        "doctype": "Stock Reconciliation", "company": company,
-        "purpose": "Stock Reconciliation",
-        "posting_date": p["date"], "posting_time": "23:59:00", "set_posting_time": 1,
-        "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
-        "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
-        "items": [{"item_code": p["item_code"], "warehouse": p["warehouse"],
-                   "qty": qty_then, "valuation_rate": flt(p["rate"])}],
-    })
-    doc.insert(ignore_permissions=True)
-    doc.submit()
+    # atomic like the bulk poster: the gateway commits Failed markers, so a
+    # mid-submit exception must not leak a draft/half-submitted reconciliation
+    frappe.db.savepoint("valfix_atomic")
+    try:
+        doc = frappe.get_doc({
+            "doctype": "Stock Reconciliation", "company": company,
+            "purpose": "Stock Reconciliation",
+            "posting_date": p["date"], "posting_time": "23:59:00", "set_posting_time": 1,
+            "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
+            "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
+            "items": [{"item_code": p["item_code"], "warehouse": p["warehouse"],
+                       "qty": qty_then, "valuation_rate": flt(p["rate"])}],
+        })
+        doc.insert(ignore_permissions=True)
+        doc.submit()
+    except Exception:
+        frappe.db.rollback(save_point="valfix_atomic")
+        raise
     return {"voucher_type": "Stock Reconciliation", "voucher_no": doc.name,
             "result": f"{p['item_code']} @ {p['warehouse']} → {p['rate']}"}
 
@@ -263,17 +270,22 @@ REVAL_ACTION = "Revalue inventory (bulk)"
 
 
 def _reval_rows(target, bins, date):
-    """Resolve the requested bins to reconciliation rows at the FX-corrected
-    landed benchmark, carrying each bin's qty AS OF `date`. Skips bins with no
-    benchmark, no stock on that date, or already at the right rate."""
+    """Resolve the requested bins to reconciliation rows at the FULL rate —
+    product benchmark + frozen landed layer, the SAME basis the single-item fix
+    applies (two paths at different rates would see-saw the same bins). Skips
+    bins with no benchmark, no stock on that date, or already at the right
+    rate. Carries each bin's qty AS OF `date`."""
+    from accounting_portal.api.landed_prep import _landed_units_bulk
     item_codes = list({b["item_code"] for b in bins})
     bench = _benchmarks(target, item_codes)
+    landed = _landed_units_bulk(item_codes)
     rows, impact = [], 0.0
     for b in bins:
         ic, wh = b.get("item_code"), b.get("warehouse")
         bm = bench.get(ic)
         if not bm or bm <= 0:
             continue
+        bm = round(flt(bm) + flt(landed.get(ic)), 2)
         q = _qty_asof(ic, wh, date)
         if q <= 0:
             continue
@@ -300,6 +312,10 @@ def revalue_bins(company=None, bins=None, effective_date=None, dry_run=1, notes=
     bins = json.loads(bins) if isinstance(bins, str) else (bins or [])
     if not (target and bins):
         frappe.throw("company and bins are required")
+    from accounting_portal.api.landed_prep import get_basis
+    if not get_basis():
+        frappe.throw("Landed basis is not frozen yet — bulk revaluation applies the FULL "
+                     "(product + landed) rate; freeze the basis first")
     date = str(effective_date or _POLICY_FLOOR)[:10]
     if date < _POLICY_FLOOR:
         date = _POLICY_FLOOR
@@ -404,12 +420,14 @@ def _reserved_by_wh(item_code):
 
 
 def _fixed_action(item_code):
-    """The posted fix action for this product, if any (drives the ✓ badge)."""
+    """The LATEST posted fix action for this product, if any (drives the ✓
+    badge) — ordered so a re-fix after a basis change shows the new voucher."""
     return frappe.db.get_value(
         "Accounting Portal Action",
         {"action_type": REVAL_ACTION, "status": "Posted",
          "reference_doctype": "Item", "reference_name": item_code},
-        ["name", "voucher_no", "posted_on"], as_dict=True)
+        ["name", "voucher_no", "posted_on"], as_dict=True,
+        order_by="posted_on desc")
 
 
 @frappe.whitelist()
@@ -489,7 +507,8 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None):
         frappe.throw("company and item_code required")
     from accounting_portal.api.cost_trace import true_cost as _tc
     from accounting_portal.api.landed_prep import get_basis, landed_unit
-    if not get_basis():
+    basis = get_basis()
+    if not basis:
         frappe.throw("Landed basis is not frozen yet — review & freeze it in the Landed Cockpit first, "
                      "so the catalogue is crawled ONCE at the full (product + landed) cost")
     tc = _tc(item_code=item_code)
@@ -524,7 +543,9 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None):
     wh_sig = frappe.generate_hash(",".join(sorted(x["warehouse"] for x in rows)), 8)
     res = _actions.execute(
         REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}:{wh_sig}",
-        payload={"date": date, "rows": rows},
+        # basis_on stamps WHICH frozen basis this fix used — an unfreeze/refreeze
+        # later marks it stale in the catalogue instead of keeping a silent ✓
+        payload={"date": date, "rows": rows, "basis_on": basis.get("on")},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
         notes=((note or f"Verified cost fix — {item_code}")

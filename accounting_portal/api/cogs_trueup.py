@@ -41,8 +41,14 @@ def _target(company):
 
 
 def _accounts(target):
-    cogs = frappe.db.get_value("Account", {"company": target, "name": ["like", COGS_LIKE], "is_group": 0})
-    bucket = frappe.db.get_value("Account", {"company": target, "name": ["like", BUCKET_LIKE], "is_group": 0})
+    # order_by makes the pick deterministic when several 71.x leaves match —
+    # otherwise the correcting JE could land in a different sibling per call
+    cogs = frappe.db.get_value(
+        "Account", {"company": target, "name": ["like", COGS_LIKE], "is_group": 0, "disabled": 0},
+        order_by="name asc")
+    bucket = frappe.db.get_value(
+        "Account", {"company": target, "name": ["like", BUCKET_LIKE], "is_group": 0, "disabled": 0},
+        order_by="name asc")
     if not (cogs and bucket):
         frappe.throw("COGS (71.801) / correction bucket (71.004) account not found")
     return cogs, bucket
@@ -82,18 +88,26 @@ def _booked_by_month(target, year):
            GROUP BY MONTH(posting_date)""", (target, COGS_LIKE, int(year)))}
 
 
-def _posted_trueups(target, year):
-    """{month: {name, voucher_no}} for already-posted true-up actions."""
+def _posted_trueups(target, year, basis_on=None):
+    """{month: {name, voucher_no, stale_basis}} for already-posted true-up
+    actions. `stale_basis` flags a month posted under a basis that was later
+    unfrozen/refrozen — its figures no longer match the current basis."""
     rows = frappe.get_all(
         "Accounting Portal Action",
         filters={"action_type": TRUEUP_ACTION, "status": "Posted", "company": target,
                  "reference_doctype": "Fiscal Year", "reference_name": str(year)},
-        fields=["name", "voucher_no", "dedupe_key"])
+        fields=["name", "voucher_no", "dedupe_key", "payload"])
     out = {}
     for r in rows:
         try:
             m = int(r.dedupe_key.split(":")[2].split("-")[1])   # cogstrueup:<co>:<YYYY-MM>
-            out[m] = {"name": r.name, "voucher_no": r.voucher_no}
+            stamped = None
+            try:
+                stamped = (json.loads(r.payload or "{}") or {}).get("basis_on")
+            except Exception:
+                pass
+            out[m] = {"name": r.name, "voucher_no": r.voucher_no,
+                      "stale_basis": bool(basis_on and stamped and stamped != basis_on)}
         except Exception:
             continue
     return out
@@ -107,7 +121,8 @@ def monthly_review(company=None, year=2026):
     year = int(year)
     true_m, basis_frozen = _true_month_costs(target, year)
     booked = _booked_by_month(target, year)
-    posted = _posted_trueups(target, year)
+    from accounting_portal.api.landed_prep import get_basis
+    posted = _posted_trueups(target, year, basis_on=(get_basis(year=year) or {}).get("on"))
     today = nowdate()
     cur_y, cur_m = int(today[:4]), int(today[5:7])
     months = sorted(set(list(true_m.keys()) + list(booked.keys())))
@@ -126,25 +141,46 @@ def monthly_review(company=None, year=2026):
     return {"company": target, "year": year, "basis_frozen": basis_frozen, "rows": rows}
 
 
+_COVERAGE_FLOOR = 95.0   # % of delivered units that must carry a true cost
+
+
+def _month_figures(target, year, month):
+    """(booked, true, delta, coverage_pct, basis) for one month — shared by the
+    proposal AND the poster, so the posted JE always carries post-time figures."""
+    from accounting_portal.api.landed_prep import get_basis
+    basis = get_basis(year=year)
+    if not basis:
+        frappe.throw("Landed basis is not frozen — freeze it in the Landed Cockpit first "
+                     "so every month is trued-up on the same final basis")
+    true_m, _ = _true_month_costs(target, year)
+    t = true_m.get(month, {})
+    booked = flt(_booked_by_month(target, year).get(month, 0))
+    tr = flt(t.get("true", 0))
+    cov = round(100 * flt(t.get("priced_qty", 0)) / max(flt(t.get("qty", 1)), 1), 1)
+    return booked, tr, round(booked - tr, 2), cov, basis
+
+
 @frappe.whitelist()
 def post_trueup(company=None, year=2026, month=None, note=None):
-    """Post ONE month's true-up JE (gated, audited, reversible). Recomputes the
-    delta at post time; blocks when the landed basis isn't frozen or the month
-    already has a posted true-up."""
+    """Post ONE month's true-up JE (gated, audited, reversible). Figures are
+    recomputed INSIDE the poster at post time; blocks open/current months, low
+    true-cost coverage, an unfrozen basis, or an already-posted month."""
     assert_can_write()
     target = _target(company) or SALES
     year, month = int(year), int(month)
     if not (1 <= month <= 12):
         frappe.throw("month 1–12 required")
-    true_m, basis_frozen = _true_month_costs(target, year)
-    if not basis_frozen:
-        frappe.throw("Landed basis is not frozen — freeze it in the Landed Cockpit first "
-                     "so every month is trued-up on the same final basis")
+    today = nowdate()
+    if (year, month) >= (int(today[:4]), int(today[5:7])):
+        frappe.throw(f"{year}-{month:02d} is still open — a true-up now would go stale with every "
+                     "delivery; post it after month-end")
     if month in _posted_trueups(target, year):
         frappe.throw(f"{year}-{month:02d} already has a posted true-up — revert it first to re-post")
-    booked = flt(_booked_by_month(target, year).get(month, 0))
-    tr = flt(true_m.get(month, {}).get("true", 0))
-    delta = round(booked - tr, 2)
+    booked, tr, delta, cov, basis = _month_figures(target, year, month)
+    if cov < _COVERAGE_FLOOR:
+        frappe.throw(f"Only {cov}% of {year}-{month:02d} delivered units carry a true cost "
+                     f"(floor {_COVERAGE_FLOOR}%) — unpriced items would be trued-up to ZERO cost, "
+                     "over-reducing COGS. Price them (Verify & Fix / manual) first")
     if abs(delta) < 1:
         frappe.throw("Nothing to true-up — booked equals true for this month")
     last_day = calendar.monthrange(year, month)[1]
@@ -154,7 +190,8 @@ def post_trueup(company=None, year=2026, month=None, note=None):
         TRUEUP_ACTION, target, f"cogstrueup:{target}:{year}-{month:02d}",
         payload={"posting_date": posting_date, "delta": delta,
                  "cogs_account": cogs, "bucket_account": bucket,
-                 "booked": booked, "true": round(tr, 2)},
+                 "booked": booked, "true": round(tr, 2), "coverage_pct": cov,
+                 "basis_on": basis.get("on")},
         amount=abs(delta),
         reference_doctype="Fiscal Year", reference_name=str(year),
         notes=(note or f"COGS true-up {year}-{month:02d}: booked {booked:,.0f} → true {tr:,.0f} (Δ {delta:,.0f})"))
@@ -162,7 +199,16 @@ def post_trueup(company=None, year=2026, month=None, note=None):
 
 def _trueup_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    delta = flt(p["delta"])
+    # Re-resolve figures at POST time (approval can lag the proposal by days;
+    # a Failed retry must not replay stale numbers). Payload keeps the
+    # proposal-time figures for the audit trail only.
+    y, m = int(p["posting_date"][:4]), int(p["posting_date"][5:7])
+    booked, tr, delta, cov, _basis = _month_figures(action.company, y, m)
+    if cov < _COVERAGE_FLOOR:
+        frappe.throw(f"Coverage dropped to {cov}% since the proposal — re-propose after pricing")
+    if abs(delta) < 1:
+        frappe.throw("Booked already equals true for this month — nothing to post")
+    p["booked"], p["true"], p["delta"] = booked, round(tr, 2), delta
     # P&L accounts require a cost center on JE lines in most configs
     cc = frappe.get_cached_value("Company", action.company, "cost_center")
     # overstated (delta>0): Cr COGS / Dr bucket · understated: mirror

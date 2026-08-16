@@ -271,9 +271,10 @@ def cost_filters(company=None):
 
 
 def _landed_map(item_codes):
-    """{item: landed/unit} from the FROZEN two-channel basis — {} when not
-    frozen. Keeps every catalogue number consistent with the FULL rate the fix
-    applies (air receipts at their date's tariff, sea at the pooled rate)."""
+    """{item: landed/unit} from the FROZEN basis — {} when not frozen. v3:
+    each item's weighted share of its import receipts' ACTUAL freight costs
+    (bill-by-bill allocations snapshotted per PR at freeze time). Keeps every
+    catalogue number consistent with the FULL rate the fix applies."""
     from accounting_portal.api.landed_prep import _landed_units_bulk
     return _landed_units_bulk(list(item_codes)) if item_codes else {}
 
@@ -313,13 +314,29 @@ def cost_overview(company=None):
 
 
 def _fixed_items():
-    """Items whose cost was already verified+fixed (posted revaluation actions
-    referencing the Item) — drives the ✓ column and the pending/fixed filter."""
-    return set(frappe.db.get_all(
+    """{item: basis_on-stamp-of-its-LATEST-posted-fix} — drives the ✓ column.
+    The stamp lets the catalogue detect fixes made under a basis that was later
+    unfrozen/refrozen (stale ✓): compare against the current basis' `on`."""
+    rows = frappe.get_all(
         "Accounting Portal Action",
         filters={"action_type": "Revalue inventory (bulk)", "status": "Posted",
                  "reference_doctype": "Item"},
-        pluck="reference_name"))
+        fields=["reference_name", "payload"], order_by="posted_on asc")
+    out = {}
+    for r in rows:
+        stamp = None
+        try:
+            stamp = (frappe.parse_json(r.payload or "{}") or {}).get("basis_on")
+        except Exception:
+            pass
+        out[r.reference_name] = stamp   # later rows overwrite → latest fix wins
+    return out
+
+
+def _fix_is_current(stamp, basis_on):
+    """A fix counts as current if it carries no stamp (legacy) or its stamp
+    matches the currently frozen basis."""
+    return stamp is None or not basis_on or stamp == basis_on
 
 
 @frappe.whitelist()
@@ -347,6 +364,8 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
     tc = _true_cost_bulk(item_codes, fx)
     proc = _item_procurement(item_codes)   # supplier + (supplier,month) pairs per item
     fixed = _fixed_items()
+    from accounting_portal.api.landed_prep import get_basis
+    basis_on = (get_basis() or {}).get("on")
     landed = _landed_map(item_codes)
     rows = []
     for b in bins:
@@ -371,12 +390,15 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
         cost = round(flt(t["cost_mad"]) + flt(landed.get(b.item_code)), 2) if t else None
         over = round((flt(b.sv) - cost * flt(b.qty))) if cost is not None else None
         dev = round((cur_rate - cost) / cost * 100, 1) if (cost and cost > 0) else None
-        is_fixed = b.item_code in fixed
+        has_fix = b.item_code in fixed
+        is_fixed = has_fix and _fix_is_current(fixed[b.item_code], basis_on)
         rows.append({"item_code": b.item_code, "sku": b.sku, "item_name": b.item_name,
                      "qty": round(flt(b.qty)), "current_rate": cur_rate, "true_cost": cost,
                      "source": src, "overvaluation": over, "dev_pct": dev,
                      "supplier": (proc.get(b.item_code) or {}).get("supplier"),
                      "fixed": is_fixed,
+                     # fixed under a basis that was later refrozen — needs a re-fix
+                     "stale_fix": bool(has_fix and not is_fixed),
                      # a fixed item drifting again = a NEW bad inbound — surface it
                      "repolluted": bool(is_fixed and dev is not None and abs(dev) > 15)})
     if source in ("maslak_pi", "morocco_pr", "unpriced"):
@@ -412,26 +434,33 @@ def control_tower(company=None):
            WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""", (SALES,), as_dict=True)
     tc = _true_cost_bulk([b.item_code for b in bins], fx)
     fixed = _fixed_items()
+    basis_on = (basis or {}).get("on")
     landed = _landed_map([b.item_code for b in bins])
     total_over = remaining_over = 0.0
     n_fixed = 0
     for b in bins:
+        is_fixed = (b.item_code in fixed) and _fix_is_current(fixed[b.item_code], basis_on)
         t = tc.get(b.item_code)
         if not t:
+            # manually-fixed orphans (no purchase docs) still count as done —
+            # otherwise the crawl can never reach 100% while orphans exist
+            if is_fixed:
+                n_fixed += 1
             continue
         full = flt(t["cost_mad"]) + flt(landed.get(b.item_code))
         over = flt(b.sv) - full * flt(b.qty)
         total_over += over
-        if b.item_code in fixed:
+        if is_fixed:
             n_fixed += 1
         else:
             remaining_over += over
 
-    # ④ true-ups posted (2026 months)
+    # ④ true-ups posted (current-year months)
     from accounting_portal.api.cogs_trueup import TRUEUP_ACTION, _posted_trueups
-    posted_months = sorted(_posted_trueups(SALES, 2026).keys())
     today = frappe.utils.nowdate()
-    closable_months = max(int(today[5:7]) - 1, 0) if today[:4] == "2026" else 12
+    cur_year = int(today[:4])
+    posted_months = sorted(_posted_trueups(SALES, cur_year, basis_on=basis_on).keys())
+    closable_months = max(int(today[5:7]) - 1, 0)
 
     # ⑤ 2025 close: the dummy-customer residual is the headline signal
     dummy_bal = flt(frappe.db.sql(

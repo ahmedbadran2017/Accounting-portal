@@ -8,6 +8,9 @@
       <span class="text-[13px] font-bold">{{ L("Landed basis","أساس التكلفة المحمَّلة","Base landed") }} {{ sr.year }}</span>
       <span v-if="sr.frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">❄ {{ L("FROZEN","مجمّد","GELÉ") }}</span>
       <span v-else class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#eef2ff;color:#4338ca">{{ L("pending review","في انتظار المراجعة","à revoir") }}</span>
+      <span v-if="sr.frozen && sr.recon.post_freeze_receipts" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309"
+            :title="L('Shipments received after the freeze carry no landed cost — unfreeze, allocate their bills, re-freeze.','شحنات وصلت بعد التجميد من غير تكلفة شحن — فكّوا التجميد ووزّعوا فواتيرها وجمّدوا تاني.','Expéditions reçues après le gel.')">
+        ⚠ {{ sr.recon.post_freeze_receipts }} {{ L("new shipments since freeze","شحنات جديدة بعد التجميد","depuis le gel") }}</span>
       <span class="text-[11px] text-ink-muted flex-1">
         {{ L("bills","فواتير","factures") }} {{ fmt0(sr.recon.bills_total) }} ·
         {{ L("allocated","موزَّع","alloué") }} {{ fmt0(sr.recon.allocated) }} ·
@@ -45,7 +48,7 @@
             <tbody>
               <template v-for="b in sortedBills" :key="b.voucher">
                 <tr class="border-t border-line-hair" :style="b.excluded ? 'opacity:.45' : b.prs.length ? '' : 'background:#fffbeb'">
-                  <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap">{{ b.voucher }}<div class="text-[10px] text-ink-muted font-sans">{{ b.dt }}</div></td>
+                  <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ b.voucher }}<div class="text-[10px] text-ink-muted font-sans">{{ b.dt }}</div></td>
                   <td class="px-3 py-1.5"><div class="truncate max-w-[160px]">{{ b.supplier || "—" }}</div><div class="text-[10px] text-ink-muted truncate max-w-[160px]">{{ b.account }}</div></td>
                   <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmt0(b.amount) }}</td>
                   <td class="px-3 py-1.5 text-center">
@@ -63,11 +66,15 @@
                 </tr>
                 <tr v-if="allocFor === b.voucher" class="border-t border-line-hair" style="background:#fafaf9">
                   <td colspan="5" class="px-3 py-2.5">
-                    <div class="text-[10.5px] text-ink-muted mb-1.5">{{ L("Tick the shipment(s) this bill covers — the amount splits across them by kg:","علّموا على الشحنة/الشحنات اللي الفاتورة دي بتغطيها — المبلغ هيتقسم عليهم بالكيلو:","Cocher les expéditions couvertes :") }}</div>
+                    <div class="flex items-center gap-2 mb-1.5">
+                      <span class="text-[10.5px] text-ink-muted flex-1">{{ L("Tick the shipment(s) this bill covers — the amount splits across them by kg:","علّموا على الشحنة/الشحنات اللي الفاتورة دي بتغطيها — المبلغ هيتقسم عليهم بالكيلو:","Cocher les expéditions couvertes :") }}</span>
+                      <input v-model="allocSearch" :placeholder="L('search receipt/supplier…','بحث استلام/مورّد…','rechercher…')"
+                             class="h-[24px] px-2 text-[10.5px] border border-line rounded-[6px] outline-none w-[170px]" />
+                    </div>
                     <div class="max-h-[180px] overflow-y-auto border border-line rounded-[8px] bg-white">
-                      <label v-for="r in sr.receipts" :key="r.name" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 cursor-pointer hover:bg-app-warm text-[11px]">
+                      <label v-for="r in allocReceipts" :key="r.name" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 cursor-pointer hover:bg-app-warm text-[11px]">
                         <input type="checkbox" class="accent-accent w-3.5 h-3.5" :checked="allocSel.has(r.name)" @change="allocSel.has(r.name) ? allocSel.delete(r.name) : allocSel.add(r.name)" />
-                        <span class="font-mono text-[10.5px]">{{ r.name }}</span>
+                        <span class="font-mono text-[10.5px]" dir="ltr">{{ r.name }}</span>
                         <span class="text-ink-muted">{{ r.dt }}</span>
                         <span>{{ r.channel === "air" ? "🛫" : "🚢" }}</span>
                         <span class="tnum text-ink-muted">{{ fmt0(r.kg) }}kg</span>
@@ -91,7 +98,17 @@
 
       <!-- B) Shipments with their ACTUAL cost -->
       <div>
-        <div class="text-[11px] font-bold text-ink-2 mb-1.5">📦 {{ L("Shipments — each Purchase Receipt = one shipment with its own freight cost","الشحنات — كل استلام = شحنة بتكلفة شحنها الفعلية","Expéditions") }} ({{ sr.receipts.length }})</div>
+        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+          <span class="text-[11px] font-bold text-ink-2">📦 {{ L("Shipments — each Purchase Receipt = one shipment with its own freight cost","الشحنات — كل استلام = شحنة بتكلفة شحنها الفعلية","Expéditions") }} ({{ shownReceipts.length }}/{{ sr.receipts.length }})</span>
+          <button class="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                  :style="onlyUnbilled ? 'background:#fffbeb;color:#b45309;border-color:#fde68a' : 'border-color:#e7e5e4;color:#78716c'"
+                  @click="onlyUnbilled = !onlyUnbilled">{{ L("missing bills only","بدون فواتير فقط","sans factures") }} ({{ sr.recon.uncosted_receipts }})</button>
+          <span class="text-[10px] text-ink-3 flex-1 text-end">
+            <b style="color:#047857">{{ L("actual","فعلي","réel") }}</b> = {{ L("from allocated bills","من الفواتير الموزَّعة","factures allouées") }} ·
+            <b style="color:#b45309">{{ L("est.","تقديري","est.") }}</b> = {{ L("tariff × kg until its bills arrive","تعريفة × كجم لحد ما فواتيرها تتدخل","tarif × kg") }} ·
+            <b style="color:#b91c1c">{{ L("none","بدون","aucun") }}</b> = {{ L("no bills, no tariff","لا فواتير ولا تعريفة","rien") }}
+          </span>
+        </div>
         <div class="border border-line rounded-[8px] overflow-hidden max-h-[300px] overflow-y-auto">
           <table class="w-full text-[11.5px]">
             <thead><tr style="background:#fafaf9" class="sticky top-0 z-[1]">
@@ -103,8 +120,8 @@
               <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Freight cost","تكلفة الشحن","Coût fret") }}</th>
             </tr></thead>
             <tbody>
-              <tr v-for="r in sr.receipts" :key="r.name" class="border-t border-line-hair">
-                <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap">{{ r.name }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
+              <tr v-for="r in shownReceipts" :key="r.name" class="border-t border-line-hair">
+                <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.name }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
                 <td class="px-3 py-1.5 truncate max-w-[120px]">{{ r.supplier }}</td>
                 <td class="px-3 py-1.5 text-end tnum">{{ fmt0(r.kg) }}</td>
                 <td class="px-3 py-1.5 text-center whitespace-nowrap">
@@ -116,7 +133,7 @@
                           :disabled="!canWrite || !!sr.frozen" @click="setChannel(r, 'sea')">🚢</button>
                 </td>
                 <td class="px-3 py-1.5">
-                  <span v-for="bb in r.bills" :key="bb.voucher" class="inline-block text-[9.5px] font-mono px-1.5 py-0.5 rounded-[5px] me-1 mb-0.5" style="background:#f0fdf4;color:#166534" :title="`${bb.voucher} · ${fmt0(bb.share)}`">{{ bb.voucher.slice(-9) }}<template v-if="bb.n_prs > 1"> ÷{{ bb.n_prs }}</template></span>
+                  <span v-for="bb in r.bills" :key="bb.voucher" class="inline-block text-[9.5px] font-mono px-1.5 py-0.5 rounded-[5px] me-1 mb-0.5" dir="ltr" style="background:#f0fdf4;color:#166534" :title="`${bb.voucher} · ${fmt0(bb.share)}`">{{ bb.voucher.slice(-9) }}<template v-if="bb.n_prs > 1"> ÷{{ bb.n_prs }}</template></span>
                   <span v-if="!r.bills.length" class="text-[10px] text-ink-3">—</span>
                 </td>
                 <td class="px-3 py-1.5 text-end tnum font-semibold whitespace-nowrap">
@@ -182,11 +199,14 @@
                "التجميد يقفل التكلفة الفعلية لكل شحنة. متقفل طالما فيه فاتورة غير موزَّعة، والبحري لازم فواتير فعلية. بعدها شاشة التحقق تضيف نصيب كل صنف من شحنه فوق تكلفة المنتج.",
                "Geler fige le coût réel de chaque expédition.") }}
         </span>
-        <button v-if="canWrite && !sr.frozen" class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                :disabled="busy || !!sr.recon.unallocated_count" @click="freezeBasis">❄ {{ L("Freeze basis","جمّد الأساس","Geler") }}</button>
-        <button v-if="canWrite && sr.frozen" class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
+        <button v-if="canFreeze && !sr.frozen" class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+                :disabled="busy || !!sr.recon.unallocated_count"
+                :title="sr.recon.unallocated_count ? L('Blocked: unallocated bills','متقفل: فيه فواتير غير موزَّعة','Bloqué : factures non allouées') : ''"
+                @click="freezeBasis">❄ {{ L("Freeze basis","جمّد الأساس","Geler") }}</button>
+        <button v-if="canFreeze && sr.frozen" class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
                 :disabled="busy" @click="unfreezeBasis">{{ L("Unfreeze","فكّ التجميد","Dégeler") }}</button>
-        <span v-if="sr.frozen" class="text-[10px] text-ink-3">{{ sr.frozen.by }} · {{ sr.frozen.on }}</span>
+        <span v-if="!canFreeze" class="text-[10px] text-ink-3">{{ L("Freezing is Super-Admin only","التجميد للسوبر أدمن فقط","Gel : Super-Admin uniquement") }}</span>
+        <span v-if="sr.frozen" class="text-[10px] text-ink-3" dir="ltr">{{ sr.frozen.by }} · {{ sr.frozen.on }}</span>
       </div>
     </div>
   </div>
@@ -207,6 +227,9 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const fmt0 = (n) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
 const { can } = useAuth();
 const canWrite = computed(() => can("post_entries"));
+// freeze/unfreeze are Super-Admin-only on the backend — don't show an
+// accountant a button that can only error
+const canFreeze = computed(() => can("manage_users"));
 const toast = useToast();
 
 const LP = "accounting_portal.api.landed_prep";
@@ -216,10 +239,22 @@ const open = ref(props.startOpen);
 const busy = ref(false);
 const allocFor = ref(null);
 const allocSel = reactive(new Set());
+const allocSearch = ref("");
+const onlyUnbilled = ref(false);
 
 const sortedBills = computed(() =>
   [...(sr.value?.bills || [])].sort((a, b) =>
     (a.excluded ? 2 : a.prs.length ? 1 : 0) - (b.excluded ? 2 : b.prs.length ? 1 : 0)));
+const shownReceipts = computed(() => {
+  const all = sr.value?.receipts || [];
+  return onlyUnbilled.value ? all.filter((r) => r.source !== "bills") : all;
+});
+const allocReceipts = computed(() => {
+  const q = allocSearch.value.trim().toLowerCase();
+  const all = sr.value?.receipts || [];
+  if (!q) return all;
+  return all.filter((r) => (r.name + " " + (r.supplier || "")).toLowerCase().includes(q));
+});
 const allocKg = computed(() => {
   let t = 0;
   for (const r of sr.value?.receipts || []) if (allocSel.has(r.name)) t += Number(r.kg || 0);
@@ -236,7 +271,10 @@ async function load() {
   try {
     const r = await api.call(`${LP}.shipment_review`, { company: currentCompany() }, { fresh: true });
     sr.value = r;
-    airRates.value = (r.air_rates || []).map((x) => ({ ...x }));
+    // don't clobber a band the user is still typing (e.g. rate entered, date
+    // pending) — only re-sync from the server when nothing is half-filled
+    const editing = airRates.value.some((x) => !x.from || !(x.rate > 0));
+    if (!editing) airRates.value = (r.air_rates || []).map((x) => ({ ...x }));
   } catch (e) { sr.value = null; }
 }
 load();
@@ -244,6 +282,7 @@ load();
 function toggleAlloc(b) {
   if (allocFor.value === b.voucher) { allocFor.value = null; return; }
   allocFor.value = b.voucher;
+  allocSearch.value = "";
   allocSel.clear();
   for (const p of b.prs || []) allocSel.add(p);
 }
@@ -274,6 +313,7 @@ function saveAirRates() {
     try {
       const clean = airRates.value.filter((r) => r.from && r.rate > 0);
       await api.call(`${LP}.set_air_rates`, { rates: JSON.stringify(clean) });
+      // incomplete rows stay local (load() keeps them while editing)
       await load(); emit("changed");
     } catch (e) { toast.error(e.message || "Failed"); await load(); }
   }, 400);

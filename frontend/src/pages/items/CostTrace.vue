@@ -55,7 +55,7 @@
       </div>
 
       <!-- ② freeze the landed basis -->
-      <LandedBasisCard @changed="loadTower" />
+      <LandedBasisCard :start-open="!tower?.basis" @changed="loadTower(); loadTu();" />
 
       <!-- ③ the catalogue crawl -->
       <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
@@ -182,7 +182,7 @@
                 <td class="px-4 py-2 text-end tnum font-bold" :style="{ color: r.delta > 0 ? '#b91c1c' : '#2563eb' }">{{ fmtNum(r.delta) }}</td>
                 <td class="px-4 py-2 text-end tnum text-ink-3">{{ r.coverage_pct }}%</td>
                 <td class="px-4 py-2 text-end whitespace-nowrap">
-                  <span v-if="r.posted" class="text-[10.5px] font-bold text-emerald-700">✅ {{ r.posted.voucher_no }}</span>
+                  <span v-if="r.posted" class="text-[10.5px] font-bold" :class="r.posted.stale_basis ? 'text-amber-600' : 'text-emerald-700'">{{ r.posted.stale_basis ? '⚠' : '✅' }} {{ r.posted.voucher_no }}<template v-if="r.posted.stale_basis"> · {{ L("basis changed — revert & re-post","الأساس اتغيّر — اعكسوه ورحّلوه تاني","base modifiée") }}</template></span>
                   <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                           :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1"
                           @click="postTrueup(r)">
@@ -527,7 +527,7 @@ const nextHint = computed(() => {
   const t = tower.value;
   if (!t) return "";
   if (!t.guard.enabled) return L("Next: turn the FX guard ON (Super Admin).", "التالي: شغّل حارس الصرف (Super Admin).", "Activer la garde FX.");
-  if (!t.basis) return L("Next: review the charge pool below and freeze the landed basis (②).", "التالي: راجعوا مجمّع المصاريف تحت وجمّدوا الأساس (②).", "Geler la base (②).");
+  if (!t.basis) return L("Next (②): enter ALL freight bills, allocate each to its shipment(s) until unallocated = 0, then freeze the basis.", "التالي (②): دخّلوا كل فواتير الشحن ووزّعوا كل فاتورة على شحناتها لحد ما «غير موزَّع» = صفر، وبعدها جمّدوا الأساس.", "Saisir et allouer toutes les factures, puis geler (②).");
   if (t.crawl.fixed < t.crawl.total) return L(`Next: keep crawling the catalogue (③) — ${fmtNum(t.crawl.total - t.crawl.fixed)} products left, ${fmtNum(t.crawl.remaining_over)} MAD distortion remaining.`, `التالي: كمّلوا الزحفة (③) — فاضل ${fmtNum(t.crawl.total - t.crawl.fixed)} منتج و${fmtNum(t.crawl.remaining_over)} درهم تشوّه.`, "Continuer la revue (③).");
   if (t.trueup.posted_months.length < t.trueup.closable_months) return L("Next: post the monthly true-ups (④).", "التالي: رحّلوا تسويات الشهور (④).", "Poster les régularisations (④).");
   if (!t.close2025.done) return L("Next: settle the 3 open decisions and execute the 2025 close (⑤).", "التالي: احسموا القرارات الثلاثة ونفّذوا قفل 2025 (⑤).", "Clôturer 2025 (⑤).");
