@@ -224,11 +224,34 @@ def _valfix_poster(action):
             "result": f"{p['item_code']} @ {p['warehouse']} → {p['rate']}"}
 
 
+def _sync_bin_from_ledger(item_code, warehouse):
+    """Refresh the Bin cache from the last ACTIVE ledger entry. Cancelling a
+    today-dated reco leaves no later SLEs to trigger a repost, so ERPNext can
+    leave Bin.valuation_rate stale (seen on DEV) — this closes that gap."""
+    last = frappe.db.sql(
+        """SELECT qty_after_transaction q, valuation_rate vr, stock_value sv
+           FROM `tabStock Ledger Entry`
+           WHERE item_code=%s AND warehouse=%s AND is_cancelled=0
+           ORDER BY posting_date DESC, creation DESC LIMIT 1""",
+        (item_code, warehouse), as_dict=True)
+    name = frappe.db.get_value("Bin", {"item_code": item_code, "warehouse": warehouse})
+    if not (last and name):
+        return
+    b = frappe.get_doc("Bin", name)
+    l = last[0]
+    b.db_set("actual_qty", flt(l.q))
+    b.db_set("valuation_rate", flt(l.vr))
+    b.db_set("stock_value", flt(l.sv))
+
+
 def _valfix_reverter(action):
     if action.voucher_no and frappe.db.exists("Stock Reconciliation", action.voucher_no):
         doc = frappe.get_doc("Stock Reconciliation", action.voucher_no)
+        rows = [(r.item_code, r.warehouse) for r in doc.items]
         if doc.docstatus == 1:
             doc.cancel()
+        for item_code, warehouse in rows:
+            _sync_bin_from_ledger(item_code, warehouse)
     return {"voucher_type": "Stock Reconciliation", "voucher_no": action.voucher_no, "result": "cancelled"}
 
 
@@ -319,16 +342,24 @@ def _revalue_poster(action):
                       "qty": q, "valuation_rate": flt(r["rate"])})
     if not items:
         frappe.throw("No postable bins — everything is empty on the effective date, reserved, or in a disabled warehouse")
-    doc = frappe.get_doc({
-        "doctype": "Stock Reconciliation", "company": company,
-        "purpose": "Stock Reconciliation",
-        "posting_date": date, "posting_time": "23:59:00", "set_posting_time": 1,
-        "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
-        "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
-        "items": items,
-    })
-    doc.insert(ignore_permissions=True)
-    doc.submit()
+    # ATOMIC: the gateway's Failed handler commits after marking the action, so a
+    # mid-submit failure here must leave NOTHING behind (the DEV test leaked a
+    # draft and a half-submitted reco). Savepoint + rollback = all-or-nothing.
+    frappe.db.savepoint("reval_atomic")
+    try:
+        doc = frappe.get_doc({
+            "doctype": "Stock Reconciliation", "company": company,
+            "purpose": "Stock Reconciliation",
+            "posting_date": date, "posting_time": "23:59:00", "set_posting_time": 1,
+            "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
+            "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
+            "items": items,
+        })
+        doc.insert(ignore_permissions=True)
+        doc.submit()
+    except Exception:
+        frappe.db.rollback(save_point="reval_atomic")
+        raise
     return {"voucher_type": "Stock Reconciliation", "voucher_no": doc.name,
             "result": f"revalued {len(items)} bins @ {date}"}
 
