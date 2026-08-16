@@ -299,16 +299,26 @@ def _revalue_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     company = action.company
     date = p["date"]
-    # Re-resolve qty AS OF the effective date at post time (approval may lag) and
-    # drop any bin now empty — a back-dated reco with today's qty rewrites history.
+    # Re-resolve EVERYTHING at post time, not just qty: a stored payload can be
+    # stale (a Failed action retried under the same dedupe key replays its old
+    # rows), so re-filter bins that ERPNext would reject — disabled warehouses
+    # and actively-reserved stock — instead of trusting the captured list.
+    rsv_cache = {}
     items = []
     for r in p["rows"]:
         q = _qty_asof(r["item_code"], r["warehouse"], date)
-        if q > 0:
-            items.append({"item_code": r["item_code"], "warehouse": r["warehouse"],
-                          "qty": q, "valuation_rate": flt(r["rate"])})
+        if q <= 0:
+            continue
+        if frappe.db.get_value("Warehouse", r["warehouse"], "disabled"):
+            continue
+        if r["item_code"] not in rsv_cache:
+            rsv_cache[r["item_code"]] = _reserved_by_wh(r["item_code"])
+        if flt(rsv_cache[r["item_code"]].get(r["warehouse"])):
+            continue
+        items.append({"item_code": r["item_code"], "warehouse": r["warehouse"],
+                      "qty": q, "valuation_rate": flt(r["rate"])})
     if not items:
-        frappe.throw("No stock on the effective date for any selected bin — re-propose with a later date")
+        frappe.throw("No postable bins — everything is empty on the effective date, reserved, or in a disabled warehouse")
     doc = frappe.get_doc({
         "doctype": "Stock Reconciliation", "company": company,
         "purpose": "Stock Reconciliation",
@@ -461,8 +471,12 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None):
     if not rows:
         frappe.throw("Nothing fixable now — every bin is already correct or blocked by reservations: "
                      + ("; ".join(skipped) or "none"))
+    # content-aware dedupe key: if the postable row-set changes (a reservation
+    # cleared, a warehouse toggled), the retry gets a FRESH action instead of
+    # replaying a stale Failed payload under the same key.
+    wh_sig = frappe.generate_hash(",".join(sorted(x["warehouse"] for x in rows)), 8)
     res = _actions.execute(
-        REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}",
+        REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}:{wh_sig}",
         payload={"date": date, "rows": rows},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
