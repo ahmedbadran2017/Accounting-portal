@@ -359,11 +359,13 @@ def item_fix_preview(company=None, item_code=None):
     figure + the actual purchase-document lines behind it (the evidence), the
     per-bin dry-run at that rate, and whether it was already fixed."""
     assert_portal_access()
-    target = _target(company)
+    from accounting_portal.api.cost_trace import (
+        SALES, SOURCING, _fx_series, _to_mad_fast, true_cost as _tc)
+    # default to the sales entity (Morocco) — _target(None) picks the first
+    # company alphabetically (China), which silently yields an empty preview
+    target = _target(company or SALES)
     if not (target and item_code):
         frappe.throw("company and item_code required")
-    from accounting_portal.api.cost_trace import (
-        SOURCING, _fx_series, _to_mad_fast, true_cost as _tc)
     tc = _tc(item_code=item_code)
     fx = _fx_series()
     # evidence: the most recent source lines (Maslak invoices; else Morocco receipts)

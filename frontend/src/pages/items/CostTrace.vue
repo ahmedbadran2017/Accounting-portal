@@ -270,10 +270,14 @@ import Icon from "@/components/Icon.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import { useServerTable } from "@/composables/useServerTable";
 import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
+import { useAuth } from "@/composables/useAuth";
 
 const { locale } = useI18n();
 const toast = useToast();
+const { can } = useAuth();
+const canWrite = computed(() => can("post_entries"));
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmtNum = (n, d = 0) => {
   const v = Number(n);
@@ -318,7 +322,7 @@ async function pick(itemCode) {
   try {
     trace.value = await api.call(`${M}.trace_item`, { item_code: itemCode });
     q.value = trace.value.sku || itemCode;
-    fixPrev.value = await api.call(`${V}.item_fix_preview`, { item_code: itemCode }, { fresh: true });
+    fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: itemCode }, { fresh: true });
     fixRate.value = fixPrev.value?.true_cost?.cost_mad ?? null;
   } catch (e) {
     err.value = e.message || "Failed to load trace";
@@ -332,11 +336,12 @@ async function applyFix() {
   fixing.value = true;
   try {
     const res = await api.call(`${V}.fix_item_cost`, {
-      item_code: trace.value.item_code, rate: fixRate.value, note: fixNote.value || undefined,
+      company: currentCompany(), item_code: trace.value.item_code,
+      rate: fixRate.value, note: fixNote.value || undefined,
     });
     if (res.status === "Posted") toast.success(L("Cost fixed — one today-dated entry posted", "اتظبطت — قيد واحد بتاريخ اليوم", "Corrigé"));
     else toast.info(res.status);
-    fixPrev.value = await api.call(`${V}.item_fix_preview`, { item_code: trace.value.item_code }, { fresh: true });
+    fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: trace.value.item_code }, { fresh: true });
     ct.load();
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { fixing.value = false; }
