@@ -28,3 +28,17 @@ after_migrate = [
 
 # Whitelisted method overrides — none.
 override_whitelisted_methods = {}
+
+# ── Server-side guards on core doctypes ──
+# FX guard: rejects purchase documents whose exchange rate is implausible vs the
+# books' Currency Exchange reference (the root cause of the ×4.5 inventory-cost
+# inflation — USD receipts saved at the TRY rate). Runtime-togglable
+# (ap_fx_guard / ap_fx_guard_tolerance defaults) — see api/fx_guard.py.
+doc_events = {
+    "Purchase Receipt": {
+        "validate": "accounting_portal.api.fx_guard.validate_fx",
+    },
+    "Purchase Invoice": {
+        "validate": "accounting_portal.api.fx_guard.validate_fx",
+    },
+}
