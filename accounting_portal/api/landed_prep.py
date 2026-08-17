@@ -95,7 +95,9 @@ def charge_pool(company=None, year=None):
     """The year's charge accounts with net amounts, suggested classification and
     the team's include/exclude decision. Included accounts are the BILL SOURCES:
     their vouchers appear in the bill list for shipment allocation.
-    (71.002.503 is scanned too — Bisfor air bills were mislabeled there.)"""
+    (71.002.503 and 71.002.501 are scanned too — Bisfor air bills and the sea
+    customs/port/clearance bills [Douanes 793K, LOS CARGOS, Marsa Maroc…] were
+    mislabeled there.)"""
     assert_portal_access()
     target = _target(company) or SALES
     year = _year(year)
@@ -105,7 +107,8 @@ def charge_pool(company=None, year=None):
            WHERE g.company=%s AND g.is_cancelled=0 AND YEAR(g.posting_date)=%s
              AND (g.account LIKE '770.07%%' OR g.account LIKE '770.0.7%%'
                   OR g.account LIKE '153.03%%' OR g.account LIKE '770.04%%'
-                  OR g.account LIKE '770.05.012%%' OR g.account LIKE '71.002.503%%')
+                  OR g.account LIKE '770.05.012%%' OR g.account LIKE '71.002.503%%'
+                  OR g.account LIKE '71.002.501%%')
            GROUP BY g.account
            HAVING ABS(SUM(g.debit-g.credit))>100
            ORDER BY ABS(SUM(g.debit-g.credit)) DESC""", (target, year), as_dict=True)
@@ -389,6 +392,7 @@ def _bill_rows(target, year, pool=None):
            FROM `tabGL Entry` g
            WHERE g.company=%s AND g.is_cancelled=0 AND YEAR(g.posting_date)=%s
              AND g.account IN %s
+             AND g.voucher_type IN ('Purchase Invoice', 'Journal Entry')
            GROUP BY g.voucher_type, g.voucher_no
            HAVING ABS(SUM(g.debit-g.credit))>1
            ORDER BY MIN(g.posting_date)""", (target, _year(year), accounts), as_dict=True)
