@@ -51,57 +51,22 @@
         <div v-if="sheet.frozen" class="text-[10.5px] text-ink-muted mt-1.5">❄ {{ L("Basis frozen — unfreeze (Super Admin) to change freight.","الأساس مجمّد — فك التجميد لتغيير الشحن.","Base gelée.") }}</div>
       </div>
 
-      <!-- ① product lines -->
-      <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-        <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
-          <span class="text-[12px] font-bold">📦 {{ L("Product costs — verify each line against the supplier invoice","تكلفة البضاعة — اتحققوا من كل سطر مع فاتورة المورد","Coûts produits") }}</span>
-          <span class="text-[11px] text-ink-muted flex-1">{{ verifiedCount }}/{{ sheet.lines.length }} {{ L("verified","متحقق","vérifié") }}</span>
-          <button v-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line text-ink-2 hover:bg-app-warm"
-                  @click="useSuggestedAll">{{ L("Use suggested for empty lines","استخدام المقترح للفاضي","Suggestions") }}</button>
+      <!-- product-cost verification lives in Cost Trace (after freight is assembled) -->
+      <div class="bg-white rounded-card border border-line shadow-card p-4 flex items-center gap-3 flex-wrap">
+        <div class="flex-1 min-w-[240px]">
+          <div class="text-[12px] font-bold">📦 {{ L("Product costs — verified in Cost Trace","تكلفة البضاعة — التحقق بيتم في تتبّع التكلفة","Coûts produits — dans Cost Trace") }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">
+            {{ L("This screen assembles the FREIGHT. Once it reads 'actual', open the shipment's costing file in Cost Trace to verify the product cost of every line.",
+                 "الشاشة دي بتجمّع الشحن. أول ما يبقى «فعلي»، افتحوا ملف الشحنة في تتبّع التكلفة للتحقق من تكلفة كل سطر.",
+                 "Cet écran assemble le fret ; la vérification se fait dans Cost Trace.") }}
+          </div>
         </div>
-        <div class="max-h-[420px] overflow-y-auto">
-          <table class="w-full text-[11.5px]">
-            <thead><tr style="background:#fafaf9" class="sticky top-0 z-[1]">
-              <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Booked","المسجّل","Comptab.") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Suggested","المقترح","Suggéré") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted w-[110px]">{{ L("Verified ✎","المعتمد ✎","Vérifié ✎") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">+ {{ L("freight","شحن","fret") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Full","الكاملة","Total") }}</th>
-            </tr></thead>
-            <tbody>
-              <tr v-for="l in sheet.lines" :key="l.item_code" class="border-t border-line-hair" :style="l.fixed ? 'background:#f0fdf4' : ''">
-                <td class="px-3 py-1.5">
-                  <span class="font-mono text-[10.5px]" dir="ltr">{{ l.item_code }}</span>
-                  <span v-if="l.fixed" class="text-[9.5px] font-bold ms-1" style="color:#047857">✓ {{ L("applied","مطبَّق","appliqué") }}</span>
-                  <div class="text-[10px] text-ink-muted truncate max-w-[260px]">{{ l.sku || l.item_name }}</div>
-                </td>
-                <td class="px-3 py-1.5 text-end tnum">{{ fmt0(l.qty) }}</td>
-                <td class="px-3 py-1.5 text-end tnum text-ink-muted">{{ l.book_rate }}</td>
-                <td class="px-3 py-1.5 text-end tnum">
-                  <button v-if="l.suggested" class="hover:underline decoration-dotted" :title="l.source" @click="edits[l.item_code] = l.suggested">{{ l.suggested }}</button>
-                  <span v-else class="text-ink-3">—</span>
-                </td>
-                <td class="px-2 py-1 text-end">
-                  <input type="number" step="0.01" min="0" v-model.number="edits[l.item_code]" :disabled="!canWrite"
-                         class="w-[92px] h-[26px] px-1.5 text-end tnum text-[11.5px] border rounded-[6px] outline-none focus:border-accent"
-                         :style="edits[l.item_code] > 0 ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
-                </td>
-                <td class="px-3 py-1.5 text-end tnum text-ink-muted">{{ l.landed_unit }}</td>
-                <td class="px-3 py-1.5 text-end tnum font-semibold">{{ edits[l.item_code] > 0 ? (Number(edits[l.item_code]) + l.landed_unit).toFixed(2) : "—" }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <!-- save -->
-        <div class="px-4 py-3 border-t border-line-hair flex items-center gap-2 flex-wrap">
-          <input v-model="note" :placeholder="L('Note (which invoice was checked…)','ملاحظة (اتراجعت على أنهي فاتورة…)','Note…')"
-                 class="h-[30px] px-2.5 text-[11.5px] border border-line rounded-[8px] outline-none flex-1 min-w-[200px]" />
-          <span class="text-[11px] text-ink-muted" v-if="sheet.sheet.on" dir="ltr">💾 {{ sheet.sheet.by }} · {{ sheet.sheet.on }}</span>
-          <button v-if="canWrite" class="h-[32px] px-4 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                  :disabled="busy" @click="saveSheet">💾 {{ L("Save draft","حفظ المسودة","Enregistrer") }}</button>
-        </div>
+        <span class="text-[11px] tnum text-ink-muted">{{ sheetVerified }}/{{ sheet.lines.length }} {{ L("verified","متحقق","vérifié") }}</span>
+        <router-link :to="`/accounting/items/costtrace?pr=${sheet.pr}`"
+                     class="h-[30px] inline-flex items-center px-3.5 rounded-[8px] text-[11.5px] font-bold text-white shadow-brand"
+                     :class="sheet.freight.source==='bills' ? 'bg-brand hover:bg-brand-dark' : 'bg-ink-3 pointer-events-none'">
+          {{ sheet.freight.source==='bills' ? L("Open costing file","افتح ملف التكلفة","Ouvrir") + " →" : "🔒 " + L("assemble freight first","اجمعوا الشحن الأول","fret d'abord") }}
+        </router-link>
       </div>
     </template>
 
@@ -236,7 +201,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from "vue";
+import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -254,8 +219,6 @@ const SC = "accounting_portal.api.shipment_costing";
 const data = ref(null);
 const yearSel = ref(null);   // null = backend default (current year)
 const sheet = ref(null);
-const edits = reactive({});
-const note = ref("");
 const busy = ref(false);
 const filter = ref("");
 
@@ -287,8 +250,8 @@ const filteredRows = computed(() => {
   return filter.value ? rows.filter((r) => r.status === filter.value) : rows;
 });
 const shownRows = computed(() => filteredRows.value.slice(0, visLimit.value));
-const verifiedCount = computed(() =>
-  (sheet.value?.lines || []).filter((l) => edits[l.item_code] > 0).length);
+const sheetVerified = computed(() =>
+  (sheet.value?.lines || []).filter((l) => l.verified > 0).length);
 const attachedBills = computed(() => (sheet.value?.picker || []).filter((b) => b.attached));
 const availableBills = computed(() => (sheet.value?.picker || []).filter((b) => !b.attached));
 const shareOf = (b) => {
@@ -341,32 +304,13 @@ async function runApply() {
 async function openSheet(pr) {
   busy.value = true;
   try {
-    const s = await api.call(`${SC}.get_sheet`, { pr, year: yearSel.value }, { fresh: true });
-    Object.keys(edits).forEach((k) => delete edits[k]);
-    for (const l of s.lines) if (l.verified > 0) edits[l.item_code] = l.verified;
-    note.value = s.sheet?.note || "";
-    sheet.value = s;
+    sheet.value = await api.call(`${SC}.get_sheet`, { pr, year: yearSel.value }, { fresh: true });
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { busy.value = false; }
 }
 function closeSheet() { sheet.value = null; loadList(); }
 
-function useSuggestedAll() {
-  for (const l of sheet.value.lines)
-    if (!(edits[l.item_code] > 0) && l.suggested > 0) edits[l.item_code] = l.suggested;
-}
 
-async function saveSheet() {
-  busy.value = true;
-  try {
-    const costs = {};
-    for (const l of sheet.value.lines) if (edits[l.item_code] > 0) costs[l.item_code] = edits[l.item_code];
-    await api.call(`${SC}.save_sheet`, { pr: sheet.value.pr, costs: JSON.stringify(costs), note: note.value });
-    toast.success(L("Draft saved", "المسودة اتحفظت", "Brouillon enregistré"));
-    await openSheet(sheet.value.pr);
-  } catch (e) { toast.error(e.message || "Failed"); }
-  finally { busy.value = false; }
-}
 
 async function toggleBill(b, attach) {
   busy.value = true;
