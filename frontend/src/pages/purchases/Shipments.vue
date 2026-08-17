@@ -108,6 +108,8 @@
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-1.5 flex-wrap">
           <span class="text-[12px] font-bold">📦 {{ L("Import shipments","شحنات الاستيراد","Expéditions") }}</span>
+          <input v-model="search" :placeholder="L('search shipment / supplier…','بحث شحنة / مورّد…','rechercher…')"
+                 class="h-[26px] px-2.5 text-[11px] border border-line rounded-[7px] outline-none focus:border-accent w-[190px]" />
           <span class="flex items-center gap-1">
             <button v-for="y in data.years" :key="y" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border tnum"
                     :style="data.year===y ? 'background:#1c1917;color:#fff;border-color:#1c1917' : 'border-color:#e7e5e4;color:#78716c'"
@@ -200,7 +202,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -244,9 +246,14 @@ const pct = computed(() => {
   return Math.round(100 * (data.value.counts.costed + data.value.counts.applied) / data.value.rows.length);
 });
 const visLimit = ref(100);
+const search = ref("");
+watch(search, () => { visLimit.value = 100; });
 const filteredRows = computed(() => {
-  const rows = data.value?.rows || [];
-  return filter.value ? rows.filter((r) => r.status === filter.value) : rows;
+  let rows = data.value?.rows || [];
+  if (filter.value) rows = rows.filter((r) => r.status === filter.value);
+  const q = search.value.trim().toLowerCase();
+  if (q) rows = rows.filter((r) => (r.name + " " + (r.supplier || "")).toLowerCase().includes(q));
+  return rows;
 });
 const shownRows = computed(() => filteredRows.value.slice(0, visLimit.value));
 const sheetVerified = computed(() =>
