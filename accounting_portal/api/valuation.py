@@ -485,7 +485,9 @@ def item_fix_preview(company=None, item_code=None):
                      "delta": delta, "reserved": round(rsv) or None,
                      "disabled": int(b.wh_disabled or 0) or None})
     w = flt(frappe.db.get_value("Item", item_code, "weight_per_unit"))
+    trk = frappe.db.get_value("Item", item_code, ["has_batch_no", "has_serial_no"], as_dict=True) or {}
     return {"item_code": item_code, "true_cost": tc, "evidence": ev,
+            "batch_tracked": bool(trk.get("has_batch_no") or trk.get("has_serial_no")),
             "bins": bins, "net_change": round(writedown, 2), "skipped_reserved": skipped,
             # rate_kg = this item's EFFECTIVE rate (its receipts' air/sea mix), not a global
             "landed": {"frozen": bool(basis), "weight": w, "unit": landed,
@@ -505,6 +507,12 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
     target = _target(company)
     if not (target and item_code):
         frappe.throw("company and item_code required")
+    trk = frappe.db.get_value("Item", item_code, ["has_batch_no", "has_serial_no"], as_dict=True)
+    if trk and (trk.has_batch_no or trk.has_serial_no):
+        # a plain reco row can't carry a Serial/Batch Bundle — fail with a clear
+        # message instead of ERPNext's raw "Please add Serial and Batch Bundle"
+        frappe.throw(f"{item_code} is batch/serial-tracked — revaluation needs a batch bundle; "
+                     "handle this item via ERPNext Stock Reconciliation for now (excluded from the portal fix)")
     from accounting_portal.api.cost_trace import true_cost as _tc
     from accounting_portal.api.landed_prep import get_basis, landed_unit
     basis = get_basis()

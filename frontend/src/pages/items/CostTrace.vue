@@ -400,6 +400,9 @@
           <span class="text-[13px] font-bold">④ {{ L("Submit — apply the full cost","الاعتماد النهائي — تطبيق التكلفة الكاملة","④ Soumettre") }}</span>
         </div>
         <div class="p-4 space-y-2">
+          <div v-if="fixPrev.batch_tracked" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[11.5px]">
+            🧬 {{ L("Batch/serial-tracked item — revaluation needs a batch bundle; handle via ERPNext for now.","منتج متتبع بباتش/سيريال — إعادة التقييم محتاجة bundle؛ اتعامل معاه من ERPNext مؤقتًا.","Article à lot/série — via ERPNext pour le moment.") }}
+          </div>
           <div v-if="itemLanded && itemLanded.waiting.length" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[11.5px]">
             🔒 {{ L("Waiting for freight of:","مستني شحن:","En attente du fret de :") }}
             <span class="font-mono text-[10.5px]" dir="ltr">{{ itemLanded.waiting.join(", ") }}</span>
@@ -542,6 +545,7 @@ const costDirty = computed(() =>
   fixRate.value > 0 && savedCost.value != null && Math.abs(fixRate.value - savedCost.value) > 0.009);
 const canSubmit = computed(() =>
   fixConfirm.value && fixRate.value > 0 && itemLanded.value && !itemLanded.value.waiting.length
+  && !fixPrev.value?.batch_tracked
   && !costDirty.value && !(fixRate.value > 0 && savedCost.value == null));
 const submitBlockReason = computed(() => {
   if (itemLanded.value?.waiting?.length) return L("Waiting for freight — finish ②", "مستني شحن — كمّلوا ②", "Fret manquant (②)");
