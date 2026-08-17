@@ -110,6 +110,7 @@
             <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
             <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
             <option value="local_pi">{{ L("Local suppliers","موردين محليين","Fourn. locaux") }}</option>
+            <option value="family_pi">{{ L("Family evidence","دليل العائلة","Famille") }}</option>
             <option value="morocco_pr">{{ L("Morocco-direct","مغرب مباشر","Maroc") }}</option>
             <option value="unpriced">{{ L("Unpriced","بلا سعر","Sans prix") }}</option>
           </select>
@@ -282,7 +283,7 @@
             </tr></thead>
             <tbody>
               <tr v-for="e in fixPrev.evidence" :key="e.doc" class="border-t border-line-hair">
-                <td class="px-3 py-1.5 font-mono text-[10.5px]" dir="ltr">{{ e.doc }}<span class="text-ink-muted font-sans"> · {{ e.dt }}</span></td>
+                <td class="px-3 py-1.5 font-mono text-[10.5px]" dir="ltr">{{ e.doc }}<span class="text-ink-muted font-sans"> · {{ e.dt }}</span><span v-if="e.via" class="font-sans text-[10px] text-violet-700" :title="L('Family evidence — this line is on a sibling variant of the same model','دليل العائلة — السطر ده على مقاس/لون شقيق من نفس الموديل','Preuve de la famille')"> 👪 {{ e.via }}</span></td>
                 <td class="px-3 py-1.5 truncate max-w-[140px]">{{ shortSup(e.supplier) }}</td>
                 <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(e.qty) }}</td>
                 <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmtNum(e.rate, 2) }} {{ e.cur }}</td>
@@ -883,6 +884,7 @@ const SRC = {
   maslak_pi: [L("Maslak", "Maslak", "Maslak"), "background:#ecfdf5;color:#047857"],
   local_pi: [L("Local", "محلي", "Local"), "background:#fff7ed;color:#c2410c"],
   morocco_pr: [L("Morocco", "مغرب", "Maroc"), "background:#eff6ff;color:#2563eb"],
+  family_pi: [L("Family", "العائلة", "Famille"), "background:#f5f3ff;color:#6d28d9"],
   unpriced: [L("unpriced", "بلا سعر", "sans prix"), "background:#fffbeb;color:#b45309"],
 };
 const srcShort = (s) => (SRC[s] ? SRC[s][0] : s);
@@ -892,6 +894,7 @@ const srcLabel = computed(() => ({
   maslak_pi: L("Maslak invoice", "فاتورة Maslak", "Facture Maslak"),
   local_pi: L("Local supplier invoice", "فاتورة مورد محلي", "Facture fournisseur local"),
   morocco_pr: L("Morocco receipt", "استلام المغرب", "Réception Maroc"),
+  family_pi: L("Family invoice (sibling variant)", "فاتورة العائلة (مقاس/لون شقيق)", "Facture de la famille"),
   orphan: L("no source", "بلا مصدر", "sans source"),
   fx_unavailable: L("no FX rate", "بلا سعر صرف", "sans taux"),
 }[trace.value?.true_cost?.source] || ""));

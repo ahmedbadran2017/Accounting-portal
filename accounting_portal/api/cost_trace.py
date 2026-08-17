@@ -154,6 +154,46 @@ def true_cost(item_code=None):
             return {"item_code": item_code, "cost_mad": None, "source": "fx_unavailable",
                     "basis_qty": round(q),
                     "note": "Purchase docs exist but their currency has no usable FX rate — needs a rate"}
+    # 3) FAMILY INHERITANCE — a variant whose own code never hit a purchase
+    # document inherits the model's evidence (invoice on a sibling size/colour
+    # or on the template). Same source ladder, scoped to the family.
+    template, members = _family_members(item_code)
+    if members:
+        fam = tuple(members)
+        for sql, params, is_try, lbl in (
+            ("""SELECT pii.item_code ic, pii.base_rate rate, 'TRY' cur, pi.posting_date dt, pii.qty
+                FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                ORDER BY pi.posting_date DESC""", (SOURCING, fam), True, "Maslak invoice"),
+            ("""SELECT pii.item_code ic, pii.base_rate rate, 'MAD' cur, pi.posting_date dt, pii.qty
+                FROM `tabPurchase Invoice Item` pii
+                JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                JOIN `tabSupplier` sp ON sp.name=pi.supplier
+                WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                  AND IFNULL(sp.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+                ORDER BY pi.posting_date DESC""", (SALES, fam), False, "local invoice"),
+            ("""SELECT pri.item_code ic, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
+                FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+                WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
+                ORDER BY pr.posting_date DESC""", (SALES, fam), False, "Morocco receipt"),
+        ):
+            rows = frappe.db.sql(sql, params, as_dict=True)
+            if not rows:
+                continue
+            q = v = 0.0
+            ev_item = rows[0].ic
+            for r in rows:
+                if q >= _BASIS_QTY:
+                    break
+                cur = "TRY" if is_try else r.cur
+                mad = _to_mad(r.rate, cur, r.dt, cache)
+                q += flt(r.qty); v += mad * flt(r.qty)
+            if q > 0 and v > 0:
+                ev_sku = frappe.db.get_value("Item", ev_item, "custom_sku") or ev_item
+                return {"item_code": item_code, "cost_mad": round(v / q, 2),
+                        "source": "family_pi", "basis_qty": round(q),
+                        "evidence_item": ev_item,
+                        "note": f"Family evidence — {lbl} on {ev_sku} (same model, one price across variants)"}
     # 3) orphan — no cost source anywhere
     return {"item_code": item_code, "cost_mad": None, "source": "orphan", "basis_qty": 0,
             "note": "No Maslak invoice and no Morocco receipt — needs estimated/manual cost"}
@@ -197,6 +237,20 @@ def _to_mad_fast(rate_fc, currency, date, fx):
         return flt(rate_fc) * um
     uc = _asof(fx, currency, date)
     return flt(rate_fc) * um / uc if (um > 0 and uc > 0) else 0.0
+
+
+def _family_members(item_code):
+    """For an ERPNext variant: (template, [other member codes incl. the
+    template]) — the model's whole family. None for non-variants. The purchase
+    invoice usually carries ONE code per model while stock is per size/colour,
+    and the model's price is the same across variants — so family evidence is
+    valid evidence."""
+    t = frappe.db.get_value("Item", item_code, "variant_of")
+    if not t:
+        return None, []
+    sibs = [r[0] for r in frappe.db.sql(
+        "SELECT name FROM `tabItem` WHERE variant_of=%s AND name!=%s", (t, item_code))]
+    return t, sibs + [t]
 
 
 def _true_cost_bulk(item_codes, fx):
@@ -254,6 +308,69 @@ def _true_cost_bulk(item_codes, fx):
                WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
                ORDER BY pr.posting_date DESC""", (SALES, tuple(missing)), as_dict=True)
         _agg(pr, False, "morocco_pr")
+
+    # ── FAMILY INHERITANCE — variants whose own code never hit a purchase
+    # document inherit the model's evidence (the invoice carries ONE code per
+    # model; the price is the same across sizes/colours). Pooled per template,
+    # same source ladder, newest-first. ~60% of the "unpriced" catalogue.
+    missing = [c for c in item_codes if c not in out]
+    if missing:
+        vmap = dict(frappe.db.sql(
+            """SELECT name, variant_of FROM `tabItem`
+               WHERE name IN %s AND IFNULL(variant_of,'') != ''""", (tuple(missing),)))
+        if vmap:
+            templates = tuple(set(vmap.values()))
+            fam_of = {t: t for t in templates}
+            for n, t in frappe.db.sql(
+                    "SELECT name, variant_of FROM `tabItem` WHERE variant_of IN %s", (templates,)):
+                fam_of[n] = t
+            member_codes = tuple(fam_of.keys())
+            fam_out = {}
+
+            def _fam_agg(rows, is_try):
+                by = {}
+                for r in rows:
+                    t = fam_of.get(r.item_code)
+                    if t:
+                        by.setdefault(t, []).append(r)
+                for t, lines in by.items():
+                    if t in fam_out:
+                        continue
+                    q = v = 0.0
+                    ev_item = lines[0].item_code
+                    for r in lines:
+                        if q >= _BASIS_QTY:
+                            break
+                        cur = "TRY" if is_try else r.cur
+                        m = _to_mad_fast(r.rate, cur, r.dt, fx)
+                        q += flt(r.qty); v += m * flt(r.qty)
+                    if q > 0 and v > 0:
+                        fam_out[t] = {"cost_mad": round(v / q, 2), "source": "family_pi",
+                                      "basis_qty": round(q), "evidence_item": ev_item}
+
+            _fam_agg(frappe.db.sql(
+                """SELECT pii.item_code, pii.base_rate rate, 'TRY' cur, pi.posting_date dt, pii.qty
+                   FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                   ORDER BY pi.posting_date DESC""", (SOURCING, member_codes), as_dict=True), True)
+            _fam_agg(frappe.db.sql(
+                """SELECT pii.item_code, pii.base_rate rate, 'MAD' cur, pi.posting_date dt, pii.qty
+                   FROM `tabPurchase Invoice Item` pii
+                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   JOIN `tabSupplier` sp ON sp.name=pi.supplier
+                   WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                     AND IFNULL(sp.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+                   ORDER BY pi.posting_date DESC""", (SALES, member_codes), as_dict=True), False)
+            _fam_agg(frappe.db.sql(
+                """SELECT pri.item_code, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
+                   FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+                   WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
+                   ORDER BY pr.posting_date DESC""", (SALES, member_codes), as_dict=True), False)
+
+            for c in missing:
+                f = fam_out.get(vmap.get(c))
+                if f and c not in out:
+                    out[c] = dict(f)
     return out
 
 
@@ -326,7 +443,7 @@ def cost_overview(company=None):
            WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""", (SALES,), as_dict=True)
     tc = _true_cost_bulk([b.item_code for b in bins], fx)
     landed = _landed_map([b.item_code for b in bins])
-    n = {"maslak_pi": 0, "local_pi": 0, "morocco_pr": 0, "unpriced": 0}
+    n = {"maslak_pi": 0, "local_pi": 0, "morocco_pr": 0, "family_pi": 0, "unpriced": 0}
     cur_val = true_val = over = 0.0
     priced_qty = 0.0
     for b in bins:
@@ -344,7 +461,7 @@ def cost_overview(company=None):
         "current_value": round(cur_val), "true_value_priced": round(true_val),
         "overvaluation": round(over),
         "maslak_pi": n["maslak_pi"], "local_pi": n["local_pi"],
-        "morocco_pr": n["morocco_pr"], "unpriced": n["unpriced"],
+        "morocco_pr": n["morocco_pr"], "family_pi": n["family_pi"], "unpriced": n["unpriced"],
     }
 
 
@@ -446,7 +563,7 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
                      "stale_fix": bool(has_fix and not is_fixed),
                      # a fixed item drifting again = a NEW bad inbound — surface it
                      "repolluted": bool(is_fixed and dev is not None and abs(dev) > 15)})
-    if source in ("maslak_pi", "local_pi", "morocco_pr", "unpriced"):
+    if source in ("maslak_pi", "local_pi", "morocco_pr", "family_pi", "unpriced"):
         rows = [r for r in rows if r["source"] == source]
     if fix_status == "fixed":
         rows = [r for r in rows if r["fixed"]]

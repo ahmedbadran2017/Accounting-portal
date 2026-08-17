@@ -590,6 +590,39 @@ def item_fix_preview(company=None, item_code=None):
                FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
                WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code=%s AND pri.qty>0
                ORDER BY pr.posting_date DESC LIMIT 5""", (target, item_code), as_dict=True)
+    if not ev:
+        # FAMILY evidence — a variant's invoice usually lives on a sibling
+        # size/colour or the template (one code per model, one price across
+        # variants). Show WHICH member each line came from (`via`).
+        from accounting_portal.api.cost_trace import _family_members
+        _, members = _family_members(item_code)
+        if members:
+            fam = tuple(members)
+            ev = frappe.db.sql(
+                """SELECT pi.name doc, pi.posting_date dt, pi.supplier, 'TRY' cur,
+                          ROUND(pii.qty,0) qty, ROUND(pii.base_rate,2) rate, pii.item_code via_item
+                   FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                   ORDER BY pi.posting_date DESC LIMIT 5""", (SOURCING, fam), as_dict=True)
+            if not ev:
+                ev = frappe.db.sql(
+                    """SELECT pi.name doc, pi.posting_date dt, pi.supplier, 'MAD' cur,
+                              ROUND(pii.qty,0) qty, ROUND(pii.base_rate,2) rate, pii.item_code via_item
+                       FROM `tabPurchase Invoice Item` pii
+                       JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                       JOIN `tabSupplier` sp ON sp.name=pi.supplier
+                       WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                         AND IFNULL(sp.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+                       ORDER BY pi.posting_date DESC LIMIT 5""", (target, fam), as_dict=True)
+            if not ev:
+                ev = frappe.db.sql(
+                    """SELECT pr.name doc, pr.posting_date dt, pr.supplier, pr.currency cur,
+                              ROUND(pri.qty,0) qty, ROUND(pri.rate,2) rate, pri.item_code via_item
+                       FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+                       WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
+                       ORDER BY pr.posting_date DESC LIMIT 5""", (target, fam), as_dict=True)
+            for e in ev:
+                e["via"] = frappe.db.get_value("Item", e.pop("via_item"), "custom_sku") or ""
     for e in ev:
         e["rate_mad"] = round(_to_mad_fast(e["rate"], e["cur"], e["dt"], fx), 2)
         e["dt"] = str(e["dt"] or "")
