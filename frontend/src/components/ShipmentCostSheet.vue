@@ -38,6 +38,15 @@
               <td class="px-3 py-1.5">
                 <span class="font-mono text-[10.5px]" dir="ltr">{{ l.item_code }}</span>
                 <span v-if="l.fixed" class="text-[9.5px] font-bold ms-1" style="color:#047857">✓ {{ L("applied","مطبَّق","appliqué") }}</span>
+                <!-- cross-shipment badge: the applied cost is weighted over ALL its shipments -->
+                <span v-if="l.other_prs?.length" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ms-1 cursor-help"
+                      :style="(l.wait_freight?.length || l.wait_verify?.length) ? 'background:#fffbeb;color:#b45309' : 'background:#eef2ff;color:#4338ca'"
+                      :title="L('This product also came on: ', 'المنتج ده جه كمان في: ', 'Aussi sur : ') + l.other_prs.join(', ')
+                              + (l.wait_freight?.length ? ' · ' + L('freight missing: ','ناقص شحن: ','fret manquant : ') + l.wait_freight.join(', ') : '')
+                              + (l.wait_verify?.length ? ' · ' + L('not verified in: ','مش متحقق في: ','non vérifié : ') + l.wait_verify.join(', ') : '')
+                              + ' — ' + L('final cost = weighted average across all of them','التكلفة النهائية = متوسط مرجّح بينهم كلهم','coût final = moyenne pondérée')">
+                  ×{{ l.other_prs.length + 1 }} {{ L("shipments","شحنات","exp.") }}{{ (l.wait_freight?.length || l.wait_verify?.length) ? " ⏳" : "" }}
+                </span>
                 <div class="text-[10px] text-ink-muted truncate max-w-[260px]">{{ l.sku || l.item_name }}</div>
               </td>
               <td class="px-3 py-1.5 text-end tnum">{{ fmt0(l.qty) }}</td>

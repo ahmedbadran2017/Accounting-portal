@@ -141,6 +141,17 @@ def get_sheet(pr=None, year=None):
     lns = (_pr_lines([pr]).get(pr)) or []
     items = [l.ic for l in lns]
     tc = _true_cost_bulk(items, _fx_series()) if items else {}
+    # the CROSS-SHIPMENT picture per line: an item's applied cost is weighted
+    # over ALL its shipments, so each line must show what else it belongs to
+    # and what (elsewhere) still blocks it
+    all_lines = _pr_lines([r["name"] for r in sr["receipts"]])
+    costed = {r["name"] for r in sr["receipts"] if r["source"] in ("bills", "rate")}
+    sheets_all = _sheets_bulk()
+    item_prs = {}
+    for prn, ls in all_lines.items():
+        for l in ls:
+            if l.ic in set(items):
+                item_prs.setdefault(l.ic, set()).add(prn)
     sheet = None
     try:
         sheet = json.loads(frappe.db.get_default(_sheet_key(pr)) or "null")
@@ -153,6 +164,11 @@ def get_sheet(pr=None, year=None):
     out_lines = []
     for l in lns:
         t = tc.get(l.ic) or {}
+        others = sorted(item_prs.get(l.ic, set()) - {pr})
+        wait_freight = [p for p in others if p not in costed]
+        wait_verify = [p for p in others
+                       if p in costed
+                       and flt(((sheets_all.get(p) or {}).get("costs") or {}).get(l.ic)) <= 0]
         out_lines.append({
             "item_code": l.ic, "item_name": l.item_name, "sku": l.sku,
             "qty": round(flt(l.qty)), "weight": flt(l.w),
@@ -161,6 +177,9 @@ def get_sheet(pr=None, year=None):
             "verified": flt(costs.get(l.ic)) or None,
             "landed_unit": round(flt(l.w) * landed_kg, 2),
             "fixed": l.ic in fixed,
+            # cross-shipment picture: [] = this shipment is its whole story
+            "other_prs": others,
+            "wait_freight": wait_freight, "wait_verify": wait_verify,
         })
     # bill picker: every live bill, flagged whether it's attached to THIS pr
     picker = [{"voucher": b["voucher"], "dt": b["dt"], "supplier": b["supplier"],
