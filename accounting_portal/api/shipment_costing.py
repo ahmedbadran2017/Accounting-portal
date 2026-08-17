@@ -410,10 +410,61 @@ def item_landed_detail(item_code=None, year=None):
             q_tot += m["qty"]
             val += m["qty"] * v
     sheet_cost = round(val / q_tot, 2) if q_tot > 0 else None
+    saved_meta = None
+    if sheet_cost is None and not mine:
+        # orphan: read the per-item fallback saved by save_item_cost
+        try:
+            fb = json.loads(frappe.db.get_default(f"ap_itemcost_{item_code}") or "null") or {}
+            if flt(fb.get("cost")) > 0:
+                sheet_cost = flt(fb.get("cost"))
+                saved_meta = {"by": fb.get("by"), "on": fb.get("on")}
+        except Exception:
+            pass
     return {"item_code": item_code, "receipts": mine, "sheet_cost": sheet_cost,
+            "saved_meta": saved_meta,
             "landed_unit": landed,
             "waiting": waiting, "complete": not waiting and bool(mine),
             "no_receipts": not mine, "frozen": bool(sr["frozen"]), "year": sr["year"]}
+
+
+@frappe.whitelist()
+def save_item_cost(item_code=None, cost=None, note=None, year=None):
+    """The SKU page's ① Save: persist the verified product cost. Written into
+    the item's line in EVERY one of its shipments' draft sheets (the same
+    store the bulk path uses — both paths always agree). Orphans (no import
+    shipments) store to a per-item fallback key. Pure draft — posts nothing."""
+    assert_can_write()
+    if not item_code:
+        frappe.throw("item_code required")
+    v = flt(cost)
+    if v <= 0:
+        frappe.throw("A positive verified product cost is required")
+    if v < 0.5:
+        frappe.throw(f"Verified cost {v} MAD/unit looks like a broken FX conversion, "
+                     "not a real price — check the Currency Exchange records")
+    d = item_landed_detail(item_code=item_code, year=year)
+    prs = [m["pr"] for m in d["receipts"]]
+    stamp = {"by": frappe.session.user, "on": str(now_datetime())[:19]}
+    if prs:
+        for pr in prs:
+            sheet = None
+            try:
+                sheet = json.loads(frappe.db.get_default(_sheet_key(pr)) or "null")
+            except Exception:
+                pass
+            sheet = sheet or {}
+            costs = sheet.get("costs") or {}
+            costs[item_code] = round(v, 2)
+            sheet.update({"costs": costs, **stamp})
+            if (note or "").strip():
+                sheet["note"] = ((sheet.get("note") or "") + f" · {item_code}: {note.strip()}").strip(" ·")
+            frappe.db.set_default(_sheet_key(pr), json.dumps(sheet))
+    else:
+        frappe.db.set_default(f"ap_itemcost_{item_code}",
+                              json.dumps({"cost": round(v, 2),
+                                          "note": (note or "").strip() or None, **stamp}))
+    frappe.db.commit()
+    return {"item_code": item_code, "cost": round(v, 2), "saved_to": prs or ["item"]}
 
 
 @frappe.whitelist()
