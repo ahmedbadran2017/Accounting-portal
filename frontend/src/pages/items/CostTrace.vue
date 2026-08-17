@@ -48,18 +48,13 @@
             <span v-if="s.state==='done'">✅</span><span v-else-if="s.state==='locked'">🔒</span>
           </span>
         </div>
-        <div class="text-[11px] text-ink-muted mt-1.5">{{ nextHint }}</div>
-      </div>
-
-      <!-- ① secure the source -->
-      <div v-if="tower" class="bg-white border rounded-[14px] shadow-card px-4 py-3 flex items-center gap-2 flex-wrap"
-           :style="tower.guard.enabled ? 'border-color:#a7f3d0' : 'border-color:#fecaca'">
-        <span class="text-[13px] font-bold">① {{ L("Secure the source","أمّن المنبع","Sécuriser la source") }}</span>
-        <span v-if="tower.guard.enabled" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">
-          {{ L("FX guard ON","حارس الصرف شغّال","Garde FX ON") }} · ±{{ Math.round(tower.guard.tolerance * 100) }}%
-        </span>
-        <span v-else class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">{{ L("FX guard OFF!","الحارس متوقف!","OFF!") }}</span>
-        <span class="text-[11px] text-ink-muted flex-1">{{ L("Every new purchase document with an implausible exchange rate is rejected at entry — no new contamination.","أي مستند شراء جديد بسعر صرف غلط بيترفض لحظة الإدخال — مفيش تلوّث جديد.","Tout document au taux invraisemblable est rejeté.") }}</span>
+        <div class="text-[11px] text-ink-muted mt-1.5 flex items-center gap-2 flex-wrap">
+          <span class="flex-1">{{ nextHint }}</span>
+          <span v-if="tower" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                :style="tower.guard.enabled ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'"
+                :title="L('Every new purchase document with an implausible FX rate is rejected at entry.','أي مستند شراء بسعر صرف غير منطقي بيترفض لحظة الإدخال.','Garde FX.')">
+            {{ tower.guard.enabled ? L("FX guard ON","حارس الصرف شغّال","Garde FX ON") : L("FX guard OFF!","الحارس متوقف!","Garde OFF!") }}</span>
+        </div>
       </div>
 
       <!-- ③ the catalogue crawl -->
@@ -159,7 +154,6 @@
         <ServerPager :t="ct" />
       </div>
 
-      <LandedBasisCard @changed="loadTower(); loadTu();" />
 
       <!-- B6: Monthly COGS true-up -->
       <div v-if="tu" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="tu.basis_frozen ? 'border-color:#e7e5e4' : 'border-color:#fde68a'">
@@ -217,6 +211,15 @@
           </span>
         </div>
       </div>
+      <!-- admin corner: reconciliation & freeze — not part of daily work -->
+      <details>
+        <summary class="cursor-pointer text-[11px] font-semibold text-ink-3 hover:text-ink px-1 py-1 select-none">
+          ⚙️ {{ L("Admin — freight reconciliation & basis freeze (needed for monthly true-ups only)","إداري — تسوية الشحن وتجميد الأساس (لازم لتسويات الشهور فقط)","Admin — réconciliation & gel") }}
+        </summary>
+        <div class="mt-2">
+          <LandedBasisCard @changed="loadTower(); loadTu();" />
+        </div>
+      </details>
     </template>
 
     <!-- Trace result -->

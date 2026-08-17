@@ -22,7 +22,9 @@ export const SUBTABS = {
     ["tobuy", "sub.tobuy"], ["received", "sub.received"], ["shipments", "sub.shipments"], ["billed", "sub.billed"], ["topay", "sub.topay"], ["paid", "sub.paid"],
     ["bills", "sub.bills"], ["payments", "sub.payments_out"], ["cheques", "sub.cheques"], ["intermediaries", "sub.intermediaries"],
   ],
-  items: [["items", "sub.items"], ["costing", "sub.costing"], ["costtrace", "sub.costtrace"], ["valuation", "sub.valuation"], ["pricelists", "sub.pricelists"], ["landed", "sub.landed"], ["cockpit", "sub.cockpit"]],
+  // legacy screens (costing / valuation / landed / cockpit) are hidden, not
+  // deleted — their pages still resolve by direct URL if ever needed
+  items: [["items", "sub.items"], ["costtrace", "sub.costtrace"], ["pricelists", "sub.pricelists"]],
   banking: [
     ["accounts", "sub.accounts"], ["transactions", "sub.transactions"],
     ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["codclose", "sub.codclose"], ["settlements", "sub.settlements"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"], ["cleanup", "sub.cleanup"],
@@ -61,7 +63,7 @@ export const NAV_GROUPS = [
 export const JONLY = [
   { label: "jonly.cod", icon: "truck", module: "banking", sub: "remittance" },
   { label: "jonly.carrier", icon: "clock", module: "banking", sub: "aging" },
-  { label: "jonly.margin", icon: "box", module: "items", sub: "landed" },
+  { label: "jonly.margin", icon: "box", module: "items", sub: "costtrace" },
   { label: "jonly.consolidation", icon: "layers", module: "dashboard", sub: null, entity: "group" },
   { label: "jonly.dd", icon: "chart", module: "reports", sub: "dd" },
   { label: "jonly.copilot", icon: "shield", module: "copilot", sub: null },
