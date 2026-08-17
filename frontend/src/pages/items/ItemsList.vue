@@ -5,7 +5,7 @@
       <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center flex-shrink-0" style="background:#ffedd5"><Icon name="alert" :size="16" color="#ea580c" /></span>
       <div class="flex-1">
         <div class="text-[12.5px] font-bold" style="color:#9a3412">{{ L("True margin = sell − cost − landed − COD fee, discounted by RTO","الهامش الحقيقي = البيع − التكلفة − المحمَّل − رسوم التحصيل، مخصوماً بنسبة الإرجاع","Marge réelle = vente − coût − revient − COD, ajustée du RTO") }}</div>
-        <div class="text-[11.5px] mt-px" style="color:#c2410c">{{ L("Landed/unit and RTO% are live (LCV allocations + returned orders). COD fee is modeled at 5% of sell. Cost falls back to last purchase (valuation is broken).","المحمَّل ونسبة الإرجاع حقيقيان؛ رسوم التحصيل مُقدَّرة 5٪ من البيع؛ التكلفة من آخر شراء.","Revient & RTO réels; frais COD estimés à 5%; coût = dernier achat.") }}</div>
+        <div class="text-[11.5px] mt-px" style="color:#c2410c">{{ L("Cost = verified applied rate (✓, landed included) → supplier-invoice evidence + live shipment landed → actual bin average. COD fee is modeled at 5% of sell; RTO% is real.","التكلفة = السعر المعتمد (✓ شامل الشحن) → فاتورة المورد + الشحن الحي → متوسط المخازن الفعلي؛ رسوم التحصيل مُقدَّرة 5٪؛ نسبة الإرجاع حقيقية.","Coût = taux vérifié (✓) → facture fournisseur + fret réel → moyenne des stocks; COD 5%; RTO réel.") }}</div>
       </div>
       <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-[3px] rounded-full flex-shrink-0" style="background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe"><Icon name="shield" :size="11" />{{ L("Auditor","المدقّق","Auditeur") }}</span>
     </div>
@@ -49,8 +49,15 @@
                 </span>
               </td>
               <td class="px-3 py-2.5 text-end tnum font-semibold">{{ r.avg_sold ? fmt(r.avg_sold) : "—" }}</td>
-              <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.cost ? fmt(r.cost) : "—" }}</td>
-              <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.landed ? "+" + fmt(r.landed) : "—" }}</td>
+              <td class="px-3 py-2.5 text-end tnum text-ink-3">
+                <span v-if="r.cost_source === 'verified'" class="text-emerald-700 font-bold" :title="L('Verified applied cost (product + landed)','تكلفة معتمدة (منتج + شحن)','Coût vérifié')">✓ </span>
+                <span v-else-if="r.cost_source === 'fallback'" class="text-amber-600 font-bold" :title="L('No trusted source — last-purchase fallback','بلا مصدر موثوق','Sans source fiable')">⚠ </span>
+                {{ r.cost ? fmt(r.cost) : "—" }}
+              </td>
+              <td class="px-3 py-2.5 text-end tnum text-ink-3">
+                <span v-if="r.cost_source === 'verified'" class="text-[10px] text-ink-muted">{{ L("included","مدموج","inclus") }}</span>
+                <template v-else>{{ r.landed ? "+" + fmt(r.landed) : "—" }}</template>
+              </td>
               <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ r.cod_fee ? fmt(r.cod_fee) : "—" }}</td>
               <td class="px-3 py-2.5 text-end"><span v-if="r.qty_sold" class="text-[10.5px] font-bold px-1.5 py-0.5 rounded-badge" :style="rtoBadge(r.rto_pct)">{{ r.rto_pct }}%</span><span v-else class="text-ink-muted">—</span></td>
               <td class="px-4 py-2.5 text-end">

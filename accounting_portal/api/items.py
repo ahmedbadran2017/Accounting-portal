@@ -54,7 +54,7 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
     assert_portal_access()
     cod_rate = float(cod_rate) if cod_rate not in (None, "") else _DEFAULT_COD_RATE
     limit = min(int(limit or 60), 200)
-    ck = f"ap_items:{search or ''}:{group or ''}:{limit}:{cod_rate}"
+    ck = f"ap_items2:{search or ''}:{group or ''}:{limit}:{cod_rate}"
     cached_hit = frappe.cache().get_value(ck)
     if cached_hit is not None:
         return cached_hit
@@ -93,10 +93,14 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
                    WHERE item_code IN %(c)s AND is_cancelled=0 GROUP BY item_code""",
                 {"c": codes}, as_dict=True):
             stock[r.item_code] = r.qty
-        # Real landed cost per unit — applicable charges ÷ qty from LCV allocations.
+        # Landed/unit for SUBMITTED LCVs only (drafts/cancelled polluted this
+        # before) — used only for "book"-sourced rows below.
         for r in frappe.db.sql(
-                """SELECT item_code, SUM(applicable_charges) AS chg, SUM(qty) AS qty
-                   FROM `tabLanded Cost Item` WHERE item_code IN %(c)s GROUP BY item_code HAVING qty>0""",
+                """SELECT lci.item_code, SUM(lci.applicable_charges) AS chg, SUM(lci.qty) AS qty
+                   FROM `tabLanded Cost Item` lci
+                   JOIN `tabLanded Cost Voucher` lcv ON lcv.name=lci.parent
+                   WHERE lci.item_code IN %(c)s AND lcv.docstatus=1
+                   GROUP BY lci.item_code HAVING qty>0""",
                 {"c": codes}, as_dict=True):
             landed[r.item_code] = float(r.chg or 0) / float(r.qty)
         # Real RTO rate — qty on returned/exception orders ÷ total ordered qty.
@@ -108,13 +112,58 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
                           OR so.custom_track_shipment_status IN ('Delivery Exception','Failed Attempt'))
                    GROUP BY soi.item_code""", {"c": codes}, as_dict=True):
             returned[r.item_code] = float(r.ret_qty or 0)
+    # ── ONE-TRUTH inputs ──
+    fixedmap, truecost, live_landed, binrate = {}, {}, {}, {}
+    if codes:
+        try:
+            from accounting_portal.api.cost_trace import _fixed_items, _true_cost_bulk, _fx_series
+            fixedmap = _fixed_items()
+            truecost = _true_cost_bulk(codes, _fx_series())
+        except Exception:
+            pass
+        try:
+            # live landed for engine-sourced items (import shipments' actual costs)
+            from accounting_portal.api.landed_prep import shipment_review
+            from accounting_portal.api.shipment_costing import _live_landed
+            sr = shipment_review()
+            live_landed = _live_landed(set(codes), sr["receipts"]) or {}
+        except Exception:
+            pass
+        for b in frappe.db.sql(
+                """SELECT b.item_code, SUM(b.stock_value) sv, SUM(b.actual_qty) q
+                   FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
+                   WHERE b.item_code IN %(c)s AND w.company='Justyol Morocco'
+                   GROUP BY b.item_code HAVING q>0""", {"c": codes}, as_dict=True):
+            binrate[b.item_code] = float(b.sv or 0) / float(b.q)
     for r in rows:
         s = sold.get(r["item_code"])
         r["avg_sold"] = round(float(s.avg_sold), 2) if (s and s.avg_sold) else 0
         r["qty_sold"] = float(s.qty_sold) if (s and s.qty_sold) else 0
         r["stock_qty"] = round(float(stock.get(r["item_code"], 0)), 1)
-        r["cost"] = round(float(r["cost"]), 2)
-        r["landed"] = round(landed.get(r["item_code"], 0), 2)
+        # ── ONE-TRUTH cost hierarchy (same as the Cost Trace catalogue) ──
+        # verified fix → applied FULL rate (landed already inside — adding the
+        # LCV layer again would double-count); engine evidence → true product
+        # cost + live shipment landed; else → actual bin average (never the
+        # abandoned Item-master valuation_rate / paper last_purchase_rate).
+        ic = r["item_code"]
+        f = fixedmap.get(ic)
+        t = truecost.get(ic)
+        if f and f.get("rate"):
+            r["cost"] = round(float(f["rate"]), 2)
+            r["landed"] = 0
+            r["cost_source"] = "verified"
+        elif t and t.get("cost_mad"):
+            r["cost"] = round(float(t["cost_mad"]), 2)
+            r["landed"] = round(float(live_landed.get(ic, 0)), 2)
+            r["cost_source"] = "engine"
+        elif float(binrate.get(ic, 0)) > 0:
+            r["cost"] = round(float(binrate[ic]), 2)
+            r["landed"] = round(landed.get(ic, 0), 2)
+            r["cost_source"] = "book"
+        else:
+            r["cost"] = round(float(r["cost"]), 2)   # last resort: old fallback
+            r["landed"] = round(landed.get(ic, 0), 2)
+            r["cost_source"] = "fallback"
         r["cod_fee"] = round(r["avg_sold"] * cod_rate, 2) if r["avg_sold"] else 0
         r["rto_pct"] = round(returned.get(r["item_code"], 0) / r["qty_sold"] * 100, 1) if r["qty_sold"] else 0
         # Gross (sell − cost) and true (− landed − COD, discounted by RTO).
