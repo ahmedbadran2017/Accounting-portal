@@ -34,9 +34,11 @@
           <span v-if="!attachedBills.length" class="text-[11px] text-ink-muted">{{ L("No bills attached yet — pick from the list:","لسه مفيش فواتير مرفقة — اختاروا من القايمة:","Aucune facture.") }}</span>
         </div>
         <details class="text-[11.5px]" :open="!attachedBills.length">
-          <summary class="cursor-pointer text-accent-dark font-bold text-[11.5px]">{{ L("+ Attach a bill","+ إرفاق فاتورة","+ Joindre") }} ({{ availableBills.length }})</summary>
+          <summary class="cursor-pointer text-accent-dark font-bold text-[11.5px]">{{ L("+ Attach a bill","+ إرفاق فاتورة","+ Joindre") }} ({{ shownBills.length }}/{{ availableBills.length }})</summary>
+          <input v-model="billSearch" :placeholder="L('search bill / supplier / amount…','بحث فاتورة / مورّد / مبلغ…','rechercher…')"
+                 class="mt-2 h-[26px] px-2.5 text-[11px] border border-line rounded-[7px] outline-none focus:border-accent w-[230px]" />
           <div class="mt-2 border border-line rounded-[8px] max-h-[220px] overflow-y-auto">
-            <div v-for="b in availableBills" :key="b.voucher" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 hover:bg-app-warm">
+            <div v-for="b in shownBills" :key="b.voucher" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 hover:bg-app-warm">
               <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
               <span class="text-[10px] text-ink-muted">{{ b.dt }}</span>
               <span class="truncate flex-1 text-[11px]">{{ b.supplier || b.account }}</span>
@@ -259,6 +261,13 @@ const sheetVerified = computed(() =>
   (sheet.value?.lines || []).filter((l) => l.verified > 0).length);
 const attachedBills = computed(() => (sheet.value?.picker || []).filter((b) => b.attached));
 const availableBills = computed(() => (sheet.value?.picker || []).filter((b) => !b.attached));
+const billSearch = ref("");
+const shownBills = computed(() => {
+  const q = billSearch.value.trim().toLowerCase();
+  if (!q) return availableBills.value;
+  return availableBills.value.filter((b) =>
+    (b.voucher + " " + (b.supplier || "") + " " + (b.account || "") + " " + b.amount).toLowerCase().includes(q));
+});
 const shareOf = (b) => {
   const hit = (sheet.value?.freight?.bills || []).find((x) => x.voucher === b.voucher);
   return hit ? hit.share : 0;
