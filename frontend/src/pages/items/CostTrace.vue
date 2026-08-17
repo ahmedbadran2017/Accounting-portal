@@ -118,6 +118,10 @@
             <option value="pending">{{ L("Pending review","في انتظار المراجعة","En attente") }}</option>
             <option value="fixed">{{ L("Fixed ✓","متظبطة ✓","Corrigés ✓") }}</option>
           </select>
+          <button v-if="canWrite && srcFilter === 'local_pi'" @click="openLocalBulk"
+                  class="h-[28px] px-3 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark">
+            ⚡ {{ L("Apply all local","تطبيق كل المحلي","Tout appliquer") }}
+          </button>
         </div>
         <div v-if="ct.error.value" class="py-8 text-center text-[12px] text-sale">{{ ct.error.value }}</div>
         <div v-else class="overflow-x-auto">
@@ -481,6 +485,81 @@
     <div v-else-if="!loading && !err" class="py-16 text-center text-[12px] text-ink-muted">
       {{ L("Search for a product to trace its cost across companies.","ابحث عن منتج لتتبّع تكلفته عبر الشركات.","Recherchez un produit.") }}
     </div>
+
+    <!-- Bulk local apply — preview → confirm → waves -->
+    <div v-if="lb" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(28,25,23,.45)" @click.self="lb.posting ? null : (lb = null)">
+      <div class="bg-white rounded-[16px] shadow-xl w-full max-w-[760px] max-h-[86vh] flex flex-col overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-line-hair flex items-center gap-2">
+          <span class="text-[14px] font-bold">⚡ {{ L("Apply all local products","تطبيق كل المنتجات المحلية","Appliquer tous les produits locaux") }}</span>
+          <span class="text-[11px] text-ink-muted flex-1">{{ L("invoice = full cost (no landed) · one reversible reco per item","الفاتورة = التكلفة الكاملة (بدون شحن) · تسوية مستقلة قابلة للعكس لكل صنف","facture = coût complet") }}</span>
+          <button v-if="!lb.posting" class="text-ink-3 hover:text-ink text-[18px] leading-none" @click="lb = null">×</button>
+        </div>
+
+        <div v-if="lb.loading" class="py-14 text-center text-[12px] text-ink-muted">{{ L("Scanning the local catalogue…","بجهّز المعاينة…","Analyse…") }}</div>
+
+        <template v-else>
+          <div class="px-5 py-3 flex items-center gap-4 flex-wrap border-b border-line-hair text-[11.5px]">
+            <span><b class="text-[15px] tnum">{{ lb.stats.ready }}</b> {{ L("ready","جاهز","prêts") }}</span>
+            <span class="text-ink-muted">{{ L("weak basis (manual)","أساس ضعيف (يدوي)","base faible") }}: <b class="tnum">{{ lb.stats.weak_basis }}</b></span>
+            <span class="text-ink-muted">{{ L("already fixed","متظبط","corrigés") }}: <b class="tnum">{{ lb.stats.already_fixed }}</b></span>
+            <span class="flex-1"></span>
+            <span>{{ L("net book change","صافي التغيير الدفتري","Δ net") }}:
+              <b class="tnum" :style="{ color: lb.total_delta > 0 ? '#b45309' : '#047857' }">{{ fmtNum(lb.total_delta) }} MAD</b></span>
+          </div>
+
+          <div class="flex-1 overflow-y-auto">
+            <table class="w-full text-[11.5px]">
+              <thead class="sticky top-0" style="background:#fafaf9">
+                <tr>
+                  <th class="px-4 py-2 text-start text-[10px] font-bold uppercase text-ink-muted">{{ L("Product","المنتج","Produit") }}</th>
+                  <th class="px-3 py-2 text-end text-[10px] font-bold uppercase text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                  <th class="px-3 py-2 text-end text-[10px] font-bold uppercase text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
+                  <th class="px-3 py-2 text-end text-[10px] font-bold uppercase text-ink-muted">{{ L("Invoice","الفاتورة","Facture") }}</th>
+                  <th class="px-3 py-2 text-end text-[10px] font-bold uppercase text-ink-muted">Δ MAD</th>
+                  <th class="px-3 py-2 text-center text-[10px] font-bold uppercase text-ink-muted"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in lb.rows" :key="r.item_code" class="border-t border-line-hair">
+                  <td class="px-4 py-1.5 truncate max-w-[240px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><span class="text-[10px] text-ink-muted"> · {{ r.item_name }}</span></td>
+                  <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ fmtNum(r.qty) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.book_rate, 2) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum font-semibold text-emerald-700">{{ fmtNum(r.rate, 2) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum" :style="{ color: r.delta > 0 ? '#b45309' : '#78716c' }">{{ fmtNum(r.delta) }}</td>
+                  <td class="px-3 py-1.5 text-center text-[12px]">
+                    <span v-if="lb.done[r.item_code] === 'ok'" class="text-emerald-700 font-bold">✓</span>
+                    <span v-else-if="lb.done[r.item_code]" class="text-sale font-bold" :title="lb.done[r.item_code]">✕</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="px-5 py-3.5 border-t border-line-hair flex items-center gap-3">
+            <template v-if="lb.posting">
+              <div class="flex-1 h-[8px] rounded-full overflow-hidden" style="background:#f5f5f4">
+                <div class="h-full rounded-full transition-all" style="background:#059669" :style="{ width: (lb.progress / Math.max(lb.stats.ready, 1) * 100) + '%' }"></div>
+              </div>
+              <span class="text-[11.5px] tnum text-ink-muted">{{ lb.progress }} / {{ lb.stats.ready }}</span>
+            </template>
+            <template v-else-if="lb.finished">
+              <span class="text-[12px] font-bold text-emerald-700">✓ {{ L("Posted","اترحّل","Comptabilisé") }} {{ lb.posted }}</span>
+              <span v-if="lb.failed" class="text-[12px] font-bold text-sale">· {{ L("failed","فشل","échoués") }} {{ lb.failed }}</span>
+              <span class="flex-1"></span>
+              <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="lb = null">{{ L("Close","إغلاق","Fermer") }}</button>
+            </template>
+            <template v-else>
+              <span class="text-[11px] text-ink-muted flex-1">{{ L("Each item posts as its own Stock Reco — individually undoable from the Activity Log.","كل صنف بيترحّل بتسوية مستقلة — ليه Undo لوحده من سجل النشاط.","Chaque article est réversible individuellement.") }}</span>
+              <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="lb = null">{{ L("Cancel","إلغاء","Annuler") }}</button>
+              <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                      :disabled="!lb.stats.ready" @click="runLocalBulk">
+                {{ L("Post","ترحيل","Comptabiliser") }} {{ lb.stats.ready }}
+              </button>
+            </template>
+          </div>
+        </template>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -652,6 +731,38 @@ const ct = useServerTable(
   { pageSize: 50 });
 ct.load();
 watch([srcFilter, supFilter, moFilter, fixFilter], () => { ct.page.value = 1; ct.load(); });
+// ── Bulk local apply — preview (dry_run) → confirm → post in waves ──
+const lb = ref(null);
+async function openLocalBulk() {
+  lb.value = { loading: true, rows: [], stats: {}, total_delta: 0, posting: false, finished: false, progress: 0, posted: 0, failed: 0, done: {} };
+  try {
+    const r = await api.call(`${M}.apply_local_batch`, { dry_run: 1 }, { fresh: true });
+    lb.value = { ...lb.value, loading: false, rows: r.rows, stats: r.stats, total_delta: r.total_delta };
+  } catch (e) { toast.error(e.message || "Failed"); lb.value = null; }
+}
+async function runLocalBulk() {
+  if (!lb.value || lb.value.posting) return;
+  lb.value.posting = true;
+  try {
+    // waves of 25 so one long request never times out; the server re-scans each
+    // wave, so anything already fixed simply drops out of the next one
+    for (let guard = 0; guard < 40; guard++) {
+      const r = await api.call(`${M}.apply_local_batch`, { dry_run: 0, limit: 25 }, { fresh: true });
+      // a failed item stays "ready" on the server and reappears next wave —
+      // count each item once, and stop when a wave makes no forward progress
+      for (const p of r.posted) { if (!lb.value.done[p.item_code]) lb.value.posted++; lb.value.done[p.item_code] = "ok"; }
+      for (const s of r.skipped) { if (!lb.value.done[s.item_code]) lb.value.failed++; lb.value.done[s.item_code] = s.reason || "failed"; }
+      lb.value.progress = lb.value.posted + lb.value.failed;
+      if (!r.posted.length || !r.remaining) break;
+    }
+    toast.success(L(`Posted ${lb.value.posted} item(s)`, `اترحّل ${lb.value.posted} صنف`, `${lb.value.posted} comptabilisés`));
+    ct.load();
+    api.call(`${M}.cost_overview`, {}, { fresh: true }).then((r) => { ov.value = r; }).catch(() => {});
+    loadTower();
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { lb.value.posting = false; lb.value.finished = true; }
+}
+
 // a Turkish supplier name can be very long — trim for chips/cells
 const shortSup = (s) => (s ? String(s).replace(/\s*(T[İI]C\.?|SAN\.?|LTD\.?|Ş[Tt][İI]\.?|A\.?Ş\.?|İMALAT).*$/i, "").trim().slice(0, 22) || String(s).slice(0, 22) : "");
 

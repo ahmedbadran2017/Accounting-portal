@@ -19,7 +19,7 @@ layer. Landed cost is added SEPARATELY on top of the product cost returned here.
 import frappe
 from frappe.utils import flt, getdate
 
-from accounting_portal.api.permissions import assert_portal_access
+from accounting_portal.api.permissions import assert_portal_access, assert_can_write
 from accounting_portal.api.landed_engine import _live_fx
 
 SOURCING = "Maslak LTD"          # Turkey — the true-cost anchor (buys TRY)
@@ -624,3 +624,90 @@ def trace_item(item_code=None):
         "distortion_pct": distortion, "ladder": ladder,
         "note": "true_cost is PRODUCT cost only; inbound landed (freight/customs via 153.03) is added on top separately",
     }
+
+
+# ── Bulk apply for LOCAL (domestic) products ────────────────────────────────
+# Local items carry no landed layer: their supplier invoice (MAD) IS the full
+# cost. That makes them safe to fix in bulk — unlike imports, there is no
+# freight completeness to wait for. Weak evidence stays on the manual path.
+
+_LOCAL_MIN_BASIS = 3      # < this many invoiced units → suggestion too weak
+_LOCAL_MIN_RATE = 0.5     # sub-0.5 MAD "cost" = broken conversion, never real
+
+
+def _local_batch_rows():
+    """(ready, stats): every local-supplier item in Morocco stock, split into
+    the bulk-ready set (solid invoice basis) and counted-out reasons."""
+    fx = _fx_series()
+    stocked = frappe.db.sql(
+        """SELECT b.item_code, SUM(b.actual_qty) qty, SUM(b.stock_value) sv,
+                  MAX(IFNULL(i.has_batch_no,0)+IFNULL(i.has_serial_no,0)) trk,
+                  MAX(i.item_name) item_name, MAX(i.custom_sku) sku
+           FROM `tabBin` b
+           JOIN `tabWarehouse` w ON w.name=b.warehouse
+           JOIN `tabItem` i ON i.name=b.item_code
+           WHERE w.company=%s AND b.actual_qty>0
+           GROUP BY b.item_code""", (SALES,), as_dict=True)
+    costs = _true_cost_bulk([s.item_code for s in stocked], fx)
+    fixed = _fixed_items()
+    ready = []
+    stats = {"local_total": 0, "already_fixed": 0, "tracked": 0,
+             "weak_basis": 0, "bad_rate": 0, "ready": 0}
+    for s in stocked:
+        t = costs.get(s.item_code)
+        if not t or t.get("source") != "local_pi":
+            continue
+        stats["local_total"] += 1
+        if s.item_code in fixed:
+            stats["already_fixed"] += 1
+            continue
+        if s.trk:
+            stats["tracked"] += 1
+            continue
+        rate = flt(t.get("cost_mad"))
+        if rate < _LOCAL_MIN_RATE:
+            stats["bad_rate"] += 1
+            continue
+        if flt(t.get("basis_qty")) < _LOCAL_MIN_BASIS:
+            stats["weak_basis"] += 1
+            continue
+        stats["ready"] += 1
+        qty = flt(s.qty)
+        book_rate = round(flt(s.sv) / qty, 2) if qty else 0
+        ready.append({
+            "item_code": s.item_code, "sku": s.sku, "item_name": s.item_name,
+            "rate": rate, "basis_qty": flt(t.get("basis_qty")),
+            "qty": qty, "book_rate": book_rate,
+            "delta": round(rate * qty - flt(s.sv), 2),
+        })
+    # stable order across waves: the fixed-map grows, the sort key doesn't
+    ready.sort(key=lambda r: r["item_code"])
+    return ready, stats
+
+
+@frappe.whitelist()
+def apply_local_batch(limit=25, dry_run=1):
+    """Bulk-fix the local catalogue: each ready item gets its own reversible
+    Stock Reco via fix_item_cost (full rate = invoice rate, landed 0 by
+    nature). One failure never stops the wave — it lands in `skipped`."""
+    assert_can_write()
+    limit = min(int(limit or 25), 100)
+    ready, stats = _local_batch_rows()
+    if str(dry_run) in ("1", "true", "True"):
+        return {"dry_run": True, "stats": stats, "rows": ready,
+                "total_delta": round(sum(r["delta"] for r in ready), 2)}
+    from accounting_portal.api.valuation import fix_item_cost
+    done, skipped = [], []
+    for r in ready[:limit]:
+        try:
+            res = fix_item_cost(
+                company=SALES, item_code=r["item_code"], rate=r["rate"], full_rate=1,
+                note=(f"Local bulk — supplier invoice {r['rate']} MAD/unit "
+                      f"(basis {round(r['basis_qty'])}u), landed 0 (domestic)"))
+            done.append({"item_code": r["item_code"], "rate": r["rate"],
+                         "voucher": (res or {}).get("voucher_no")})
+        except Exception as e:
+            skipped.append({"item_code": r["item_code"], "reason": str(e)[:140]})
+            continue
+    return {"dry_run": False, "posted": done, "skipped": skipped,
+            "remaining": max(stats["ready"] - len(ready[:limit]), 0)}
