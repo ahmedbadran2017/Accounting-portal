@@ -236,6 +236,43 @@ def _excl_key(year):
     return f"ap_bill_excl_{year}"
 
 
+def _billkg_key(year):
+    return f"ap_bill_kg_{year}"
+
+
+def _bill_kgs(year):
+    """{voucher: manually-entered bill kg} — for 2026-style lump bills that
+    lost the kg. 2025-style bills (qty = kg on the PI line) read automatically."""
+    try:
+        return json.loads(frappe.db.get_default(_billkg_key(_year(year))) or "{}")
+    except Exception:
+        return {}
+
+
+@frappe.whitelist()
+def set_bill_kg(company=None, year=None, voucher=None, kg=None):
+    """Record one freight bill's REAL kilograms (from the forwarder's paper).
+    Auto-read (2025-style per-kg) bills refuse manual override."""
+    assert_can_write()
+    if not voucher:
+        frappe.throw("voucher required")
+    target, yr = _target(company), _year(year)
+    bills = {b["voucher"]: b for b in _bill_rows(target, yr)}
+    b = bills.get(voucher)
+    if not b:
+        frappe.throw(f"{voucher} is not a freight bill on the included accounts for {yr}")
+    if b.get("kg_source") == "auto":
+        frappe.throw(f"{voucher} already carries its kg from the invoice itself (qty = kg) — nothing to enter")
+    kgs = _bill_kgs(yr)
+    if flt(kg) > 0:
+        kgs[voucher] = round(flt(kg), 1)
+    else:
+        kgs.pop(voucher, None)
+    frappe.db.set_default(_billkg_key(yr), json.dumps(kgs))
+    frappe.db.commit()
+    return {"voucher": voucher, "kg": kgs.get(voucher)}
+
+
 def _excluded_bills(year):
     """Vouchers the team excluded from the freight-bill list (e.g. the non-
     freight entries sharing a mixed account like 71.002.503, or reversal JEs)."""
@@ -302,6 +339,7 @@ def _import_receipts(target, year):
         """SELECT pr.name, pr.posting_date dt, pr.supplier,
                   ROUND(SUM(pri.qty),0) qty,
                   ROUND(SUM(pri.qty*IFNULL(i.weight_per_unit,0)),1) kg,
+                  ROUND(SUM(CASE WHEN IFNULL(i.weight_per_unit,0)=0 THEN pri.qty ELSE 0 END),0) qty0,
                   MAX(CASE WHEN pri.warehouse LIKE 'Container%%' THEN 1 ELSE 0 END) has_container
            FROM `tabPurchase Receipt` pr
            JOIN `tabPurchase Receipt Item` pri ON pri.parent=pr.name
@@ -362,12 +400,28 @@ def _bill_rows(target, year, pool=None):
                 (tuple(pis),)):
             sup[n] = su
             meta[n] = f"{bno or ''} {rem or ''}".strip()
+    # kg per bill: 2025-style bills carry it as line qty (qty=kg, rate=tariff);
+    # 2026-style lump bills (qty=1) need the manual entry
+    qty_by_pi = {}
+    if pis:
+        qty_by_pi = dict(frappe.db.sql(
+            """SELECT parent, SUM(qty) FROM `tabPurchase Invoice Item`
+               WHERE parent IN %s GROUP BY parent""", (tuple(pis),)))
+    manual_kg = _bill_kgs(year)
     excl = _excluded_bills(year)
     for r in rows:
         r["supplier"] = sup.get(r.voucher) or ""
         r["ref_text"] = meta.get(r.voucher) or ""
         r["dt"] = str(r.dt or "")
         r["excluded"] = r.voucher in excl
+        auto = flt(qty_by_pi.get(r.voucher))
+        if r.vt == "Purchase Invoice" and auto > 3:
+            r["kg"], r["kg_source"] = round(auto, 1), "auto"
+        elif flt(manual_kg.get(r.voucher)) > 0:
+            r["kg"], r["kg_source"] = flt(manual_kg[r.voucher]), "manual"
+        else:
+            r["kg"], r["kg_source"] = None, None
+        r["implied_rate"] = round(flt(r.amount) / r["kg"], 2) if r["kg"] else None
     return rows
 
 
@@ -528,6 +582,20 @@ def shipment_review(company=None, year=None):
             air_kg += kg
             air_cost_est += kg * (conf if conf > 0 else _air_rate_at(air_rates, r["dt"]))
 
+    # each shipment's REAL kg from its bills (kg follows the amount split for
+    # consolidated bills) — the diagnostics anchor vs the book-weight kg
+    for r in prs:
+        bk = 0.0
+        for bb in (detail.get(r["name"]) or []):
+            src_bill = None
+            for b in live_bills:
+                if b["voucher"] == bb["voucher"]:
+                    src_bill = b
+                    break
+            if src_bill and src_bill.get("kg") and flt(src_bill["amount"]):
+                bk += flt(src_bill["kg"]) * flt(bb["share"]) / flt(src_bill["amount"])
+        r["bill_kg"] = round(bk, 1) if bk else None
+
     bills_total = round(sum(flt(b["amount"]) for b in live_bills), 2)
     unallocated = [b for b in live_bills if not b["prs"]]
     chan_by_pr = {r["name"]: r["channel"] for r in prs}
@@ -583,17 +651,22 @@ def _landed_units_bulk(item_codes, year=None):
     for r in rows:
         pc = pr_costs.get(r.pr) or {}
         cost, pr_kg, pr_qty = flt(pc.get("cost")), flt(pc.get("kg")), flt(pc.get("qty"))
+        qty0 = flt(pc.get("qty0"))
         q = flt(r.qty)
         if q <= 0:
             continue   # return lines: no share AND no denominator dilution
-        if pr_kg > 0:
-            # weighted PR: kg split — a zero-weight line gets 0 (fix its weight,
-            # don't let it double-dip on top of the fully-distributed kg shares).
-            # cost may be NEGATIVE (reversal bills) — it flows through the same
-            # split so recon totals and item landed stay tied.
-            share = cost * (q * flt(r.w)) / pr_kg
+        # zero-weight lines carry the shipment's AVERAGE unit weight instead of
+        # a free ride (bill kg is the best average source when captured).
+        # cost may be NEGATIVE (reversal bills) — it flows through the same split.
+        avg_w = 0.0
+        if qty0 > 0 and pr_qty > 0:
+            best_kg = flt(pc.get("bill_kg")) or pr_kg
+            avg_w = best_kg / pr_qty if best_kg > 0 else 0.0
+        eff_total = pr_kg + qty0 * avg_w
+        if eff_total > 0:
+            eff = q * (flt(r.w) if flt(r.w) > 0 else avg_w)
+            share = cost * eff / eff_total
         elif pr_qty > 0:
-            # whole PR unweighted: fall back to qty split
             share = cost * q / pr_qty
         else:
             share = 0.0
@@ -626,7 +699,8 @@ def freeze_basis(company=None, year=None):
         if r["source"] == "est":
             est += 1
         pr_costs[r["name"]] = {"cost": flt(r["landed"]), "kg": flt(r["kg"]),
-                               "qty": flt(r["qty"]), "src": r["source"]}
+                               "qty": flt(r["qty"]), "qty0": flt(r.get("qty0") or 0),
+                               "bill_kg": flt(r.get("bill_kg") or 0), "src": r["source"]}
     sea_uncosted = [r["name"] for r in snap["receipts"]
                     if r["channel"] == "sea" and r["source"] not in ("bills", "rate")]
     if sea_uncosted:

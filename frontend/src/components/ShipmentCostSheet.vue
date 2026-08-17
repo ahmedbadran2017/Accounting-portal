@@ -8,7 +8,12 @@
       <div class="flex items-center gap-3 flex-wrap">
         <span class="text-[15px] font-bold font-mono" dir="ltr">{{ s.pr }}</span>
         <span class="text-[12px] text-ink-muted">{{ s.dt }} · {{ s.supplier }}</span>
-        <span class="text-[12px]">{{ s.channel === "air" ? "🛫" : "🚢" }} {{ fmt0(s.kg) }}kg · {{ fmt0(s.qty) }} {{ L("units","قطعة","unités") }}</span>
+        <span class="text-[12px]">{{ s.channel === "air" ? "🛫" : "🚢" }} {{ fmt0(s.kg) }}kg · {{ fmt0(s.qty) }} {{ L("units","قطعة","unités") }}
+          <span v-if="s.freight.bill_kg && Math.abs(s.freight.bill_kg - s.kg) > 0.25 * Math.max(s.freight.bill_kg, s.kg)"
+                class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ms-1" style="background:#fffbeb;color:#b45309"
+                :title="L('Bill kg vs book item weights diverge — item weights likely wrong; freight still distributes off the bill amounts.','كيلو الفواتير مختلف عن أوزان الدفاتر — أوزان الأصناف غالبًا ناقصة؛ التوزيع شغال على مبالغ الفواتير.','Écart kg facture / poids articles.')">
+            ⚖ {{ L("bill","فواتير","fact.") }} {{ fmt0(s.freight.bill_kg) }}kg ≠ {{ L("book","دفاتر","livres") }} {{ fmt0(s.kg) }}kg</span>
+        </span>
         <span class="flex-1"></span>
         <span class="text-[11px] tnum text-ink-muted">① {{ verifiedCount }}/{{ s.lines.length }} · ② {{ freightReady ? "✓" : "…" }}</span>
       </div>
@@ -106,6 +111,7 @@
           <span v-for="b in attachedBills" :key="b.voucher" class="inline-flex items-center gap-1.5 text-[11px] border rounded-[8px] px-2 py-1" style="background:#f0fdf4;border-color:#bbf7d0">
             <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
             <span class="tnum font-semibold">{{ fmt0(shareOf(b)) }}</span>
+            <span v-if="b.kg" class="text-[10px] tnum text-ink-muted" dir="ltr">{{ b.kg_source === 'auto' ? '🔒' : '' }}{{ fmt0(b.kg) }}kg @{{ b.implied_rate }}</span>
             <span v-if="b.n_prs > 1" class="text-[10px] text-ink-muted">÷{{ b.n_prs }}</span>
             <button v-if="canWrite && !s.frozen" :disabled="busy" class="text-sale disabled:opacity-40" @click="toggleBill(b, false)">✕</button>
           </span>
@@ -125,6 +131,7 @@
                     :title="L('days between bill and receipt dates','فرق الأيام بين تاريخ الفاتورة والاستلام','écart en jours')">±{{ b.days }}{{ L("d","ي","j") }}</span>
               <span class="truncate flex-1 text-[11px]">{{ b.supplier || b.account }}</span>
               <span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
+              <span v-if="b.kg" class="text-[10px] tnum text-ink-muted" dir="ltr">{{ fmt0(b.kg) }}kg @{{ b.implied_rate }}</span>
               <span v-if="b.n_prs" class="text-[10px] text-ink-muted">{{ L("covers","بتغطي","couvre") }} {{ b.n_prs }}</span>
               <button v-if="canWrite && !s.frozen" :disabled="busy" class="text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] border border-line hover:bg-white disabled:opacity-40" @click="toggleBill(b, true)">{{ L("Attach","إرفاق","Joindre") }}</button>
             </div>

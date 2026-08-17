@@ -25,10 +25,25 @@
       <div class="bg-white rounded-card border border-line shadow-card p-4">
         <div class="text-[12px] font-bold mb-2">🧾 {{ L("Freight bills of this shipment","فواتير شحن الشحنة دي","Factures fret") }}</div>
         <div class="flex gap-1.5 flex-wrap mb-2">
-          <span v-for="b in attachedBills" :key="b.voucher" class="inline-flex items-center gap-1.5 text-[11px] border rounded-[8px] px-2 py-1" style="background:#f0fdf4;border-color:#bbf7d0">
+          <span v-for="b in attachedBills" :key="b.voucher" class="inline-flex items-center gap-1.5 text-[11px] border rounded-[8px] px-2 py-1 flex-wrap" style="background:#f0fdf4;border-color:#bbf7d0">
             <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
             <span class="tnum font-semibold">{{ fmt0(shareOf(b)) }}</span>
             <span v-if="b.n_prs > 1" class="text-[10px] text-ink-muted">÷{{ b.n_prs }}</span>
+            <!-- the bill's REAL kg: auto from per-kg invoices (🔒), manual for lump bills -->
+            <template v-if="b.kg_source === 'auto'">
+              <span class="text-[10px] tnum text-ink-muted" dir="ltr">🔒 {{ fmt0(b.kg) }}kg → {{ b.implied_rate }}/kg</span>
+            </template>
+            <template v-else>
+              <input type="number" step="1" min="0" :value="kgDraft[b.voucher] ?? b.kg" :disabled="!canWrite || busy"
+                     @input="kgDraft[b.voucher] = $event.target.valueAsNumber"
+                     :placeholder="L('kg','كجم','kg')"
+                     class="w-[64px] h-[22px] px-1 text-end tnum text-[10.5px] border rounded-[5px] outline-none"
+                     :style="b.kg ? 'border-color:#a7f3d0' : 'border-color:#fde68a;background:#fffbeb'" />
+              <button v-if="canWrite && (kgDraft[b.voucher] ?? null) != null && kgDraft[b.voucher] !== b.kg" :disabled="busy"
+                      class="text-[10px] font-bold px-1.5 py-0.5 rounded-[5px] text-white bg-brand disabled:opacity-40" @click="saveBillKg(b)">✓</button>
+              <span v-if="b.implied_rate" class="text-[10px] tnum text-ink-muted" dir="ltr">→ {{ b.implied_rate }}/kg</span>
+              <span v-else class="text-[9.5px] font-bold" style="color:#b45309">{{ L("enter kg","أدخلوا الكيلو","kg ?") }}</span>
+            </template>
             <button v-if="canWrite && !sheet.frozen" :disabled="busy" class="text-sale disabled:opacity-40" @click="toggleBill(b, false)">✕</button>
           </span>
           <span v-if="!attachedBills.length" class="text-[11px] text-ink-muted">{{ L("No bills attached yet — pick from the list:","لسه مفيش فواتير مرفقة — اختاروا من القايمة:","Aucune facture.") }}</span>
@@ -47,6 +62,7 @@
                     :title="L('days between bill and receipt dates','فرق الأيام بين تاريخ الفاتورة والاستلام','écart en jours')">±{{ b.days }}{{ L("d","ي","j") }}</span>
               <span class="truncate flex-1 text-[11px]">{{ b.supplier || b.account }}</span>
               <span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
+              <span v-if="b.kg" class="text-[10px] tnum text-ink-muted" dir="ltr">{{ fmt0(b.kg) }}kg @{{ b.implied_rate }}</span>
               <span v-if="b.n_prs" class="text-[10px] text-ink-muted">{{ L("covers","بتغطي","couvre") }} {{ b.n_prs }}</span>
               <button v-if="canWrite && !sheet.frozen" :disabled="busy" class="text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] border border-line hover:bg-white disabled:opacity-40" @click="toggleBill(b, true)">{{ L("Attach","إرفاق","Joindre") }}</button>
             </div>
@@ -210,7 +226,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -281,6 +297,7 @@ const shareOf = (b) => {
   return hit ? hit.share : 0;
 };
 
+const kgDraft = reactive({});
 const ready = ref(null);
 const applyPrev = ref(null);
 const loadErr = ref(false);
@@ -337,6 +354,16 @@ async function openSheet(pr) {
 function closeSheet() { sheet.value = null; loadList(); }
 
 
+
+async function saveBillKg(b) {
+  busy.value = true;
+  try {
+    await api.call("accounting_portal.api.landed_prep.set_bill_kg", { voucher: b.voucher, kg: kgDraft[b.voucher] || 0, year: yearSel.value });
+    delete kgDraft[b.voucher];
+    await openSheet(sheet.value.pr);
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { busy.value = false; }
+}
 
 async function toggleBill(b, attach) {
   busy.value = true;

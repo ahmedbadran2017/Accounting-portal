@@ -196,12 +196,15 @@ def get_sheet(pr=None, year=None):
         days = abs(date_diff(b["dt"], head["dt"])) if b["dt"] else 999
         picker.append({"voucher": b["voucher"], "dt": b["dt"], "supplier": b["supplier"],
                        "account": b["account"], "amount": b["amount"], "n_prs": len(b["prs"]),
-                       "attached": pr in b["prs"], "ref_match": ref_match, "days": days})
+                       "attached": pr in b["prs"], "ref_match": ref_match, "days": days,
+                       "kg": b.get("kg"), "kg_source": b.get("kg_source"),
+                       "implied_rate": b.get("implied_rate")})
     picker.sort(key=lambda x: (not x["attached"], not x["ref_match"], x["days"]))
     return {"pr": pr, "dt": head["dt"], "supplier": head["supplier"],
             "channel": head["channel"], "kg": kg, "qty": head["qty"],
             "freight": {"source": head["source"], "landed": head["landed"],
                         "rate_kg": landed_kg, "bills": head["bills"],
+                        "bill_kg": head.get("bill_kg"), "book_kg": kg,
                         "confirmed_rate": head.get("confirmed_rate"),
                         "band_rate": head.get("band_rate")},
             "lines": out_lines, "picker": picker,
@@ -272,7 +275,8 @@ def _live_landed(items, receipts):
     """{item: live landed/unit} from the CURRENT shipment costs (bills/rate
     sources only) — the per-shipment-submit path, no frozen snapshot needed.
     Same kg-split math as the frozen distributor."""
-    costed = {r["name"]: {"cost": flt(r["landed"]), "kg": flt(r["kg"]), "qty": flt(r["qty"])}
+    costed = {r["name"]: {"cost": flt(r["landed"]), "kg": flt(r["kg"]), "qty": flt(r["qty"]),
+                          "qty0": flt(r.get("qty0") or 0), "bill_kg": flt(r.get("bill_kg") or 0)}
               for r in receipts if r["source"] in ("bills", "rate")}
     if not (costed and items):
         return {}
@@ -280,14 +284,22 @@ def _live_landed(items, receipts):
     agg = {}
     for prn, lns in lines.items():
         pc = costed[prn]
+        # zero-weight lines carry the shipment's AVERAGE unit weight (bill kg is
+        # the best average source when captured) — no free-riding, no zero landed
+        avg_w = 0.0
+        if pc["qty0"] > 0 and pc["qty"] > 0:
+            best_kg = pc["bill_kg"] or pc["kg"]
+            avg_w = best_kg / pc["qty"] if best_kg > 0 else 0.0
+        eff_total = pc["kg"] + pc["qty0"] * avg_w
         for l in lns:
             if l.ic not in items:
                 continue
             q = flt(l.qty)
             if q <= 0:
                 continue
-            if pc["kg"] > 0:
-                share = pc["cost"] * (q * flt(l.w)) / pc["kg"]
+            if eff_total > 0:
+                eff = q * (flt(l.w) if flt(l.w) > 0 else avg_w)
+                share = pc["cost"] * eff / eff_total
             elif pc["qty"] > 0:
                 share = pc["cost"] * q / pc["qty"]
             else:
@@ -403,8 +415,11 @@ def item_landed_detail(item_code=None, year=None):
                 continue
             h = by_name[prn]
             pr_kg, cost = flt(h["kg"]), flt(h["landed"])
-            line_kg = flt(l.qty) * flt(l.w)
-            share = round(cost * line_kg / pr_kg, 2) if (pr_kg > 0 and h["source"] in ("bills", "rate")) else 0.0
+            qty0, pr_qty = flt(h.get("qty0") or 0), flt(h["qty"])
+            avg_w = ((flt(h.get("bill_kg") or 0) or pr_kg) / pr_qty) if (qty0 > 0 and pr_qty > 0) else 0.0
+            eff_total = pr_kg + qty0 * avg_w
+            line_kg = flt(l.qty) * (flt(l.w) if flt(l.w) > 0 else avg_w)
+            share = round(cost * line_kg / eff_total, 2) if (eff_total > 0 and h["source"] in ("bills", "rate")) else 0.0
             mine.append({"pr": prn, "dt": h["dt"], "supplier": h["supplier"],
                          "channel": h["channel"], "source": h["source"],
                          "rate_kg": h["rate_kg"], "confirmed_rate": h.get("confirmed_rate"),
