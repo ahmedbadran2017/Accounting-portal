@@ -391,6 +391,9 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
         t = tc.get(b.item_code)
         cur_rate = round(flt(b.sv) / flt(b.qty), 2) if flt(b.qty) else 0
         src = t["source"] if t else "unpriced"
+        has_fix = b.item_code in fixed
+        is_fixed = has_fix and _fix_is_current(fixed[b.item_code]["stamp"], basis_on)
+        applied = flt(fixed[b.item_code]["rate"]) if has_fix else 0
         # FULL cost (product + frozen landed) — the same rate the fix applies,
         # so a fixed item reads ~0 overvaluation instead of a phantom negative
         cost = round(flt(t["cost_mad"]) + flt(landed.get(b.item_code)), 2) if t else None
@@ -399,9 +402,6 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
         ref = applied if (is_fixed and applied > 0) else cost
         over = round((flt(b.sv) - ref * flt(b.qty))) if ref is not None else None
         dev = round((cur_rate - ref) / ref * 100, 1) if (ref and ref > 0) else None
-        has_fix = b.item_code in fixed
-        is_fixed = has_fix and _fix_is_current(fixed[b.item_code]["stamp"], basis_on)
-        applied = flt(fixed[b.item_code]["rate"]) if has_fix else 0
         rows.append({"item_code": b.item_code, "sku": b.sku, "item_name": b.item_name,
                      "qty": round(flt(b.qty)), "current_rate": cur_rate, "true_cost": cost,
                      "source": src, "overvaluation": over, "dev_pct": dev,
