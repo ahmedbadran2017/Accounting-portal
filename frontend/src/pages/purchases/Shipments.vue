@@ -56,8 +56,8 @@
         <div class="flex-1 min-w-[240px]">
           <div class="text-[12px] font-bold">📦 {{ L("Product costs — verified in Cost Trace","تكلفة البضاعة — التحقق بيتم في تتبّع التكلفة","Coûts produits — dans Cost Trace") }}</div>
           <div class="text-[11px] text-ink-muted mt-0.5">
-            {{ L("This screen assembles the FREIGHT. Once it reads 'actual', open the shipment's costing file in Cost Trace to verify the product cost of every line.",
-                 "الشاشة دي بتجمّع الشحن. أول ما يبقى «فعلي»، افتحوا ملف الشحنة في تتبّع التكلفة للتحقق من تكلفة كل سطر.",
+            {{ L("This screen assembles the FREIGHT. Verification of the product lines happens in the costing file (Cost Trace) — per product or in bulk per shipment.",
+                 "الشاشة دي بتجمّع الشحن. التحقق من سطور البضاعة بيتم في ملف التكلفة (تتبّع التكلفة) — منتج-منتج أو مجمّع للشحنة.",
                  "Cet écran assemble le fret ; la vérification se fait dans Cost Trace.") }}
           </div>
         </div>
@@ -157,26 +157,26 @@
       </div>
 
       <!-- Final apply -->
-      <div class="bg-white rounded-card border shadow-card p-4" :style="ready?.frozen && ready?.items_ready ? 'border-color:#a7f3d0' : 'border-color:#e7e5e4'">
+      <div class="bg-white rounded-card border shadow-card p-4" :style="ready?.items_ready ? 'border-color:#a7f3d0' : 'border-color:#e7e5e4'">
         <div class="flex items-center gap-3 flex-wrap">
           <div class="flex-1 min-w-[260px]">
             <div class="text-[12px] font-bold">🚀 {{ L("Final apply — product + freight, new AND retroactive","التطبيق النهائي — بضاعة + شحن، للجديد والقديم بأثر رجعي","Application finale") }}</div>
             <div class="text-[11px] text-ink-muted mt-0.5">
-              {{ L("Runs in waves through the same gated, undoable fix — each item revalued at its qty-weighted verified cost + its frozen freight share.",
-                   "بيشتغل على دفعات بنفس آلية الفيكس المؤمَّنة القابلة للعكس — كل صنف بياخد متوسط تكلفته المعتمدة + نصيبه من الشحن المجمّد.",
-                   "Par vagues, via le correctif réversible existant.") }}
+              {{ L("Runs in waves through the same undoable fix. An item posts only when EVERY one of its shipments is freight-costed and verified — same rule as the per-shipment submit.",
+                   "بيشتغل على دفعات بنفس الآلية القابلة للعكس. الصنف بيترحّل فقط لما كل شحناته يكون شحنها متقفل ومتحقق — نفس قاعدة اعتماد الشحنة.",
+                   "Par vagues ; un article part quand toutes ses expéditions sont complètes.") }}
             </div>
             <div v-if="ready" class="text-[11px] tnum mt-1">
               {{ L("items with verified cost","أصناف بتكلفة معتمدة","articles vérifiés") }}: <b>{{ ready.items_with_verified_cost }}</b> ·
               {{ L("ready to apply","جاهزة للتطبيق","prêts") }}: <b style="color:#b45309">{{ ready.items_ready }}</b> ·
               {{ L("applied","اتطبّقت","appliqués") }}: <b style="color:#047857">{{ ready.items_applied }}</b>
-              <span v-if="!ready.frozen" class="ms-2" style="color:#b45309">❄ {{ L("blocked: freeze the landed basis first","متقفل: جمّدوا أساس الشحن الأول","gelez d'abord la base") }}</span>
+              <span v-if="ready.items_waiting && (ready.items_waiting.freight || ready.items_waiting.verify)" class="ms-2" style="color:#b45309">⏳ {{ ready.items_waiting.freight }} {{ L("waiting freight","مستني شحن","att. fret") }} · {{ ready.items_waiting.verify }} {{ L("waiting verify","مستني تحقق","att. vérif.") }}</span>
             </div>
           </div>
           <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
                   :disabled="busy" @click="previewApply">{{ L("Preview next wave","معاينة الدفعة الجاية","Aperçu") }}</button>
           <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                  :disabled="busy || !ready?.frozen || !ready?.items_ready" @click="runApply">🚀 {{ L("Apply 20","طبّق 20","Appliquer 20") }}</button>
+                  :disabled="busy || !ready?.items_ready" @click="runApply">🚀 {{ L("Apply 20","طبّق 20","Appliquer 20") }}</button>
         </div>
         <div v-if="applyPrev" class="mt-2.5 border-t border-line-hair pt-2 text-[11px]">
           <template v-if="applyPrev.dry_run">

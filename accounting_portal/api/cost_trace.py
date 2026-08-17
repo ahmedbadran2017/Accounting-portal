@@ -421,10 +421,15 @@ def control_tower(company=None):
       ③ the catalogue crawl (progress) ④ monthly true-ups   ⑤ closings."""
     assert_portal_access()
     from accounting_portal.api.fx_guard import _enabled as _fx_on, _tolerance as _fx_tol
-    from accounting_portal.api.landed_prep import get_basis
+    from accounting_portal.api.landed_prep import shipment_review
 
-    # ② landed basis
-    basis = get_basis()
+    # ② shipment freight progress (the team's daily work) + the basis state
+    # (freeze now gates ONLY the monthly true-ups, not the item fixes)
+    sr = shipment_review()
+    basis = sr["frozen"]
+    freight = {"costed": sum(1 for r in sr["receipts"] if r["source"] in ("bills", "rate")),
+               "total": len(sr["receipts"]),
+               "unallocated_bills": sr["recon"]["unallocated_count"]}
 
     # ③ crawl progress: fixed vs total, and the overvaluation still uncorrected
     fx = _fx_series()
@@ -471,6 +476,7 @@ def control_tower(company=None):
     return {
         "guard": {"enabled": _fx_on(), "tolerance": _fx_tol()},
         "basis": basis,
+        "freight": freight,
         "crawl": {"fixed": n_fixed, "total": len(bins),
                   "total_over": round(total_over), "remaining_over": round(remaining_over)},
         "trueup": {"posted_months": posted_months, "closable_months": closable_months,

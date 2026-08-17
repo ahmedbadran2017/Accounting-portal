@@ -223,17 +223,18 @@ def attach_bill(pr=None, voucher=None, attached=None, year=None):
 
 @frappe.whitelist()
 def readiness(company=None, year=None):
-    """The final-Apply card: is everything prepared? (all sheets costed, no
-    unallocated bills, basis frozen) + how many items are ready vs applied."""
+    """The batch-Apply card: how many sheet items are truly READY (every
+    shipment costed + verified) vs still waiting, and how many applied."""
     assert_portal_access()
     data = shipments(company=company, year=year)
-    weighted = _verified_item_costs()
+    ready, waiting, n_cand = _batch_readiness(year=year)
     fixed = _fixed_map()
-    ready_items = [ic for ic in weighted if ic not in fixed]
     return {"counts": data["counts"], "total": len(data["rows"]),
             "recon": data["recon"], "frozen": data["frozen"],
-            "items_with_verified_cost": len(weighted),
-            "items_ready": len(ready_items), "items_applied": len(fixed & set(weighted))}
+            "items_with_verified_cost": n_cand,
+            "items_ready": len([ic for ic in ready if ic not in fixed]),
+            "items_waiting": waiting,
+            "items_applied": len(fixed & set(ready))}
 
 
 def _live_landed(items, receipts):
@@ -380,7 +381,18 @@ def item_landed_detail(item_code=None, year=None):
     mine.sort(key=lambda x: x["dt"], reverse=True)
     landed = flt(_live_landed({item_code}, sr["receipts"]).get(item_code))
     waiting = [m["pr"] for m in mine if m["source"] not in ("bills", "rate")]
-    return {"item_code": item_code, "receipts": mine, "landed_unit": landed,
+    # the PR sheets' weighted verified cost, if the team already verified this
+    # item during a bulk pass — prefills the SKU page input
+    sheets = _sheets_bulk()
+    q_tot = val = 0.0
+    for m in mine:
+        v = flt(((sheets.get(m["pr"]) or {}).get("costs") or {}).get(item_code))
+        if v > 0 and m["qty"] > 0:
+            q_tot += m["qty"]
+            val += m["qty"] * v
+    sheet_cost = round(val / q_tot, 2) if q_tot > 0 else None
+    return {"item_code": item_code, "receipts": mine, "sheet_cost": sheet_cost,
+            "landed_unit": landed,
             "waiting": waiting, "complete": not waiting and bool(mine),
             "no_receipts": not mine, "frozen": bool(sr["frozen"]), "year": sr["year"]}
 
@@ -410,57 +422,81 @@ def apply_item(item_code=None, rate=None, note=None, year=None):
              f"({len(d['receipts'])} shipment(s))")
 
 
-def _verified_item_costs():
-    """{item: qty-weighted verified product cost} across ALL saved sheets —
-    the bridge from shipment-level review to item-level application."""
+
+
+def _batch_readiness(year=None):
+    """Shared by apply_batch + readiness: every item seen in any sheet, split
+    into ready (ALL its shipments freight-costed + verified in all their
+    sheets → full = weighted product + live landed) vs waiting — the SAME
+    completeness rule as the per-shipment and per-item submits."""
+    from accounting_portal.api.landed_prep import shipment_review
+    sr = shipment_review(year=year)
+    all_prs = [r["name"] for r in sr["receipts"]]
+    costed = {r["name"] for r in sr["receipts"] if r["source"] in ("bills", "rate")}
     sheets = _sheets_bulk()
-    if not sheets:
-        return {}
-    lines = _pr_lines(list(sheets))
-    agg = {}
-    for pr, sheet in sheets.items():
-        costs = (sheet or {}).get("costs") or {}
-        for l in lines.get(pr) or []:
-            v = flt(costs.get(l.ic))
-            q = flt(l.qty)
-            if v > 0 and q > 0:
-                a = agg.setdefault(l.ic, [0.0, 0.0])
-                a[0] += q
-                a[1] += q * v
-    return {ic: round(val / q, 2) for ic, (q, val) in agg.items() if q > 0}
+    lines_all = _pr_lines(all_prs)
+    item_prs = {}
+    for prn, lns in lines_all.items():
+        for l in lns:
+            item_prs.setdefault(l.ic, set()).add(prn)
+    candidates = set()
+    for prn, sheet in sheets.items():
+        for ic, v in ((sheet or {}).get("costs") or {}).items():
+            if flt(v) > 0 and ic in item_prs:
+                candidates.add(ic)
+    live = _live_landed(candidates, sr["receipts"])
+    ready, waiting = {}, {"freight": 0, "verify": 0}
+    for ic in candidates:
+        prs_i = item_prs.get(ic, set())
+        if any(p not in costed for p in prs_i):
+            waiting["freight"] += 1
+            continue
+        if any(flt(((sheets.get(p) or {}).get("costs") or {}).get(ic)) <= 0 for p in prs_i):
+            waiting["verify"] += 1
+            continue
+        q_tot = val = 0.0
+        for prn in prs_i:
+            v = flt(((sheets.get(prn) or {}).get("costs") or {}).get(ic))
+            for l in lines_all.get(prn) or []:
+                if l.ic == ic and flt(l.qty) > 0:
+                    q_tot += flt(l.qty)
+                    val += flt(l.qty) * v
+        if q_tot <= 0:
+            continue
+        product = round(val / q_tot, 2)
+        landed = flt(live.get(ic))
+        ready[ic] = {"product": product, "landed": landed,
+                     "full": round(product + landed, 2)}
+    return ready, waiting, len(candidates)
 
 
 @frappe.whitelist()
 def apply_batch(company=None, limit=20, dry_run=1):
-    """The final Apply, in waves: for each item with a verified sheet cost and
-    no current fix, drive the existing gated/reversible fix_item_cost at
-    (weighted verified product cost + frozen landed). dry_run=1 previews the
-    next wave; every posted item is individually undoable in Activity."""
+    """Apply in waves — same completeness rule as the per-shipment submit
+    (NO frozen-basis requirement): an item posts only when every one of its
+    shipments is freight-costed and verified. Each post is undoable."""
     assert_can_write()
-    from accounting_portal.api.landed_prep import get_basis
-    frozen = bool(get_basis())
     limit = min(int(limit or 20), 100)
-    weighted = _verified_item_costs()
+    ready, waiting, n_cand = _batch_readiness()
     fixed = _fixed_map()
-    todo = sorted([ic for ic in weighted if ic not in fixed])[:limit]
+    todo = sorted([ic for ic in ready if ic not in fixed])[:limit]
+    n_ready_total = len([ic for ic in ready if ic not in fixed])
     if str(dry_run) in ("1", "true", "True"):
-        # preview works WITHOUT the frozen basis — only the real run is gated
-        return {"dry_run": True, "frozen": frozen,
-                "next_wave": [{"item_code": ic, "rate": weighted[ic]} for ic in todo],
-                "remaining": max(len([i for i in weighted if i not in fixed]) - len(todo), 0)}
-    if not frozen:
-        frappe.throw("Landed basis is not frozen — finish the freight side (unallocated = 0) "
-                     "and freeze before applying")
+        return {"dry_run": True, "waiting": waiting,
+                "next_wave": [{"item_code": ic, "rate": ready[ic]["full"]} for ic in todo],
+                "remaining": max(n_ready_total - len(todo), 0)}
     from accounting_portal.api.valuation import fix_item_cost
     done, skipped = [], []
     for ic in todo:
+        r = ready[ic]
         try:
-            res = fix_item_cost(company=SALES, item_code=ic, rate=weighted[ic],
-                                note=f"Shipment costing sheet — qty-weighted verified cost {weighted[ic]}")
-            done.append({"item_code": ic, "rate": weighted[ic],
+            res = fix_item_cost(
+                company=SALES, item_code=ic, rate=r["full"], full_rate=1,
+                note=f"Batch apply — product {r['product']} + landed {r['landed']} = {r['full']}")
+            done.append({"item_code": ic, "rate": r["full"],
                          "voucher": (res or {}).get("voucher_no")})
         except Exception as e:
             skipped.append({"item_code": ic, "reason": str(e)[:140]})
             continue
     return {"dry_run": False, "posted": done, "skipped": skipped,
-            "remaining": max(len([i for i in weighted if i not in fixed]) - len(todo), 0)}
+            "remaining": max(n_ready_total - len(todo), 0)}

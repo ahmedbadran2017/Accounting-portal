@@ -73,8 +73,8 @@
         <span class="text-[12px] font-bold text-accent-dark ms-2">→</span>
       </router-link>
       <div v-if="readyPrs.length" class="bg-white border rounded-[14px] shadow-card px-4 py-3" style="border-color:#a7f3d0">
-        <div class="text-[12px] font-bold mb-1.5">🧾 {{ L("Shipments ready to verify","شحنات جاهزة للتحقق","Expéditions à vérifier") }} ({{ readyPrs.length }})
-          <span class="text-[10.5px] text-ink-muted font-normal ms-1">{{ L("freight assembled — verify the product lines","الشحن اتجمّع — اتحققوا من سطور البضاعة","fret assemblé") }}</span>
+        <div class="text-[12px] font-bold mb-1.5">🧾 {{ L("Shipment files — bulk verification","ملفات الشحنات — تحقق مجمّع","Dossiers d'expédition") }} ({{ readyPrs.length }})
+          <span class="text-[10.5px] text-ink-muted font-normal ms-1">{{ L("open a file to verify all its lines at once + confirm its freight","افتحوا الملف للتحقق من كل سطوره مرة واحدة + اعتماد شحنه","vérification groupée") }}</span>
         </div>
         <div class="flex gap-1.5 flex-wrap">
           <button v-for="r in readyPrs.slice(0, 12)" :key="r.name"
@@ -87,15 +87,12 @@
           <span v-if="readyPrs.length > 12" class="text-[10.5px] text-ink-muted self-center">+{{ readyPrs.length - 12 }}</span>
         </div>
       </div>
-      <LandedBasisCard @changed="loadTower(); loadTu();" />
-
       <!-- ③ the catalogue crawl -->
       <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-[13px] font-bold">③ {{ L("The catalogue crawl","زحفة التكلفة","La revue catalogue") }}</span>
           <span class="text-[11px] font-bold tnum">{{ fmtNum(tower.crawl.fixed) }} / {{ fmtNum(tower.crawl.total) }} {{ L("fixed","متظبط","corrigés") }}</span>
           <span class="text-[11px] text-ink-muted flex-1">{{ L("remaining distortion","التشوّه المتبقّي","distorsion restante") }}: <b class="tnum" style="color:#b91c1c">{{ fmtNum(tower.crawl.remaining_over) }}</b> MAD</span>
-          <span v-if="!tower.basis" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">🔒 {{ L("freeze the basis first (②)","جمّد الأساس الأول (②)","geler d'abord (②)") }}</span>
         </div>
         <div class="h-[7px] bg-app-warm rounded-full mt-2 overflow-hidden">
           <div class="h-full rounded-full" style="background:#047857"
@@ -185,6 +182,8 @@
         <div v-if="!ct.loading.value && !ct.rows.value.length && !ct.error.value" class="py-10 text-center text-[12px] text-ink-muted">{{ L("No items.","لا أصناف.","Aucun.") }}</div>
         <ServerPager :t="ct" />
       </div>
+
+      <LandedBasisCard @changed="loadTower(); loadTu();" />
 
       <!-- B6: Monthly COGS true-up -->
       <div v-if="tu" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="tu.basis_frozen ? 'border-color:#e7e5e4' : 'border-color:#fde68a'">
@@ -276,7 +275,7 @@
           </div>
         </div>
         <div class="text-[10.5px] text-ink-muted mt-2.5 pt-2.5 border-t border-line-hair">
-          ⓘ {{ L("Product cost only — inbound landed freight/customs is added on top separately (Landed Cockpit).","تكلفة المنتج فقط — الشحن/الجمارك الوارد يُضاف فوقها منفصلًا (Landed Cockpit).","Coût produit uniquement — le fret entrant s'ajoute séparément.") }}
+          ⓘ {{ L("Product cost only — the freight of this product is added on top in section ② below.","تكلفة المنتج فقط — شحن المنتج بيتضاف فوقها في سكشن ② تحت.","Coût produit uniquement — le fret est ajouté en ② ci-dessous.") }}
         </div>
       </div>
 
@@ -540,8 +539,9 @@ async function pick(itemCode) {
     trace.value = await api.call(`${M}.trace_item`, { item_code: itemCode });
     q.value = trace.value.sku || itemCode;
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: itemCode }, { fresh: true });
-    fixRate.value = fixPrev.value?.true_cost?.cost_mad ?? null;
     await loadItemLanded(itemCode);
+    // prefer the team's own bulk-sheet figure over the engine suggestion
+    fixRate.value = itemLanded.value?.sheet_cost ?? fixPrev.value?.true_cost?.cost_mad ?? null;
   } catch (e) {
     err.value = e.message || "Failed to load trace";
   } finally {
@@ -601,16 +601,17 @@ const steps = computed(() => {
   const t = tower.value;
   if (!t) return [];
   const s1 = t.guard.enabled ? "done" : "active";
-  const s2 = t.basis ? "done" : (t.guard.enabled ? "active" : "locked");
+  const fr = t.freight || { costed: 0, total: 0 };
+  const s2 = fr.total > 0 && fr.costed >= fr.total ? "done" : (t.guard.enabled ? "active" : "locked");
   const crawlDone = t.crawl.total > 0 && t.crawl.fixed >= t.crawl.total;
-  const s3 = !t.basis ? "locked" : (crawlDone ? "done" : "active");
+  const s3 = crawlDone ? "done" : "active";   // item fixes gate per-item, not on freeze
   const tuDone = t.trueup.closable_months > 0 && t.trueup.posted_months.length >= t.trueup.closable_months;
-  const s4 = !t.basis ? "locked" : (tuDone ? "done" : (s3 === "active" || s3 === "done" ? "active" : "locked"));
+  const s4 = !t.basis ? "locked" : (tuDone ? "done" : "active");
   const s5 = t.close2025.done ? "done" : (s4 === "done" ? "active" : "locked");
   return [
     { label: L("Secure the source", "أمّن المنبع", "Source"), state: s1 },
-    { label: L("Freeze landed basis", "جمّد الأساس", "Base landed"), state: s2 },
-    { label: L("Catalogue crawl", "زحفة التكلفة", "Revue"), state: s3 },
+    { label: L("Freight per shipment", "شحن الشحنات", "Fret/expédition") + ` ${fr.costed}/${fr.total}`, state: s2 },
+    { label: L("Verify & apply costs", "تحقق وتطبيق التكاليف", "Vérifier & appliquer"), state: s3 },
     { label: L("Monthly true-ups", "التسوية الرجعية", "Régularisations"), state: s4 },
     { label: L("Closings", "الإقفالات", "Clôtures"), state: s5 },
   ];
@@ -619,8 +620,10 @@ const nextHint = computed(() => {
   const t = tower.value;
   if (!t) return "";
   if (!t.guard.enabled) return L("Next: turn the FX guard ON (Super Admin).", "التالي: شغّل حارس الصرف (Super Admin).", "Activer la garde FX.");
-  if (!t.basis) return L("Next (②): enter ALL freight bills, allocate each to its shipment(s) until unallocated = 0, then freeze the basis.", "التالي (②): دخّلوا كل فواتير الشحن ووزّعوا كل فاتورة على شحناتها لحد ما «غير موزَّع» = صفر، وبعدها جمّدوا الأساس.", "Saisir et allouer toutes les factures, puis geler (②).");
-  if (t.crawl.fixed < t.crawl.total) return L(`Next: keep crawling the catalogue (③) — ${fmtNum(t.crawl.total - t.crawl.fixed)} products left, ${fmtNum(t.crawl.remaining_over)} MAD distortion remaining.`, `التالي: كمّلوا الزحفة (③) — فاضل ${fmtNum(t.crawl.total - t.crawl.fixed)} منتج و${fmtNum(t.crawl.remaining_over)} درهم تشوّه.`, "Continuer la revue (③).");
+  const fr = t.freight || { costed: 0, total: 0 };
+  if (fr.total > 0 && fr.costed < fr.total) return L(`Next (②): cost the freight of ${fr.total - fr.costed} shipment(s) — confirm air rates / attach sea bills (Purchases → Shipments or the product page).`, `التالي (②): كمّلوا شحن ${fr.total - fr.costed} شحنة — اعتماد سعر الجوي / إرفاق فواتير البحري (المشتريات → الشحنات أو صفحة المنتج).`, "Coster le fret des expéditions (②).");
+  if (t.crawl.fixed < t.crawl.total) return L(`Next (③): verify & apply — ${fmtNum(t.crawl.total - t.crawl.fixed)} products left (${fmtNum(t.crawl.remaining_over)} MAD distortion) — product page or shipment files.`, `التالي (③): تحقق وتطبيق — فاضل ${fmtNum(t.crawl.total - t.crawl.fixed)} منتج (${fmtNum(t.crawl.remaining_over)} درهم تشوّه) — من صفحة المنتج أو ملفات الشحنات.`, "Vérifier & appliquer (③).");
+  if (!t.basis) return L("Next (④): freeze the landed basis (card below) to unlock the monthly true-ups.", "التالي (④): جمّدوا أساس الشحن (الكارت تحت) لفتح تسويات الشهور.", "Geler la base pour les régularisations (④).");
   if (t.trueup.posted_months.length < t.trueup.closable_months) return L("Next: post the monthly true-ups (④).", "التالي: رحّلوا تسويات الشهور (④).", "Poster les régularisations (④).");
   if (!t.close2025.done) return L("Next: settle the 3 open decisions and execute the 2025 close (⑤).", "التالي: احسموا القرارات الثلاثة ونفّذوا قفل 2025 (⑤).", "Clôturer 2025 (⑤).");
   return L("All steps complete — costs are clean and protected. 🎉", "كل الخطوات خلصت — التكاليف نضيفة ومحمية. 🎉", "Terminé. 🎉");
