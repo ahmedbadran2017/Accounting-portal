@@ -381,13 +381,14 @@
                 <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">Δ MAD</th>
               </tr></thead>
               <tbody>
-                <tr v-for="b in fixPrev.bins" :key="b.warehouse" class="border-t border-line-hair first:border-0" :style="(b.reserved || b.disabled) ? 'opacity:.55' : ''">
+                <tr v-for="b in fixPrev.bins" :key="b.warehouse" class="border-t border-line-hair first:border-0" :style="b.disabled ? 'opacity:.55' : ''">
                   <td class="px-3 py-1.5 truncate max-w-[180px]">{{ b.warehouse }}
-                    <span v-if="b.reserved" class="ms-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ b.reserved }} {{ L("reserved — skipped","محجوز — هيتعدّى","réservé") }}</span>
+                    <span v-if="b.cycle" class="ms-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#eef2ff;color:#4338ca"
+                          :title="L('The reservation is released, the fix posts, then it re-reserves automatically — one atomic operation.','الحجز بيتفك، الفيكس بيترحّل، والحجز بيرجع تلقائيًا — عملية واحدة.','Réservation recyclée automatiquement.')">🔓 {{ b.reserved }} {{ L("reserved — auto-cycled","محجوز — هيتفك ويرجع","recyclé") }}</span>
                     <span v-else-if="b.disabled" class="ms-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f5f4;color:#78716c">{{ L("disabled wh — skipped","مخزن موقوف — هيتعدّى","désactivé") }}</span>
                   </td>
                   <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ fmtNum(b.qty) }}</td>
-                  <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(b.old_rate, 1) }} → <b>{{ (b.reserved || b.disabled) ? fmtNum(b.old_rate, 1) : fmtNum(appliedRate || b.new_rate, 1) }}</b></td>
+                  <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(b.old_rate, 1) }} → <b>{{ b.disabled ? fmtNum(b.old_rate, 1) : fmtNum(appliedRate || b.new_rate, 1) }}</b></td>
                   <td class="px-3 py-1.5 text-end tnum font-semibold" :style="{ color: (b.delta || 0) < 0 ? '#b91c1c' : '#047857' }">{{ b.delta != null ? fmtNum(b.delta) : "—" }}</td>
                 </tr>
               </tbody>
@@ -395,9 +396,9 @@
           </div>
           <div class="text-[11px] text-ink-3">{{ L("Net inventory change","صافي تغيير المخزون","Δ stock") }}: <b class="tnum" :style="{ color: fixPrev.net_change < 0 ? '#b91c1c' : '#047857' }">{{ fmtNum(fixPrev.net_change) }}</b> MAD</div>
           <div v-if="fixPrev.skipped_reserved" class="text-[11px] text-amber-700">
-            ⚠ {{ L(`${fixPrev.skipped_reserved} bin(s) blocked (reserved / disabled) — skipped; re-run after the reservation ships.`,
-                   `${fixPrev.skipped_reserved} مخزن متعطّل (حجز / موقوف) — هيتعدّى؛ أعيدوا الفيكس بعد فكّ الحجز.`,
-                   `${fixPrev.skipped_reserved} emplacement(s) ignoré(s).`) }}
+            ⚠ {{ L(`${fixPrev.skipped_reserved} bin(s) in a DISABLED warehouse — skipped; re-enable the warehouse then re-run.`,
+                   `${fixPrev.skipped_reserved} مخزن موقوف — هيتعدّى؛ فعّلوا المخزن وأعيدوا الفيكس.`,
+                   `${fixPrev.skipped_reserved} entrepôt(s) désactivé(s).`) }}
           </div>
         </div>
       </div>
