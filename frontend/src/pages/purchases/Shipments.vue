@@ -41,6 +41,10 @@
             <div v-for="b in shownBills" :key="b.voucher" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 hover:bg-app-warm">
               <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
               <span class="text-[10px] text-ink-muted">{{ b.dt }}</span>
+              <span v-if="b.ref_match" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style="background:#ecfdf5;color:#047857"
+                    :title="L('The bill mentions this shipment in its reference/remarks','الفاتورة ذاكرة الشحنة دي في مرجعها/بيانها','La facture référence cette expédition')">⭐ {{ L("ref match","مرجع مطابق","réf.") }}</span>
+              <span v-else-if="b.days < 999" class="text-[10px] text-ink-3 tnum whitespace-nowrap" dir="ltr"
+                    :title="L('days between bill and receipt dates','فرق الأيام بين تاريخ الفاتورة والاستلام','écart en jours')">±{{ b.days }}{{ L("d","ي","j") }}</span>
               <span class="truncate flex-1 text-[11px]">{{ b.supplier || b.account }}</span>
               <span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
               <span v-if="b.n_prs" class="text-[10px] text-ink-muted">{{ L("covers","بتغطي","couvre") }} {{ b.n_prs }}</span>

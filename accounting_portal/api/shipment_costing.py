@@ -181,11 +181,23 @@ def get_sheet(pr=None, year=None):
             "other_prs": others,
             "wait_freight": wait_freight, "wait_verify": wait_verify,
         })
-    # bill picker: every live bill, flagged whether it's attached to THIS pr
-    picker = [{"voucher": b["voucher"], "dt": b["dt"], "supplier": b["supplier"],
-               "account": b["account"], "amount": b["amount"], "n_prs": len(b["prs"]),
-               "attached": pr in b["prs"]}
-              for b in sr["bills"] if not b["excluded"]]
+    # bill picker with MATCHING SIGNALS: bills near-identical in label need
+    # help — (a) a shipment ref written in the bill's bill_no/remarks is an
+    # exact match ⭐; (b) date proximity ranks the rest (a container's bills
+    # arrive around its receipt date)
+    from frappe.utils import date_diff
+    pr_tail = pr.split("-")[-2] + "-" + pr.split("-")[-1] if pr.endswith("-1") else pr.split("-")[-1]
+    picker = []
+    for b in sr["bills"]:
+        if b["excluded"]:
+            continue
+        ref = (b.get("ref_text") or "")
+        ref_match = bool(pr in ref or (len(pr_tail) >= 4 and pr_tail in ref))
+        days = abs(date_diff(b["dt"], head["dt"])) if b["dt"] else 999
+        picker.append({"voucher": b["voucher"], "dt": b["dt"], "supplier": b["supplier"],
+                       "account": b["account"], "amount": b["amount"], "n_prs": len(b["prs"]),
+                       "attached": pr in b["prs"], "ref_match": ref_match, "days": days})
+    picker.sort(key=lambda x: (not x["attached"], not x["ref_match"], x["days"]))
     return {"pr": pr, "dt": head["dt"], "supplier": head["supplier"],
             "channel": head["channel"], "kg": kg, "qty": head["qty"],
             "freight": {"source": head["source"], "landed": head["landed"],

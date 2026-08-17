@@ -349,13 +349,17 @@ def _bill_rows(target, year, pool=None):
            HAVING ABS(SUM(g.debit-g.credit))>1
            ORDER BY MIN(g.posting_date)""", (target, _year(year), accounts), as_dict=True)
     pis = [r.voucher for r in rows if r.vt == "Purchase Invoice"]
-    sup = {}
+    sup, meta = {}, {}
     if pis:
-        sup = dict(frappe.db.sql(
-            "SELECT name, supplier FROM `tabPurchase Invoice` WHERE name IN %s", (tuple(pis),)))
+        for n, su, bno, rem in frappe.db.sql(
+                "SELECT name, supplier, bill_no, remarks FROM `tabPurchase Invoice` WHERE name IN %s",
+                (tuple(pis),)):
+            sup[n] = su
+            meta[n] = f"{bno or ''} {rem or ''}".strip()
     excl = _excluded_bills(year)
     for r in rows:
         r["supplier"] = sup.get(r.voucher) or ""
+        r["ref_text"] = meta.get(r.voucher) or ""
         r["dt"] = str(r.dt or "")
         r["excluded"] = r.voucher in excl
     return rows
