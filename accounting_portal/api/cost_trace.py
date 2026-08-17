@@ -823,7 +823,7 @@ def apply_local_batch(limit=25, dry_run=1, retro=0):
         try:
             res = fix_item_cost(
                 company=SALES, item_code=r["item_code"], rate=r["rate"], full_rate=1,
-                retro=retro,
+                retro=retro, retro_product=r["rate"],
                 note=(f"Local bulk — supplier invoice {r['rate']} MAD/unit "
                       f"(basis {round(r['basis_qty'])}u), landed 0 (domestic)"))
             # approval gate can return a PROPOSED (unposted) action — never

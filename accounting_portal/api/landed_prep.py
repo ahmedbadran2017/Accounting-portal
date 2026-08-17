@@ -764,6 +764,77 @@ def _hist_sea_rate():
         return 23.6
 
 
+def _hist_real_spend():
+    """The REAL pre-2026 freight spend per channel, in MAD — anchored on the
+    actual Danish per-kg bills (sea 81,825 kg @ 23.6; air 13,395 kg @ bands).
+    Config `ap_hist_real_spend` so it can be corrected without a deploy.
+    Empty dict → calibration off (tariff × book weight as-is)."""
+    try:
+        v = frappe.parse_json(frappe.db.get_default("ap_hist_real_spend") or "{}") or {}
+        return {k: flt(x) for k, x in v.items() if flt(x) > 0}
+    except Exception:
+        return {}
+
+
+def _hist_scales(before_year):
+    """Per-channel calibration for the historical layer, cached 10 min:
+      {channel: {"scale", "avg_w"}}
+    THE WEIGHTS DOCTRINE (same as the 2026 bill mechanism): the bills' money is
+    the absolute truth; book weights are only the RELATIVE split key. Book
+    weights understate the billed kg badly (zero/careless entries + net-vs-
+    volumetric billing — air is ×4.5 off), so tariff × book weight recovers
+    barely half the real spend. scale = real channel spend ÷ implied channel
+    spend, computed over the WHOLE pre-year population; avg_w backfills
+    zero-weight lines so nothing rides free. Self-correcting: as item weights
+    get fixed, implied rises and the scale shrinks toward 1."""
+    ck = f"ap_hist_scales:{before_year}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
+    real = _hist_real_spend()
+    rows = frappe.db.sql(
+        """SELECT pr.name pr, pr.posting_date dt, YEAR(pr.posting_date) y,
+                  pri.qty, IFNULL(i.weight_per_unit,0) w
+           FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           JOIN `tabItem` i ON i.name=pri.item_code
+           LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
+           WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date) < %s
+             AND IFNULL(s.supplier_group,'') NOT IN %s""",
+        (SALES, before_year, _DOMESTIC_GROUPS), as_dict=True)
+    years = {int(r.y) for r in rows}
+    chan_by_year = {y: _channels(y) for y in years}
+    bands_by_year = {y: get_air_rates(y) for y in years}
+    sea_rate = _hist_sea_rate()
+    st = {}
+    for r in rows:
+        q = flt(r.qty)
+        if q <= 0:
+            continue
+        ch = (chan_by_year.get(int(r.y)) or {}).get(r.pr) or "air"
+        d = st.setdefault(ch, {"kg": 0.0, "units_w": 0.0, "units_0": 0.0, "implied": 0.0})
+        rate = sea_rate if ch == "sea" else (_air_rate_at(bands_by_year.get(int(r.y)) or [], str(r.dt)) or 100)
+        if flt(r.w) > 0:
+            d["kg"] += q * flt(r.w)
+            d["units_w"] += q
+            d["implied"] += q * flt(r.w) * rate
+        else:
+            d["units_0"] += q
+    out = {}
+    for ch, d in st.items():
+        avg_w = d["kg"] / d["units_w"] if d["units_w"] > 0 else 0.0
+        # zero-weight units enter the implied pot at the channel average weight
+        # (their per-line rate ≈ channel mean, close enough for the pot)
+        implied = d["implied"] * (1 + (d["units_0"] * avg_w) / d["kg"] if d["kg"] > 0 else 1)
+        scale = (real[ch] / implied) if (real.get(ch) and implied > 0) else 1.0
+        out[ch] = {"scale": round(scale, 4), "avg_w": round(avg_w, 4)}
+    try:
+        frappe.cache().set_value(ck, out, expires_in_sec=600)
+    except Exception:
+        pass
+    return out
+
+
 def _hist_landed_units(item_codes, before_year=None):
     """Historical landed layer: {item: {"qty", "value", "n_prs", "channels"}}
     from import receipts BEFORE the working year. History was per-kg BY
@@ -795,6 +866,7 @@ def _hist_landed_units(item_codes, before_year=None):
     bands_by_year = {y: get_air_rates(y) for y in years}
     sea_rate = _hist_sea_rate()
     out = {}
+    scales = _hist_scales(by)
     for r in rows:
         q = flt(r.qty)
         if q <= 0:
@@ -802,14 +874,59 @@ def _hist_landed_units(item_codes, before_year=None):
         y = int(r.y)
         ch = (chan_by_year.get(y) or {}).get(r.pr) or "air"
         rate = sea_rate if ch == "sea" else (_air_rate_at(bands_by_year.get(y) or [], str(r.dt)) or 100)
+        sc = scales.get(ch) or {}
+        # calibrated: real bill money is the truth, book weight only the split
+        # key; zero-weight lines carry the channel's average weight
+        eff_w = flt(r.w) or flt(sc.get("avg_w"))
         d = out.setdefault(r.ic, {"qty": 0.0, "value": 0.0, "n_prs": set(), "channels": set()})
         d["qty"] += q
-        d["value"] += q * flt(r.w) * rate
+        d["value"] += q * eff_w * rate * (flt(sc.get("scale")) or 1.0)
         d["n_prs"].add(r.pr)
         d["channels"].add(ch)
     for ic, d in out.items():
         d["n_prs"] = len(d["n_prs"])
         d["channels"] = sorted(d["channels"])
+    return out
+
+
+def _hist_events(item_codes, before_year=None):
+    """Per-RECEIPT historical events for the retro schedule:
+    {item: [{"pr","dt","qty","landed_u"}]} — same calibrated math as
+    _hist_landed_units, kept per receipt so each shipment prices ITS era."""
+    by = _year(before_year)
+    if not item_codes:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT pri.item_code ic, pr.name pr, pr.posting_date dt,
+                  YEAR(pr.posting_date) y, pri.qty, IFNULL(i.weight_per_unit,0) w
+           FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           JOIN `tabItem` i ON i.name=pri.item_code
+           LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
+           WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date) < %s
+             AND pri.item_code IN %s
+             AND IFNULL(s.supplier_group,'') NOT IN %s
+           ORDER BY pr.posting_date""",
+        (SALES, by, tuple(item_codes), _DOMESTIC_GROUPS), as_dict=True)
+    if not rows:
+        return {}
+    years = {int(r.y) for r in rows}
+    chan_by_year = {y: _channels(y) for y in years}
+    bands_by_year = {y: get_air_rates(y) for y in years}
+    sea_rate = _hist_sea_rate()
+    scales = _hist_scales(by)
+    out = {}
+    for r in rows:
+        q = flt(r.qty)
+        if q <= 0:
+            continue
+        ch = (chan_by_year.get(int(r.y)) or {}).get(r.pr) or "air"
+        rate = sea_rate if ch == "sea" else (_air_rate_at(bands_by_year.get(int(r.y)) or [], str(r.dt)) or 100)
+        sc = scales.get(ch) or {}
+        eff_w = flt(r.w) or flt(sc.get("avg_w"))
+        out.setdefault(r.ic, []).append({
+            "pr": r.pr, "dt": str(r.dt), "qty": q,
+            "landed_u": round(eff_w * rate * (flt(sc.get("scale")) or 1.0), 2)})
     return out
 
 

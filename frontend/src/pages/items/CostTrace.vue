@@ -353,7 +353,7 @@
             <span class="tnum">{{ itemLanded.historical.n_prs }} {{ L("receipt(s)","استلام","réc.") }} · {{ fmtNum(itemLanded.historical.qty) }} {{ L("pcs","قطعة","pcs") }}</span>
             <span>{{ itemLanded.historical.channels.includes("sea") ? "🚢" : "" }}{{ itemLanded.historical.channels.includes("air") ? "🛫" : "" }}</span>
             <span class="tnum font-semibold flex-1 text-end" dir="ltr">{{ fmtNum(itemLanded.historical.unit, 2) }} / {{ L("unit","وحدة","u") }}</span>
-            <span class="text-[10px] text-ink-muted">{{ L("contract tariff (100/110/126 air · 23.6 sea) × receipt date","تعريفة العقد (جوي 100/110/126 · بحري 23.6) بتاريخ الاستلام","tarif contractuel") }}</span>
+            <span class="text-[10px] text-ink-muted">{{ L("contract tariff × receipt date, calibrated to the ACTUAL 2025 bills (book weights = split key only)","تعريفة العقد بتاريخ الاستلام، مُعايَرة على فواتير 2025 الفعلية (الأوزان الدفترية مفتاح توزيع بس)","tarif contractuel calibré sur les factures réelles 2025") }}</span>
           </div>
           <div v-if="itemLanded.local" class="rounded-[8px] px-3 py-2 text-[11.5px]" style="background:#fff7ed;border:1px solid #fed7aa">
             🏠 <b style="color:#c2410c">{{ L("Local product","منتج محلي","Produit local") }}</b> —

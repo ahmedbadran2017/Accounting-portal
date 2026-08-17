@@ -400,6 +400,7 @@ def apply_shipment(pr=None, year=None, dry_run=1, retro=0):
         try:
             res = fix_item_cost(
                 company=SALES, item_code=ic, rate=full, full_rate=1, retro=retro,
+                retro_product=product, retro_year=year,
                 note=f"Shipment submit {pr} — product {product} + landed {landed} = {full} "
                      f"(weighted across {len(item_prs.get(ic, ()))} shipment(s))")
             # the approval gate can return a PROPOSED (unposted) action —
@@ -573,11 +574,83 @@ def apply_item(item_code=None, rate=None, note=None, year=None, retro=0):
     from accounting_portal.api.valuation import fix_item_cost
     return fix_item_cost(
         company=SALES, item_code=item_code, rate=full, full_rate=1, retro=retro,
+        retro_product=product, retro_year=year,
         note=((note or "").strip() or f"SKU verify — {item_code}")
              + f" · product {product} + landed {landed} = {full} "
              f"({len(d['receipts'])} shipment(s))")
 
 
+
+
+def retro_schedule(item_code, product, year=None):
+    """Time-phased retro plan for ONE item: [{"date", "rate"}], oldest first.
+
+    Each shipment prices ITS OWN era (the user's doctrine): sales between two
+    shipments carry the cost that stock actually had then — sea-era sales at
+    sea landed, air-era at air. Events:
+      • opening event at the policy floor (2026-01-01): pre-2026 receipts
+        blended, EACH at its own calibrated landed (channel tariff × weight ×
+        bill-anchored scale)
+      • one event per COSTED 2026 import receipt, at its posting date, at its
+        own actual landed share
+    The pin rate after each event is the simulated moving average, seeded with
+    the ledger's real on-hand before the event. Returns [] when the item has
+    no import events (locals) — caller falls back to the uniform anchor."""
+    from accounting_portal.api.landed_prep import shipment_review, _hist_events
+    FLOOR = "2026-01-01"
+    product = flt(product)
+    if product <= 0:
+        return []
+    events = []
+    hist = (_hist_events([item_code]) or {}).get(item_code) or []
+    if hist:
+        q = sum(e["qty"] for e in hist)
+        v = sum(e["qty"] * (product + e["landed_u"]) for e in hist)
+        if q > 0:
+            events.append({"date": FLOOR, "qty": q, "cost": round(v / q, 2)})
+    sr = shipment_review(year=year)
+    costed = {r["name"]: r for r in sr["receipts"] if r["source"] in ("bills", "rate")}
+    if costed:
+        lines = _pr_lines(list(costed))
+        for prn, lns in lines.items():
+            pc = costed[prn]
+            kg, qty, qty0 = flt(pc["kg"]), flt(pc["qty"]), flt(pc.get("qty0") or 0)
+            bill_kg = flt(pc.get("bill_kg") or 0)
+            avg_w = 0.0
+            if qty0 > 0 and qty > 0:
+                best_kg = bill_kg or kg
+                avg_w = best_kg / qty if best_kg > 0 else 0.0
+            eff_total = kg + qty0 * avg_w
+            for l in lns:
+                if l.ic != item_code or flt(l.qty) <= 0:
+                    continue
+                eff_w = flt(l.w) or avg_w
+                landed_u = flt(pc["landed"]) * eff_w / eff_total if eff_total > 0 else 0.0
+                dt = str(pc.get("dt") or "")[:10]
+                if dt and dt >= FLOOR:
+                    events.append({"date": dt, "qty": flt(l.qty),
+                                   "cost": round(product + landed_u, 2)})
+    if not events:
+        return []
+    events.sort(key=lambda e: e["date"])
+    pins, avg = [], None
+    for e in events:
+        if avg is None:
+            avg = e["cost"]
+        else:
+            onhand = max(flt(frappe.db.sql(
+                """SELECT SUM(actual_qty) FROM `tabStock Ledger Entry`
+                   WHERE company=%s AND item_code=%s AND is_cancelled=0
+                     AND posting_date < %s""", (SALES, item_code, e["date"]))[0][0]), 0)
+            if onhand <= 0:
+                avg = e["cost"]   # stock ran dry — the new receipt IS the average
+            else:
+                avg = (onhand * avg + e["qty"] * e["cost"]) / (onhand + e["qty"])
+        if pins and pins[-1]["date"] == e["date"]:
+            pins[-1]["rate"] = round(avg, 2)   # same-day events collapse
+        else:
+            pins.append({"date": e["date"], "rate": round(avg, 2)})
+    return pins
 
 
 def _batch_readiness(year=None):
@@ -651,6 +724,7 @@ def apply_batch(company=None, limit=20, dry_run=1, year=None, retro=0):
         try:
             res = fix_item_cost(
                 company=SALES, item_code=ic, rate=r["full"], full_rate=1, retro=retro,
+                retro_product=r["product"], retro_year=year,
                 note=f"Batch apply — product {r['product']} + landed {r['landed']} = {r['full']}")
             if isinstance(res, dict) and res.get("status") and res["status"] != "Posted":
                 proposed.append({"item_code": ic, "rate": r["full"], "status": res["status"]})

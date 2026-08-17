@@ -418,10 +418,21 @@ def _revalue_poster(action):
         posted_pins = []
         # re-resolve the PIN PLAN too (same doctrine as the rows above): a
         # Failed action retried later must pin pollution that arrived since
-        # the plan was captured, not replay the stale list
-        if p.get("retro_pins"):
-            p["retro_pins"] = _retro_pins(
-                company, items[0]["item_code"], date, flt(items[0]["valuation_rate"]))
+        # the plan was captured, not replay the stale list. Schedule mode
+        # (retro_sched) rebuilds the whole time-phased plan.
+        if p.get("retro_pins") or p.get("retro_sched"):
+            rs = p.get("retro_sched") or {}
+            sched = []
+            if flt(rs.get("product")) > 0:
+                from accounting_portal.api.shipment_costing import retro_schedule
+                try:
+                    sched = retro_schedule(items[0]["item_code"], flt(rs["product"]),
+                                           year=rs.get("year"))
+                except Exception:
+                    sched = []
+            final_rate = flt(sched[-1]["rate"]) if sched else flt(items[0]["valuation_rate"])
+            p["retro_pins"] = _pins_from_sched(
+                company, items[0]["item_code"], date, final_rate, sched)
         for pin in (p.get("retro_pins") or []):
             pin_items = []
             for wh in pin["whs"]:
@@ -429,7 +440,9 @@ def _revalue_poster(action):
                 if q_pin <= 0 or frappe.db.get_value("Warehouse", wh, "disabled"):
                     continue
                 pin_items.append({"item_code": items[0]["item_code"], "warehouse": wh,
-                                  "qty": q_pin, "valuation_rate": flt(items[0]["valuation_rate"])})
+                                  "qty": q_pin,
+                                  "valuation_rate": flt(pin.get("rate")
+                                                        or items[0]["valuation_rate"])})
             if not pin_items:
                 continue
             pd_doc = frappe.get_doc({
@@ -663,6 +676,35 @@ def item_fix_preview(company=None, item_code=None):
             "fixed": _fixed_action(item_code)}
 
 
+def _holding_whs(target, item_code, date):
+    """Enabled warehouses that held this item at the END of `date`."""
+    whs = [w[0] for w in frappe.db.sql(
+        """SELECT DISTINCT sle.warehouse FROM `tabStock Ledger Entry` sle
+           JOIN `tabWarehouse` w ON w.name=sle.warehouse
+           WHERE sle.company=%s AND sle.item_code=%s AND sle.is_cancelled=0
+             AND sle.posting_date <= %s AND IFNULL(w.disabled,0)=0""",
+        (target, item_code, date))]
+    return [wh for wh in whs if _qty_asof(item_code, wh, date) > 0]
+
+
+def _pins_from_sched(target, item_code, anchor, final_rate, sched):
+    """Merge the SCHEDULE pins (each era's simulated average at its receipt
+    date) with the POISON pins (deviant incomings, judged against their ERA's
+    rate). Schedule pins cover every holding warehouse; a poison date already
+    covered by a schedule pin is skipped."""
+    pins, seen = [], set()
+    for pnt in (sched[1:] if sched else []):
+        whs = _holding_whs(target, item_code, pnt["date"])
+        if whs:
+            pins.append({"date": pnt["date"], "whs": whs, "rate": pnt["rate"]})
+            seen.add(pnt["date"])
+    for pp in _retro_pins(target, item_code, anchor, final_rate, sched=sched):
+        if pp["date"] not in seen:
+            pins.append(pp)
+    pins.sort(key=lambda x: x["date"])
+    return pins
+
+
 def _state_asof(item_code, warehouse, date):
     """(qty, valuation_rate) at the END of `date` — the back-dated reco must
     carry that day's quantity, and the old rate prices the impact estimate."""
@@ -675,7 +717,7 @@ def _state_asof(item_code, warehouse, date):
     return (flt(r[0].q), flt(r[0].vr)) if r else (0.0, 0.0)
 
 
-def _retro_pins(target, item_code, anchor, rate, tolerance=0.02):
+def _retro_pins(target, item_code, anchor, rate, tolerance=0.02, sched=None):
     """The chain that makes retro actually stick (canary lesson): one anchor
     reco is NOT enough — every later wrong-rate incoming (manual receipt, FX
     receipt, sales return at an old rate) re-poisons the moving average. So the
@@ -689,11 +731,23 @@ def _retro_pins(target, item_code, anchor, rate, tolerance=0.02):
            WHERE sle.company=%s AND sle.item_code=%s AND sle.is_cancelled=0
              AND sle.actual_qty>0 AND sle.posting_date > %s
              AND IFNULL(w.disabled,0)=0""", (target, item_code, anchor), as_dict=True)
+    def rate_at(d):
+        # era rate: the last schedule point at/before this date (time-phased
+        # retro) — falls back to the single final rate (uniform retro)
+        era = rate
+        for pnt in (sched or []):
+            if pnt["date"] <= d:
+                era = flt(pnt["rate"])
+            else:
+                break
+        return era
     by_date = {}
     for x in rows:
-        if rate > 0 and abs(flt(x.r) - rate) / rate > tolerance:
+        era = rate_at(str(x.d))
+        if era > 0 and abs(flt(x.r) - era) / era > tolerance:
             by_date.setdefault(str(x.d), set()).add(x.wh)
-    return [{"date": d, "whs": sorted(by_date[d])} for d in sorted(by_date)]
+    return [{"date": d, "whs": sorted(by_date[d]), "rate": round(rate_at(d), 2)}
+            for d in sorted(by_date)]
 
 
 def _retro_anchor(target, item_code):
@@ -720,7 +774,8 @@ def _retro_anchor(target, item_code):
 
 
 @frappe.whitelist()
-def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=0, retro=0):
+def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=0,
+                  retro=0, retro_product=None, retro_year=None):
     """The reviewer's Fix button: revalue EVERY bin of this product in ONE
     today-dated Stock Reconciliation at the FULL rate = verified PRODUCT cost
     (`rate`, defaults to the evidence-based figure; overriding requires a note)
@@ -766,8 +821,24 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         landed = landed_unit(item_code)
         r = round(product + landed, 2)   # the FULL applied rate
     retro = str(retro) in ("1", "true", "True")
-    date = _retro_anchor(target, item_code) if retro else nowdate()
+    # time-phased schedule (each shipment prices its own era) — available when
+    # the caller supplies the PRODUCT split; empty for locals/no-import items
+    sched = []
+    if retro and flt(retro_product) > 0:
+        from accounting_portal.api.shipment_costing import retro_schedule
+        try:
+            sched = retro_schedule(item_code, flt(retro_product), year=retro_year)
+        except Exception:
+            sched = []
+    if sched:
+        date = max(sched[0]["date"], _POLICY_FLOOR)
+        r = flt(sched[-1]["rate"])   # final-era average = the ONE-TRUTH applied rate
+    else:
+        date = _retro_anchor(target, item_code) if retro else nowdate()
     retro = retro and date < nowdate()   # no history → degenerates to today mode
+    if not retro:
+        sched = []
+    anchor_rate = flt(sched[0]["rate"]) if sched else r
     reserved = _reserved_by_wh(item_code)
     rows, impact, skipped, release_whs, retro_pins = [], 0.0, [], [], []
     if retro:
@@ -789,11 +860,11 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
                 continue
             if flt(reserved.get(wh)):
                 release_whs.append(wh)
-            rows.append({"item_code": item_code, "warehouse": wh, "rate": r})
-            impact += abs((r - vr_then) * q_then)
+            rows.append({"item_code": item_code, "warehouse": wh, "rate": anchor_rate})
+            impact += abs((anchor_rate - vr_then) * q_then)
         if not rows:
             frappe.throw(f"No warehouse held this item on {date} — nothing to fix retroactively")
-        retro_pins = _retro_pins(target, item_code, date, r)
+        retro_pins = _pins_from_sched(target, item_code, date, r, sched)
         # pin warehouses that are reserved TODAY need the same release/re-reserve
         # cycle, or the pin reco trips ERPNext's reservation validation
         for pin in retro_pins:
@@ -838,12 +909,15 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         # the batch re-apply already-correct items forever
         payload={"date": date, "rows": rows, "release_whs": release_whs,
                  "basis_on": None if full_rate else (basis or {}).get("on"),
-                 "retro_pins": retro_pins if retro else []},
+                 "retro_pins": retro_pins if retro else [],
+                 "retro_sched": ({"product": flt(retro_product), "year": retro_year}
+                                 if (retro and sched) else None)},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
         notes=((note or f"Verified cost fix — {item_code}")
                + ("" if full_rate else f" · product {product} + landed {landed} = {r} ({tc.get('source')})")
-               + (f" · RETRO from {date} (reposts later SLEs)" if retro else "")
+               + ((f" · RETRO schedule from {date} ({len(sched)} era(s), final {r})" if sched
+                   else f" · RETRO from {date} (reposts later SLEs)") if retro else "")
                + (f" · skipped: {'; '.join(skipped)}" if skipped else "")))
     if isinstance(res, dict):
         res["skipped_reserved"] = skipped
