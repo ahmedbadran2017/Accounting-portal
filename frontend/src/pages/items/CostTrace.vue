@@ -715,6 +715,7 @@ async function applyFix() {
     if (res.status === "Posted") toast.success(fixRetro.value
       ? L("Cost fixed retroactively — old moves are reposting", "اتظبطت بأثر رجعي — الحركات القديمة بيعاد حسابها", "Corrigé rétroactivement")
       : L("Cost fixed — one today-dated entry posted", "اتظبطت — قيد واحد بتاريخ اليوم", "Corrigé"));
+    if (res.status === "Posted" && fixRetro.value) await drainReposts();
     else toast.info(res.status);
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: trace.value.item_code }, { fresh: true });
     ct.load();
@@ -743,6 +744,19 @@ const ct = useServerTable(
   { pageSize: 50 });
 ct.load();
 watch([srcFilter, supFilter, moFilter, fixFilter], () => { ct.page.value = 1; ct.load(); });
+// retro applies leave Repost jobs Queued (the known scheduler gotcha) — drain
+// them synchronously in short budgeted calls until the ledger has caught up
+async function drainReposts() {
+  for (let i = 0; i < 12; i++) {
+    try {
+      const r = await api.call(`${V}.drain_reposts`, { budget_s: 45 }, { fresh: true });
+      if (!r.remaining) return true;
+    } catch (e) { toast.error(e.message || "Repost drain failed"); return false; }
+  }
+  toast.info(L("Reposts still running — they'll finish in the background", "إعادة الحساب لسه شغالة — هتكمل في الخلفية", "Recalcul en cours"));
+  return false;
+}
+
 // ── Bulk local apply — preview (dry_run) → confirm → post in waves ──
 const lb = ref(null);
 const lbRetro = ref(true);
@@ -766,6 +780,7 @@ async function runLocalBulk() {
       for (const p of r.posted) { if (!lb.value.done[p.item_code]) lb.value.posted++; lb.value.done[p.item_code] = "ok"; }
       for (const s of r.skipped) { if (!lb.value.done[s.item_code]) lb.value.failed++; lb.value.done[s.item_code] = s.reason || "failed"; }
       lb.value.progress = lb.value.posted + lb.value.failed;
+      if (lbRetro.value) await drainReposts();   // keep GL in step with each wave
       if (!r.posted.length || !r.remaining) break;
     }
     toast.success(L(`Posted ${lb.value.posted} item(s)`, `اترحّل ${lb.value.posted} صنف`, `${lb.value.posted} comptabilisés`));

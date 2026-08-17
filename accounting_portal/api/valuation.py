@@ -252,6 +252,16 @@ def _sync_bin_from_ledger(item_code, warehouse):
 
 
 def _valfix_reverter(action):
+    # a retro fix posts a CHAIN of recos (anchor + one pin per poisoned date);
+    # revert must cancel every link, newest first, then the anchor voucher
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    cancelled = 0
+    for nm in reversed(p.get("posted_pins") or []):
+        if frappe.db.exists("Stock Reconciliation", nm):
+            d = frappe.get_doc("Stock Reconciliation", nm)
+            if d.docstatus == 1:
+                d.cancel()
+                cancelled += 1
     if action.voucher_no and frappe.db.exists("Stock Reconciliation", action.voucher_no):
         doc = frappe.get_doc("Stock Reconciliation", action.voucher_no)
         rows = [(r.item_code, r.warehouse) for r in doc.items]
@@ -259,7 +269,8 @@ def _valfix_reverter(action):
             doc.cancel()
         for item_code, warehouse in rows:
             _sync_bin_from_ledger(item_code, warehouse)
-    return {"voucher_type": "Stock Reconciliation", "voucher_no": action.voucher_no, "result": "cancelled"}
+    return {"voucher_type": "Stock Reconciliation", "voucher_no": action.voucher_no,
+            "result": "cancelled" + (f" (+{cancelled} retro pin(s))" if cancelled else "")}
 
 
 _actions.register_poster(FIX_ACTION, _valfix_poster)
@@ -372,9 +383,13 @@ def _revalue_poster(action):
         # rollback restores the original reservations untouched.
         released_sos = []
         item_codes = {i["item_code"] for i in items}
+        pin_whs = {wh for pin in (p.get("retro_pins") or []) for wh in pin["whs"]}
         for ic in item_codes:
             whs = [i["warehouse"] for i in items
                    if i["item_code"] == ic and i["warehouse"] in release_whs]
+            # retro-pin warehouses marked for release are cycled too, even when
+            # the anchor rows don't touch them
+            whs += [w for w in pin_whs if w in release_whs and w not in whs]
             if whs:
                 released_sos += _release_reservations(ic, whs)
         doc = frappe.get_doc({
@@ -387,12 +402,41 @@ def _revalue_poster(action):
         })
         doc.insert(ignore_permissions=True)
         doc.submit()
+        # retro chain: re-pin the rate at the end of every poisoned day after
+        # the anchor (deviant manual receipts / FX receipts / old-rate returns
+        # re-drag the average — the canary proved one anchor is not enough)
+        posted_pins = []
+        for pin in (p.get("retro_pins") or []):
+            pin_items = []
+            for wh in pin["whs"]:
+                q_pin = _qty_asof(items[0]["item_code"], wh, pin["date"])
+                if q_pin <= 0 or frappe.db.get_value("Warehouse", wh, "disabled"):
+                    continue
+                pin_items.append({"item_code": items[0]["item_code"], "warehouse": wh,
+                                  "qty": q_pin, "valuation_rate": flt(items[0]["valuation_rate"])})
+            if not pin_items:
+                continue
+            pd_doc = frappe.get_doc({
+                "doctype": "Stock Reconciliation", "company": company,
+                "purpose": "Stock Reconciliation",
+                "posting_date": pin["date"], "posting_time": "23:59:00", "set_posting_time": 1,
+                "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
+                "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
+                "items": pin_items,
+            })
+            pd_doc.insert(ignore_permissions=True)
+            pd_doc.submit()
+            posted_pins.append(pd_doc.name)
+        if posted_pins:
+            p["posted_pins"] = posted_pins
+            action.db_set("payload", json.dumps(p), update_modified=False)
         _restore_reservations(sorted(set(released_sos)))
     except Exception:
         frappe.db.rollback(save_point="reval_atomic")
         raise
     return {"voucher_type": "Stock Reconciliation", "voucher_no": doc.name,
             "result": f"revalued {len(items)} bins @ {date}"
+                      + (f" + {len(posted_pins)} retro pin(s)" if posted_pins else "")
                       + (f" (reservations cycled on {len(release_whs)} bin(s))" if release_whs else "")}
 
 
@@ -582,6 +626,28 @@ def _state_asof(item_code, warehouse, date):
     return (flt(r[0].q), flt(r[0].vr)) if r else (0.0, 0.0)
 
 
+def _retro_pins(target, item_code, anchor, rate, tolerance=0.02):
+    """The chain that makes retro actually stick (canary lesson): one anchor
+    reco is NOT enough — every later wrong-rate incoming (manual receipt, FX
+    receipt, sales return at an old rate) re-poisons the moving average. So the
+    fix pins the rate again at the END of every day a deviant incoming landed:
+    [{date, whs}] for every (date, warehouse) with an incoming whose rate is
+    off by more than `tolerance` from the verified cost."""
+    rows = frappe.db.sql(
+        """SELECT sle.posting_date d, sle.warehouse wh, sle.incoming_rate r
+           FROM `tabStock Ledger Entry` sle
+           JOIN `tabWarehouse` w ON w.name=sle.warehouse
+           WHERE sle.company=%s AND sle.item_code=%s AND sle.is_cancelled=0
+             AND sle.actual_qty>0 AND sle.posting_date > %s
+             AND sle.voucher_type != 'Stock Reconciliation'
+             AND IFNULL(w.disabled,0)=0""", (target, item_code, anchor), as_dict=True)
+    by_date = {}
+    for x in rows:
+        if rate > 0 and abs(flt(x.r) - rate) / rate > tolerance:
+            by_date.setdefault(str(x.d), set()).add(x.wh)
+    return [{"date": d, "whs": sorted(by_date[d])} for d in sorted(by_date)]
+
+
 def _retro_anchor(target, item_code):
     """The earliest date a retro fix may take effect: the item's first receipt
     in the company, clamped to the policy floor (closed years never restate).
@@ -647,7 +713,7 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
     date = _retro_anchor(target, item_code) if retro else nowdate()
     retro = retro and date < nowdate()   # no history → degenerates to today mode
     reserved = _reserved_by_wh(item_code)
-    rows, impact, skipped, release_whs = [], 0.0, [], []
+    rows, impact, skipped, release_whs, retro_pins = [], 0.0, [], [], []
     if retro:
         # RETRO: reco lands at the anchor date and ERPNext reposts every later
         # SLE — old COGS heals inside the stock ledger itself. Rows come from
@@ -671,6 +737,13 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
             impact += abs((r - vr_then) * q_then)
         if not rows:
             frappe.throw(f"No warehouse held this item on {date} — nothing to fix retroactively")
+        retro_pins = _retro_pins(target, item_code, date, r)
+        # pin warehouses that are reserved TODAY need the same release/re-reserve
+        # cycle, or the pin reco trips ERPNext's reservation validation
+        for pin in retro_pins:
+            for wh in pin["whs"]:
+                if flt(reserved.get(wh)) and wh not in release_whs:
+                    release_whs.append(wh)
     else:
         for b in _fix_bins(target, item_code):
             if abs(r - flt(b.vr)) < 0.01:
@@ -701,7 +774,8 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         # basis_on stamps WHICH frozen basis this fix used — an unfreeze/refreeze
         # later marks it stale in the catalogue instead of keeping a silent ✓
         payload={"date": date, "rows": rows, "release_whs": release_whs,
-                 "basis_on": (basis or {}).get("on")},
+                 "basis_on": (basis or {}).get("on"),
+                 "retro_pins": retro_pins if retro else []},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
         notes=((note or f"Verified cost fix — {item_code}")
@@ -752,10 +826,9 @@ def drain_reposts(budget_s=45, names=None):
     time budget — the reliable half of the retro engine when the long-queue
     workers sit on jobs (the known Queued gotcha). Each job commits its own
     progress via ERPNext's repost(), so hitting the budget leaves a clean,
-    resumable queue. Super Admin only — heavy machinery."""
-    from accounting_portal.api.permissions import can_manage_users
-    if not can_manage_users():
-        frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
+    resumable queue. Writers only (a retro apply leaves its jobs here — the
+    applier must be able to drain them, or GL lags stock until someone does)."""
+    assert_can_write()
     import time
     from erpnext.stock.doctype.repost_item_valuation.repost_item_valuation import repost
     budget = min(flt(budget_s) or 45, 280)   # stay under the gunicorn timeout
