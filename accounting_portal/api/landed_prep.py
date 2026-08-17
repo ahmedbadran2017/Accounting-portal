@@ -187,6 +187,45 @@ def _alloc_key(year):
     return f"ap_bill_alloc_{year}"
 
 
+def _rate_key(year):
+    return f"ap_pr_rate_{year}"
+
+
+def _pr_rates(year):
+    """{pr: confirmed MAD/kg} — the AIR simplification: door-to-door freight is
+    a flat tariff, so instead of allocating consolidated Bisfor bills across
+    shipments, the team CONFIRMS the rate per shipment (prefilled from the date
+    band). landed = kg × rate counts as ACTUAL; the bills still reconcile
+    globally via the cross-check."""
+    try:
+        return json.loads(frappe.db.get_default(_rate_key(_year(year))) or "{}")
+    except Exception:
+        return {}
+
+
+@frappe.whitelist()
+def set_pr_rate(company=None, year=None, pr=None, rate=None):
+    """Confirm (or clear with rate=0) one shipment's freight rate per kg.
+    Blocked when frozen."""
+    assert_can_write()
+    if get_basis(year=year):
+        frappe.throw("Basis is frozen — unfreeze before changing shipment rates")
+    if not pr:
+        frappe.throw("pr required")
+    target, yr = _target(company), _year(year)
+    if not frappe.db.exists("Purchase Receipt",
+                            {"name": pr, "docstatus": 1, "company": target}):
+        frappe.throw(f"{pr} is not a submitted {target} receipt")
+    rates = _pr_rates(yr)
+    if flt(rate) > 0:
+        rates[pr] = round(flt(rate), 2)
+    else:
+        rates.pop(pr, None)
+    frappe.db.set_default(_rate_key(yr), json.dumps(rates))
+    frappe.db.commit()
+    return {"pr": pr, "rate": rates.get(pr)}
+
+
 def _excl_key(year):
     return f"ap_bill_excl_{year}"
 
@@ -441,11 +480,15 @@ def shipment_review(company=None, year=None):
     for b in bill_rows:
         b["prs"] = (allocs.get(b["voucher"]) or []) if not b["excluded"] else []
 
+    rates = _pr_rates(year)
     air_kg = air_cost_est = actual_total = 0.0
     est_count = 0
     for r in prs:
         kg = flt(r["kg"])
         actual = flt(costs.get(r["name"]))
+        conf = flt(rates.get(r["name"]))
+        r["confirmed_rate"] = conf or None
+        r["band_rate"] = _air_rate_at(air_rates, r["dt"]) or None
         r["bills"] = detail.get(r["name"]) or []
         # "has bills" (not amount truthiness): a bill + full reversal netting to
         # 0 is a DELIBERATE zero cost, not a case for the tariff estimate
@@ -454,6 +497,12 @@ def shipment_review(company=None, year=None):
             r["landed"] = round(actual)
             r["rate_kg"] = round(actual / kg, 2) if kg > 0 else 0
             actual_total += actual
+        elif conf > 0:
+            # human-confirmed flat rate (the AIR door-to-door model) = ACTUAL
+            r["source"] = "rate"
+            r["rate_kg"] = conf
+            r["landed"] = round(kg * conf)
+            actual_total += r["landed"]
         elif r["channel"] == "air" and _air_rate_at(air_rates, r["dt"]) > 0:
             rate = _air_rate_at(air_rates, r["dt"])
             r["source"] = "est"
@@ -467,7 +516,7 @@ def shipment_review(company=None, year=None):
             est_count += 1
         if r["channel"] == "air":
             air_kg += kg
-            air_cost_est += kg * _air_rate_at(air_rates, r["dt"])
+            air_cost_est += kg * (conf if conf > 0 else _air_rate_at(air_rates, r["dt"]))
 
     bills_total = round(sum(flt(b["amount"]) for b in live_bills), 2)
     unallocated = [b for b in live_bills if not b["prs"]]
@@ -569,7 +618,7 @@ def freeze_basis(company=None, year=None):
         pr_costs[r["name"]] = {"cost": flt(r["landed"]), "kg": flt(r["kg"]),
                                "qty": flt(r["qty"]), "src": r["source"]}
     sea_uncosted = [r["name"] for r in snap["receipts"]
-                    if r["channel"] == "sea" and r["source"] != "bills"]
+                    if r["channel"] == "sea" and r["source"] not in ("bills", "rate")]
     if sea_uncosted:
         frappe.throw("Sea shipments without allocated bills: "
                      + ", ".join(sea_uncosted[:5])

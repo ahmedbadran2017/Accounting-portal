@@ -77,11 +77,12 @@ def _status(sheet, n_lines, freight_src, n_fixed_lines):
     """pending → progress → costed (sheet complete + real freight) → applied."""
     costs = (sheet or {}).get("costs") or {}
     n_verified = sum(1 for v in costs.values() if flt(v) > 0)
+    freight_ok = freight_src in ("bills", "rate")
     if n_lines and n_fixed_lines >= n_lines:
         return "applied", n_verified
-    if n_verified >= n_lines and n_lines and freight_src == "bills":
+    if n_verified >= n_lines and n_lines and freight_ok:
         return "costed", n_verified
-    if n_verified or freight_src == "bills":
+    if n_verified or freight_ok:
         return "progress", n_verified
     return "pending", n_verified
 
@@ -169,7 +170,9 @@ def get_sheet(pr=None, year=None):
     return {"pr": pr, "dt": head["dt"], "supplier": head["supplier"],
             "channel": head["channel"], "kg": kg, "qty": head["qty"],
             "freight": {"source": head["source"], "landed": head["landed"],
-                        "rate_kg": landed_kg, "bills": head["bills"]},
+                        "rate_kg": landed_kg, "bills": head["bills"],
+                        "confirmed_rate": head.get("confirmed_rate"),
+                        "band_rate": head.get("band_rate")},
             "lines": out_lines, "picker": picker,
             "sheet": {"note": (sheet or {}).get("note"),
                       "by": (sheet or {}).get("by"), "on": (sheet or {}).get("on")},
@@ -231,6 +234,119 @@ def readiness(company=None, year=None):
             "recon": data["recon"], "frozen": data["frozen"],
             "items_with_verified_cost": len(weighted),
             "items_ready": len(ready_items), "items_applied": len(fixed & set(weighted))}
+
+
+def _live_landed(items, receipts):
+    """{item: live landed/unit} from the CURRENT shipment costs (bills/rate
+    sources only) — the per-shipment-submit path, no frozen snapshot needed.
+    Same kg-split math as the frozen distributor."""
+    costed = {r["name"]: {"cost": flt(r["landed"]), "kg": flt(r["kg"]), "qty": flt(r["qty"])}
+              for r in receipts if r["source"] in ("bills", "rate")}
+    if not (costed and items):
+        return {}
+    lines = _pr_lines(list(costed))
+    agg = {}
+    for prn, lns in lines.items():
+        pc = costed[prn]
+        for l in lns:
+            if l.ic not in items:
+                continue
+            q = flt(l.qty)
+            if q <= 0:
+                continue
+            if pc["kg"] > 0:
+                share = pc["cost"] * (q * flt(l.w)) / pc["kg"]
+            elif pc["qty"] > 0:
+                share = pc["cost"] * q / pc["qty"]
+            else:
+                share = 0.0
+            a = agg.setdefault(l.ic, [0.0, 0.0])
+            a[0] += q
+            a[1] += share
+    return {ic: round(v / q, 2) for ic, (q, v) in agg.items() if q > 0}
+
+
+@frappe.whitelist()
+def apply_shipment(pr=None, year=None, dry_run=1):
+    """The shipment's SUBMIT: apply the full cost (verified product + live
+    landed) to every line item whose data is COMPLETE — i.e. every one of the
+    item's import shipments this year is freight-costed AND carries a verified
+    cost in its sheet (the item's cost is a weighted average across them, so a
+    missing shipment would understate it). Items still waiting are reported
+    with WHAT they wait for. dry_run=1 previews. Retroactive month restatement
+    stays a separate step (the monthly true-up)."""
+    assert_can_write()
+    if not pr:
+        frappe.throw("pr required")
+    from accounting_portal.api.landed_prep import shipment_review
+    sr = shipment_review(year=year)
+    all_prs = [r["name"] for r in sr["receipts"]]
+    if pr not in all_prs:
+        frappe.throw(f"{pr} is not one of {sr['year']}'s import shipments")
+    costed = {r["name"] for r in sr["receipts"] if r["source"] in ("bills", "rate")}
+    sheets = _sheets_bulk()
+    lines_all = _pr_lines(all_prs)
+    item_prs = {}
+    for prn, lns in lines_all.items():
+        for l in lns:
+            item_prs.setdefault(l.ic, set()).add(prn)
+    my_items = [l.ic for l in (lines_all.get(pr) or [])]
+    fixed = _fixed_map()
+    live_landed = _live_landed(set(my_items), sr["receipts"])
+
+    def weighted_product(ic):
+        q_tot = val = 0.0
+        for prn in item_prs.get(ic, ()):
+            v = flt(((sheets.get(prn) or {}).get("costs") or {}).get(ic))
+            for l in lines_all.get(prn) or []:
+                if l.ic == ic and v > 0 and flt(l.qty) > 0:
+                    q_tot += flt(l.qty)
+                    val += flt(l.qty) * v
+        return round(val / q_tot, 2) if q_tot > 0 else 0.0
+
+    rows, ready = [], []
+    for ic in my_items:
+        prs_i = sorted(item_prs.get(ic, ()))
+        waiting_freight = [p for p in prs_i if p not in costed]
+        waiting_verify = [p for p in prs_i
+                          if flt(((sheets.get(p) or {}).get("costs") or {}).get(ic)) <= 0]
+        if ic in fixed:
+            rows.append({"item_code": ic, "status": "already_applied"})
+            continue
+        if waiting_freight:
+            rows.append({"item_code": ic, "status": "waiting_freight", "prs": waiting_freight})
+            continue
+        if waiting_verify:
+            rows.append({"item_code": ic, "status": "waiting_verify", "prs": waiting_verify})
+            continue
+        product = weighted_product(ic)
+        landed = flt(live_landed.get(ic))
+        full = round(product + landed, 2)
+        rows.append({"item_code": ic, "status": "ready", "product": product,
+                     "landed": landed, "full": full})
+        ready.append((ic, product, landed, full))
+
+    if str(dry_run) in ("1", "true", "True"):
+        counts = {}
+        for r in rows:
+            counts[r["status"]] = counts.get(r["status"], 0) + 1
+        return {"dry_run": True, "pr": pr, "rows": rows, "counts": counts}
+
+    from accounting_portal.api.valuation import fix_item_cost
+    done, skipped = [], []
+    for ic, product, landed, full in ready:
+        try:
+            res = fix_item_cost(
+                company=SALES, item_code=ic, rate=full, full_rate=1,
+                note=f"Shipment submit {pr} — product {product} + landed {landed} = {full} "
+                     f"(weighted across {len(item_prs.get(ic, ()))} shipment(s))")
+            done.append({"item_code": ic, "full": full,
+                         "voucher": (res or {}).get("voucher_no")})
+        except Exception as e:
+            skipped.append({"item_code": ic, "reason": str(e)[:140]})
+            continue
+    return {"dry_run": False, "pr": pr, "posted": done, "skipped": skipped,
+            "rows": rows}
 
 
 def _verified_item_costs():

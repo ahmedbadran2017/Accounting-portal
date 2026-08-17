@@ -494,7 +494,7 @@ def item_fix_preview(company=None, item_code=None):
 
 
 @frappe.whitelist()
-def fix_item_cost(company=None, item_code=None, rate=None, note=None):
+def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=0):
     """The reviewer's Fix button: revalue EVERY bin of this product in ONE
     today-dated Stock Reconciliation at the FULL rate = verified PRODUCT cost
     (`rate`, defaults to the evidence-based figure; overriding requires a note)
@@ -508,18 +508,31 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None):
     from accounting_portal.api.cost_trace import true_cost as _tc
     from accounting_portal.api.landed_prep import get_basis, landed_unit
     basis = get_basis()
-    if not basis:
-        frappe.throw("Landed basis is not frozen yet — review & freeze it in the Landed Cockpit first, "
-                     "so the catalogue is crawled ONCE at the full (product + landed) cost")
-    tc = _tc(item_code=item_code)
-    bench = flt(tc.get("cost_mad")) if tc.get("cost_mad") else 0
-    product = flt(rate) if rate not in (None, "") else bench
-    if product <= 0:
-        frappe.throw("A positive verified product cost is required (this product has no cost source — enter it manually)")
-    if bench > 0 and abs(product - bench) / bench > 0.005 and not (note or "").strip():
-        frappe.throw(f"Rate {product} differs from the evidence-based cost {bench} — a note explaining the override is required")
-    landed = landed_unit(item_code)
-    r = round(product + landed, 2)   # the FULL applied rate
+    full_rate = str(full_rate) in ("1", "true", "True")
+    if full_rate:
+        # shipment-submit path: the caller already computed product + LIVE
+        # landed (its shipments' actual costs) — no frozen basis needed, and
+        # nothing is added on top. A note documenting the split is required.
+        r = round(flt(rate), 2)
+        if r <= 0:
+            frappe.throw("A positive full rate is required")
+        if not (note or "").strip():
+            frappe.throw("A note documenting the product + landed split is required")
+        product, landed = r, 0.0
+        tc = _tc(item_code=item_code)
+    else:
+        if not basis:
+            frappe.throw("Landed basis is not frozen yet — review & freeze it in the Landed Cockpit first, "
+                         "so the catalogue is crawled ONCE at the full (product + landed) cost")
+        tc = _tc(item_code=item_code)
+        bench = flt(tc.get("cost_mad")) if tc.get("cost_mad") else 0
+        product = flt(rate) if rate not in (None, "") else bench
+        if product <= 0:
+            frappe.throw("A positive verified product cost is required (this product has no cost source — enter it manually)")
+        if bench > 0 and abs(product - bench) / bench > 0.005 and not (note or "").strip():
+            frappe.throw(f"Rate {product} differs from the evidence-based cost {bench} — a note explaining the override is required")
+        landed = landed_unit(item_code)
+        r = round(product + landed, 2)   # the FULL applied rate
     date = nowdate()   # today-dated cutover: no back-dated repost, cheap + safe
     reserved = _reserved_by_wh(item_code)   # ERPNext blocks recos on reserved bins
     rows, impact, skipped = [], 0.0, []
@@ -545,11 +558,11 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None):
         REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}:{wh_sig}",
         # basis_on stamps WHICH frozen basis this fix used — an unfreeze/refreeze
         # later marks it stale in the catalogue instead of keeping a silent ✓
-        payload={"date": date, "rows": rows, "basis_on": basis.get("on")},
+        payload={"date": date, "rows": rows, "basis_on": (basis or {}).get("on")},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
         notes=((note or f"Verified cost fix — {item_code}")
-               + f" · product {product} + landed {landed} = {r} ({tc.get('source')})"
+               + ("" if full_rate else f" · product {product} + landed {landed} = {r} ({tc.get('source')})")
                + (f" · skipped: {'; '.join(skipped)}" if skipped else "")))
     if isinstance(res, dict):
         res["skipped_reserved"] = skipped

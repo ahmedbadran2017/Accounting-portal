@@ -16,8 +16,8 @@
           <span class="flex-1"></span>
           <span class="text-[12px] tnum"><b>{{ L("Freight","الشحن","Fret") }}:</b> {{ fmt0(sheet.freight.landed) }}
             <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ms-1"
-                  :style="sheet.freight.source==='bills' ? 'background:#ecfdf5;color:#047857' : sheet.freight.source==='est' ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c'">
-              {{ sheet.freight.source==='bills' ? L("actual","فعلي","réel") : sheet.freight.source==='est' ? L("estimate","تقديري","estimé") : L("none","بدون","aucun") }}</span>
+                  :style="['bills','rate'].includes(sheet.freight.source) ? 'background:#ecfdf5;color:#047857' : sheet.freight.source==='est' ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c'">
+              {{ ['bills','rate'].includes(sheet.freight.source) ? L("actual","فعلي","réel") : sheet.freight.source==='est' ? L("estimate","تقديري","estimé") : L("none","بدون","aucun") }}</span>
             <span class="text-[10.5px] text-ink-muted"> @{{ sheet.freight.rate_kg }}/kg</span>
           </span>
         </div>
@@ -63,9 +63,8 @@
         </div>
         <span class="text-[11px] tnum text-ink-muted">{{ sheetVerified }}/{{ sheet.lines.length }} {{ L("verified","متحقق","vérifié") }}</span>
         <router-link :to="`/accounting/items/costtrace?pr=${sheet.pr}`"
-                     class="h-[30px] inline-flex items-center px-3.5 rounded-[8px] text-[11.5px] font-bold text-white shadow-brand"
-                     :class="sheet.freight.source==='bills' ? 'bg-brand hover:bg-brand-dark' : 'bg-ink-3 pointer-events-none'">
-          {{ sheet.freight.source==='bills' ? L("Open costing file","افتح ملف التكلفة","Ouvrir") + " →" : "🔒 " + L("assemble freight first","اجمعوا الشحن الأول","fret d'abord") }}
+                     class="h-[30px] inline-flex items-center px-3.5 rounded-[8px] text-[11.5px] font-bold text-white shadow-brand bg-brand hover:bg-brand-dark">
+          {{ L("Open costing file","افتح ملف التكلفة","Ouvrir") + " →" }}
         </router-link>
       </div>
     </template>
@@ -140,8 +139,8 @@
               </td>
               <td class="px-3 py-2 text-end tnum whitespace-nowrap">{{ fmt0(r.freight.landed) }}
                 <span class="text-[9.5px] font-bold px-1 py-0.5 rounded-full ms-0.5"
-                      :style="r.freight.source==='bills' ? 'background:#ecfdf5;color:#047857' : r.freight.source==='est' ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c'">
-                  {{ r.freight.source==='bills' ? L("actual","فعلي","réel") : r.freight.source==='est' ? L("est.","تقديري","est.") : L("none","بدون","aucun") }}</span>
+                      :style="['bills','rate'].includes(r.freight.source) ? 'background:#ecfdf5;color:#047857' : r.freight.source==='est' ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c'">
+                  {{ ['bills','rate'].includes(r.freight.source) ? L("actual","فعلي","réel") : r.freight.source==='est' ? L("est.","تقديري","est.") : L("none","بدون","aucun") }}</span>
               </td>
               <td class="px-3 py-2 text-center">
                 <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="STATUS_STYLE[r.status]">{{ STATUS_ICON[r.status] }} {{ statusLabel(r.status) }}</span>

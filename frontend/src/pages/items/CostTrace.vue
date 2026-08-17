@@ -446,7 +446,7 @@ const readyPrs = ref([]);
 async function loadReady() {
   try {
     const d = await api.call("accounting_portal.api.shipment_costing.shipments", { company: currentCompany() }, { fresh: true });
-    readyPrs.value = (d.rows || []).filter((r) => r.freight.source === "bills" && r.n_verified < r.n_lines);
+    readyPrs.value = (d.rows || []).filter((r) => r.n_verified < r.n_lines || !["bills", "rate"].includes(r.freight.source));
   } catch (e) { readyPrs.value = []; }
 }
 loadReady();
