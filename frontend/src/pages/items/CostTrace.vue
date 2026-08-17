@@ -343,13 +343,18 @@
               <tbody>
                 <tr v-for="r in itemLanded.receipts" :key="r.pr" class="border-t border-line-hair">
                   <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.pr }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
-                  <td class="px-3 py-1.5 text-center">{{ r.channel === "air" ? "🛫" : "🚢" }}</td>
+                  <td class="px-3 py-1.5 text-center whitespace-nowrap">
+                    <button v-if="canWrite && !itemLanded.frozen" class="text-[12px]"
+                            :title="r.channel_confirmed ? L('confirmed — click to flip','مؤكدة — دوس للقلب','confirmé') : L('SUGGESTED only — click to flip','اقتراح بس — دوس للقلب','suggestion')"
+                            @click="flipPrChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">؟</span></button>
+                    <template v-else>{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">؟</span></template>
+                  </td>
                   <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.qty) }}</td>
                   <td class="px-3 py-1.5 whitespace-nowrap">
                     <template v-if="['bills','rate'].includes(r.source)">
                       <FreightChip :source="r.source" /> <span class="text-[10px] text-ink-muted" dir="ltr">@{{ r.rate_kg }}/kg</span>
                     </template>
-                    <template v-else-if="r.channel === 'air' && canWrite && !itemLanded.frozen">
+                    <template v-else-if="r.channel === 'air' && (r.channel_confirmed || r.qty < 500) && canWrite && !itemLanded.frozen">
                       <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
                              class="w-[62px] h-[26px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
                       <button class="ms-1 h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
@@ -658,6 +663,17 @@ async function loadItemLanded(itemCode) {
   try { itemLanded.value = await api.call(`${SCM}.item_landed_detail`, { item_code: itemCode }, { fresh: true }); }
   catch (e) { itemLanded.value = null; }
 }
+async function flipPrChannel(r) {
+  const to = r.channel === "air" ? "sea" : "air";
+  if (!window.confirm(L(`Classify ${r.pr} as ${to === "sea" ? "SEA 🚢" : "AIR 🛫"}?`,
+                        `تصنيف ${r.pr} ${to === "sea" ? "بحري 🚢" : "جوي 🛫"}؟`, `Classer ${to} ?`))) return;
+  try {
+    await api.call("accounting_portal.api.landed_prep.set_pr_channel", { pr: r.pr, channel: to });
+    toast.success(L("Channel confirmed", "القناة اتأكدت", "Canal confirmé"));
+    await loadItemLanded(trace.value.item_code);
+  } catch (e) { toast.error(e.message || "Failed"); }
+}
+
 async function confirmPrRate(r) {
   fixing.value = true;
   try {

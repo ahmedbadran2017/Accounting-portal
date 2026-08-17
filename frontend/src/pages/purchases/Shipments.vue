@@ -12,7 +12,7 @@
         <div class="flex items-center gap-3 flex-wrap">
           <span class="text-[15px] font-bold font-mono" dir="ltr">{{ sheet.pr }}</span>
           <span class="text-[12px] text-ink-muted">{{ sheet.dt }} · {{ sheet.supplier }}</span>
-          <span class="text-[12px]">{{ sheet.channel === "air" ? "🛫" : "🚢" }} {{ fmt0(sheet.kg) }}kg · {{ fmt0(sheet.qty) }} {{ L("units","قطعة","unités") }}</span>
+          <span class="text-[12px]">{{ sheet.channel === "air" ? "🛫" : "🚢" }}<span v-if="!sheet.channel_confirmed" class="text-[10px] text-amber-600 font-bold" :title="L('channel is a suggestion — flip it from the list if wrong','القناة اقتراح — اقلبها من القائمة لو غلط','suggestion')">؟</span> {{ fmt0(sheet.kg) }}kg · {{ fmt0(sheet.qty) }} {{ L("units","قطعة","unités") }}</span>
           <span class="flex-1"></span>
           <span class="text-[12px] tnum"><b>{{ L("Freight","الشحن","Fret") }}:</b> {{ fmt0(sheet.freight.landed) }}
             <FreightChip :source="sheet.freight.source" class="ms-1" />
@@ -162,7 +162,13 @@
             <tr v-for="r in shownRows" :key="r.name" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/60" @click="openSheet(r.name)">
               <td class="px-4 py-2 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.name }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
               <td class="px-3 py-2 truncate max-w-[150px]">{{ r.supplier }}</td>
-              <td class="px-3 py-2 text-center">{{ r.channel === "air" ? "🛫" : "🚢" }}</td>
+              <td class="px-3 py-2 text-center whitespace-nowrap">
+                <button v-if="canWrite" class="text-[13px] hover:scale-110 transition-transform"
+                        :title="r.channel_confirmed ? L('Channel confirmed — click to flip','القناة مؤكدة — دوس للقلب','Confirmé — cliquer pour changer')
+                                                    : L('SUGGESTED only — click to flip, or confirm as-is below','اقتراح بس — دوس للقلب','Suggéré — cliquer pour changer')"
+                        @click.stop="flipChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">؟</span></button>
+                <template v-else>{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">؟</span></template>
+              </td>
               <td class="px-3 py-2 text-end tnum">{{ fmt0(r.kg) }}</td>
               <td class="px-3 py-2 text-end tnum">
                 <b :style="r.n_verified >= r.n_lines && r.n_lines ? 'color:#047857' : ''">{{ r.n_verified }}</b>/{{ r.n_lines }}
@@ -361,6 +367,18 @@ async function drainReposts() {
     } catch { return; }
   }
   toast.info(L("Reposts still running — they'll finish in the background", "إعادة الحساب لسه شغالة — هتكمل في الخلفية", "Recalcul en cours"));
+}
+
+async function flipChannel(r) {
+  const to = r.channel === "air" ? "sea" : "air";
+  if (!window.confirm(L(`Classify ${r.name} as ${to === "sea" ? "SEA 🚢" : "AIR 🛫"}?`,
+                        `تصنيف ${r.name} ${to === "sea" ? "بحري 🚢" : "جوي 🛫"}؟`,
+                        `Classer ${r.name} ${to} ?`))) return;
+  try {
+    await api.call("accounting_portal.api.landed_prep.set_pr_channel", { pr: r.name, channel: to, year: yearSel.value });
+    toast.success(L("Channel confirmed", "القناة اتأكدت", "Canal confirmé"));
+    await loadList();
+  } catch (e) { toast.error(e.message || "Failed"); }
 }
 
 async function openSheet(pr) {

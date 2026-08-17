@@ -228,6 +228,12 @@ def set_pr_rate(company=None, year=None, pr=None, rate=None):
     rates = _pr_rates(yr)
     if flt(rate) > 0:
         rates[pr] = round(flt(rate), 2)
+        # confirming a per-kg AIR rate IS confirming the channel — stamp it so
+        # the shipment leaves the "unconfirmed" pool in one click
+        ov = _channels(yr)
+        if not ov.get(pr):
+            ov[pr] = "air"
+            frappe.db.set_default(_chan_key(yr), json.dumps(ov))
     else:
         rates.pop(pr, None)
     frappe.db.set_default(_rate_key(yr), json.dumps(rates))
@@ -364,8 +370,14 @@ def _import_receipts(target, year):
         (target, _year(year), _DOMESTIC_GROUPS), as_dict=True)
     ov = _channels(year)
     for r in rows:
-        r["suggested"] = "sea" if r.has_container else "air"
+        # containers don't fly: a bulk receipt (>=500 pcs) is suggested SEA even
+        # when it skipped the Container* warehouse (the 00124 case — received
+        # straight into STOCK ZONE and misread as air). The warehouse name is a
+        # supporting signal, never the verdict; the team's explicit
+        # classification (config) is the only CONFIRMED channel.
+        r["suggested"] = "sea" if (r.has_container or flt(r.qty) >= 500) else "air"
         r["channel"] = ov.get(r.name) or r["suggested"]
+        r["channel_confirmed"] = r.name in ov
         r["dt"] = str(r.dt or "")
     return rows
 
@@ -585,7 +597,8 @@ def shipment_review(company=None, year=None):
             r["rate_kg"] = conf
             r["landed"] = round(kg * conf)
             actual_total += r["landed"]
-        elif r["channel"] == "air" and _air_rate_at(air_rates, r["dt"]) > 0:
+        elif r["channel"] == "air" and r.get("channel_confirmed") \
+                and _air_rate_at(air_rates, r["dt"]) > 0:
             rate = _air_rate_at(air_rates, r["dt"])
             r["source"] = "est"
             r["rate_kg"] = rate

@@ -107,6 +107,7 @@ def shipments(company=None, year=None):
         rows.append({
             "name": r["name"], "dt": r["dt"], "supplier": r["supplier"],
             "kg": r["kg"], "qty": r["qty"], "channel": r["channel"],
+            "channel_confirmed": bool(r.get("channel_confirmed")),
             "n_lines": len(lns), "n_verified": n_verified, "n_fixed": n_fixed,
             "freight": {"source": r["source"], "landed": r["landed"],
                         "rate_kg": r["rate_kg"], "n_bills": len(r["bills"])},
@@ -201,7 +202,8 @@ def get_sheet(pr=None, year=None):
                        "implied_rate": b.get("implied_rate")})
     picker.sort(key=lambda x: (not x["attached"], not x["ref_match"], x["days"]))
     return {"pr": pr, "dt": head["dt"], "supplier": head["supplier"],
-            "channel": head["channel"], "kg": kg, "qty": head["qty"],
+            "channel": head["channel"], "channel_confirmed": bool(head.get("channel_confirmed")),
+            "kg": kg, "qty": head["qty"],
             "freight": {"source": head["source"], "landed": head["landed"],
                         "rate_kg": landed_kg, "bills": head["bills"],
                         "bill_kg": head.get("bill_kg"), "book_kg": kg,
@@ -447,7 +449,8 @@ def item_landed_detail(item_code=None, year=None):
             line_kg = flt(l.qty) * (flt(l.w) if flt(l.w) > 0 else avg_w)
             share = round(cost * line_kg / eff_total, 2) if (eff_total > 0 and h["source"] in ("bills", "rate")) else 0.0
             mine.append({"pr": prn, "dt": h["dt"], "supplier": h["supplier"],
-                         "channel": h["channel"], "source": h["source"],
+                         "channel": h["channel"], "channel_confirmed": bool(h.get("channel_confirmed")),
+                         "source": h["source"],
                          "rate_kg": h["rate_kg"], "confirmed_rate": h.get("confirmed_rate"),
                          "band_rate": h.get("band_rate"), "kg": h["kg"],
                          "qty": round(flt(l.qty)), "line_kg": round(line_kg, 1),
