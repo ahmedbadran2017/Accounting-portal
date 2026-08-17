@@ -112,13 +112,19 @@ def shipments(company=None, year=None):
             "status": status,
         })
     inbox = [b for b in sr["bills"] if not b["excluded"] and not b["prs"]]
-    return {"company": sr["company"], "year": sr["year"], "rows": rows,
+    years = [int(y[0]) for y in frappe.db.sql(
+        """SELECT DISTINCT YEAR(pr.posting_date) FROM `tabPurchase Receipt` pr
+           LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
+           WHERE pr.company=%s AND pr.docstatus=1
+             AND IFNULL(s.supplier_group,'') NOT IN ('Morocco Local Suppliers','Local')
+           ORDER BY 1 DESC""", (SALES,))]
+    return {"company": sr["company"], "year": sr["year"], "years": years, "rows": rows,
             "counts": counts, "recon": sr["recon"], "crosscheck": sr["crosscheck"],
             "inbox": inbox, "frozen": bool(sr["frozen"])}
 
 
 @frappe.whitelist()
-def get_sheet(pr=None):
+def get_sheet(pr=None, year=None):
     """One shipment's costing file: header, product lines (book rate + engine
     suggestion + saved verified cost + fixed flag), attached freight bills with
     this PR's share, and the pickable bill list."""
@@ -127,10 +133,10 @@ def get_sheet(pr=None):
         frappe.throw("pr required")
     from accounting_portal.api.landed_prep import shipment_review
     from accounting_portal.api.cost_trace import _true_cost_bulk, _fx_series
-    sr = shipment_review()
+    sr = shipment_review(year=year)
     head = next((r for r in sr["receipts"] if r["name"] == pr), None)
     if not head:
-        frappe.throw(f"{pr} is not one of this year's import shipments")
+        frappe.throw(f"{pr} is not one of {sr['year']}'s import shipments")
     lns = (_pr_lines([pr]).get(pr)) or []
     items = [l.ic for l in lns]
     tc = _true_cost_bulk(items, _fx_series()) if items else {}
@@ -195,7 +201,7 @@ def save_sheet(pr=None, costs=None, note=None):
 
 
 @frappe.whitelist()
-def attach_bill(pr=None, voucher=None, attached=None):
+def attach_bill(pr=None, voucher=None, attached=None, year=None):
     """Attach/detach ONE freight bill to this shipment from the PR side — a
     thin wrapper over landed_prep.allocate_bill (same validation, same kg
     split, same frozen-basis gate)."""
@@ -203,13 +209,13 @@ def attach_bill(pr=None, voucher=None, attached=None):
     if not (pr and voucher):
         frappe.throw("pr + voucher required")
     from accounting_portal.api.landed_prep import _allocs, _year, allocate_bill
-    cur = list((_allocs(_year(None)).get(voucher)) or [])
+    cur = list((_allocs(_year(year)).get(voucher)) or [])
     want = str(attached) in ("1", "true", "True", "yes")
     if want and pr not in cur:
         cur.append(pr)
     elif not want and pr in cur:
         cur.remove(pr)
-    return allocate_bill(voucher=voucher, prs=json.dumps(cur))
+    return allocate_bill(year=year, voucher=voucher, prs=json.dumps(cur))
 
 
 @frappe.whitelist()

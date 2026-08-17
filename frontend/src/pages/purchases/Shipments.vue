@@ -143,7 +143,13 @@
       <!-- shipments table -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-1.5 flex-wrap">
-          <span class="text-[12px] font-bold flex-1">📦 {{ L("Import shipments","شحنات الاستيراد","Expéditions") }} {{ data.year }}</span>
+          <span class="text-[12px] font-bold">📦 {{ L("Import shipments","شحنات الاستيراد","Expéditions") }}</span>
+          <span class="flex items-center gap-1">
+            <button v-for="y in data.years" :key="y" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border tnum"
+                    :style="data.year===y ? 'background:#1c1917;color:#fff;border-color:#1c1917' : 'border-color:#e7e5e4;color:#78716c'"
+                    @click="setYear(y)">{{ y }}</button>
+          </span>
+          <span class="flex-1"></span>
           <button v-for="f in FILTERS" :key="f.id" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border"
                   :style="filter===f.id ? 'background:#eef2ff;color:#4338ca;border-color:#c7d2fe' : 'border-color:#e7e5e4;color:#78716c'"
                   @click="filter = filter===f.id ? '' : f.id">{{ f.icon }} {{ L(...f.label) }}</button>
@@ -179,6 +185,11 @@
             <tr v-if="!shownRows.length"><td colspan="7" class="px-4 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No shipments match.","مفيش شحنات مطابقة.","Aucune expédition.") }}</td></tr>
           </tbody>
         </table>
+        <div v-if="filteredRows.length > shownRows.length" class="px-4 py-2.5 border-t border-line-hair text-center">
+          <button class="text-[11.5px] font-bold text-accent-dark hover:underline" @click="visLimit += 200">
+            {{ L("Show more","عرض المزيد","Afficher plus") }} ({{ shownRows.length }}/{{ filteredRows.length }})
+          </button>
+        </div>
       </div>
 
       <!-- Final apply -->
@@ -241,6 +252,7 @@ const toast = useToast();
 
 const SC = "accounting_portal.api.shipment_costing";
 const data = ref(null);
+const yearSel = ref(null);   // null = backend default (current year)
 const sheet = ref(null);
 const edits = reactive({});
 const note = ref("");
@@ -269,10 +281,12 @@ const pct = computed(() => {
   if (!data.value?.rows?.length) return 0;
   return Math.round(100 * (data.value.counts.costed + data.value.counts.applied) / data.value.rows.length);
 });
-const shownRows = computed(() => {
+const visLimit = ref(100);
+const filteredRows = computed(() => {
   const rows = data.value?.rows || [];
   return filter.value ? rows.filter((r) => r.status === filter.value) : rows;
 });
+const shownRows = computed(() => filteredRows.value.slice(0, visLimit.value));
 const verifiedCount = computed(() =>
   (sheet.value?.lines || []).filter((l) => edits[l.item_code] > 0).length);
 const attachedBills = computed(() => (sheet.value?.picker || []).filter((b) => b.attached));
@@ -287,11 +301,23 @@ const applyPrev = ref(null);
 
 async function loadList() {
   try {
-    data.value = await api.call(`${SC}.shipments`, { company: currentCompany() }, { fresh: true });
-    ready.value = await api.call(`${SC}.readiness`, { company: currentCompany() }, { fresh: true });
+    const params = { company: currentCompany() };
+    if (yearSel.value) params.year = yearSel.value;
+    data.value = await api.call(`${SC}.shipments`, params, { fresh: true });
+    if (!yearSel.value) yearSel.value = data.value.year;
+    ready.value = await api.call(`${SC}.readiness`, params, { fresh: true });
   } catch (e) { toast.error(e.message || "Failed"); }
 }
 loadList();
+
+function setYear(y) {
+  if (yearSel.value === y) return;
+  yearSel.value = y;
+  data.value = null;
+  visLimit.value = 100;
+  filter.value = "";
+  loadList();
+}
 
 async function previewApply() {
   busy.value = true;
@@ -315,7 +341,7 @@ async function runApply() {
 async function openSheet(pr) {
   busy.value = true;
   try {
-    const s = await api.call(`${SC}.get_sheet`, { pr }, { fresh: true });
+    const s = await api.call(`${SC}.get_sheet`, { pr, year: yearSel.value }, { fresh: true });
     Object.keys(edits).forEach((k) => delete edits[k]);
     for (const l of s.lines) if (l.verified > 0) edits[l.item_code] = l.verified;
     note.value = s.sheet?.note || "";
@@ -345,7 +371,7 @@ async function saveSheet() {
 async function toggleBill(b, attach) {
   busy.value = true;
   try {
-    await api.call(`${SC}.attach_bill`, { pr: sheet.value.pr, voucher: b.voucher, attached: attach ? 1 : 0 });
+    await api.call(`${SC}.attach_bill`, { pr: sheet.value.pr, voucher: b.voucher, attached: attach ? 1 : 0, year: yearSel.value });
     await openSheet(sheet.value.pr);
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { busy.value = false; }
