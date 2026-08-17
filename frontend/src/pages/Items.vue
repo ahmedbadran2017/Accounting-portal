@@ -53,6 +53,7 @@
     <ItemCostCard v-else-if="activeSub === 'costing' && route.query.item" />
     <LandedWorkbench v-else-if="activeSub === 'costing'" />
     <CostTrace v-else-if="activeSub === 'costtrace'" />
+    <WeightsWorklist v-else-if="activeSub === 'weights'" />
     <ValuationDoctor v-else-if="activeSub === 'valuation'" />
     <LandedCockpit v-else-if="activeSub === 'cockpit'" />
     <ScaffoldTable v-else />
@@ -69,6 +70,7 @@ import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import LandedCost from "@/pages/items/LandedCost.vue";
 import LandedCostDetail from "@/pages/items/LandedCostDetail.vue";
 import LandedWorkbench from "@/pages/items/LandedWorkbench.vue";
+import WeightsWorklist from "@/pages/items/WeightsWorklist.vue";
 import ItemCostCard from "@/pages/items/ItemCostCard.vue";
 import ItemsList from "@/pages/items/ItemsList.vue";
 import ItemDetail from "@/pages/items/ItemDetail.vue";

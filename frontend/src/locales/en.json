@@ -64,6 +64,7 @@
     "items": "Items",
     "costing": "Costing",
     "costtrace": "Cost trace",
+    "weights": "Weights",
     "pricelists": "Price lists",
     "landed": "Landed cost",
     "cockpit": "Landed Cockpit",

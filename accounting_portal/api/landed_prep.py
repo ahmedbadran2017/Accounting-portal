@@ -800,6 +800,7 @@ def _hist_scales(before_year):
            JOIN `tabItem` i ON i.name=pri.item_code
            LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
            WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date) < %s
+             AND i.is_stock_item=1
              AND IFNULL(s.supplier_group,'') NOT IN %s""",
         (SALES, before_year, _DOMESTIC_GROUPS), as_dict=True)
     years = {int(r.y) for r in rows}
@@ -856,7 +857,7 @@ def _hist_landed_units(item_codes, before_year=None):
            JOIN `tabItem` i ON i.name=pri.item_code
            LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
            WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date) < %s
-             AND pri.item_code IN %s
+             AND pri.item_code IN %s AND i.is_stock_item=1
              AND IFNULL(s.supplier_group,'') NOT IN %s""",
         (SALES, by, tuple(item_codes), _DOMESTIC_GROUPS), as_dict=True)
     if not rows:
@@ -904,7 +905,7 @@ def _hist_events(item_codes, before_year=None):
            JOIN `tabItem` i ON i.name=pri.item_code
            LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
            WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date) < %s
-             AND pri.item_code IN %s
+             AND pri.item_code IN %s AND i.is_stock_item=1
              AND IFNULL(s.supplier_group,'') NOT IN %s
            ORDER BY pr.posting_date""",
         (SALES, by, tuple(item_codes), _DOMESTIC_GROUPS), as_dict=True)
