@@ -107,7 +107,8 @@
     "anomrules": "قواعد الشذوذ",
     "activity": "النشاط والتدقيق",
     "payroll": "الرواتب",
-    "valuation": "تصحيح التقييم"
+    "valuation": "تصحيح التقييم",
+    "shipments": "الشحنات"
   },
   "jonly": {
     "cod": "تحصيل COD",

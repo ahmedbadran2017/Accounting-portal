@@ -107,7 +107,8 @@
     "anomrules": "Règles d’anomalie",
     "activity": "Activité & audit",
     "payroll": "Paie",
-    "valuation": "Correction valo."
+    "valuation": "Correction valo.",
+    "shipments": "Expéditions"
   },
   "jonly": {
     "cod": "Encaissement COD",

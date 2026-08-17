@@ -107,7 +107,8 @@
     "anomrules": "Anomaly rules",
     "activity": "Activity & audit",
     "payroll": "Payroll",
-    "valuation": "Valuation fix"
+    "valuation": "Valuation fix",
+    "shipments": "Shipments"
   },
   "jonly": {
     "cod": "COD remittance",

@@ -54,8 +54,17 @@
         <span class="text-[11px] text-ink-muted flex-1">{{ L("Every new purchase document with an implausible exchange rate is rejected at entry — no new contamination.","أي مستند شراء جديد بسعر صرف غلط بيترفض لحظة الإدخال — مفيش تلوّث جديد.","Tout document au taux invraisemblable est rejeté.") }}</span>
       </div>
 
-      <!-- ② freeze the landed basis -->
-      <LandedBasisCard :start-open="!tower?.basis" @changed="loadTower(); loadTu();" />
+      <!-- ② freeze the landed basis — the day-to-day work happens in the
+           PR-centric Shipments workspace; this card stays as the recon/freeze view -->
+      <router-link to="/accounting/purchases/shipments"
+                   class="block bg-white border rounded-[14px] shadow-card px-4 py-3 hover:bg-app-warm" style="border-color:#c7d2fe">
+        <span class="text-[12px] font-bold">📦 {{ L("Shipment costing workspace","ورشة تكلفة الشحنات","Espace expéditions") }}</span>
+        <span class="text-[11px] text-ink-muted ms-2">{{ L("shipment-by-shipment: verify line costs, attach freight bills, save — then apply from there. The card below is the freeze/reconciliation view.",
+             "شحنة-بشحنة: تحقق تكلفة السطور، إرفاق فواتير الشحن، حفظ — والتطبيق من هناك. الكارت اللي تحت هو عرض التسوية والتجميد.",
+             "Expédition par expédition — vérifier, joindre, appliquer.") }}</span>
+        <span class="text-[12px] font-bold text-accent-dark ms-2">→</span>
+      </router-link>
+      <LandedBasisCard @changed="loadTower(); loadTu();" />
 
       <!-- ③ the catalogue crawl -->
       <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
