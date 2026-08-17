@@ -349,6 +349,67 @@ def apply_shipment(pr=None, year=None, dry_run=1):
             "rows": rows}
 
 
+@frappe.whitelist()
+def item_landed_detail(item_code=None, year=None):
+    """The SKU page's ② freight section: this item's import shipments with each
+    one's channel / freight status / this item's landed share, the LIVE landed
+    per unit, and what is still missing. Air shipments expose band/confirmed
+    rates so the rate can be confirmed right from the item page."""
+    assert_portal_access()
+    if not item_code:
+        frappe.throw("item_code required")
+    from accounting_portal.api.landed_prep import shipment_review
+    sr = shipment_review(year=year)
+    mine = []
+    lines = _pr_lines([r["name"] for r in sr["receipts"]])
+    by_name = {r["name"]: r for r in sr["receipts"]}
+    for prn, lns in lines.items():
+        for l in lns:
+            if l.ic != item_code:
+                continue
+            h = by_name[prn]
+            pr_kg, cost = flt(h["kg"]), flt(h["landed"])
+            line_kg = flt(l.qty) * flt(l.w)
+            share = round(cost * line_kg / pr_kg, 2) if (pr_kg > 0 and h["source"] in ("bills", "rate")) else 0.0
+            mine.append({"pr": prn, "dt": h["dt"], "supplier": h["supplier"],
+                         "channel": h["channel"], "source": h["source"],
+                         "rate_kg": h["rate_kg"], "confirmed_rate": h.get("confirmed_rate"),
+                         "band_rate": h.get("band_rate"), "kg": h["kg"],
+                         "qty": round(flt(l.qty)), "line_kg": round(line_kg, 1),
+                         "share": share, "n_bills": len(h["bills"])})
+    mine.sort(key=lambda x: x["dt"], reverse=True)
+    landed = flt(_live_landed({item_code}, sr["receipts"]).get(item_code))
+    waiting = [m["pr"] for m in mine if m["source"] not in ("bills", "rate")]
+    return {"item_code": item_code, "receipts": mine, "landed_unit": landed,
+            "waiting": waiting, "complete": not waiting and bool(mine),
+            "no_receipts": not mine, "frozen": bool(sr["frozen"]), "year": sr["year"]}
+
+
+@frappe.whitelist()
+def apply_item(item_code=None, rate=None, note=None, year=None):
+    """The SKU page's ④ Submit: apply verified product cost + this item's LIVE
+    landed. Blocked while any of the item's shipments is not freight-costed
+    (its landed would be understated). Gated/reversible via fix_item_cost."""
+    assert_can_write()
+    if not item_code:
+        frappe.throw("item_code required")
+    product = flt(rate)
+    if product <= 0:
+        frappe.throw("A positive verified product cost is required")
+    d = item_landed_detail(item_code=item_code, year=year)
+    if d["waiting"]:
+        frappe.throw("Freight not assembled yet for: " + ", ".join(d["waiting"][:5])
+                     + " — confirm the rate / attach the bills first (its landed would be understated)")
+    landed = flt(d["landed_unit"])
+    full = round(product + landed, 2)
+    from accounting_portal.api.valuation import fix_item_cost
+    return fix_item_cost(
+        company=SALES, item_code=item_code, rate=full, full_rate=1,
+        note=((note or "").strip() or f"SKU verify — {item_code}")
+             + f" · product {product} + landed {landed} = {full} "
+             f"({len(d['receipts'])} shipment(s))")
+
+
 def _verified_item_costs():
     """{item: qty-weighted verified product cost} across ALL saved sheets —
     the bridge from shipment-level review to item-level application."""

@@ -292,7 +292,7 @@
         <div class="p-4 space-y-3">
           <!-- Evidence -->
           <div>
-            <div class="text-[11px] font-bold text-ink-2 mb-1.5">{{ L("Evidence — the actual purchase documents","الدليل — مستندات الشراء الفعلية","Preuves") }}</div>
+            <div class="text-[11px] font-bold text-ink-2 mb-1.5">① {{ L("Product cost — evidence from the actual purchase documents","تكلفة المنتج — الدليل من مستندات الشراء الفعلية","① Coût produit — preuves") }}</div>
             <table class="w-full text-[11.5px] border border-line rounded-[8px] overflow-hidden">
               <thead><tr style="background:#fafaf9">
                 <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Document","المستند","Doc") }}</th>
@@ -313,9 +313,40 @@
             </table>
             <div v-if="!fixPrev.evidence.length" class="text-[11px] text-amber-700 mt-1">{{ L("No purchase documents — enter the verified cost manually below (a note is required).","مفيش مستندات شراء — أدخل التكلفة المتحققة يدويًا (النوت إجباري).","Aucun document — saisir manuellement.") }}</div>
           </div>
+          <!-- ② the item's shipments → live landed -->
+          <div v-if="itemLanded">
+            <div class="text-[11px] font-bold text-ink-2 mb-1.5">② {{ L("Freight — this product's shipments","الشحن — شحنات المنتج ده","② Fret — ses expéditions") }}
+              <b v-if="itemLanded.complete" class="tnum ms-1" style="color:#047857">= {{ fmtNum(itemLanded.landed_unit, 2) }} / {{ L("unit","وحدة","unité") }}</b>
+            </div>
+            <div v-if="itemLanded.receipts.length" class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
+              <table class="w-full text-[11.5px]">
+                <tbody>
+                  <tr v-for="r in itemLanded.receipts" :key="r.pr" class="border-t border-line-hair first:border-0">
+                    <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.pr }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
+                    <td class="px-3 py-1.5 text-center">{{ r.channel === "air" ? "🛫" : "🚢" }}</td>
+                    <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.qty) }} {{ L("pcs","قطعة","pcs") }}</td>
+                    <td class="px-3 py-1.5">
+                      <span v-if="['bills','rate'].includes(r.source)" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">
+                        {{ L("actual","فعلي","réel") }} @{{ r.rate_kg }}/kg</span>
+                      <template v-else-if="r.channel === 'air' && canWrite && !itemLanded.frozen">
+                        <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
+                               class="w-[62px] h-[24px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
+                        <button class="ms-1 text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+                                :disabled="!( (r._draft ?? r.band_rate) > 0 ) || fixing" @click="confirmPrRate(r)">✓ {{ L("confirm rate","اعتماد السعر","confirmer") }}</button>
+                      </template>
+                      <span v-else class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">
+                        {{ L("bills missing — attach in Shipments","الفواتير ناقصة — ارفقوها في الشحنات","factures manquantes") }}</span>
+                    </td>
+                    <td class="px-3 py-1.5 text-end tnum font-semibold">{{ r.share ? fmtNum(r.share) : "—" }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="text-[11px] text-ink-muted">{{ L("No import shipments this year — landed = 0 (manual-cost product).","مفيش شحنات استيراد السنة دي — الشحن = 0 (منتج بتكلفة يدوية).","Aucune expédition — fret 0.") }}</div>
+          </div>
           <!-- Impact preview -->
           <div v-if="fixPrev.bins.length">
-            <div class="text-[11px] font-bold text-ink-2 mb-1.5">{{ L("Impact — every bin moves to the verified cost (one today-dated entry)","الأثر — كل المخازن تتظبط بقيد واحد بتاريخ اليوم","Impact") }}</div>
+            <div class="text-[11px] font-bold text-ink-2 mb-1.5">③ {{ L("Summary & impact — every bin moves to the full cost (one today-dated entry)","الملخص والأثر — كل المخازن تتظبط بالتكلفة الكاملة (قيد واحد بتاريخ اليوم)","③ Résumé & impact") }}</div>
             <div class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
               <table class="w-full text-[11.5px]">
                 <tbody>
@@ -340,11 +371,11 @@
           </div>
           <!-- Confirm + fix -->
           <div v-if="canWrite && !fixPrev.fixed" class="pt-2 border-t border-line-hair space-y-2">
-            <!-- B5: landed basis state + full-rate split -->
-            <div v-if="!fixPrev.landed?.frozen" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[11.5px]">
-              ⚠ {{ L("Landed basis is NOT frozen — freeze it in the Landed Cockpit first. Fixing is blocked so the catalogue is crawled once at the full cost.",
-                     "أساس الشحن مش مجمّد — جمّده من الـLanded Cockpit الأول. الفيكس متقفل عشان الكتالوج يتمشى مرة واحدة بالتكلفة الكاملة.",
-                     "Base landed non gelée — geler d'abord.") }}
+            <!-- ④ submit gate: every shipment of this item must be freight-costed -->
+            <div v-if="itemLanded && itemLanded.waiting.length" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[11.5px]">
+              🔒 {{ L("Waiting for freight of:","مستني شحن:","En attente du fret de :") }}
+              <span class="font-mono text-[10.5px]" dir="ltr">{{ itemLanded.waiting.join(", ") }}</span>
+              — {{ L("confirm the rate above (air) or attach the bills (Shipments) so the landed isn't understated.","اعتمدوا السعر فوق (جوي) أو ارفقوا الفواتير (الشحنات) علشان الشحن ما يتحسبش ناقص.","confirmer le tarif ou joindre les factures.") }}
             </div>
             <div class="flex items-center gap-2 flex-wrap">
               <label class="text-[11.5px] text-ink-2 font-semibold">{{ L("Verified product cost (MAD/unit)","تكلفة المنتج المتحققة (درهم/وحدة)","Coût produit vérifié") }}</label>
@@ -352,10 +383,10 @@
               <input v-model.trim="fixNote" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيّرت الرقم)','Note')"
                      class="h-[30px] flex-1 min-w-[180px] text-[12px] px-2 rounded-[8px] border border-line" />
             </div>
-            <div v-if="fixPrev.landed?.frozen" class="text-[12px] tnum bg-app-warm/60 rounded-[8px] px-3 py-2">
+            <div v-if="itemLanded && !itemLanded.waiting.length" class="text-[12px] tnum bg-app-warm/60 rounded-[8px] px-3 py-2">
               {{ L("Product","منتج","Produit") }} <b>{{ fmtNum(fixRate || 0, 2) }}</b>
-              + {{ L("landed","شحن","landed") }} <b>{{ fmtNum(fixPrev.landed.unit, 2) }}</b>
-              <span class="text-ink-muted">({{ fixPrev.landed.weight }}kg × {{ fixPrev.landed.rate_kg }})</span>
+              + {{ L("landed","شحن","landed") }} <b>{{ fmtNum(itemLanded.landed_unit, 2) }}</b>
+              <span class="text-ink-muted">({{ itemLanded.receipts.length }} {{ L("shipment(s)","شحنة","exp.") }})</span>
               = <b class="text-emerald-700">{{ fmtNum(appliedRate, 2) }} {{ L("applied","المعتمد","appliqué") }}</b>
             </div>
             <label class="flex items-center gap-2 text-[12px] text-ink-2 cursor-pointer">
@@ -363,8 +394,8 @@
               {{ L("I verified this figure against the actual supplier invoice","اتحققت من الرقم ده من فاتورة المورّد الفعلية","J'ai vérifié ce chiffre") }}
             </label>
             <button class="h-[32px] px-4 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                    :disabled="!fixConfirm || fixing || !(fixRate > 0) || !fixPrev.landed?.frozen" @click="applyFix">
-              {{ fixing ? L("Fixing…","جارٍ الظبط…","…") : L("Approve & fix at full cost","اعتمد وظبّط بالتكلفة الكاملة","Approuver & corriger") }}
+                    :disabled="!fixConfirm || fixing || !(fixRate > 0) || !itemLanded || itemLanded.waiting.length > 0" @click="applyFix">
+              🚀 {{ fixing ? L("Applying…","جارٍ التطبيق…","…") : L("④ Submit — apply full cost","④ الاعتماد النهائي — تطبيق التكلفة الكاملة","④ Soumettre") }}
             </button>
           </div>
         </div>
@@ -477,10 +508,25 @@ const fixRate = ref(null);
 const fixNote = ref("");
 const fixConfirm = ref(false);
 const fixing = ref(false);
-// B5: the FULL rate that will actually be applied = verified product + frozen landed
+const SCM = "accounting_portal.api.shipment_costing";
+const itemLanded = ref(null);
+async function loadItemLanded(itemCode) {
+  try { itemLanded.value = await api.call(`${SCM}.item_landed_detail`, { item_code: itemCode }, { fresh: true }); }
+  catch (e) { itemLanded.value = null; }
+}
+async function confirmPrRate(r) {
+  fixing.value = true;
+  try {
+    await api.call("accounting_portal.api.landed_prep.set_pr_rate", { pr: r.pr, rate: r._draft ?? r.band_rate });
+    toast.success(L("Rate confirmed", "السعر اتعتمد", "Tarif confirmé"));
+    await loadItemLanded(trace.value.item_code);
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { fixing.value = false; }
+}
+// the FULL rate that will actually be applied = verified product + LIVE landed
 const appliedRate = computed(() => {
   const p = Number(fixRate.value) || 0;
-  const l = Number(fixPrev.value?.landed?.unit) || 0;
+  const l = Number(itemLanded.value?.landed_unit) || 0;
   return p > 0 ? Math.round((p + l) * 100) / 100 : 0;
 });
 
@@ -495,6 +541,7 @@ async function pick(itemCode) {
     q.value = trace.value.sku || itemCode;
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: itemCode }, { fresh: true });
     fixRate.value = fixPrev.value?.true_cost?.cost_mad ?? null;
+    await loadItemLanded(itemCode);
   } catch (e) {
     err.value = e.message || "Failed to load trace";
   } finally {
@@ -506,8 +553,8 @@ async function applyFix() {
   if (fixing.value || !trace.value) return;
   fixing.value = true;
   try {
-    const res = await api.call(`${V}.fix_item_cost`, {
-      company: currentCompany(), item_code: trace.value.item_code,
+    const res = await api.call(`${SCM}.apply_item`, {
+      item_code: trace.value.item_code,
       rate: fixRate.value, note: fixNote.value || undefined,
     });
     if (res.status === "Posted") toast.success(L("Cost fixed — one today-dated entry posted", "اتظبطت — قيد واحد بتاريخ اليوم", "Corrigé"));
