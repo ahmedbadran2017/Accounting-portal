@@ -63,8 +63,8 @@ defineEmits(["open"]);
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const M = "accounting_portal.api.model_costing";
-const fmt = (n) => new Intl.NumberFormat().format(Math.round(n || 0));
-const fmt2 = (n) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n || 0);
+const fmt = (n) => new Intl.NumberFormat("en-US").format(Math.round(n || 0));
+const fmt2 = (n) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n || 0);
 
 const data = ref(null);
 const loading = ref(false);

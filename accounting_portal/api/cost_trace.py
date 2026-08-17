@@ -259,11 +259,19 @@ def _family_members(item_code):
     if "-" in sku:
         base = sku.split("-")[0].strip()
         if len(base) >= 4 and base != sku:
-            kin = frappe.db.sql(
-                """SELECT name FROM `tabItem`
-                   WHERE (custom_sku=%s OR custom_sku LIKE %s) AND name!=%s
-                   LIMIT 100""", (base, base + "-%", item_code), pluck=True)
-            members += [k for k in kin if k not in members]
+            # the kin link is valid ONLY when an item carries the BARE base as
+            # its whole sku (the "JB8002" pattern: invoice on the base code).
+            # A shared prefix alone (T09ER-88019 vs T09ER-88053) is a vendor/
+            # season prefix across DIFFERENT models — never link on it.
+            bare = frappe.db.sql(
+                "SELECT name FROM `tabItem` WHERE custom_sku=%s AND name!=%s LIMIT 20",
+                (base, item_code), pluck=True)
+            if bare:
+                kin = frappe.db.sql(
+                    """SELECT name FROM `tabItem`
+                       WHERE (custom_sku=%s OR custom_sku LIKE %s) AND name!=%s
+                       LIMIT 100""", (base, base + "-%", item_code), pluck=True)
+                members += [k for k in kin if k not in members]
     return t, members
 
 
@@ -401,6 +409,12 @@ def _true_cost_bulk(item_codes, fx):
                 if len(b) >= 4 and b != sku:
                     base_of[c] = b
         if base_of:
+            # only bases that exist as a BARE sku are real model codes — a
+            # shared prefix across different models must never pool evidence
+            bares = set(frappe.db.sql(
+                """SELECT DISTINCT custom_sku FROM `tabItem`
+                   WHERE custom_sku IN %s""", (tuple(set(base_of.values())),), pluck=True))
+            base_of = {c: b for c, b in base_of.items() if b in bares}
             kin_of_base, kin_codes = {}, []
             for b in set(base_of.values()):
                 kin = frappe.db.sql(

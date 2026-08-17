@@ -49,7 +49,8 @@
             <label class="text-[11.5px] text-ink-2 font-semibold">{{ L("Verified cost (MAD/unit)","التكلفة المعتمدة (درهم/وحدة)","Coût vérifié") }}</label>
             <input v-model.number="rate" type="number" step="0.01" min="0" class="h-[30px] w-[110px] text-[12px] text-end px-2 rounded-[8px] border border-line tnum" dir="ltr" />
             <input v-model="note" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيرتوا الرقم)','Note')"
-                   class="h-[30px] flex-1 min-w-[220px] text-[12px] px-2.5 rounded-[8px] border border-line" />
+                   class="h-[30px] flex-1 min-w-[220px] text-[12px] px-2.5 rounded-[8px] border"
+                   :class="noteNeeded ? 'border-amber-400' : 'border-line'" />
           </div>
         </div>
       </div>
@@ -75,7 +76,7 @@
             <tbody>
               <tr v-for="v in d.variants" :key="v.item_code" class="border-t border-line-hair" :class="results[v.item_code] === 'ok' ? 'bg-emerald-50/40' : ''">
                 <td class="px-3 py-1.5 text-center">
-                  <input type="checkbox" :checked="!excluded.has(v.item_code)" :disabled="v.fixed || v.batch_tracked || posting"
+                  <input type="checkbox" :checked="!excluded.has(v.item_code) && !v.waiting.length" :disabled="v.fixed || v.batch_tracked || v.waiting.length > 0 || posting"
                          @change="toggleExclude(v.item_code)" />
                 </td>
                 <td class="px-4 py-1.5"><span class="font-semibold">{{ v.sku || v.item_code }}</span><span class="text-[10px] text-ink-muted"> · {{ v.item_name }}</span></td>
@@ -89,6 +90,7 @@
                 </td>
                 <td class="px-3 py-1.5 text-center text-[12px]">
                   <span v-if="results[v.item_code] === 'ok'" class="text-emerald-700 font-bold">✓</span>
+                  <span v-else-if="results[v.item_code] === 'proposed'" class="text-indigo-600 font-bold" :title="L('proposed — awaiting approval','مقترح — في انتظار الموافقة','proposé')">📩</span>
                   <span v-else-if="results[v.item_code]" class="text-sale font-bold" :title="results[v.item_code]">✕</span>
                 </td>
               </tr>
@@ -137,7 +139,7 @@ const toast = useToast();
 const { can } = useAuth();
 const canWrite = computed(() => can("post_entries"));
 const M = "accounting_portal.api.model_costing";
-const fmtNum = (n, d = 0) => new Intl.NumberFormat(undefined, { maximumFractionDigits: d }).format(n || 0);
+const fmtNum = (n, d = 0) => new Intl.NumberFormat("en-US", { maximumFractionDigits: d }).format(n || 0);
 
 const d = ref(null);
 const loading = ref(false);
@@ -158,8 +160,13 @@ const modelName = computed(() => {
   return n.split(" / ")[0];
 });
 const targetCount = computed(() =>
-  (d.value?.variants || []).filter((v) => !v.fixed && !v.batch_tracked && !excluded.value.has(v.item_code)).length);
-const canSubmit = computed(() => rate.value > 0 && targetCount.value > 0 && !posting.value);
+  (d.value?.variants || []).filter((v) => !v.fixed && !v.batch_tracked && !v.waiting.length && !excluded.value.has(v.item_code)).length);
+// M5 guard: a sub-0.5 "cost" is a broken FX artefact; M7: changing the figure
+// away from the evidence requires a note
+const noteNeeded = computed(() =>
+  d.value?.model?.suggested != null && rate.value !== d.value.model.suggested && !(note.value || "").trim());
+const canSubmit = computed(() =>
+  rate.value >= 0.5 && targetCount.value > 0 && !posting.value && !draining.value && !noteNeeded.value);
 
 function toggleExclude(ic) {
   const s = new Set(excluded.value);
@@ -172,7 +179,7 @@ async function load() {
   err.value = "";
   try {
     d.value = await api.call(`${M}.model_detail`, { item_code: props.seed }, { fresh: true });
-    if (d.value.model.suggested && !rate.value) rate.value = d.value.model.suggested;
+    if (d.value.model.suggested >= 0.5 && !rate.value) rate.value = d.value.model.suggested;
   } catch (e) { err.value = e.message || "Failed"; }
   finally { loading.value = false; }
 }
@@ -186,33 +193,53 @@ async function runSubmit() {
     `Appliquer ${targetCount.value} variante(s) ?`))) return;
   posting.value = true;
   finished.value = false;
+  results.value = {};
   posted.value = 0; failed.value = 0; progress.value = 0;
+  let proposedN = 0;
   try {
     for (let w = 0; w < 20; w++) {
       const r = await api.call(`${M}.apply_model`, {
         item_code: props.seed, rate: rate.value, note: note.value || undefined,
         retro: 1, exclude: JSON.stringify([...excluded.value]), limit: 15,
       }, { fresh: true });
-      for (const p of r.posted) { if (results.value[p.item_code] !== "ok") posted.value++; results.value[p.item_code] = "ok"; }
-      for (const s of r.skipped) { if (!results.value[s.item_code]) failed.value++; results.value[s.item_code] = s.reason || "failed"; }
-      progress.value = posted.value + failed.value;
-      if (!r.posted.length || !r.remaining) break;
+      for (const p of r.posted) {
+        const prev = results.value[p.item_code];
+        if (prev !== "ok") { posted.value++; if (prev && prev !== "proposed") failed.value--; }
+        results.value[p.item_code] = "ok";
+      }
+      for (const p of r.proposed || []) {
+        if (results.value[p.item_code] !== "proposed") proposedN++;
+        results.value[p.item_code] = "proposed";
+      }
+      for (const sk of r.skipped) { if (!results.value[sk.item_code]) failed.value++; results.value[sk.item_code] = sk.reason || "failed"; }
+      progress.value = posted.value + failed.value + proposedN;
+      if ((!r.posted.length && !(r.proposed || []).length) || !r.remaining) break;
     }
-    toast.success(L(`Model applied — ${posted.value} variant(s)`, `الموديل اتطبق — ${posted.value} variant`, `${posted.value} appliqués`));
+    if (posted.value || proposedN) {
+      toast.success(proposedN
+        ? L(`${posted.value} posted · ${proposedN} proposed for approval`, `${posted.value} اترحّل · ${proposedN} مقترح للموافقة`, `${posted.value} + ${proposedN} proposés`)
+        : L(`Model applied — ${posted.value} variant(s)`, `الموديل اتطبق — ${posted.value} variant`, `${posted.value} appliqués`));
+    } else if (failed.value) {
+      toast.error(L("Nothing posted — see the row reasons", "مفيش حاجة اترحّلت — شوفوا أسباب الصفوف", "Rien comptabilisé"));
+    }
   } catch (e) { toast.error(e.message || "Failed"); }
   finally {
     posting.value = false;
     finished.value = true;
     emit("applied");
     await load();
-    draining.value = true;
-    for (let i = 0; i < 12; i++) {
-      try {
-        const r = await api.call("accounting_portal.api.valuation.drain_reposts", { budget_s: 45 }, { fresh: true });
-        if (!r.remaining) break;
-      } catch { break; }
+    if (posted.value) {
+      draining.value = true;
+      let drained = false;
+      for (let i = 0; i < 12; i++) {
+        try {
+          const r = await api.call("accounting_portal.api.valuation.drain_reposts", { budget_s: 45 }, { fresh: true });
+          if (!r.remaining) { drained = true; break; }
+        } catch (e) { toast.error(e.message || "Repost drain failed"); break; }
+      }
+      if (!drained) toast.info(L("Reposts still running — they'll finish in the background", "إعادة الحساب لسه شغالة — هتكمل في الخلفية", "Recalcul en cours"));
+      draining.value = false;
     }
-    draining.value = false;
   }
 }
 </script>

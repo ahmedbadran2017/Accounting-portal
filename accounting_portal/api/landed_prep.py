@@ -390,7 +390,10 @@ def set_pr_channel(company=None, year=None, pr=None, channel=None):
         frappe.throw("Basis is frozen — unfreeze before reclassifying shipments")
     if not pr or channel not in ("air", "sea"):
         frappe.throw("pr + channel (air|sea) required")
-    ov = _channels(_year(year))
+    target, yr = _target(company), _year(year)
+    if not any(r["name"] == pr for r in _import_receipts(target, yr)):
+        frappe.throw(f"{pr} is not one of {yr}'s {target} import shipments — check the year")
+    ov = _channels(yr)
     ov[pr] = channel
     frappe.db.set_default(_chan_key(_year(year)), json.dumps(ov))
     frappe.db.commit()
@@ -597,7 +600,7 @@ def shipment_review(company=None, year=None):
             r["rate_kg"] = conf
             r["landed"] = round(kg * conf)
             actual_total += r["landed"]
-        elif r["channel"] == "air" and r.get("channel_confirmed") \
+        elif r["channel"] == "air" and (r.get("channel_confirmed") or flt(r["qty"]) < 500) \
                 and _air_rate_at(air_rates, r["dt"]) > 0:
             rate = _air_rate_at(air_rates, r["dt"])
             r["source"] = "est"

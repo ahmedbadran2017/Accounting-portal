@@ -40,7 +40,7 @@
     <!-- Catalogue overview + worklist (shown when no single item is picked) -->
     <template v-else-if="!trace">
       <!-- ══ Cost Control Tower — the 5-step guided process ══ -->
-      <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
+      <div v-if="tower && !modelSeed" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
         <div class="flex items-center gap-1.5 flex-wrap text-[11px] font-semibold">
           <span v-for="(s, i) in steps" :key="i" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px]"
                 :style="s.state==='done' ? 'background:#ecfdf5;color:#047857' : s.state==='active' ? 'background:#eef2ff;color:#4338ca' : 'background:#f5f5f4;color:#a8a29e'">
@@ -58,7 +58,7 @@
       </div>
 
       <!-- ③ the catalogue crawl -->
-      <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
+      <div v-if="tower && !modelSeed" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-[13px] font-bold">③ {{ L("The catalogue crawl","زحفة التكلفة","La revue catalogue") }}</span>
           <span class="text-[11px] font-bold tnum">{{ fmtNum(tower.crawl.fixed) }} / {{ fmtNum(tower.crawl.total) }} {{ L("fixed","متظبط","corrigés") }}</span>
@@ -70,7 +70,7 @@
         </div>
       </div>
 
-      <div v-if="ov" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div v-if="ov && !modelSeed" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         <div class="bg-white rounded-[12px] border border-line p-3.5 shadow-card">
           <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Current book value","القيمة الحالية","Valeur actuelle") }}</div>
           <div class="text-[18px] font-bold tnum mt-[3px]">{{ fmtNum(ov.current_value) }}</div>
@@ -96,7 +96,7 @@
       <!-- model file (opened from the model catalogue) -->
       <div v-if="modelSeed" class="space-y-3">
         <button class="text-[12px] font-bold text-accent-dark hover:underline" @click="closeModel">→ {{ L("Back to models","رجوع للموديلات","Retour") }}</button>
-        <ModelFile :key="modelSeed" :seed="modelSeed" @applied="ct.load(); loadTower();" />
+        <ModelFile :key="modelSeed" :seed="modelSeed" @applied="onModelApplied" />
       </div>
 
       <!-- catalogue: models (default) ⇄ items -->
@@ -108,7 +108,7 @@
         <span class="text-[10.5px] text-ink-muted">{{ L("models group every variant family — one review, one Submit","الموديلات بتجمع عيلة الـvariants — تحقق واحد واعتماد واحد","un modèle = toute la famille") }}</span>
       </div>
 
-      <ModelCatalogue v-if="!modelSeed && catMode === 'models'" @open="openModel" />
+      <ModelCatalogue v-show="!modelSeed && catMode === 'models'" ref="modelCat" @open="openModel" />
 
       <div v-if="!modelSeed && catMode === 'items'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
@@ -178,7 +178,7 @@
 
 
       <!-- B6: Monthly COGS true-up -->
-      <div v-if="tu" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="tu.basis_frozen ? 'border-color:#e7e5e4' : 'border-color:#fde68a'">
+      <div v-if="tu && !modelSeed" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="tu.basis_frozen ? 'border-color:#e7e5e4' : 'border-color:#fde68a'">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap cursor-pointer" @click="tuOpen = !tuOpen">
           <span class="text-[13px] font-bold">④ {{ L("Monthly COGS true-up","تسوية COGS الشهرية","Régularisation COGS mensuelle") }} {{ tu.year }}</span>
           <span v-if="!tu.basis_frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("landed basis not frozen — posting blocked","أساس الشحن مش مجمّد — الترحيل متقفل","base non gelée") }}</span>
@@ -219,7 +219,7 @@
       </div>
 
       <!-- ⑤ closings -->
-      <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
+      <div v-if="tower && !modelSeed" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-[13px] font-bold">⑤ {{ L("Closings","الإقفالات","Clôtures") }}</span>
           <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
@@ -234,7 +234,7 @@
         </div>
       </div>
       <!-- admin corner: reconciliation & freeze — not part of daily work -->
-      <details>
+      <details v-if="!modelSeed">
         <summary class="cursor-pointer text-[11px] font-semibold text-ink-3 hover:text-ink px-1 py-1 select-none">
           ⚙️ {{ L("Admin — freight reconciliation & basis freeze (needed for monthly true-ups only)","إداري — تسوية الشحن وتجميد الأساس (لازم لتسويات الشهور فقط)","Admin — réconciliation & gel") }}
         </summary>
@@ -346,15 +346,18 @@
                   <td class="px-3 py-1.5 text-center whitespace-nowrap">
                     <button v-if="canWrite && !itemLanded.frozen" class="text-[12px]"
                             :title="r.channel_confirmed ? L('confirmed — click to flip','مؤكدة — دوس للقلب','confirmé') : L('SUGGESTED only — click to flip','اقتراح بس — دوس للقلب','suggestion')"
-                            @click="flipPrChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">؟</span></button>
-                    <template v-else>{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">؟</span></template>
+                            @click="flipPrChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></button>
+                    <button v-if="canWrite && !itemLanded.frozen && !r.channel_confirmed" class="ms-0.5 text-[10px] font-bold text-emerald-700 hover:underline"
+                            :title="L('confirm the suggested channel as-is','تأكيد القناة المقترحة زي ما هي','confirmer tel quel')"
+                            @click="confirmPrChannel(r)">✓</button>
+                    <template v-if="!canWrite || itemLanded.frozen">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></template>
                   </td>
                   <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.qty) }}</td>
                   <td class="px-3 py-1.5 whitespace-nowrap">
                     <template v-if="['bills','rate'].includes(r.source)">
                       <FreightChip :source="r.source" /> <span class="text-[10px] text-ink-muted" dir="ltr">@{{ r.rate_kg }}/kg</span>
                     </template>
-                    <template v-else-if="r.channel === 'air' && (r.channel_confirmed || r.qty < 500) && canWrite && !itemLanded.frozen">
+                    <template v-else-if="r.channel === 'air' && (r.channel_confirmed || (r.pr_qty || r.qty) < 500) && canWrite && !itemLanded.frozen">
                       <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
                              class="w-[62px] h-[26px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
                       <button class="ms-1 h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
@@ -667,8 +670,15 @@ async function flipPrChannel(r) {
   const to = r.channel === "air" ? "sea" : "air";
   if (!window.confirm(L(`Classify ${r.pr} as ${to === "sea" ? "SEA 🚢" : "AIR 🛫"}?`,
                         `تصنيف ${r.pr} ${to === "sea" ? "بحري 🚢" : "جوي 🛫"}؟`, `Classer ${to} ?`))) return;
+  await setPrChannel(r, to);
+}
+async function confirmPrChannel(r) {
+  await setPrChannel(r, r.channel);
+}
+async function setPrChannel(r, to) {
   try {
-    await api.call("accounting_portal.api.landed_prep.set_pr_channel", { pr: r.pr, channel: to });
+    await api.call("accounting_portal.api.landed_prep.set_pr_channel",
+                   { pr: r.pr, channel: to, year: itemLanded.value?.year || undefined });
     toast.success(L("Channel confirmed", "القناة اتأكدت", "Canal confirmé"));
     await loadItemLanded(trace.value.item_code);
   } catch (e) { toast.error(e.message || "Failed"); }
@@ -771,8 +781,15 @@ async function applyFix() {
 // ── Models view (default): one row per variant family ──
 const catMode = ref("models");
 const modelSeed = ref("");
+const modelCat = ref(null);
 function openModel(seed) { modelSeed.value = seed; }
-function closeModel() { modelSeed.value = ""; }
+function closeModel() { modelSeed.value = ""; modelCat.value?.load(); }
+function onModelApplied() {
+  ct.load();
+  loadTower();
+  modelCat.value?.load();
+  api.call(`${M}.cost_overview`, {}, { fresh: true }).then((r) => { ov.value = r; }).catch(() => {});
+}
 
 // ── Catalogue overview + worklist table ──
 const ov = ref(null);

@@ -12,7 +12,7 @@
         <div class="flex items-center gap-3 flex-wrap">
           <span class="text-[15px] font-bold font-mono" dir="ltr">{{ sheet.pr }}</span>
           <span class="text-[12px] text-ink-muted">{{ sheet.dt }} · {{ sheet.supplier }}</span>
-          <span class="text-[12px]">{{ sheet.channel === "air" ? "🛫" : "🚢" }}<span v-if="!sheet.channel_confirmed" class="text-[10px] text-amber-600 font-bold" :title="L('channel is a suggestion — flip it from the list if wrong','القناة اقتراح — اقلبها من القائمة لو غلط','suggestion')">؟</span> {{ fmt0(sheet.kg) }}kg · {{ fmt0(sheet.qty) }} {{ L("units","قطعة","unités") }}</span>
+          <span class="text-[12px]">{{ sheet.channel === "air" ? "🛫" : "🚢" }}<span v-if="!sheet.channel_confirmed" class="text-[10px] text-amber-600 font-bold" :title="L('channel is a suggestion — flip it from the list if wrong','القناة اقتراح — اقلبها من القائمة لو غلط','suggestion')">?</span> {{ fmt0(sheet.kg) }}kg · {{ fmt0(sheet.qty) }} {{ L("units","قطعة","unités") }}</span>
           <span class="flex-1"></span>
           <span class="text-[12px] tnum"><b>{{ L("Freight","الشحن","Fret") }}:</b> {{ fmt0(sheet.freight.landed) }}
             <FreightChip :source="sheet.freight.source" class="ms-1" />
@@ -163,11 +163,14 @@
               <td class="px-4 py-2 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.name }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
               <td class="px-3 py-2 truncate max-w-[150px]">{{ r.supplier }}</td>
               <td class="px-3 py-2 text-center whitespace-nowrap">
-                <button v-if="canWrite" class="text-[13px] hover:scale-110 transition-transform"
+                <button v-if="canWrite && !data.frozen" class="text-[13px] hover:scale-110 transition-transform"
                         :title="r.channel_confirmed ? L('Channel confirmed — click to flip','القناة مؤكدة — دوس للقلب','Confirmé — cliquer pour changer')
                                                     : L('SUGGESTED only — click to flip, or confirm as-is below','اقتراح بس — دوس للقلب','Suggéré — cliquer pour changer')"
-                        @click.stop="flipChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">؟</span></button>
-                <template v-else>{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">؟</span></template>
+                        @click.stop="flipChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></button>
+                <button v-if="canWrite && !data.frozen && !r.channel_confirmed" class="ms-0.5 text-[10px] font-bold text-emerald-700 hover:underline"
+                        :title="L('confirm the suggested channel as-is','تأكيد القناة المقترحة زي ما هي','confirmer tel quel')"
+                        @click.stop="confirmChannel(r)">✓</button>
+                <template v-if="!canWrite || data.frozen">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></template>
               </td>
               <td class="px-3 py-2 text-end tnum">{{ fmt0(r.kg) }}</td>
               <td class="px-3 py-2 text-end tnum">
@@ -374,11 +377,20 @@ async function flipChannel(r) {
   if (!window.confirm(L(`Classify ${r.name} as ${to === "sea" ? "SEA 🚢" : "AIR 🛫"}?`,
                         `تصنيف ${r.name} ${to === "sea" ? "بحري 🚢" : "جوي 🛫"}؟`,
                         `Classer ${r.name} ${to} ?`))) return;
+  await setChannel(r, to);
+}
+async function confirmChannel(r) {
+  await setChannel(r, r.channel);
+}
+async function setChannel(r, to) {
+  if (busy.value) return;
+  busy.value = true;
   try {
     await api.call("accounting_portal.api.landed_prep.set_pr_channel", { pr: r.name, channel: to, year: yearSel.value });
     toast.success(L("Channel confirmed", "القناة اتأكدت", "Canal confirmé"));
     await loadList();
   } catch (e) { toast.error(e.message || "Failed"); }
+  finally { busy.value = false; }
 }
 
 async function openSheet(pr) {

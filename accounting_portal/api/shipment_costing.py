@@ -450,7 +450,7 @@ def item_landed_detail(item_code=None, year=None):
             share = round(cost * line_kg / eff_total, 2) if (eff_total > 0 and h["source"] in ("bills", "rate")) else 0.0
             mine.append({"pr": prn, "dt": h["dt"], "supplier": h["supplier"],
                          "channel": h["channel"], "channel_confirmed": bool(h.get("channel_confirmed")),
-                         "source": h["source"],
+                         "pr_qty": h["qty"], "source": h["source"],
                          "rate_kg": h["rate_kg"], "confirmed_rate": h.get("confirmed_rate"),
                          "band_rate": h.get("band_rate"), "kg": h["kg"],
                          "qty": round(flt(l.qty)), "line_kg": round(line_kg, 1),

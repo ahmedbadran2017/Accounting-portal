@@ -33,6 +33,8 @@ def _model_groups(codes):
     """Union-find over the stocked items: same variant_of OR same SKU base →
     one model. Returns [(members, meta)] where meta carries a stable key and
     a display name (the template's name when there is one)."""
+    if not codes:
+        return []
     meta = frappe.db.sql(
         """SELECT name, variant_of, custom_sku, item_name FROM `tabItem`
            WHERE name IN %s""", (tuple(codes),), as_dict=True)
@@ -57,6 +59,22 @@ def _model_groups(codes):
         b = _base_of(m.custom_sku)
         if b:
             by_b.setdefault(b, []).append(m.name)
+    # base groups are real models ONLY when the bare base exists as an item's
+    # whole sku (JB8002) — a shared vendor prefix (T09ER-…) spans DIFFERENT
+    # models and must never merge them
+    if by_b:
+        bares = set(frappe.db.sql(
+            """SELECT DISTINCT custom_sku FROM `tabItem` WHERE custom_sku IN %s""",
+            (tuple(by_b),), pluck=True))
+        by_b = {b: grp for b, grp in by_b.items() if b in bares}
+        # the BARE item itself (sku == base, dash-less → excluded from _base_of)
+        # must join its group too, or it strands as its own catalogue row
+        if by_b:
+            for nm, bsku in frappe.db.sql(
+                    """SELECT name, custom_sku FROM `tabItem`
+                       WHERE custom_sku IN %s AND name IN %s""",
+                    (tuple(by_b), tuple(codes))):
+                by_b[bsku].append(nm)
     for grp in list(by_t.values()) + list(by_b.values()):
         for x in grp[1:]:
             union(grp[0], x)
@@ -74,27 +92,55 @@ def _model_groups(codes):
             name = members[0].item_name
         # strip the variant suffix ("... -orange / 18 m") for a model-level label
         name = (name or "").split(" / ")[0]
-        out.append({"members": [m.name for m in members],
-                    "key": members[0].name,   # any member resolves the model
+        member_names = sorted(m.name for m in members)
+        out.append({"members": member_names,
+                    "key": member_names[0],   # any member resolves the model
                     "name": name, "base": base or (members[0].custom_sku or "")})
     return out
 
 
+_SRC_PRIORITY = {"maslak_pi": 0, "local_pi": 1, "family_pi": 2, "morocco_pr": 3}
+
+
+def _pick_suggested(tc, members):
+    """Deterministic model cost: best SOURCE first (Maslak invoice > local >
+    family > receipt), then sorted member order — the SAME figure on the
+    catalogue row and inside the model file."""
+    best = None
+    for m in sorted(members):
+        t = tc.get(m)
+        if not (t and t.get("cost_mad")):
+            continue
+        pr = _SRC_PRIORITY.get(t.get("source"), 9)
+        if best is None or pr < best[0]:
+            best = (pr, m, t)
+    return best
+
+
 def _resolve_family(item_code):
-    """Seed item → the model's full member list (variant family ∪ kin, one
-    template-expansion hop so a kin's own siblings join too)."""
+    """Seed item → the model's full member list. Expands variant families and
+    bare-base kin to a FIXED POINT so it always covers the same set the
+    catalogue's union-find shows — chained families (variant of A, kin of B,
+    B's own sibs…) never leave the Submit short of the displayed ✓ n/N."""
     from accounting_portal.api.cost_trace import _family_members
-    _, members = _family_members(item_code)
-    members = set(members) | {item_code}
-    # expand: variants of any member-template, template+sibs of any member-variant
-    meta = frappe.db.sql(
-        """SELECT name, variant_of, has_variants FROM `tabItem` WHERE name IN %s""",
-        (tuple(members),), as_dict=True)
-    tpls = {m.name for m in meta if m.has_variants} | {m.variant_of for m in meta if m.variant_of}
-    if tpls:
-        more = frappe.db.sql(
-            "SELECT name FROM `tabItem` WHERE variant_of IN %s", (tuple(tpls),), pluck=True)
-        members |= set(more) | tpls
+    members = {item_code}
+    for _hop in range(5):
+        before = len(members)
+        # variant expansion for every member
+        meta = frappe.db.sql(
+            """SELECT name, variant_of, has_variants FROM `tabItem` WHERE name IN %s""",
+            (tuple(members),), as_dict=True)
+        tpls = {m.name for m in meta if m.has_variants} | {m.variant_of for m in meta if m.variant_of}
+        if tpls:
+            members |= set(frappe.db.sql(
+                "SELECT name FROM `tabItem` WHERE variant_of IN %s", (tuple(tpls),), pluck=True))
+            members |= tpls
+        # kin expansion from every member added so far (bounded population)
+        for m in list(members):
+            _, mem = _family_members(m)
+            members |= set(mem)
+        if len(members) == before:
+            break
     return sorted(members)
 
 
@@ -115,12 +161,17 @@ def model_catalogue(search=None, fix_status=None, start=0, page_size=50):
     qty = {s.item_code: flt(s.q) for s in stocked}
     val = {s.item_code: flt(s.sv) for s in stocked}
     codes = list(qty)
+    ck = "ap_model_catalogue"
+    cached = frappe.cache().get_value(ck)
+    if cached is not None:
+        return _slice_catalogue(cached, search, fix_status, start, page_size)
     tc = _true_cost_bulk(codes, _fx_series())
     fixed = _fixed_map()
     rows = []
     for g in _model_groups(codes):
         mem = g["members"]
-        t = next((tc.get(m) for m in mem if tc.get(m) and tc[m].get("cost_mad")), None)
+        pick = _pick_suggested(tc, mem)
+        t = pick[2] if pick else None
         n_fixed = sum(1 for m in mem if m in fixed)
         mq = sum(qty.get(m, 0) for m in mem)
         mv = sum(val.get(m, 0) for m in mem)
@@ -136,16 +187,24 @@ def model_catalogue(search=None, fix_status=None, start=0, page_size=50):
                        "partial" if n_fixed else
                        "ready" if t else "unpriced"),
         })
+    sev = {"ready": 0, "partial": 1, "unpriced": 2, "fixed": 3}
+    rows.sort(key=lambda r: (sev[r["status"]], -r["value"]))
+    try:
+        frappe.cache().set_value(ck, rows, expires_in_sec=300)
+    except Exception:
+        pass
+    return _slice_catalogue(rows, search, fix_status, start, page_size)
+
+
+def _slice_catalogue(rows, search, fix_status, start, page_size):
+    counts = {}
+    for r in rows:
+        counts[r["status"]] = counts.get(r["status"], 0) + 1   # BEFORE filters
     q = (search or "").strip().lower()
     if q:
         rows = [r for r in rows if q in (r["name"] or "").lower() or q in (r["base"] or "").lower()]
     if fix_status in ("fixed", "partial", "ready", "unpriced"):
         rows = [r for r in rows if r["status"] == fix_status]
-    counts = {}
-    for r in rows:
-        counts[r["status"]] = counts.get(r["status"], 0) + 1
-    sev = {"ready": 0, "partial": 1, "unpriced": 2, "fixed": 3}
-    rows.sort(key=lambda r: (sev[r["status"]], -r["value"]))
     start, page_size = int(start or 0), min(int(page_size or 50), 200)
     return {"total": len(rows), "counts": counts,
             "rows": rows[start:start + page_size]}
@@ -175,11 +234,14 @@ def model_detail(item_code=None):
         """SELECT name, item_name, custom_sku, IFNULL(has_batch_no,0)+IFNULL(has_serial_no,0) trk,
                   IFNULL(weight_per_unit,0) w
            FROM `tabItem` WHERE name IN %s""", (tuple(members),), as_dict=True)}
-    # pooled evidence: reuse the item-level preview on the seed (its family
-    # fallback already pools the kin docs) — gives docs + FX-converted rates
+    # evidence: preview the member the SUGGESTED figure actually comes from
+    # (deterministic pick) — never the arbitrary clicked seed, whose own
+    # paper-price docs could contradict the family figure shown beside them
+    pick = _pick_suggested(tc, members)
+    ev_seed = pick[1] if pick else item_code
     ev = []
     try:
-        ev = (item_fix_preview(company=SALES, item_code=item_code) or {}).get("evidence") or []
+        ev = (item_fix_preview(company=SALES, item_code=ev_seed) or {}).get("evidence") or []
     except Exception:
         pass
     # freight picture: which member sits in which shipment, what still waits
@@ -191,7 +253,7 @@ def model_detail(item_code=None):
         for l in lns:
             if l.ic in smap:
                 item_prs.setdefault(l.ic, set()).add(prn)
-    t = next((tc.get(m) for m in members if tc.get(m) and tc[m].get("cost_mad")), None)
+    t = pick[2] if pick else None
     variants, waiting_prs = [], set()
     for m in sorted(smap, key=lambda x: (meta.get(x) and meta[x].custom_sku) or x):
         s = smap[m]
@@ -245,7 +307,12 @@ def apply_model(item_code=None, rate=None, note=None, retro=1, exclude=None, lim
            WHERE w.company=%s AND b.actual_qty>0 AND b.item_code IN %s""",
         (SALES, tuple(members)), pluck=True)
     fixed = _fixed_map()
-    todo_all = [m for m in sorted(stocked) if m not in fixed and m not in exclude]
+    tracked = set(frappe.db.sql(
+        """SELECT name FROM `tabItem` WHERE name IN %s
+           AND (IFNULL(has_batch_no,0)=1 OR IFNULL(has_serial_no,0)=1)""",
+        (tuple(stocked),), pluck=True)) if stocked else set()
+    todo_all = [m for m in sorted(stocked)
+                if m not in fixed and m not in exclude and m not in tracked]
     # freight completeness per member — same rule as every other apply path
     sr = shipment_review()
     costed = {r["name"] for r in sr["receipts"] if r["source"] in ("bills", "rate")}
@@ -279,5 +346,9 @@ def apply_model(item_code=None, rate=None, note=None, retro=1, exclude=None, lim
         except Exception as e:
             skipped.append({"item_code": m, "reason": str(e)[:140]})
             continue
+    try:
+        frappe.cache().delete_value("ap_model_catalogue")   # the ✓ n/N moved
+    except Exception:
+        pass
     return {"posted": done, "skipped": skipped, "proposed": proposed,
             "remaining": max(len(todo_all) - len(done) - len(skipped) - len(proposed), 0)}
