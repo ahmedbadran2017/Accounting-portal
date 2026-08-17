@@ -278,7 +278,9 @@ def _live_landed(items, receipts):
     costed = {r["name"]: {"cost": flt(r["landed"]), "kg": flt(r["kg"]), "qty": flt(r["qty"]),
                           "qty0": flt(r.get("qty0") or 0), "bill_kg": flt(r.get("bill_kg") or 0)}
               for r in receipts if r["source"] in ("bills", "rate")}
-    if not (costed and items):
+    from accounting_portal.api.landed_prep import _hist_landed_units
+    hist = _hist_landed_units(set(items)) if items else {}
+    if not (costed or hist) or not items:
         return {}
     lines = _pr_lines(list(costed))
     agg = {}
@@ -307,6 +309,12 @@ def _live_landed(items, receipts):
             a = agg.setdefault(l.ic, [0.0, 0.0])
             a[0] += q
             a[1] += share
+    # blend the HISTORICAL layer (pre-current-year receipts at contract
+    # tariffs) into the same weighted average
+    for ic, hh in hist.items():
+        a = agg.setdefault(ic, [0.0, 0.0])
+        a[0] += hh["qty"]
+        a[1] += hh["value"]
     return {ic: round(v / q, 2) for ic, (q, v) in agg.items() if q > 0}
 
 
@@ -427,6 +435,16 @@ def item_landed_detail(item_code=None, year=None):
                          "qty": round(flt(l.qty)), "line_kg": round(line_kg, 1),
                          "share": share, "n_bills": len(h["bills"])})
     mine.sort(key=lambda x: x["dt"], reverse=True)
+    # historical layer: pre-current-year receipts at the CONTRACT tariffs —
+    # one summary row per item; already blended into landed_unit by _live_landed
+    from accounting_portal.api.landed_prep import _hist_landed_units
+    hh = (_hist_landed_units({item_code}) or {}).get(item_code)
+    hist_row = None
+    if hh and hh["qty"] > 0:
+        hist_row = {"n_prs": hh["n_prs"], "qty": round(hh["qty"]),
+                    "channels": hh["channels"],
+                    "landed_total": round(hh["value"], 2),
+                    "unit": round(hh["value"] / hh["qty"], 2)}
     landed = flt(_live_landed({item_code}, sr["receipts"]).get(item_code))
     waiting = [m["pr"] for m in mine if m["source"] not in ("bills", "rate")]
     # the PR sheets' weighted verified cost, if the team already verified this
@@ -451,9 +469,10 @@ def item_landed_detail(item_code=None, year=None):
             pass
     return {"item_code": item_code, "receipts": mine, "sheet_cost": sheet_cost,
             "saved_meta": saved_meta,
-            "landed_unit": landed,
-            "waiting": waiting, "complete": not waiting and bool(mine),
-            "no_receipts": not mine, "frozen": bool(sr["frozen"]), "year": sr["year"]}
+            "landed_unit": landed, "historical": hist_row,
+            "waiting": waiting, "complete": (not waiting) and bool(mine or hist_row),
+            "no_receipts": not mine and not hist_row,
+            "frozen": bool(sr["frozen"]), "year": sr["year"]}
 
 
 @frappe.whitelist()

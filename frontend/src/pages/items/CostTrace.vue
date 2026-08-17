@@ -339,7 +339,14 @@
               </tbody>
             </table>
           </div>
-          <div v-else class="text-[11px] text-ink-muted">{{ L("No import shipments this year — landed = 0 (manual-cost product).","مفيش شحنات استيراد السنة دي — الشحن = 0 (منتج بتكلفة يدوية).","Aucune expédition — fret 0.") }}</div>
+          <div v-if="itemLanded.historical" class="rounded-[8px] px-3 py-2 text-[11.5px] flex items-center gap-2 flex-wrap" style="background:#faf5ff;border:1px solid #e9d5ff">
+            <span class="font-bold" style="color:#7c3aed">🕰 {{ L("Historical shipments (pre-2026)","شحنات تاريخية (قبل 2026)","Expéditions historiques") }}</span>
+            <span class="tnum">{{ itemLanded.historical.n_prs }} {{ L("receipt(s)","استلام","réc.") }} · {{ fmtNum(itemLanded.historical.qty) }} {{ L("pcs","قطعة","pcs") }}</span>
+            <span>{{ itemLanded.historical.channels.includes("sea") ? "🚢" : "" }}{{ itemLanded.historical.channels.includes("air") ? "🛫" : "" }}</span>
+            <span class="tnum font-semibold flex-1 text-end" dir="ltr">{{ fmtNum(itemLanded.historical.unit, 2) }} / {{ L("unit","وحدة","u") }}</span>
+            <span class="text-[10px] text-ink-muted">{{ L("contract tariff (100/110/126 air · 23.6 sea) × receipt date","تعريفة العقد (جوي 100/110/126 · بحري 23.6) بتاريخ الاستلام","tarif contractuel") }}</span>
+          </div>
+          <div v-if="!itemLanded.receipts.length && !itemLanded.historical" class="text-[11px] text-ink-muted">{{ L("No import shipments at all — landed = 0 (manual-cost product).","مفيش شحنات استيراد خالص — الشحن = 0 (منتج بتكلفة يدوية).","Aucune expédition — fret 0.") }}</div>
         </div>
       </div>
 

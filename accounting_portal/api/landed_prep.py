@@ -653,11 +653,15 @@ def _landed_units_bulk(item_codes, year=None):
     the lines by kg (fallback: by qty). Returns {} until the basis is frozen
     (single-crawl discipline: every consumer sees landed only once locked)."""
     basis = get_basis(year=year)
-    if not (basis and item_codes):
+    if not item_codes:
         return {}
-    pr_costs = basis.get("pr_costs") or {}
+    hist = _hist_landed_units(item_codes, before_year=year)
+    pr_costs = (basis.get("pr_costs") or {}) if basis else {}
+    if not pr_costs and not hist:
+        return {}
     if not pr_costs:
-        return {}
+        # history only (basis not frozen yet): contract-tariff layer stands alone
+        return {ic: round(h["value"] / h["qty"], 2) for ic, h in hist.items() if h["qty"] > 0}
     rows = frappe.db.sql(
         """SELECT pri.item_code ic, pr.name pr, pri.qty, IFNULL(i.weight_per_unit,0) w
            FROM `tabPurchase Receipt Item` pri
@@ -691,6 +695,10 @@ def _landed_units_bulk(item_codes, year=None):
         a = agg.setdefault(r.ic, [0.0, 0.0])   # qty, landed value
         a[0] += q
         a[1] += share
+    for ic, h in hist.items():   # blend the contract-tariff history
+        a = agg.setdefault(ic, [0.0, 0.0])
+        a[0] += h["qty"]
+        a[1] += h["value"]
     return {ic: round(v / q, 2) for ic, (q, v) in agg.items() if q > 0}
 
 
@@ -747,6 +755,62 @@ def unfreeze_basis(year=None):
     frappe.db.set_default(_basis_key(_year(year)), "")
     frappe.db.commit()
     return {"frozen": None}
+
+
+def _hist_sea_rate():
+    try:
+        return flt(frappe.db.get_default("ap_hist_sea_rate")) or 23.6
+    except Exception:
+        return 23.6
+
+
+def _hist_landed_units(item_codes, before_year=None):
+    """Historical landed layer: {item: {"qty", "value", "n_prs", "channels"}}
+    from import receipts BEFORE the working year. History was per-kg BY
+    CONTRACT (Danish door-to-door), so tariff × weight IS the actual cost:
+      air  → the official band at the receipt date (100 → 110 → 126)
+      sea  → the actual Danish average 23.6/kg (validated vs real container
+             costs; channel = ap_pr_channel_<year> for classified bulk
+             receipts, default air for the per-order era)
+    Returned as qty+value so callers can WEIGHT it together with the current
+    year's actual-bill landed."""
+    by = _year(before_year)
+    if not item_codes:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT pri.item_code ic, pr.name pr, pr.posting_date dt,
+                  YEAR(pr.posting_date) y, pri.qty, IFNULL(i.weight_per_unit,0) w
+           FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           JOIN `tabItem` i ON i.name=pri.item_code
+           LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
+           WHERE pr.company=%s AND pr.docstatus=1 AND YEAR(pr.posting_date) < %s
+             AND pri.item_code IN %s
+             AND IFNULL(s.supplier_group,'') NOT IN %s""",
+        (SALES, by, tuple(item_codes), _DOMESTIC_GROUPS), as_dict=True)
+    if not rows:
+        return {}
+    years = {int(r.y) for r in rows}
+    chan_by_year = {y: _channels(y) for y in years}
+    bands_by_year = {y: get_air_rates(y) for y in years}
+    sea_rate = _hist_sea_rate()
+    out = {}
+    for r in rows:
+        q = flt(r.qty)
+        if q <= 0:
+            continue
+        y = int(r.y)
+        ch = (chan_by_year.get(y) or {}).get(r.pr) or "air"
+        rate = sea_rate if ch == "sea" else (_air_rate_at(bands_by_year.get(y) or [], str(r.dt)) or 100)
+        d = out.setdefault(r.ic, {"qty": 0.0, "value": 0.0, "n_prs": set(), "channels": set()})
+        d["qty"] += q
+        d["value"] += q * flt(r.w) * rate
+        d["n_prs"].add(r.pr)
+        d["channels"].add(ch)
+    for ic, d in out.items():
+        d["n_prs"] = len(d["n_prs"])
+        d["channels"] = sorted(d["channels"])
+    return out
 
 
 def landed_unit(item_code, year=None):
