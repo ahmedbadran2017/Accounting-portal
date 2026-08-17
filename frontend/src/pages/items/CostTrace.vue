@@ -306,7 +306,8 @@
                   <td class="px-3 py-1.5 truncate max-w-[140px]">{{ shortSup(e.supplier) }}</td>
                   <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(e.qty) }}</td>
                   <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmtNum(e.rate, 2) }} {{ e.cur }}</td>
-                  <td class="px-3 py-1.5 text-end tnum font-bold text-emerald-700">{{ fmtNum(e.rate_mad, 2) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum font-bold" :class="e.rate_mad >= 0.5 ? 'text-emerald-700' : 'text-sale'">
+                    {{ fmtNum(e.rate_mad, 2) }}<span v-if="e.rate_mad < 0.5" :title="L('FX conversion missing for this date/currency — figure unusable','تحويل العملة ناقص للتاريخ/العملة دي — الرقم غير صالح','Conversion FX manquante')"> ⚠</span></td>
                 </tr>
               </tbody>
             </table>
@@ -540,8 +541,10 @@ async function pick(itemCode) {
     q.value = trace.value.sku || itemCode;
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: itemCode }, { fresh: true });
     await loadItemLanded(itemCode);
-    // prefer the team's own bulk-sheet figure over the engine suggestion
-    fixRate.value = itemLanded.value?.sheet_cost ?? fixPrev.value?.true_cost?.cost_mad ?? null;
+    // prefer the team's own bulk-sheet figure over the engine suggestion —
+    // and NEVER prefill a near-zero figure (a missing FX conversion, not a price)
+    const pf = itemLanded.value?.sheet_cost ?? fixPrev.value?.true_cost?.cost_mad ?? null;
+    fixRate.value = pf != null && pf >= 0.5 ? pf : null;
   } catch (e) {
     err.value = e.message || "Failed to load trace";
   } finally {

@@ -408,6 +408,11 @@ def apply_item(item_code=None, rate=None, note=None, year=None):
     product = flt(rate)
     if product <= 0:
         frappe.throw("A positive verified product cost is required")
+    if product < 0.5:
+        # a sub-0.5-MAD "cost" is almost always a broken currency conversion
+        # (seen on stale-FX environments), not a real price — refuse loudly
+        frappe.throw(f"Verified cost {product} MAD/unit looks like a broken FX conversion, "
+                     "not a real price — check the Currency Exchange records for the invoice date")
     d = item_landed_detail(item_code=item_code, year=year)
     if d["waiting"]:
         frappe.throw("Freight not assembled yet for: " + ", ".join(d["waiting"][:5])
