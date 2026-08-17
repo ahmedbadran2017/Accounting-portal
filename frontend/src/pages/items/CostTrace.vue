@@ -93,7 +93,24 @@
         </div>
       </div>
 
-      <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+      <!-- model file (opened from the model catalogue) -->
+      <div v-if="modelSeed" class="space-y-3">
+        <button class="text-[12px] font-bold text-accent-dark hover:underline" @click="closeModel">→ {{ L("Back to models","رجوع للموديلات","Retour") }}</button>
+        <ModelFile :key="modelSeed" :seed="modelSeed" @applied="ct.load(); loadTower();" />
+      </div>
+
+      <!-- catalogue: models (default) ⇄ items -->
+      <div v-if="!modelSeed" class="flex items-center gap-1.5">
+        <button v-for="m in [['models', L('Models','موديلات','Modèles')], ['items', L('Items','أصناف','Articles')]]" :key="m[0]"
+                class="h-[28px] px-3 rounded-[9px] text-[11.5px] font-bold border"
+                :class="catMode === m[0] ? 'text-white bg-brand border-brand' : 'text-ink-3 border-line hover:bg-app-warm'"
+                @click="catMode = m[0]">{{ m[1] }}</button>
+        <span class="text-[10.5px] text-ink-muted">{{ L("models group every variant family — one review, one Submit","الموديلات بتجمع عيلة الـvariants — تحقق واحد واعتماد واحد","un modèle = toute la famille") }}</span>
+      </div>
+
+      <ModelCatalogue v-if="!modelSeed && catMode === 'models'" @open="openModel" />
+
+      <div v-if="!modelSeed && catMode === 'items'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
           <span class="text-[13px] font-bold">{{ L("③ Catalogue — true cost vs book","③ الكتالوج — الحقيقة مقابل الدفاتر","③ Catalogue") }}</span>
           <div class="flex-1"></div>
@@ -580,6 +597,8 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import ModelCatalogue from "@/components/ModelCatalogue.vue";
+import ModelFile from "@/components/ModelFile.vue";
 import LandedBasisCard from "@/components/LandedBasisCard.vue";
 import ShipmentCostSheet from "@/components/ShipmentCostSheet.vue";
 import FreightChip from "@/components/FreightChip.vue";
@@ -732,6 +751,12 @@ async function applyFix() {
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { fixing.value = false; }
 }
+
+// ── Models view (default): one row per variant family ──
+const catMode = ref("models");
+const modelSeed = ref("");
+function openModel(seed) { modelSeed.value = seed; }
+function closeModel() { modelSeed.value = ""; }
 
 // ── Catalogue overview + worklist table ──
 const ov = ref(null);
