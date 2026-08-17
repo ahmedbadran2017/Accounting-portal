@@ -56,7 +56,9 @@
             <div v-for="b in shownBills" :key="b.voucher" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 hover:bg-app-warm">
               <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
               <span class="text-[10px] text-ink-muted">{{ b.dt }}</span>
-              <span v-if="b.ref_match" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style="background:#ecfdf5;color:#047857"
+              <span v-if="b.suggested_pr === sheet.pr" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style="background:#eef2ff;color:#4338ca"
+                    :title="b.suggested_why">✨ {{ L("tracker match","مطابقة التراكر","corresp. tracker") }}</span>
+              <span v-else-if="b.ref_match" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style="background:#ecfdf5;color:#047857"
                     :title="L('The bill mentions this shipment in its reference/remarks','الفاتورة ذاكرة الشحنة دي في مرجعها/بيانها','La facture référence cette expédition')">⭐ {{ L("ref match","مرجع مطابق","réf.") }}</span>
               <span v-else-if="b.days < 999" class="text-[10px] text-ink-3 tnum whitespace-nowrap" dir="ltr"
                     :title="L('days between bill and receipt dates','فرق الأيام بين تاريخ الفاتورة والاستلام','écart en jours')">±{{ b.days }}{{ L("d","ي","j") }}</span>
@@ -119,8 +121,13 @@
       <!-- inbox strip -->
       <div v-if="data.inbox.length" class="bg-white border rounded-card shadow-card px-4 py-2.5" style="border-color:#fde68a">
         <span class="text-[11px] font-bold" style="color:#b45309">🧾 {{ L("Unallocated freight bills:","فواتير شحن مستنية توزيع:","Factures à allouer :") }}</span>
-        <span v-for="b in data.inbox.slice(0, 8)" :key="b.voucher" class="inline-flex items-center gap-1 text-[10.5px] border border-line rounded-[6px] px-1.5 py-0.5 ms-1.5 bg-white">
+        <span v-for="b in data.inbox.slice(0, 8)" :key="b.voucher" class="inline-flex items-center gap-1 text-[10.5px] border rounded-[6px] px-1.5 py-0.5 ms-1.5 bg-white"
+              :style="b.suggested_pr ? 'border-color:#c7d2fe' : 'border-color:#e7e5e4'">
           <span class="font-mono" dir="ltr">{{ b.voucher.slice(-9) }}</span><span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
+          <button v-if="b.suggested_pr && canWrite && !data.frozen" :disabled="busy"
+                  class="text-[9.5px] font-bold px-1 py-0.5 rounded-[4px] text-white bg-brand disabled:opacity-40"
+                  :title="(b.suggested_why || '') + ' → ' + b.suggested_pr"
+                  @click="acceptSuggestion(b)">✨ {{ L("accept","اعتماد","ok") }}</button>
         </span>
         <span v-if="data.inbox.length > 8" class="text-[10.5px] text-ink-muted ms-1">+{{ data.inbox.length - 8 }}</span>
       </div>
@@ -354,6 +361,16 @@ async function openSheet(pr) {
 function closeSheet() { sheet.value = null; loadList(); }
 
 
+
+async function acceptSuggestion(b) {
+  busy.value = true;
+  try {
+    await api.call(`${SC}.attach_bill`, { pr: b.suggested_pr, voucher: b.voucher, attached: 1, year: yearSel.value });
+    toast.success(L("Attached to ", "اترفقت بـ", "Joint à ") + b.suggested_pr);
+    await loadList();
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { busy.value = false; }
+}
 
 async function saveBillKg(b) {
   busy.value = true;

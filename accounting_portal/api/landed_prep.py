@@ -243,6 +243,16 @@ def _billkg_key(year):
     return f"ap_bill_kg_{year}"
 
 
+def _bill_suggests(year):
+    """{voucher: {pr, why}} — pre-computed tracker-matched allocation
+    suggestions (exact qty + exact amount matches); the team confirms with
+    one click, allocate_bill does the actual write."""
+    try:
+        return json.loads(frappe.db.get_default(f"ap_bill_suggest_{_year(year)}") or "{}")
+    except Exception:
+        return {}
+
+
 def _bill_kgs(year):
     """{voucher: manually-entered bill kg} — for 2026-style lump bills that
     lost the kg. 2025-style bills (qty = kg on the PI line) read automatically."""
@@ -412,6 +422,7 @@ def _bill_rows(target, year, pool=None):
             """SELECT parent, SUM(qty) FROM `tabPurchase Invoice Item`
                WHERE parent IN %s GROUP BY parent""", (tuple(pis),)))
     manual_kg = _bill_kgs(year)
+    _suggests = _bill_suggests(year)
     excl = _excluded_bills(year)
     for r in rows:
         r["supplier"] = sup.get(r.voucher) or ""
@@ -426,6 +437,9 @@ def _bill_rows(target, year, pool=None):
         else:
             r["kg"], r["kg_source"] = None, None
         r["implied_rate"] = round(flt(r.amount) / r["kg"], 2) if r["kg"] else None
+        sg = _suggests.get(r.voucher)
+        r["suggested_pr"] = (sg or {}).get("pr")
+        r["suggested_why"] = (sg or {}).get("why")
     return rows
 
 
