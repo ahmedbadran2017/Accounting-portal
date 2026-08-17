@@ -3,7 +3,7 @@
        ① verify product costs  ② landed (air: confirm rate/kg · sea: bills)
        ③ summary  ④ Submit — applies items whose EVERY shipment is complete.
        Retroactive month restatement stays a separate step (monthly true-up). -->
-  <div v-if="s" class="space-y-3">
+  <div v-if="s" class="space-y-3.5">
     <div class="bg-white rounded-card border border-line shadow-card p-4">
       <div class="flex items-center gap-3 flex-wrap">
         <span class="text-[15px] font-bold font-mono" dir="ltr">{{ s.pr }}</span>
@@ -70,8 +70,8 @@
         <input v-model="note" :placeholder="L('Note (which invoice was checked…)','ملاحظة (اتراجعت على أنهي فاتورة…)','Note…')"
                class="h-[30px] px-2.5 text-[11.5px] border border-line rounded-[8px] outline-none flex-1 min-w-[200px]" />
         <span class="text-[11px] text-ink-muted" v-if="s.sheet.on" dir="ltr">💾 {{ s.sheet.by }} · {{ s.sheet.on }}</span>
-        <button v-if="canWrite" class="h-[32px] px-4 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                :disabled="busy" @click="saveSheet">💾 {{ L("Save draft","حفظ المسودة","Enregistrer") }}</button>
+        <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+                :disabled="busy" @click="saveSheet">{{ L("Save draft","حفظ المسودة","Enregistrer") }}</button>
       </div>
     </div>
 
@@ -79,10 +79,8 @@
     <div class="bg-white rounded-card border border-line shadow-card p-4">
       <div class="flex items-center gap-2 flex-wrap mb-2">
         <span class="text-[12px] font-bold">② {{ L("Landed cost of this shipment","تكلفة شحن الشحنة","Coût du fret") }}</span>
-        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-              :style="freightReady ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">
-          {{ freightReady ? L("actual","فعلي","réel") : L("not set yet","لسه","pas encore") }}</span>
-        <span class="text-[12px] tnum flex-1 text-end"><b>{{ fmt0(s.freight.landed) }}</b> <span class="text-[10.5px] text-ink-muted">@{{ s.freight.rate_kg }}/kg</span></span>
+        <FreightChip :source="s.freight.source" />
+        <span class="text-[12px] tnum flex-1 text-end"><b>{{ fmt0(s.freight.landed) }}</b> <span class="text-[10.5px] text-ink-muted" dir="ltr">@{{ s.freight.rate_kg }}/kg</span></span>
       </div>
 
       <!-- AIR: confirm the flat rate -->
@@ -93,7 +91,7 @@
                :style="s.freight.confirmed_rate ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
         <span class="text-[11px] text-ink-muted">MAD/kg × {{ fmt0(s.kg) }}kg = <b class="tnum">{{ fmt0((rateEdit || 0) * s.kg) }}</b></span>
         <span v-if="s.freight.band_rate && !s.freight.confirmed_rate" class="text-[10.5px] text-amber-700">{{ L("prefilled from the tariff band — confirm it","متعبّي من التعريفة — أكّدوه","préremp. du barème") }}</span>
-        <button v-if="canWrite && !s.frozen" class="h-[28px] px-3 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+        <button v-if="canWrite && !s.frozen" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
                 :disabled="busy || !(rateEdit > 0)" @click="confirmRate">✓ {{ L("Confirm rate","اعتماد السعر","Confirmer") }}</button>
         <button v-if="canWrite && !s.frozen && s.freight.confirmed_rate" class="h-[28px] px-2 rounded-[7px] text-[11px] border border-line text-ink-3 hover:bg-app-warm"
                 :disabled="busy" @click="clearRate">✕</button>
@@ -126,7 +124,7 @@
             </div>
           </div>
         </details>
-        <div class="text-[10px] text-ink-3 mt-1">{{ L("Missing bills? Enter them from Purchases → New bill on the freight accounts — they appear here.","فيه فواتير ناقصة؟ دخّلوها من المشتريات → فاتورة جديدة على حسابات الشحن — هتظهر هنا.","Saisir les factures manquantes dans Achats.") }}</div>
+        <div class="text-[10px] text-ink-3 mt-1">{{ L("Missing bills? Enter them from Purchases → New bill on the freight accounts — they appear here.","فيه فواتير ناقصة؟ دخّلوها من المشتريات (فاتورة جديدة) على حسابات الشحن — هتظهر هنا.","Saisir les factures manquantes dans Achats.") }}</div>
       </div>
     </div>
 
@@ -135,7 +133,7 @@
       <div class="text-[12px] font-bold mb-2">③ {{ L("Summary","الملخص","Résumé") }}</div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div class="border border-line rounded-[10px] px-3 py-2"><div class="text-[10px] text-ink-muted">{{ L("Goods (verified)","البضاعة (المعتمد)","Marchandise") }}</div><div class="text-[14px] font-bold tnum">{{ fmt0(goodsValue) }}</div><div class="text-[10px] text-ink-3">{{ verifiedCount }}/{{ s.lines.length }} {{ L("lines","سطر","lignes") }}</div></div>
-        <div class="border border-line rounded-[10px] px-3 py-2"><div class="text-[10px] text-ink-muted">{{ L("Freight","الشحن","Fret") }}</div><div class="text-[14px] font-bold tnum">{{ fmt0(s.freight.landed) }}</div><div class="text-[10px] text-ink-3">@{{ s.freight.rate_kg }}/kg · {{ freightReady ? L("actual","فعلي","réel") : L("pending","لسه","en attente") }}</div></div>
+        <div class="border border-line rounded-[10px] px-3 py-2"><div class="text-[10px] text-ink-muted">{{ L("Freight","الشحن","Fret") }}</div><div class="text-[14px] font-bold tnum">{{ fmt0(s.freight.landed) }}</div></div>
         <div class="border border-line rounded-[10px] px-3 py-2"><div class="text-[10px] text-ink-muted">{{ L("Shipment total","إجمالي الشحنة","Total") }}</div><div class="text-[14px] font-bold tnum">{{ fmt0(goodsValue + (s.freight.landed || 0)) }}</div></div>
         <div class="border rounded-[10px] px-3 py-2" :style="isComplete ? 'border-color:#a7f3d0;background:#ecfdf5' : 'border-color:#fde68a;background:#fffbeb'"><div class="text-[10px] text-ink-muted">{{ L("Avg full cost / unit","متوسط التكلفة الكاملة/وحدة","Coût moyen/unité") }}</div><div class="text-[14px] font-bold tnum">{{ s.qty > 0 ? ((goodsValue + (s.freight.landed || 0)) / s.qty).toFixed(2) : "—" }}</div><div class="text-[10px] font-bold" :style="isComplete ? 'color:#047857' : 'color:#b45309'">{{ isComplete ? "✅ " + L("complete","مكتملة","complète") : L("finish ① + ②","كمّلوا ① و②","finir ① + ②") }}</div></div>
       </div>
@@ -147,15 +145,16 @@
         <div class="flex-1 min-w-[260px]">
           <div class="text-[12px] font-bold">④ {{ L("Submit — apply this shipment's costs","الاعتماد النهائي — تطبيق تكلفة الشحنة","Soumettre") }}</div>
           <div class="text-[11px] text-ink-muted mt-0.5">
-            {{ L("Updates current stock (forward COGS). An item applies only when ALL its shipments are complete — its cost is the weighted average across them. Retroactive monthly restatement is a separate step (true-up card).",
-                 "بيحدّث المخزون الحالي (وكل بيع جاي). الصنف بيتطبق لما كل شحناته تكون مكتملة — تكلفته متوسط مرجّح بينهم. الأثر الرجعي الشهري خطوة منفصلة (كارت الـtrue-up).",
-                 "Met à jour le stock actuel ; le rétroactif mensuel est une étape séparée.") }}
+            <span :title="L('An item applies only when ALL its shipments are complete — its cost is the weighted average across them. Retroactive monthly restatement is a separate step (true-up card).','الصنف بيتطبق لما كل شحناته تكون مكتملة — تكلفته متوسط مرجّح بينهم. الأثر الرجعي الشهري خطوة منفصلة (كارت الـtrue-up).','Un article part quand toutes ses expéditions sont complètes ; le rétroactif est séparé.')">
+              {{ L("Updates current stock — every next sale leaves at the right cost. Undoable in Activity.","بيحدّث المخزون الحالي — كل بيع جاي يخرج بالتكلفة الصح. قابل للعكس من Activity.","Met à jour le stock actuel ; réversible.") }}</span>
           </div>
         </div>
         <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
                 :disabled="busy" @click="previewSubmit">{{ L("Preview","معاينة","Aperçu") }}</button>
         <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                :disabled="busy || !subPrev || !readyCount" @click="runSubmit">🚀 {{ L("Submit","اعتماد","Soumettre") }} ({{ readyCount }})</button>
+                :disabled="busy || !subPrev || !readyCount"
+                :title="!subPrev ? L('Loading preview…','بيحمّل المعاينة…','Aperçu…') : !readyCount ? L('Nothing ready — see the preview below','مفيش جاهز — شوف المعاينة تحت','Rien de prêt') : ''"
+                @click="runSubmit">{{ L("Submit","اعتماد","Soumettre") }} ({{ readyCount }})</button>
       </div>
       <div v-if="subPrev" class="mt-2.5 border-t border-line-hair pt-2 text-[11px] space-y-1">
         <template v-if="subPrev.dry_run">
@@ -186,6 +185,7 @@ import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import FreightChip from "@/components/FreightChip.vue";
 
 const props = defineProps({ pr: { type: String, required: true }, year: { type: [Number, String], default: null } });
 const emit = defineEmits(["saved"]);
@@ -235,6 +235,7 @@ async function load() {
     note.value = r.sheet?.note || "";
     rateEdit.value = r.freight.confirmed_rate || r.freight.band_rate || null;
     s.value = r;
+    previewSubmit();   // pre-load the ④ preview so Submit is never a dead button
   } catch (e) { toast.error(e.message || "Failed"); }
 }
 watch(() => props.pr, load, { immediate: true });

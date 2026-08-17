@@ -10,7 +10,7 @@
     <div class="bg-white border border-line rounded-[12px] shadow-card p-3 relative">
       <div class="flex items-center gap-2">
         <Icon name="search" :size="16" color="#9a8f88" />
-        <input v-model="q" @input="onSearch" @focus="onSearch"
+        <input v-model="q" @input="onSearch" @focus="onSearch" @blur="hideResultsSoon"
                :placeholder="L('Search SKU / name / code…','بحث SKU / اسم / كود…','Rechercher…')"
                class="flex-1 h-[30px] text-[13px] outline-none bg-transparent" />
         <span v-if="loading" class="text-[11px] text-ink-muted">{{ L("…","…","…") }}</span>
@@ -148,7 +148,7 @@
                 <td class="px-4 py-2.5 text-end tnum font-semibold text-emerald-700">{{ r.true_cost != null ? fmtNum(r.true_cost, 1) : "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum font-bold" :style="{ color: (r.overvaluation || 0) > 0 ? '#b91c1c' : '#78716c' }">{{ r.overvaluation != null ? fmtNum(r.overvaluation) : "—" }}</td>
                 <td class="px-4 py-2.5 text-center" :title="r.repolluted ? L('Fixed before but drifted again — a new bad inbound entry needs source-fixing','اتظبط قبل كده ورجع انحرف — فيه إدخال جديد غلط لازم يتصلح من مصدره','Re-pollué') : ''">
-                  {{ r.repolluted ? "⚠️" : (r.fixed ? "✅" : "") }}
+                  <span :class="r.repolluted ? 'text-amber-600' : 'text-emerald-700'" class="font-bold">{{ r.repolluted ? "⚠" : (r.fixed ? "✓" : "") }}</span>
                 </td>
               </tr>
             </tbody>
@@ -188,7 +188,7 @@
                 <td class="px-4 py-2 text-end tnum font-bold" :style="{ color: r.delta > 0 ? '#b91c1c' : '#2563eb' }">{{ fmtNum(r.delta) }}</td>
                 <td class="px-4 py-2 text-end tnum text-ink-3">{{ r.coverage_pct }}%</td>
                 <td class="px-4 py-2 text-end whitespace-nowrap">
-                  <span v-if="r.posted" class="text-[10.5px] font-bold" :class="r.posted.stale_basis ? 'text-amber-600' : 'text-emerald-700'">{{ r.posted.stale_basis ? '⚠' : '✅' }} {{ r.posted.voucher_no }}<template v-if="r.posted.stale_basis"> · {{ L("basis changed — revert & re-post","الأساس اتغيّر — اعكسوه ورحّلوه تاني","base modifiée") }}</template></span>
+                  <span v-if="r.posted" class="text-[10.5px] font-bold" :class="r.posted.stale_basis ? 'text-amber-600' : 'text-emerald-700'">{{ r.posted.stale_basis ? '⚠' : '✅' }} <span dir="ltr">{{ r.posted.voucher_no }}</span><template v-if="r.posted.stale_basis"> · {{ L("basis changed — revert & re-post","الأساس اتغيّر — اعكسوه ورحّلوه تاني","base modifiée") }}</template></span>
                   <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                           :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1"
                           @click="postTrueup(r)">
@@ -212,7 +212,7 @@
           <span class="text-[11px] text-ink-muted flex-1">
             {{ L("Plan: docs/CLOSE_2025_PLAN.md — 3 open decisions (entry dating per tax filing, VAT treatment, single vs monthly) must be settled before posting. Then intercompany / Maslak / consolidation.",
                  "الخطة: docs/CLOSE_2025_PLAN.md — لازم حسم 3 قرارات (التأريخ حسب الإقرار الضريبي، الـVAT، قيد واحد أم شهري) قبل الترحيل. بعدها الانتر-كومباني / Maslak / التوحيد.",
-                 "Plan: docs/CLOSE_2025_PLAN.md.") }}
+                 "The close plan is prepared — 3 decisions pending with management.") }}
           </span>
         </div>
       </div>
@@ -261,7 +261,7 @@
             <Icon :name="fixPrev.fixed ? 'check' : 'shield'" :size="14" :color="fixPrev.fixed ? '#047857' : '#b45309'" />
           </span>
           <span class="text-[13px] font-bold">{{ fixPrev.fixed ? L("Cost verified & fixed","التكلفة متحققة ومتظبطة","Coût vérifié") : L("Verify & fix this product's cost","تحقق وظبّط تكلفة المنتج","Vérifier & corriger") }}</span>
-          <span v-if="fixPrev.fixed" class="text-[11px] text-ink-muted">{{ fixPrev.fixed.voucher_no }} · {{ String(fixPrev.fixed.posted_on || "").slice(0,16) }}</span>
+          <span v-if="fixPrev.fixed" class="text-[11px] text-ink-muted" dir="ltr">{{ fixPrev.fixed.voucher_no }} · {{ String(fixPrev.fixed.posted_on || "").slice(0,16) }}</span>
         </div>
         <div class="p-4 space-y-3">
           <!-- Evidence -->
@@ -277,7 +277,7 @@
               </tr></thead>
               <tbody>
                 <tr v-for="e in fixPrev.evidence" :key="e.doc" class="border-t border-line-hair">
-                  <td class="px-3 py-1.5 font-mono text-[10.5px]">{{ e.doc }}<span class="text-ink-muted font-sans"> · {{ e.dt }}</span></td>
+                  <td class="px-3 py-1.5 font-mono text-[10.5px]" dir="ltr">{{ e.doc }}<span class="text-ink-muted font-sans"> · {{ e.dt }}</span></td>
                   <td class="px-3 py-1.5 truncate max-w-[140px]">{{ shortSup(e.supplier) }}</td>
                   <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(e.qty) }}</td>
                   <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmtNum(e.rate, 2) }} {{ e.cur }}</td>
@@ -295,22 +295,32 @@
             </div>
             <div v-if="itemLanded.receipts.length" class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
               <table class="w-full text-[11.5px]">
+                <thead><tr style="background:#fafaf9" class="sticky top-0">
+                  <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Shipment","الشحنة","Expédition") }}</th>
+                  <th class="px-3 py-1.5 text-center text-[10px] font-bold text-ink-muted" :title="L('Channel: 🛫 air · 🚢 sea','القناة: 🛫 جوي · 🚢 بحري','Canal')">{{ L("Ch.","قناة","Can.") }}</th>
+                  <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                  <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
+                  <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Item's share","نصيب الصنف","Part") }}</th>
+                </tr></thead>
                 <tbody>
-                  <tr v-for="r in itemLanded.receipts" :key="r.pr" class="border-t border-line-hair first:border-0">
+                  <tr v-for="r in itemLanded.receipts" :key="r.pr" class="border-t border-line-hair">
                     <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.pr }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
                     <td class="px-3 py-1.5 text-center">{{ r.channel === "air" ? "🛫" : "🚢" }}</td>
-                    <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.qty) }} {{ L("pcs","قطعة","pcs") }}</td>
-                    <td class="px-3 py-1.5">
-                      <span v-if="['bills','rate'].includes(r.source)" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">
-                        {{ L("actual","فعلي","réel") }} @{{ r.rate_kg }}/kg</span>
+                    <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.qty) }}</td>
+                    <td class="px-3 py-1.5 whitespace-nowrap">
+                      <template v-if="['bills','rate'].includes(r.source)">
+                        <FreightChip :source="r.source" /> <span class="text-[10px] text-ink-muted" dir="ltr">@{{ r.rate_kg }}/kg</span>
+                      </template>
                       <template v-else-if="r.channel === 'air' && canWrite && !itemLanded.frozen">
                         <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
-                               class="w-[62px] h-[24px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
-                        <button class="ms-1 text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+                               class="w-[62px] h-[26px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
+                        <button class="ms-1 h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
                                 :disabled="!( (r._draft ?? r.band_rate) > 0 ) || fixing" @click="confirmPrRate(r)">✓ {{ L("confirm rate","اعتماد السعر","confirmer") }}</button>
                       </template>
-                      <span v-else class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">
-                        {{ L("bills missing — attach in Shipments","الفواتير ناقصة — ارفقوها في الشحنات","factures manquantes") }}</span>
+                      <template v-else>
+                        <FreightChip source="none" />
+                        <span class="text-[10px] text-ink-muted ms-1">{{ L("attach its bills in Shipments","ارفقوا فواتيرها في الشحنات","joindre dans Expéditions") }}</span>
+                      </template>
                     </td>
                     <td class="px-3 py-1.5 text-end tnum font-semibold">{{ r.share ? fmtNum(r.share) : "—" }}</td>
                   </tr>
@@ -324,6 +334,12 @@
             <div class="text-[11px] font-bold text-ink-2 mb-1.5">③ {{ L("Summary & impact — every bin moves to the full cost (one today-dated entry)","الملخص والأثر — كل المخازن تتظبط بالتكلفة الكاملة (قيد واحد بتاريخ اليوم)","③ Résumé & impact") }}</div>
             <div class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
               <table class="w-full text-[11.5px]">
+                <thead><tr style="background:#fafaf9" class="sticky top-0">
+                  <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Warehouse","المخزن","Entrepôt") }}</th>
+                  <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                  <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Rate: old → new","السعر: قديم → جديد","Taux") }}</th>
+                  <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">Δ MAD</th>
+                </tr></thead>
                 <tbody>
                   <tr v-for="b in fixPrev.bins" :key="b.warehouse" class="border-t border-line-hair first:border-0" :style="(b.reserved || b.disabled) ? 'opacity:.55' : ''">
                     <td class="px-3 py-1.5 truncate max-w-[180px]">{{ b.warehouse }}
@@ -368,9 +384,11 @@
               <input type="checkbox" v-model="fixConfirm" class="accent-accent w-3.5 h-3.5" />
               {{ L("I verified this figure against the actual supplier invoice","اتحققت من الرقم ده من فاتورة المورّد الفعلية","J'ai vérifié ce chiffre") }}
             </label>
-            <button class="h-[32px] px-4 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                    :disabled="!fixConfirm || fixing || !(fixRate > 0) || !itemLanded || itemLanded.waiting.length > 0" @click="applyFix">
-              🚀 {{ fixing ? L("Applying…","جارٍ التطبيق…","…") : L("④ Submit — apply full cost","④ الاعتماد النهائي — تطبيق التكلفة الكاملة","④ Soumettre") }}
+            <button class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+                    :disabled="!fixConfirm || fixing || !(fixRate > 0) || !itemLanded || itemLanded.waiting.length > 0"
+                    :title="itemLanded && itemLanded.waiting.length ? L('Waiting for freight of other shipments — see ② above','مستني شحن شحنات تانية — شوف ② فوق','En attente du fret') : !fixConfirm ? L('Tick the verification checkbox first','علّموا على مربع التحقق الأول','Cocher la case') : ''"
+                    @click="applyFix">
+              {{ fixing ? L("Applying…","جارٍ التطبيق…","…") : L("④ Submit — apply full cost","④ الاعتماد النهائي — تطبيق التكلفة الكاملة","④ Soumettre") }}
             </button>
           </div>
         </div>
@@ -398,7 +416,7 @@
               <tr v-for="(h, i) in trace.ladder" :key="i" class="border-t border-line-hair" :style="rowStyle(h)">
                 <td class="px-4 py-2.5 font-semibold whitespace-nowrap">{{ stageLabel(h.stage) }}</td>
                 <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ h.company }}</td>
-                <td class="px-4 py-2.5 font-mono text-[11px] whitespace-nowrap">{{ h.name }}<div class="text-[10px] text-ink-muted font-sans">{{ h.date }}</div></td>
+                <td class="px-4 py-2.5 font-mono text-[11px] whitespace-nowrap" dir="ltr">{{ h.name }}<div class="text-[10px] text-ink-muted font-sans">{{ h.date }}</div></td>
                 <td class="px-4 py-2.5 text-end tnum whitespace-nowrap">{{ fmtNum(h.rate, 2) }} {{ h.currency }}<span v-if="h.conversion_rate" class="text-[10px] text-ink-muted"> @{{ h.conversion_rate }}</span></td>
                 <td class="px-4 py-2.5 text-end tnum font-bold">{{ fmtNum(h.rate_mad, 2) }}</td>
                 <td class="px-4 py-2.5 text-end tnum">
@@ -428,6 +446,7 @@ import Icon from "@/components/Icon.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import LandedBasisCard from "@/components/LandedBasisCard.vue";
 import ShipmentCostSheet from "@/components/ShipmentCostSheet.vue";
+import FreightChip from "@/components/FreightChip.vue";
 import { useServerTable } from "@/composables/useServerTable";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -456,6 +475,7 @@ const trace = ref(null);
 const loading = ref(false);
 const err = ref("");
 
+function hideResultsSoon() { setTimeout(() => { showResults.value = false; }, 200); }
 let t = null;
 function onSearch() {
   showResults.value = true;

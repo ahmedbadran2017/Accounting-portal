@@ -2,7 +2,7 @@
   <!-- Shipment Costing: the PR-centric workspace. List = the work queue
        (51 shipments, statuses, bill inbox, recon); click a shipment → its
        costing FILE: verify line costs, attach freight bills, save draft. -->
-  <div class="space-y-3">
+  <div class="space-y-3.5">
 
     <!-- ══ SHEET MODE ══ -->
     <template v-if="sheet">
@@ -15,10 +15,8 @@
           <span class="text-[12px]">{{ sheet.channel === "air" ? "🛫" : "🚢" }} {{ fmt0(sheet.kg) }}kg · {{ fmt0(sheet.qty) }} {{ L("units","قطعة","unités") }}</span>
           <span class="flex-1"></span>
           <span class="text-[12px] tnum"><b>{{ L("Freight","الشحن","Fret") }}:</b> {{ fmt0(sheet.freight.landed) }}
-            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ms-1"
-                  :style="['bills','rate'].includes(sheet.freight.source) ? 'background:#ecfdf5;color:#047857' : sheet.freight.source==='est' ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c'">
-              {{ ['bills','rate'].includes(sheet.freight.source) ? L("actual","فعلي","réel") : sheet.freight.source==='est' ? L("estimate","تقديري","estimé") : L("none","بدون","aucun") }}</span>
-            <span class="text-[10.5px] text-ink-muted"> @{{ sheet.freight.rate_kg }}/kg</span>
+            <FreightChip :source="sheet.freight.source" class="ms-1" />
+            <span class="text-[10.5px] text-ink-muted" dir="ltr"> @{{ sheet.freight.rate_kg }}/kg</span>
           </span>
         </div>
       </div>
@@ -56,9 +54,7 @@
         <div class="flex-1 min-w-[240px]">
           <div class="text-[12px] font-bold">📦 {{ L("Product costs — verified in Cost Trace","تكلفة البضاعة — التحقق بيتم في تتبّع التكلفة","Coûts produits — dans Cost Trace") }}</div>
           <div class="text-[11px] text-ink-muted mt-0.5">
-            {{ L("This screen assembles the FREIGHT. Verification of the product lines happens in the costing file (Cost Trace) — per product or in bulk per shipment.",
-                 "الشاشة دي بتجمّع الشحن. التحقق من سطور البضاعة بيتم في ملف التكلفة (تتبّع التكلفة) — منتج-منتج أو مجمّع للشحنة.",
-                 "Cet écran assemble le fret ; la vérification se fait dans Cost Trace.") }}
+            {{ L("Freight only here — line verification lives in the costing file.","هنا الشحن بس — التحقق من السطور في ملف التكلفة.","Ici le fret ; la vérification dans le dossier.") }}
           </div>
         </div>
         <span class="text-[11px] tnum text-ink-muted">{{ sheetVerified }}/{{ sheet.lines.length }} {{ L("verified","متحقق","vérifié") }}</span>
@@ -76,7 +72,7 @@
         <div class="bg-white border border-line rounded-card shadow-card px-3.5 py-2.5">
           <div class="text-[10px] text-ink-muted">{{ L("Shipments costed","شحنات اتقفلت تكلفتها","Expéditions costées") }}</div>
           <div class="text-[16px] font-bold tnum">{{ data.counts.costed + data.counts.applied }} / {{ data.rows.length }}</div>
-          <div class="h-[5px] rounded-full bg-app-warm mt-1.5 overflow-hidden"><div class="h-full rounded-full" style="background:linear-gradient(90deg,#34d399,#059669)" :style="{width: pct + '%'}"></div></div>
+          <div class="h-[5px] rounded-full bg-app-warm mt-1.5 overflow-hidden"><div class="h-full rounded-full" style="background:#047857" :style="{width: pct + '%'}"></div></div>
         </div>
         <div class="bg-white border border-line rounded-card shadow-card px-3.5 py-2.5">
           <div class="text-[10px] text-ink-muted">{{ L("Freight bills","فواتير الشحن","Factures fret") }}</div>
@@ -86,11 +82,14 @@
         <div class="bg-white border rounded-card shadow-card px-3.5 py-2.5" :style="data.inbox.length ? 'border-color:#fde68a;background:#fffbeb' : 'border-color:#e7e5e4'">
           <div class="text-[10px] text-ink-muted">{{ L("Bill inbox (unallocated)","فواتير غير موزَّعة","Non alloué") }}</div>
           <div class="text-[16px] font-bold tnum" :style="data.inbox.length ? 'color:#b45309' : 'color:#047857'">{{ data.inbox.length }}</div>
-          <div class="text-[10px] text-ink-3">{{ L("open a shipment → attach","افتحوا شحنة → إرفاق","à joindre") }}</div>
+          <div class="text-[10px] text-ink-3">{{ L("open a shipment → attach","افتحوا الشحنة وارفقوها","à joindre") }}</div>
         </div>
         <div class="bg-white border border-line rounded-card shadow-card px-3.5 py-2.5">
           <div class="text-[10px] text-ink-muted">{{ L("Status","الحالة","Statut") }}</div>
-          <div class="text-[11px] tnum mt-1">⬜ {{ data.counts.pending }} · 🟡 {{ data.counts.progress }} · ✅ {{ data.counts.costed }} · 🔒 {{ data.counts.applied }}</div>
+          <div class="flex gap-1 flex-wrap mt-1">
+            <span v-for="st in ['pending','progress','costed','applied']" :key="st"
+                  class="text-[10px] font-bold px-1.5 py-0.5 rounded-full tnum" :style="STATUS_STYLE[st]">{{ data.counts[st] }} {{ statusLabel(st) }}</span>
+          </div>
           <div class="text-[10px] text-ink-3 mt-0.5">{{ data.frozen ? "❄ " + L("basis frozen","الأساس مجمّد","base gelée") : L("basis not frozen","الأساس مش مجمّد","non gelée") }}</div>
         </div>
       </div>
@@ -112,7 +111,7 @@
                  class="h-[26px] px-2.5 text-[11px] border border-line rounded-[7px] outline-none focus:border-accent w-[190px]" />
           <span class="flex items-center gap-1">
             <button v-for="y in data.years" :key="y" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border tnum"
-                    :style="data.year===y ? 'background:#1c1917;color:#fff;border-color:#1c1917' : 'border-color:#e7e5e4;color:#78716c'"
+                    :style="data.year===y ? 'background:#eef2ff;color:#4338ca;border-color:#c7d2fe' : 'border-color:#e7e5e4;color:#78716c'"
                     @click="setYear(y)">{{ y }}</button>
           </span>
           <span class="flex-1"></span>
@@ -120,18 +119,18 @@
                   :style="filter===f.id ? 'background:#eef2ff;color:#4338ca;border-color:#c7d2fe' : 'border-color:#e7e5e4;color:#78716c'"
                   @click="filter = filter===f.id ? '' : f.id">{{ f.icon }} {{ L(...f.label) }}</button>
         </div>
-        <table class="w-full text-[11.5px]">
+        <table class="w-full text-[11.5px]" :style="busy ? 'opacity:.55;pointer-events:none' : ''">
           <thead><tr style="background:#fafaf9">
             <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Shipment","الشحنة","Expédition") }}</th>
             <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورّد","Fourn.") }}</th>
-            <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("Ch.","قناة","Can.") }}</th>
+            <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted" :title="L('Channel: 🛫 air · 🚢 sea','القناة: 🛫 جوي · 🚢 بحري','Canal : 🛫 air · 🚢 mer')">{{ L("Ch.","قناة","Can.") }}</th>
             <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">kg</th>
             <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Lines verified","سطور متحققة","Lignes") }}</th>
             <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
             <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
           </tr></thead>
           <tbody>
-            <tr v-for="r in shownRows" :key="r.name" class="border-t border-line-hair cursor-pointer hover:bg-app-warm" @click="openSheet(r.name)">
+            <tr v-for="r in shownRows" :key="r.name" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/60" @click="openSheet(r.name)">
               <td class="px-4 py-2 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.name }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
               <td class="px-3 py-2 truncate max-w-[150px]">{{ r.supplier }}</td>
               <td class="px-3 py-2 text-center">{{ r.channel === "air" ? "🛫" : "🚢" }}</td>
@@ -140,9 +139,7 @@
                 <b :style="r.n_verified >= r.n_lines && r.n_lines ? 'color:#047857' : ''">{{ r.n_verified }}</b>/{{ r.n_lines }}
               </td>
               <td class="px-3 py-2 text-end tnum whitespace-nowrap">{{ fmt0(r.freight.landed) }}
-                <span class="text-[9.5px] font-bold px-1 py-0.5 rounded-full ms-0.5"
-                      :style="['bills','rate'].includes(r.freight.source) ? 'background:#ecfdf5;color:#047857' : r.freight.source==='est' ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c'">
-                  {{ ['bills','rate'].includes(r.freight.source) ? L("actual","فعلي","réel") : r.freight.source==='est' ? L("est.","تقديري","est.") : L("none","بدون","aucun") }}</span>
+                <FreightChip :source="r.freight.source" class="ms-0.5" />
               </td>
               <td class="px-3 py-2 text-center">
                 <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="STATUS_STYLE[r.status]">{{ STATUS_ICON[r.status] }} {{ statusLabel(r.status) }}</span>
@@ -164,9 +161,8 @@
           <div class="flex-1 min-w-[260px]">
             <div class="text-[12px] font-bold">🚀 {{ L("Final apply — product + freight, new AND retroactive","التطبيق النهائي — بضاعة + شحن، للجديد والقديم بأثر رجعي","Application finale") }}</div>
             <div class="text-[11px] text-ink-muted mt-0.5">
-              {{ L("Runs in waves through the same undoable fix. An item posts only when EVERY one of its shipments is freight-costed and verified — same rule as the per-shipment submit.",
-                   "بيشتغل على دفعات بنفس الآلية القابلة للعكس. الصنف بيترحّل فقط لما كل شحناته يكون شحنها متقفل ومتحقق — نفس قاعدة اعتماد الشحنة.",
-                   "Par vagues ; un article part quand toutes ses expéditions sont complètes.") }}
+              <span :title="L('An item posts only when EVERY one of its shipments is freight-costed and verified.','الصنف بيترحّل فقط لما كل شحناته يكون شحنها متقفل ومتحقق.','Un article part quand toutes ses expéditions sont complètes.')">
+                {{ L("Waves of 20, each undoable in Activity.","دفعات من 20 — كل قيد قابل للعكس من Activity.","Par vagues de 20, réversible.") }}</span>
             </div>
             <div v-if="ready" class="text-[11px] tnum mt-1">
               {{ L("items with verified cost","أصناف بتكلفة معتمدة","articles vérifiés") }}: <b>{{ ready.items_with_verified_cost }}</b> ·
@@ -178,7 +174,9 @@
           <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
                   :disabled="busy" @click="previewApply">{{ L("Preview next wave","معاينة الدفعة الجاية","Aperçu") }}</button>
           <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                  :disabled="busy || !ready?.items_ready" @click="runApply">🚀 {{ L("Apply 20","طبّق 20","Appliquer 20") }}</button>
+                  :disabled="busy || !ready?.items_ready"
+                  :title="!ready?.items_ready ? L('Nothing ready — items are waiting for freight or verification','مفيش جاهز — الأصناف مستنية شحن أو تحقق','Rien de prêt') : ''"
+                  @click="runApply">{{ L("Apply 20","طبّق 20","Appliquer 20") }}</button>
         </div>
         <div v-if="applyPrev" class="mt-2.5 border-t border-line-hair pt-2 text-[11px]">
           <template v-if="applyPrev.dry_run">
@@ -208,6 +206,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import FreightChip from "@/components/FreightChip.vue";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
