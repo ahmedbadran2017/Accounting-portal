@@ -245,12 +245,26 @@ def _family_members(item_code):
     invoice usually carries ONE code per model while stock is per size/colour,
     and the model's price is the same across variants — so family evidence is
     valid evidence."""
-    t = frappe.db.get_value("Item", item_code, "variant_of")
-    if not t:
-        return None, []
-    sibs = [r[0] for r in frappe.db.sql(
-        "SELECT name FROM `tabItem` WHERE variant_of=%s AND name!=%s", (t, item_code))]
-    return t, sibs + [t]
+    t, sku = frappe.db.get_value("Item", item_code, ["variant_of", "custom_sku"]) or (None, "")
+    members = []
+    if t:
+        members = [r[0] for r in frappe.db.sql(
+            "SELECT name FROM `tabItem` WHERE variant_of=%s AND name!=%s", (t, item_code))] + [t]
+    # SKU-BASE KIN: the supplier's model code is the base segment before the
+    # first dash ("JB8002-ORANGE-18 M" → "JB8002"). The invoice often lives on
+    # an item carrying the bare base — sometimes under a DIFFERENT ERPNext
+    # template (the same supplier model listed twice on Shopify). Same model,
+    # one price → valid evidence. Conservative: base ≥ 4 chars, exact segment.
+    sku = (sku or "").strip()
+    if "-" in sku:
+        base = sku.split("-")[0].strip()
+        if len(base) >= 4 and base != sku:
+            kin = frappe.db.sql(
+                """SELECT name FROM `tabItem`
+                   WHERE (custom_sku=%s OR custom_sku LIKE %s) AND name!=%s
+                   LIMIT 100""", (base, base + "-%", item_code), pluck=True)
+            members += [k for k in kin if k not in members]
+    return t, members
 
 
 def _true_cost_bulk(item_codes, fx):
@@ -371,6 +385,80 @@ def _true_cost_bulk(item_codes, fx):
                 f = fam_out.get(vmap.get(c))
                 if f and c not in out:
                     out[c] = dict(f)
+
+    # ── SKU-BASE KIN pass — same doctrine, keyed on the supplier model code
+    # (segment before the first dash) instead of variant_of: catches twins
+    # listed under a different template ("JB8002" romper vs jumpsuit).
+    missing = [c for c in item_codes if c not in out]
+    if missing:
+        skus = dict(frappe.db.sql(
+            "SELECT name, custom_sku FROM `tabItem` WHERE name IN %s", (tuple(missing),)))
+        base_of = {}
+        for c in missing:
+            sku = (skus.get(c) or "").strip()
+            if "-" in sku:
+                b = sku.split("-")[0].strip()
+                if len(b) >= 4 and b != sku:
+                    base_of[c] = b
+        if base_of:
+            kin_of_base, kin_codes = {}, []
+            for b in set(base_of.values()):
+                kin = frappe.db.sql(
+                    """SELECT name FROM `tabItem`
+                       WHERE custom_sku=%s OR custom_sku LIKE %s LIMIT 100""",
+                    (b, b + "-%"), pluck=True)
+                kin = [k for k in kin if k not in base_of]   # orphans carry no docs
+                if kin:
+                    kin_of_base[b] = kin
+                    kin_codes += kin
+            if kin_codes:
+                base_by_kin = {k: b for b, ks in kin_of_base.items() for k in ks}
+                base_out = {}
+
+                def _base_agg(rows, is_try):
+                    by = {}
+                    for r in rows:
+                        b = base_by_kin.get(r.item_code)
+                        if b:
+                            by.setdefault(b, []).append(r)
+                    for b, lines in by.items():
+                        if b in base_out:
+                            continue
+                        q = v = 0.0
+                        ev_item = lines[0].item_code
+                        for r in lines:
+                            if q >= _BASIS_QTY:
+                                break
+                            cur = "TRY" if is_try else r.cur
+                            m = _to_mad_fast(r.rate, cur, r.dt, fx)
+                            q += flt(r.qty); v += m * flt(r.qty)
+                        if q > 0 and v > 0:
+                            base_out[b] = {"cost_mad": round(v / q, 2), "source": "family_pi",
+                                           "basis_qty": round(q), "evidence_item": ev_item}
+
+                kc = tuple(set(kin_codes))
+                _base_agg(frappe.db.sql(
+                    """SELECT pii.item_code, pii.base_rate rate, 'TRY' cur, pi.posting_date dt, pii.qty
+                       FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                       WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                       ORDER BY pi.posting_date DESC""", (SOURCING, kc), as_dict=True), True)
+                _base_agg(frappe.db.sql(
+                    """SELECT pii.item_code, pii.base_rate rate, 'MAD' cur, pi.posting_date dt, pii.qty
+                       FROM `tabPurchase Invoice Item` pii
+                       JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                       JOIN `tabSupplier` sp ON sp.name=pi.supplier
+                       WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                         AND IFNULL(sp.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+                       ORDER BY pi.posting_date DESC""", (SALES, kc), as_dict=True), False)
+                _base_agg(frappe.db.sql(
+                    """SELECT pri.item_code, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
+                       FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+                       WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
+                       ORDER BY pr.posting_date DESC""", (SALES, kc), as_dict=True), False)
+                for c, b in base_of.items():
+                    f = base_out.get(b)
+                    if f and c not in out:
+                        out[c] = dict(f)
     return out
 
 
