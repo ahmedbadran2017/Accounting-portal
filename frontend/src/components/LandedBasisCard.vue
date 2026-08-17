@@ -190,17 +190,23 @@ function saveAirRates() {
 }
 
 async function toggleExclude(b) {
+  if (busy.value) return;
+  busy.value = true;
   try {
     await api.call(`${LP}.exclude_bill`, { company: currentCompany(), voucher: b.voucher, excluded: b.excluded ? 0 : 1 });
     await load(); emit("changed");
   } catch (e) { toast.error(e.message || "Failed"); }
+  finally { busy.value = false; }
 }
 
 async function togglePool(r) {
+  if (busy.value) return;
+  busy.value = true;
   try {
     await api.call(`${LP}.set_pool_include`, { company: currentCompany(), account: r.account, included: r.included ? 0 : 1 });
     await load(); emit("changed");
   } catch (e) { toast.error(e.message || "Failed"); await load(); }
+  finally { busy.value = false; }
 }
 
 async function freezeBasis() {

@@ -29,7 +29,7 @@
             <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
             <span class="tnum font-semibold">{{ fmt0(shareOf(b)) }}</span>
             <span v-if="b.n_prs > 1" class="text-[10px] text-ink-muted">÷{{ b.n_prs }}</span>
-            <button v-if="canWrite && !sheet.frozen" class="text-sale" @click="toggleBill(b, false)">✕</button>
+            <button v-if="canWrite && !sheet.frozen" :disabled="busy" class="text-sale disabled:opacity-40" @click="toggleBill(b, false)">✕</button>
           </span>
           <span v-if="!attachedBills.length" class="text-[11px] text-ink-muted">{{ L("No bills attached yet — pick from the list:","لسه مفيش فواتير مرفقة — اختاروا من القايمة:","Aucune facture.") }}</span>
         </div>
@@ -48,7 +48,7 @@
               <span class="truncate flex-1 text-[11px]">{{ b.supplier || b.account }}</span>
               <span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
               <span v-if="b.n_prs" class="text-[10px] text-ink-muted">{{ L("covers","بتغطي","couvre") }} {{ b.n_prs }}</span>
-              <button v-if="canWrite && !sheet.frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] border border-line hover:bg-white" @click="toggleBill(b, true)">{{ L("Attach","إرفاق","Joindre") }}</button>
+              <button v-if="canWrite && !sheet.frozen" :disabled="busy" class="text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] border border-line hover:bg-white disabled:opacity-40" @click="toggleBill(b, true)">{{ L("Attach","إرفاق","Joindre") }}</button>
             </div>
           </div>
         </details>
@@ -64,7 +64,7 @@
           </div>
         </div>
         <span class="text-[11px] tnum text-ink-muted">{{ sheetVerified }}/{{ sheet.lines.length }} {{ L("verified","متحقق","vérifié") }}</span>
-        <router-link :to="`/accounting/items/costtrace?pr=${sheet.pr}`"
+        <router-link :to="`/accounting/items/costtrace?pr=${sheet.pr}&year=${yearSel || ''}`"
                      class="h-[30px] inline-flex items-center px-3.5 rounded-[8px] text-[11.5px] font-bold text-white shadow-brand bg-brand hover:bg-brand-dark">
           {{ L("Open costing file","افتح ملف التكلفة","Ouvrir") + " →" }}
         </router-link>
@@ -201,6 +201,10 @@
       </div>
     </template>
 
+    <div v-else-if="loadErr" class="bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center gap-2">
+      <span class="text-[12px] text-sale font-semibold">{{ L("Couldn't load the shipments.","معرفناش نحمّل الشحنات.","Échec de chargement.") }}</span>
+      <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="loadList">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+    </div>
     <div v-else class="text-[12px] text-ink-muted py-8 text-center">{{ L("Loading shipments…","بيحمّل الشحنات…","Chargement…") }}</div>
   </div>
 </template>
@@ -279,15 +283,17 @@ const shareOf = (b) => {
 
 const ready = ref(null);
 const applyPrev = ref(null);
+const loadErr = ref(false);
 
 async function loadList() {
   try {
+    loadErr.value = false;
     const params = { company: currentCompany() };
     if (yearSel.value) params.year = yearSel.value;
     data.value = await api.call(`${SC}.shipments`, params, { fresh: true });
     if (!yearSel.value) yearSel.value = data.value.year;
     ready.value = await api.call(`${SC}.readiness`, params, { fresh: true });
-  } catch (e) { toast.error(e.message || "Failed"); }
+  } catch (e) { loadErr.value = true; toast.error(e.message || "Failed"); }
 }
 loadList();
 
@@ -297,12 +303,13 @@ function setYear(y) {
   data.value = null;
   visLimit.value = 100;
   filter.value = "";
+  applyPrev.value = null;
   loadList();
 }
 
 async function previewApply() {
   busy.value = true;
-  try { applyPrev.value = await api.call(`${SC}.apply_batch`, { company: currentCompany(), dry_run: 1 }, { fresh: true }); }
+  try { applyPrev.value = await api.call(`${SC}.apply_batch`, { company: currentCompany(), dry_run: 1, year: yearSel.value }, { fresh: true }); }
   catch (e) { toast.error(e.message || "Failed"); }
   finally { busy.value = false; }
 }
@@ -313,7 +320,7 @@ async function runApply() {
     "Appliquer la prochaine vague ?"))) return;
   busy.value = true;
   try {
-    applyPrev.value = await api.call(`${SC}.apply_batch`, { company: currentCompany(), dry_run: 0 });
+    applyPrev.value = await api.call(`${SC}.apply_batch`, { company: currentCompany(), dry_run: 0, year: yearSel.value });
     await loadList();
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { busy.value = false; }
@@ -321,6 +328,7 @@ async function runApply() {
 
 async function openSheet(pr) {
   busy.value = true;
+  billSearch.value = "";
   try {
     sheet.value = await api.call(`${SC}.get_sheet`, { pr, year: yearSel.value }, { fresh: true });
   } catch (e) { toast.error(e.message || "Failed"); }

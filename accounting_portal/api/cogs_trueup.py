@@ -68,11 +68,23 @@ def _true_month_costs(target, year):
     items = list({r.ic for r in rows})
     tc = _true_cost_bulk(items, _fx_series()) if items else {}
     landed = _landed_units_bulk(items, year=year) if items else {}
+    # ONE truth: an item the team already FIXED is priced at its APPLIED rate
+    # (what the stock ledger actually carries), not the engine estimate —
+    # otherwise the true-up would restate months to a basis contradicting
+    # the inventory the fixes just built
+    from accounting_portal.api.cost_trace import _fixed_items, _fix_is_current
+    fixedmap = _fixed_items()
+    basis_on = (basis or {}).get("on")
     out = {}
     for r in rows:
         d = out.setdefault(int(r.m), {"true": 0.0, "qty": 0.0, "priced_qty": 0.0})
         q = flt(r.q)
         d["qty"] += q
+        fx = fixedmap.get(r.ic)
+        if fx and _fix_is_current(fx["stamp"], basis_on) and flt(fx["rate"]) > 0:
+            d["true"] += q * flt(fx["rate"])
+            d["priced_qty"] += q
+            continue
         t = tc.get(r.ic)
         if t:
             full = flt(t["cost_mad"]) + flt(landed.get(r.ic))
@@ -114,11 +126,11 @@ def _posted_trueups(target, year, basis_on=None):
 
 
 @frappe.whitelist()
-def monthly_review(company=None, year=2026):
+def monthly_review(company=None, year=None):
     """The month-by-month table: booked vs true COGS, delta, coverage, status."""
     assert_portal_access()
     target = _target(company) or SALES
-    year = int(year)
+    year = int(year) if year else int(nowdate()[:4])
     true_m, basis_frozen = _true_month_costs(target, year)
     booked = _booked_by_month(target, year)
     from accounting_portal.api.landed_prep import get_basis
@@ -161,15 +173,17 @@ def _month_figures(target, year, month):
 
 
 @frappe.whitelist()
-def post_trueup(company=None, year=2026, month=None, note=None):
+def post_trueup(company=None, year=None, month=None, note=None):
     """Post ONE month's true-up JE (gated, audited, reversible). Figures are
     recomputed INSIDE the poster at post time; blocks open/current months, low
     true-cost coverage, an unfrozen basis, or an already-posted month."""
     assert_can_write()
     target = _target(company) or SALES
-    year, month = int(year), int(month)
+    year, month = (int(year) if year else int(nowdate()[:4])), int(month)
     if not (1 <= month <= 12):
         frappe.throw("month 1–12 required")
+    if year < 2026:
+        frappe.throw("Policy floor: closed years are never restated (fix-forward) — true-ups post 2026 onward")
     today = nowdate()
     if (year, month) >= (int(today[:4]), int(today[5:7])):
         frappe.throw(f"{year}-{month:02d} is still open — a true-up now would go stale with every "

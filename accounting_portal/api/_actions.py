@@ -182,6 +182,12 @@ def execute(action_type, company, dedupe_key, payload=None, amount=0,
 
     if _approval_required() and flt(amount) >= MATERIAL_THRESHOLD and action_type not in _NO_GATE and doc.status != "Approved":
         return doc.as_dict()  # awaits an approver
+    # serialize concurrent submits on the same row (double-click race): the
+    # SELECT ... FOR UPDATE makes a second request block until the first
+    # commits, then see Posted and short-circuit instead of posting again
+    now_status = frappe.db.get_value(APA, doc.name, "status", for_update=True)
+    if now_status in ("Posted", "Rejected"):
+        return frappe.get_doc(APA, doc.name).as_dict()
     return _post(doc).as_dict()
 
 

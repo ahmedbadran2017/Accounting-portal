@@ -34,7 +34,7 @@
       <button class="text-[11.5px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="openPr = null; loadTower();">
         <Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ L("Back to catalogue","رجوع للكتالوج","Retour") }}
       </button>
-      <ShipmentCostSheet :pr="openPr" @saved="loadTower" />
+      <ShipmentCostSheet :pr="openPr" :year="openPrYear" @saved="loadTower" />
     </template>
 
     <!-- Catalogue overview + worklist (shown when no single item is picked) -->
@@ -497,6 +497,7 @@ const M = "accounting_portal.api.cost_trace";
 
 const route = useRoute();
 const openPr = ref(route.query.pr || null);
+const openPrYear = ref(route.query.year || null);
 
 const q = ref("");
 const results = ref([]);
@@ -556,8 +557,14 @@ const submitBlockReason = computed(() => {
 async function saveItemCost() {
   fixing.value = true;
   try {
-    await api.call(`${SCM}.save_item_cost`, { item_code: trace.value.item_code, cost: fixRate.value, note: fixNote.value || undefined });
-    toast.success(L("Saved — reflected in the shipment sheets too", "اتحفظ — وبيظهر في مسودات الشحنات كمان", "Enregistré"));
+    const r = await api.call(`${SCM}.save_item_cost`, { item_code: trace.value.item_code, cost: fixRate.value, note: fixNote.value || undefined });
+    if (r?.kept_different?.length) {
+      toast.info(L(`Saved, but ${r.kept_different.length} shipment sheet(s) keep a DIFFERENT deliberate price — edit those in their shipment files`,
+                   `اتحفظ، بس ${r.kept_different.length} شحنة محتفظة بسعر مختلف متعمد — عدّلوه من ملف الشحنة نفسه`,
+                   "Enregistré ; certains prix par expédition diffèrent"));
+    } else {
+      toast.success(L("Saved — reflected in the shipment sheets too", "اتحفظ — وبيظهر في مسودات الشحنات كمان", "Enregistré"));
+    }
     await loadItemLanded(trace.value.item_code);
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { fixing.value = false; }
@@ -575,6 +582,7 @@ async function pick(itemCode) {
   err.value = "";
   trace.value = null;
   fixPrev.value = null; fixConfirm.value = false; fixNote.value = "";
+  itemLanded.value = null; fixRate.value = null;
   try {
     trace.value = await api.call(`${M}.trace_item`, { item_code: itemCode });
     q.value = trace.value.sku || itemCode;

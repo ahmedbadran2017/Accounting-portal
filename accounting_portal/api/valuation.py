@@ -159,7 +159,7 @@ def _qty_asof(item_code, warehouse, date):
     r = frappe.db.sql(
         """SELECT qty_after_transaction FROM `tabStock Ledger Entry`
            WHERE item_code=%s AND warehouse=%s AND is_cancelled=0 AND posting_date <= %s
-           ORDER BY posting_date DESC, creation DESC LIMIT 1""", (item_code, warehouse, date))
+           ORDER BY posting_date DESC, posting_time DESC, creation DESC LIMIT 1""", (item_code, warehouse, date))
     return flt(r[0][0]) if r else 0.0
 
 
@@ -239,7 +239,7 @@ def _sync_bin_from_ledger(item_code, warehouse):
         """SELECT qty_after_transaction q, valuation_rate vr, stock_value sv
            FROM `tabStock Ledger Entry`
            WHERE item_code=%s AND warehouse=%s AND is_cancelled=0
-           ORDER BY posting_date DESC, creation DESC LIMIT 1""",
+           ORDER BY posting_date DESC, posting_time DESC, creation DESC LIMIT 1""",
         (item_code, warehouse), as_dict=True)
     name = frappe.db.get_value("Bin", {"item_code": item_code, "warehouse": warehouse})
     if not (last and name):
@@ -316,7 +316,9 @@ def revalue_bins(company=None, bins=None, effective_date=None, dry_run=1, notes=
     if not get_basis():
         frappe.throw("Landed basis is not frozen yet — bulk revaluation applies the FULL "
                      "(product + landed) rate; freeze the basis first")
-    date = str(effective_date or _POLICY_FLOOR)[:10]
+    # default TODAY (cutover regime) — a back-dated default invited double
+    # correction with the monthly true-ups (audit P1-1)
+    date = str(effective_date or nowdate())[:10]
     if date < _POLICY_FLOOR:
         date = _POLICY_FLOOR
     if date > nowdate():

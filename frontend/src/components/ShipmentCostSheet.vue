@@ -107,7 +107,7 @@
             <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
             <span class="tnum font-semibold">{{ fmt0(shareOf(b)) }}</span>
             <span v-if="b.n_prs > 1" class="text-[10px] text-ink-muted">÷{{ b.n_prs }}</span>
-            <button v-if="canWrite && !s.frozen" class="text-sale" @click="toggleBill(b, false)">✕</button>
+            <button v-if="canWrite && !s.frozen" :disabled="busy" class="text-sale disabled:opacity-40" @click="toggleBill(b, false)">✕</button>
           </span>
           <span v-if="!attachedBills.length" class="text-[11px] text-ink-muted">—</span>
         </div>
@@ -126,7 +126,7 @@
               <span class="truncate flex-1 text-[11px]">{{ b.supplier || b.account }}</span>
               <span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
               <span v-if="b.n_prs" class="text-[10px] text-ink-muted">{{ L("covers","بتغطي","couvre") }} {{ b.n_prs }}</span>
-              <button v-if="canWrite && !s.frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] border border-line hover:bg-white" @click="toggleBill(b, true)">{{ L("Attach","إرفاق","Joindre") }}</button>
+              <button v-if="canWrite && !s.frozen" :disabled="busy" class="text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] border border-line hover:bg-white disabled:opacity-40" @click="toggleBill(b, true)">{{ L("Attach","إرفاق","Joindre") }}</button>
             </div>
           </div>
         </details>
@@ -182,6 +182,10 @@
       </div>
     </div>
   </div>
+  <div v-else-if="loadErr" class="bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center gap-2">
+    <span class="text-[12px] text-sale font-semibold">{{ L("Couldn't load this shipment.","معرفناش نحمّل الشحنة دي.","Échec de chargement.") }}</span>
+    <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+  </div>
   <div v-else class="text-[12px] text-ink-muted py-6 text-center">{{ L("Loading shipment…","بيحمّل الشحنة…","Chargement…") }}</div>
 </template>
 
@@ -210,6 +214,7 @@ const note = ref("");
 const rateEdit = ref(null);
 const busy = ref(false);
 const subPrev = ref(null);
+const loadErr = ref(false);
 
 const freightReady = computed(() => ["bills", "rate"].includes(s.value?.freight?.source));
 const verifiedCount = computed(() => (s.value?.lines || []).filter((l) => edits[l.item_code] > 0).length);
@@ -241,6 +246,7 @@ const waitingRows = computed(() =>
 async function load() {
   s.value = null;
   subPrev.value = null;
+  loadErr.value = false;
   try {
     const r = await api.call(`${SC}.get_sheet`, { pr: props.pr, year: props.year || undefined }, { fresh: true });
     Object.keys(edits).forEach((k) => delete edits[k]);
@@ -249,7 +255,7 @@ async function load() {
     rateEdit.value = r.freight.confirmed_rate || r.freight.band_rate || null;
     s.value = r;
     previewSubmit();   // pre-load the ④ preview so Submit is never a dead button
-  } catch (e) { toast.error(e.message || "Failed"); }
+  } catch (e) { loadErr.value = true; toast.error(e.message || "Failed"); }
 }
 watch(() => props.pr, load, { immediate: true });
 
@@ -314,8 +320,10 @@ async function runSubmit() {
     "Appliquer ?"))) return;
   busy.value = true;
   try {
-    subPrev.value = await api.call(`${SC}.apply_shipment`, { pr: s.value.pr, year: props.year || undefined, dry_run: 0 });
+    const done = await api.call(`${SC}.apply_shipment`, { pr: s.value.pr, year: props.year || undefined, dry_run: 0 });
     emit("saved");
+    await load();
+    subPrev.value = done;
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { busy.value = false; }
 }

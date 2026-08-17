@@ -70,7 +70,7 @@ def _fixed_map():
     from accounting_portal.api.landed_prep import get_basis
     basis_on = (get_basis() or {}).get("on")
     fixed = _fixed_items()
-    return {ic for ic, stamp in fixed.items() if _fix_is_current(stamp, basis_on)}
+    return {ic for ic, f in fixed.items() if _fix_is_current(f["stamp"], basis_on)}
 
 
 def _status(sheet, n_lines, freight_src, n_fixed_lines):
@@ -78,7 +78,7 @@ def _status(sheet, n_lines, freight_src, n_fixed_lines):
     costs = (sheet or {}).get("costs") or {}
     n_verified = sum(1 for v in costs.values() if flt(v) > 0)
     freight_ok = freight_src in ("bills", "rate")
-    if n_lines and n_fixed_lines >= n_lines:
+    if n_lines and n_fixed_lines >= n_lines and freight_ok:
         return "applied", n_verified
     if n_verified >= n_lines and n_lines and freight_ok:
         return "costed", n_verified
@@ -390,6 +390,8 @@ def item_landed_detail(item_code=None, year=None):
     assert_portal_access()
     if not item_code:
         frappe.throw("item_code required")
+    if not frappe.db.exists("Item", item_code):
+        frappe.throw(f"Unknown item: {item_code}")
     from accounting_portal.api.landed_prep import shipment_review
     sr = shipment_review(year=year)
     mine = []
@@ -457,6 +459,7 @@ def save_item_cost(item_code=None, cost=None, note=None, year=None):
     d = item_landed_detail(item_code=item_code, year=year)
     prs = [m["pr"] for m in d["receipts"]]
     stamp = {"by": frappe.session.user, "on": str(now_datetime())[:19]}
+    updated, kept = [], []
     if prs:
         for pr in prs:
             sheet = None
@@ -466,17 +469,25 @@ def save_item_cost(item_code=None, cost=None, note=None, year=None):
                 pass
             sheet = sheet or {}
             costs = sheet.get("costs") or {}
+            cur = flt(costs.get(item_code))
+            # a DIFFERENT deliberate per-shipment price is kept, not clobbered —
+            # per-PR prices can legitimately differ; edit them in the sheet itself
+            if cur > 0 and abs(cur - v) > 0.005 * max(cur, v):
+                kept.append({"pr": pr, "existing": cur})
+                continue
             costs[item_code] = round(v, 2)
             sheet.update({"costs": costs, **stamp})
             if (note or "").strip():
-                sheet["note"] = ((sheet.get("note") or "") + f" · {item_code}: {note.strip()}").strip(" ·")
+                sheet["note"] = note.strip()
             frappe.db.set_default(_sheet_key(pr), json.dumps(sheet))
+            updated.append(pr)
     else:
         frappe.db.set_default(f"ap_itemcost_{item_code}",
                               json.dumps({"cost": round(v, 2),
                                           "note": (note or "").strip() or None, **stamp}))
     frappe.db.commit()
-    return {"item_code": item_code, "cost": round(v, 2), "saved_to": prs or ["item"]}
+    return {"item_code": item_code, "cost": round(v, 2),
+            "saved_to": (updated if prs else ["item"]), "kept_different": kept if prs else []}
 
 
 @frappe.whitelist()
@@ -558,13 +569,13 @@ def _batch_readiness(year=None):
 
 
 @frappe.whitelist()
-def apply_batch(company=None, limit=20, dry_run=1):
+def apply_batch(company=None, limit=20, dry_run=1, year=None):
     """Apply in waves — same completeness rule as the per-shipment submit
     (NO frozen-basis requirement): an item posts only when every one of its
     shipments is freight-costed and verified. Each post is undoable."""
     assert_can_write()
     limit = min(int(limit or 20), 100)
-    ready, waiting, n_cand = _batch_readiness()
+    ready, waiting, n_cand = _batch_readiness(year=year)
     fixed = _fixed_map()
     todo = sorted([ic for ic in ready if ic not in fixed])[:limit]
     n_ready_total = len([ic for ic in ready if ic not in fixed])

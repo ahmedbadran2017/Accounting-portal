@@ -213,9 +213,15 @@ def set_pr_rate(company=None, year=None, pr=None, rate=None):
     if not pr:
         frappe.throw("pr required")
     target, yr = _target(company), _year(year)
-    if not frappe.db.exists("Purchase Receipt",
-                            {"name": pr, "docstatus": 1, "company": target}):
-        frappe.throw(f"{pr} is not a submitted {target} receipt")
+    receipts = {r["name"]: r for r in _import_receipts(target, yr)}
+    head = receipts.get(pr)
+    if not head:
+        frappe.throw(f"{pr} is not one of {yr}'s {target} import shipments")
+    band = _air_rate_at(get_air_rates(yr), head["dt"])
+    if flt(rate) > 0 and band > 0 and not (0.2 * band <= flt(rate) <= 5 * band):
+        frappe.throw(f"Rate {flt(rate)} MAD/kg is far outside the tariff band for {head['dt']} "
+                     f"({band} MAD/kg) — check for a typo; adjust the bands first if the "
+                     "tariff genuinely changed")
     rates = _pr_rates(yr)
     if flt(rate) > 0:
         rates[pr] = round(flt(rate), 2)

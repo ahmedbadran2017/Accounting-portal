@@ -324,12 +324,18 @@ def _fixed_items():
         fields=["reference_name", "payload"], order_by="posted_on asc")
     out = {}
     for r in rows:
-        stamp = None
+        stamp, rate = None, None
         try:
-            stamp = (frappe.parse_json(r.payload or "{}") or {}).get("basis_on")
+            pl = frappe.parse_json(r.payload or "{}") or {}
+            stamp = pl.get("basis_on")
+            rws = pl.get("rows") or []
+            if rws:
+                rate = flt(rws[0].get("rate"))
         except Exception:
             pass
-        out[r.reference_name] = stamp   # later rows overwrite → latest fix wins
+        # later rows overwrite → latest fix wins; rate = the APPLIED full rate,
+        # the single source of truth the measurements must compare against
+        out[r.reference_name] = {"stamp": stamp, "rate": rate}
     return out
 
 
@@ -388,10 +394,14 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
         # FULL cost (product + frozen landed) — the same rate the fix applies,
         # so a fixed item reads ~0 overvaluation instead of a phantom negative
         cost = round(flt(t["cost_mad"]) + flt(landed.get(b.item_code)), 2) if t else None
-        over = round((flt(b.sv) - cost * flt(b.qty))) if cost is not None else None
-        dev = round((cur_rate - cost) / cost * 100, 1) if (cost and cost > 0) else None
+        # a FIXED item is measured against what was actually APPLIED — comparing
+        # it to the engine benchmark manufactured false "repolluted" flags
+        ref = applied if (is_fixed and applied > 0) else cost
+        over = round((flt(b.sv) - ref * flt(b.qty))) if ref is not None else None
+        dev = round((cur_rate - ref) / ref * 100, 1) if (ref and ref > 0) else None
         has_fix = b.item_code in fixed
-        is_fixed = has_fix and _fix_is_current(fixed[b.item_code], basis_on)
+        is_fixed = has_fix and _fix_is_current(fixed[b.item_code]["stamp"], basis_on)
+        applied = flt(fixed[b.item_code]["rate"]) if has_fix else 0
         rows.append({"item_code": b.item_code, "sku": b.sku, "item_name": b.item_name,
                      "qty": round(flt(b.qty)), "current_rate": cur_rate, "true_cost": cost,
                      "source": src, "overvaluation": over, "dev_pct": dev,
@@ -444,7 +454,8 @@ def control_tower(company=None):
     total_over = remaining_over = 0.0
     n_fixed = 0
     for b in bins:
-        is_fixed = (b.item_code in fixed) and _fix_is_current(fixed[b.item_code], basis_on)
+        fx = fixed.get(b.item_code)
+        is_fixed = bool(fx) and _fix_is_current(fx["stamp"], basis_on)
         t = tc.get(b.item_code)
         if not t:
             # manually-fixed orphans (no purchase docs) still count as done —
@@ -452,7 +463,8 @@ def control_tower(company=None):
             if is_fixed:
                 n_fixed += 1
             continue
-        full = flt(t["cost_mad"]) + flt(landed.get(b.item_code))
+        full = (flt(fx["rate"]) if (is_fixed and fx and flt(fx["rate"]) > 0)
+                else flt(t["cost_mad"]) + flt(landed.get(b.item_code)))
         over = flt(b.sv) - full * flt(b.qty)
         total_over += over
         if is_fixed:
