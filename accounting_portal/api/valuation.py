@@ -344,6 +344,7 @@ def _revalue_poster(action):
     # stale (a Failed action retried under the same dedupe key replays its old
     # rows), so re-filter bins that ERPNext would reject — disabled warehouses
     # and actively-reserved stock — instead of trusting the captured list.
+    release_whs = set(p.get("release_whs") or [])
     rsv_cache = {}
     items = []
     for r in p["rows"]:
@@ -354,7 +355,7 @@ def _revalue_poster(action):
             continue
         if r["item_code"] not in rsv_cache:
             rsv_cache[r["item_code"]] = _reserved_by_wh(r["item_code"])
-        if flt(rsv_cache[r["item_code"]].get(r["warehouse"])):
+        if flt(rsv_cache[r["item_code"]].get(r["warehouse"])) and r["warehouse"] not in release_whs:
             continue
         items.append({"item_code": r["item_code"], "warehouse": r["warehouse"],
                       "qty": q, "valuation_rate": flt(r["rate"])})
@@ -362,9 +363,20 @@ def _revalue_poster(action):
         frappe.throw("No postable bins — everything is empty on the effective date, reserved, or in a disabled warehouse")
     # ATOMIC: the gateway's Failed handler commits after marking the action, so a
     # mid-submit failure here must leave NOTHING behind (the DEV test leaked a
-    # draft and a half-submitted reco). Savepoint + rollback = all-or-nothing.
+    # draft and a half-submitted reco). Savepoint + rollback = all-or-nothing —
+    # including the temporary reservation release below.
     frappe.db.savepoint("reval_atomic")
     try:
+        # temp-release reservations on the bins marked for release; they are
+        # re-created right after the reco posts. If ANYTHING fails, the
+        # rollback restores the original reservations untouched.
+        released_sos = []
+        item_codes = {i["item_code"] for i in items}
+        for ic in item_codes:
+            whs = [i["warehouse"] for i in items
+                   if i["item_code"] == ic and i["warehouse"] in release_whs]
+            if whs:
+                released_sos += _release_reservations(ic, whs)
         doc = frappe.get_doc({
             "doctype": "Stock Reconciliation", "company": company,
             "purpose": "Stock Reconciliation",
@@ -375,11 +387,13 @@ def _revalue_poster(action):
         })
         doc.insert(ignore_permissions=True)
         doc.submit()
+        _restore_reservations(sorted(set(released_sos)))
     except Exception:
         frappe.db.rollback(save_point="reval_atomic")
         raise
     return {"voucher_type": "Stock Reconciliation", "voucher_no": doc.name,
-            "result": f"revalued {len(items)} bins @ {date}"}
+            "result": f"revalued {len(items)} bins @ {date}"
+                      + (f" (reservations cycled on {len(release_whs)} bin(s))" if release_whs else "")}
 
 
 _actions.register_poster(REVAL_ACTION, _revalue_poster)
@@ -419,6 +433,50 @@ def _reserved_by_wh(item_code):
         return {r.warehouse: flt(r.q) for r in rows}
     except Exception:
         return {}   # site without the reservation doctype
+
+
+def _active_sres(item_code, warehouse):
+    """Active Stock Reservation Entries blocking a reco on this bin."""
+    try:
+        return frappe.get_all(
+            "Stock Reservation Entry",
+            filters={"item_code": item_code, "warehouse": warehouse, "docstatus": 1,
+                     "status": ["not in", ["Delivered", "Cancelled"]]},
+            fields=["name", "voucher_type", "voucher_no"])
+    except Exception:
+        return []
+
+
+def _release_reservations(item_code, warehouses):
+    """Cancel the bins' active reservations so the reco can post. Returns the
+    affected Sales Orders for restoration. Runs INSIDE the poster's savepoint —
+    a failure anywhere rolls the cancellations back too."""
+    sos = set()
+    for wh in warehouses:
+        for sre in _active_sres(item_code, wh):
+            doc = frappe.get_doc("Stock Reservation Entry", sre.name)
+            doc.cancel()
+            if sre.voucher_type == "Sales Order" and sre.voucher_no:
+                sos.add(sre.voucher_no)
+    return sorted(sos)
+
+
+def _restore_reservations(sales_orders):
+    """Re-reserve for the affected Sales Orders via ERPNext's own API — it
+    reserves each SO item's remaining undelivered qty against available stock,
+    reproducing what was released."""
+    if not sales_orders:
+        return
+    from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
+        create_stock_reservation_entries_for_so_items)
+    for so in sales_orders:
+        try:
+            doc = frappe.get_doc("Sales Order", so)
+            if doc.docstatus == 1:
+                create_stock_reservation_entries_for_so_items(doc, notify=False)
+        except Exception:
+            # restoration must never kill the posted fix — log, don't fail
+            frappe.log_error(f"re-reservation failed for {so}", "valuation fix")
 
 
 def _fixed_action(item_code):
@@ -487,7 +545,10 @@ def item_fix_preview(company=None, item_code=None):
     bins, writedown, skipped = [], 0.0, 0
     for b in _fix_bins(target, item_code):
         rsv = flt(reserved.get(b.warehouse))
-        blocked = bool(rsv) or bool(b.wh_disabled)   # ERPNext rejects recos on both
+        # reserved bins are no longer skipped — the fix cycles their
+        # reservations (release → reco → re-reserve, atomic). Only a disabled
+        # warehouse still blocks.
+        blocked = bool(b.wh_disabled)
         delta = round((rate - flt(b.vr)) * flt(b.qty), 2) if (rate > 0 and not blocked) else None
         if delta is not None:
             writedown += delta
@@ -496,6 +557,7 @@ def item_fix_preview(company=None, item_code=None):
         bins.append({"warehouse": b.warehouse, "qty": round(flt(b.qty)),
                      "old_rate": round(flt(b.vr), 2), "new_rate": rate or None,
                      "delta": delta, "reserved": round(rsv) or None,
+                     "cycle": bool(rsv) and not blocked,
                      "disabled": int(b.wh_disabled or 0) or None})
     w = flt(frappe.db.get_value("Item", item_code, "weight_per_unit"))
     trk = frappe.db.get_value("Item", item_code, ["has_batch_no", "has_serial_no"], as_dict=True) or {}
@@ -555,13 +617,19 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         landed = landed_unit(item_code)
         r = round(product + landed, 2)   # the FULL applied rate
     date = nowdate()   # today-dated cutover: no back-dated repost, cheap + safe
-    reserved = _reserved_by_wh(item_code)   # ERPNext blocks recos on reserved bins
-    rows, impact, skipped = [], 0.0, []
+    reserved = _reserved_by_wh(item_code)
+    rows, impact, skipped, release_whs = [], 0.0, [], []
     for b in _fix_bins(target, item_code):
         if abs(r - flt(b.vr)) < 0.01:
             continue
         if flt(reserved.get(b.warehouse)):
-            skipped.append(f"{b.warehouse} ({round(flt(reserved[b.warehouse]))} reserved)")
+            # reserved bins are INCLUDED: the poster releases the reservations,
+            # posts the reco, then re-reserves via ERPNext's own API — atomic
+            # (any failure rolls it all back). Orders reserve 24/7 here, so
+            # "wait for the reservation to ship" never comes.
+            release_whs.append(b.warehouse)
+            rows.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
+            impact += abs((r - flt(b.vr)) * flt(b.qty))
             continue
         if b.wh_disabled:
             skipped.append(f"{b.warehouse} (disabled warehouse)")
@@ -579,7 +647,8 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}:{wh_sig}",
         # basis_on stamps WHICH frozen basis this fix used — an unfreeze/refreeze
         # later marks it stale in the catalogue instead of keeping a silent ✓
-        payload={"date": date, "rows": rows, "basis_on": (basis or {}).get("on")},
+        payload={"date": date, "rows": rows, "release_whs": release_whs,
+                 "basis_on": (basis or {}).get("on")},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
         notes=((note or f"Verified cost fix — {item_code}")
