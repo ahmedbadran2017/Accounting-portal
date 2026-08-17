@@ -800,8 +800,11 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}:{wh_sig}",
         # basis_on stamps WHICH frozen basis this fix used — an unfreeze/refreeze
         # later marks it stale in the catalogue instead of keeping a silent ✓
+        # full-rate fixes carry LIVE landed, not the frozen snapshot — stamping
+        # the basis would mark them stale on every unfreeze/refreeze and make
+        # the batch re-apply already-correct items forever
         payload={"date": date, "rows": rows, "release_whs": release_whs,
-                 "basis_on": (basis or {}).get("on"),
+                 "basis_on": None if full_rate else (basis or {}).get("on"),
                  "retro_pins": retro_pins if retro else []},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,

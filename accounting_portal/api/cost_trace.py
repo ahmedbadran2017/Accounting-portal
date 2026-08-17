@@ -697,11 +697,11 @@ def apply_local_batch(limit=25, dry_run=1, retro=0):
         return {"dry_run": True, "stats": stats, "rows": ready,
                 "total_delta": round(sum(r["delta"] for r in ready), 2)}
     from accounting_portal.api.valuation import fix_item_cost
-    done, skipped = [], []
+    done, skipped, proposed = [], [], []
     # walk the WHOLE ready list until `limit` successes — a permanently-failing
     # head (e.g. already-at-rate without retro) must not wedge every wave
     for r in ready:
-        if len(done) >= limit:
+        if len(done) + len(proposed) >= limit:
             break
         try:
             res = fix_item_cost(
@@ -709,10 +709,15 @@ def apply_local_batch(limit=25, dry_run=1, retro=0):
                 retro=retro,
                 note=(f"Local bulk — supplier invoice {r['rate']} MAD/unit "
                       f"(basis {round(r['basis_qty'])}u), landed 0 (domestic)"))
+            # approval gate can return a PROPOSED (unposted) action — never
+            # report it as applied or the wave loop retries it forever
+            if isinstance(res, dict) and res.get("status") and res["status"] != "Posted":
+                proposed.append({"item_code": r["item_code"], "status": res["status"]})
+                continue
             done.append({"item_code": r["item_code"], "rate": r["rate"],
                          "voucher": (res or {}).get("voucher_no")})
         except Exception as e:
             skipped.append({"item_code": r["item_code"], "reason": str(e)[:140]})
             continue
-    return {"dry_run": False, "posted": done, "skipped": skipped,
-            "remaining": max(stats["ready"] - len(done) - len(skipped), 0)}
+    return {"dry_run": False, "posted": done, "skipped": skipped, "proposed": proposed,
+            "remaining": max(stats["ready"] - len(done) - len(proposed), 0)}

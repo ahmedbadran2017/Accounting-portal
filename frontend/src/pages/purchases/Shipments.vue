@@ -339,15 +339,28 @@ async function previewApply() {
 }
 async function runApply() {
   if (!window.confirm(L(
-    "Apply the next wave (up to 20 items)? Each posts a today-dated revaluation — undoable one by one in Activity.",
-    "تطبيق الدفعة الجاية (لحد 20 صنف)؟ كل صنف بياخد قيد إعادة تقييم بتاريخ النهاردة — قابل للعكس واحد واحد من Activity.",
-    "Appliquer la prochaine vague ?"))) return;
+    "Apply the next wave (up to 20 items)? Each posts RETROACTIVELY from its first 2026 receipt (old COGS heals) — undoable one by one in Activity.",
+    "تطبيق الدفعة الجاية (لحد 20 صنف)؟ كل صنف بيتطبق بأثر رجعي من أول استلام 2026 (COGS القديم بيتصلح) — قابل للعكس واحد واحد من Activity.",
+    "Appliquer la prochaine vague (rétroactif) ?"))) return;
   busy.value = true;
   try {
     applyPrev.value = await api.call(`${SC}.apply_batch`, { company: currentCompany(), dry_run: 0, year: yearSel.value, retro: 1 });
     await loadList();
+    await drainReposts();   // retro recos leave Repost jobs Queued — GL lags stock until drained
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { busy.value = false; }
+}
+
+// retro applies enqueue Repost jobs the scheduler is known to sit on — drain
+// them in short budgeted calls so the ledger catches up before we let go
+async function drainReposts() {
+  for (let i = 0; i < 12; i++) {
+    try {
+      const r = await api.call("accounting_portal.api.valuation.drain_reposts", { budget_s: 45 }, { fresh: true });
+      if (!r.remaining) return;
+    } catch { return; }
+  }
+  toast.info(L("Reposts still running — they'll finish in the background", "إعادة الحساب لسه شغالة — هتكمل في الخلفية", "Recalcul en cours"));
 }
 
 async function openSheet(pr) {

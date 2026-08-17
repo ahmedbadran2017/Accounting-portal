@@ -187,7 +187,7 @@
                 <td class="px-4 py-2 text-end tnum font-bold" :style="{ color: r.delta > 0 ? '#b91c1c' : '#2563eb' }">{{ fmtNum(r.delta) }}</td>
                 <td class="px-4 py-2 text-end tnum text-ink-3">{{ r.coverage_pct }}%</td>
                 <td class="px-4 py-2 text-end whitespace-nowrap">
-                  <span v-if="r.posted" class="text-[10.5px] font-bold" :class="r.posted.stale_basis ? 'text-amber-600' : 'text-emerald-700'">{{ r.posted.stale_basis ? '⚠' : '✅' }} <span dir="ltr">{{ r.posted.voucher_no }}</span><template v-if="r.posted.stale_basis"> · {{ L("basis changed — revert & re-post","الأساس اتغيّر — اعكسوه ورحّلوه تاني","base modifiée") }}</template></span>
+                  <span v-if="r.posted" class="text-[10.5px] font-bold" :class="(r.posted.stale_basis || r.posted.stale_amount) ? 'text-amber-600' : 'text-emerald-700'">{{ (r.posted.stale_basis || r.posted.stale_amount) ? '⚠' : '✅' }} <span dir="ltr">{{ r.posted.voucher_no }}</span><template v-if="r.posted.stale_basis"> · {{ L("basis changed — revert & re-post","الأساس اتغيّر — اعكسوه ورحّلوه تاني","base modifiée") }}</template><template v-else-if="r.posted.stale_amount"> · {{ L("retro healed this month underneath — revert & re-post","الـretro صلّح الشهر من تحته — اعكسوه ورحّلوه تاني","rétro a corrigé ce mois — annuler et reposter") }}</template></span>
                   <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                           :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1"
                           @click="postTrueup(r)">

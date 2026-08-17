@@ -274,8 +274,8 @@ def set_bill_kg(company=None, year=None, voucher=None, kg=None):
     b = bills.get(voucher)
     if not b:
         frappe.throw(f"{voucher} is not a freight bill on the included accounts for {yr}")
-    if b.get("kg_source") == "auto":
-        frappe.throw(f"{voucher} already carries its kg from the invoice itself (qty = kg) — nothing to enter")
+    # NOTE: auto (qty=kg) bills MAY be overridden — the >3-qty heuristic can
+    # misread a multi-line lump bill as per-kg; the forwarder's paper wins
     kgs = _bill_kgs(yr)
     if flt(kg) > 0:
         kgs[voucher] = round(flt(kg), 1)

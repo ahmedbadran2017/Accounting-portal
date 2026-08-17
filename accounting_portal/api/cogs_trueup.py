@@ -144,11 +144,19 @@ def monthly_review(company=None, year=None):
         b = flt(booked.get(m, 0))
         tr = round(flt(t.get("true", 0)), 2)
         cov = round(100 * flt(t.get("priced_qty", 0)) / max(flt(t.get("qty", 1)), 1), 1)
+        po = posted.get(m)
+        # a RETRO repost restates booked COGS underneath a standing true-up JE —
+        # the month is then corrected twice. A posted month whose LIVE residual
+        # delta is still material is exactly that case: flag it for
+        # revert-and-repost instead of letting the double-count sit silently.
+        if po and abs(b - tr) > max(500, abs(tr) * 0.02):
+            po = dict(po)
+            po["stale_amount"] = round(b - tr)
         rows.append({
             "month": f"{year}-{m:02d}", "booked": round(b), "true": round(tr),
             "delta": round(b - tr), "coverage_pct": cov,
             "open_month": (year == cur_y and m >= cur_m),
-            "posted": posted.get(m),
+            "posted": po,
         })
     return {"company": target, "year": year, "basis_frozen": basis_frozen, "rows": rows}
 

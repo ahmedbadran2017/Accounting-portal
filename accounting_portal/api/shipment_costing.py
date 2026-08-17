@@ -271,15 +271,18 @@ def readiness(company=None, year=None):
             "items_applied": len(fixed & set(ready))}
 
 
-def _live_landed(items, receipts):
+def _live_landed(items, receipts, year=None):
     """{item: live landed/unit} from the CURRENT shipment costs (bills/rate
     sources only) — the per-shipment-submit path, no frozen snapshot needed.
-    Same kg-split math as the frozen distributor."""
+    Same kg-split math as the frozen distributor. `year` = the WORKING year:
+    the historical tariff layer must cover strictly-earlier years only, or a
+    2025 session counts its own receipts twice (once as costed shipments,
+    once as history)."""
     costed = {r["name"]: {"cost": flt(r["landed"]), "kg": flt(r["kg"]), "qty": flt(r["qty"]),
                           "qty0": flt(r.get("qty0") or 0), "bill_kg": flt(r.get("bill_kg") or 0)}
               for r in receipts if r["source"] in ("bills", "rate")}
     from accounting_portal.api.landed_prep import _hist_landed_units
-    hist = _hist_landed_units(set(items)) if items else {}
+    hist = _hist_landed_units(set(items), before_year=year) if items else {}
     if not (costed or hist) or not items:
         return {}
     lines = _pr_lines(list(costed))
@@ -325,8 +328,9 @@ def apply_shipment(pr=None, year=None, dry_run=1, retro=0):
     item's import shipments this year is freight-costed AND carries a verified
     cost in its sheet (the item's cost is a weighted average across them, so a
     missing shipment would understate it). Items still waiting are reported
-    with WHAT they wait for. dry_run=1 previews. Retroactive month restatement
-    stays a separate step (the monthly true-up)."""
+    with WHAT they wait for. dry_run=1 previews. With retro=1 (the UI default)
+    each item posts from its first 2026 receipt and heals past COGS inside the
+    stock ledger; the monthly true-up then only covers what retro can't."""
     assert_can_write()
     if not pr:
         frappe.throw("pr required")
@@ -344,7 +348,7 @@ def apply_shipment(pr=None, year=None, dry_run=1, retro=0):
             item_prs.setdefault(l.ic, set()).add(prn)
     my_items = [l.ic for l in (lines_all.get(pr) or [])]
     fixed = _fixed_map()
-    live_landed = _live_landed(set(my_items), sr["receipts"])
+    live_landed = _live_landed(set(my_items), sr["receipts"], year=sr["year"])
 
     def weighted_product(ic):
         q_tot = val = 0.0
@@ -385,19 +389,32 @@ def apply_shipment(pr=None, year=None, dry_run=1, retro=0):
         return {"dry_run": True, "pr": pr, "rows": rows, "counts": counts}
 
     from accounting_portal.api.valuation import fix_item_cost
-    done, skipped = [], []
+    done, skipped, proposed = [], [], []
+    # capped like apply_batch: with retro each item posts an anchor + pin chain,
+    # so an uncapped 50-line sheet could blow the request timeout mid-loop —
+    # the UI loops on `remaining` instead
+    _CAP = 40
     for ic, product, landed, full in ready:
+        if len(done) + len(proposed) >= _CAP:
+            break
         try:
             res = fix_item_cost(
                 company=SALES, item_code=ic, rate=full, full_rate=1, retro=retro,
                 note=f"Shipment submit {pr} — product {product} + landed {landed} = {full} "
                      f"(weighted across {len(item_prs.get(ic, ()))} shipment(s))")
+            # the approval gate can return a PROPOSED (unposted) action —
+            # reporting it as applied would loop the batch forever
+            if isinstance(res, dict) and res.get("status") and res["status"] != "Posted":
+                proposed.append({"item_code": ic, "full": full, "status": res["status"]})
+                continue
             done.append({"item_code": ic, "full": full,
                          "voucher": (res or {}).get("voucher_no")})
         except Exception as e:
             skipped.append({"item_code": ic, "reason": str(e)[:140]})
             continue
     return {"dry_run": False, "pr": pr, "posted": done, "skipped": skipped,
+            "proposed": proposed,
+            "remaining": max(len(ready) - len(done) - len(skipped) - len(proposed), 0),
             "rows": rows}
 
 
@@ -445,7 +462,7 @@ def item_landed_detail(item_code=None, year=None):
                     "channels": hh["channels"],
                     "landed_total": round(hh["value"], 2),
                     "unit": round(hh["value"] / hh["qty"], 2)}
-    landed = flt(_live_landed({item_code}, sr["receipts"]).get(item_code))
+    landed = flt(_live_landed({item_code}, sr["receipts"], year=sr["year"]).get(item_code))
     waiting = [m["pr"] for m in mine if m["source"] not in ("bills", "rate")]
     # the PR sheets' weighted verified cost, if the team already verified this
     # item during a bulk pass — prefills the SKU page input
@@ -583,7 +600,7 @@ def _batch_readiness(year=None):
         for ic, v in ((sheet or {}).get("costs") or {}).items():
             if flt(v) > 0 and ic in item_prs:
                 candidates.add(ic)
-    live = _live_landed(candidates, sr["receipts"])
+    live = _live_landed(candidates, sr["receipts"], year=sr["year"])
     ready, waiting = {}, {"freight": 0, "verify": 0}
     for ic in candidates:
         prs_i = item_prs.get(ic, set())
@@ -624,7 +641,7 @@ def apply_batch(company=None, limit=20, dry_run=1, year=None, retro=0):
                 "next_wave": [{"item_code": ic, "rate": ready[ic]["full"]} for ic in todo_all[:limit]],
                 "remaining": max(len(todo_all) - limit, 0)}
     from accounting_portal.api.valuation import fix_item_cost
-    done, skipped = [], []
+    done, skipped, proposed = [], [], []
     # walk the WHOLE ready list until `limit` successes — a permanently-failing
     # head (e.g. "already correct" without retro) must not wedge every wave
     for ic in todo_all:
@@ -635,10 +652,13 @@ def apply_batch(company=None, limit=20, dry_run=1, year=None, retro=0):
             res = fix_item_cost(
                 company=SALES, item_code=ic, rate=r["full"], full_rate=1, retro=retro,
                 note=f"Batch apply — product {r['product']} + landed {r['landed']} = {r['full']}")
+            if isinstance(res, dict) and res.get("status") and res["status"] != "Posted":
+                proposed.append({"item_code": ic, "rate": r["full"], "status": res["status"]})
+                continue
             done.append({"item_code": ic, "rate": r["full"],
                          "voucher": (res or {}).get("voucher_no")})
         except Exception as e:
             skipped.append({"item_code": ic, "reason": str(e)[:140]})
             continue
-    return {"dry_run": False, "posted": done, "skipped": skipped,
-            "remaining": max(len(todo_all) - len(done) - len(skipped), 0)}
+    return {"dry_run": False, "posted": done, "skipped": skipped, "proposed": proposed,
+            "remaining": max(len(todo_all) - len(done), 0)}

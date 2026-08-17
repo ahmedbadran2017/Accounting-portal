@@ -158,8 +158,8 @@
         <div class="flex-1 min-w-[260px]">
           <div class="text-[12px] font-bold">④ {{ L("Submit — apply this shipment's costs","الاعتماد النهائي — تطبيق تكلفة الشحنة","Soumettre") }}</div>
           <div class="text-[11px] text-ink-muted mt-0.5">
-            <span :title="L('An item applies only when ALL its shipments are complete — its cost is the weighted average across them. Retroactive monthly restatement is a separate step (true-up card).','الصنف بيتطبق لما كل شحناته تكون مكتملة — تكلفته متوسط مرجّح بينهم. الأثر الرجعي الشهري خطوة منفصلة (كارت الـtrue-up).','Un article part quand toutes ses expéditions sont complètes ; le rétroactif est séparé.')">
-              {{ L("Updates current stock — every next sale leaves at the right cost. Undoable in Activity.","بيحدّث المخزون الحالي — كل بيع جاي يخرج بالتكلفة الصح. قابل للعكس من Activity.","Met à jour le stock actuel ; réversible.") }}</span>
+            <span :title="L('An item applies only when ALL its shipments are complete — its cost is the weighted average across them. Applies RETROACTIVELY from its first 2026 receipt: past sales\' COGS heals inside the stock ledger.','الصنف بيتطبق لما كل شحناته تكون مكتملة — تكلفته متوسط مرجّح بينهم. بيتطبق بأثر رجعي من أول استلام 2026: COGS المبيعات القديمة بيتصلح جوا دفتر المخزون.','S\'applique rétroactivement depuis la première réception 2026.')">
+              {{ L("Applies retroactively from the first 2026 receipt — old and future sales carry the right cost. Undoable in Activity.","بيتطبق بأثر رجعي من أول استلام 2026 — المبيعات القديمة والجاية بالتكلفة الصح. قابل للعكس من Activity.","Rétroactif depuis 2026 ; réversible.") }}</span>
           </div>
         </div>
         <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
@@ -250,9 +250,9 @@ const readyCount = computed(() =>
 const waitingRows = computed(() =>
   (subPrev.value?.rows || []).filter((r) => r.status.startsWith("waiting")));
 
-async function load() {
+async function load(skipPreview = false) {
   s.value = null;
-  subPrev.value = null;
+  if (!skipPreview) subPrev.value = null;
   loadErr.value = false;
   try {
     const r = await api.call(`${SC}.get_sheet`, { pr: props.pr, year: props.year || undefined }, { fresh: true });
@@ -261,7 +261,10 @@ async function load() {
     note.value = r.sheet?.note || "";
     rateEdit.value = r.freight.confirmed_rate || r.freight.band_rate || null;
     s.value = r;
-    previewSubmit();   // pre-load the ④ preview so Submit is never a dead button
+    // pre-load the ④ preview so Submit is never a dead button — but NOT right
+    // after a submit: the un-awaited dry-run would clobber the posted/skipped
+    // summary and release the busy guard mid-drain
+    if (!skipPreview) previewSubmit();
   } catch (e) { loadErr.value = true; toast.error(e.message || "Failed"); }
 }
 watch(() => props.pr, load, { immediate: true });
@@ -322,15 +325,35 @@ async function previewSubmit() {
 }
 async function runSubmit() {
   if (!window.confirm(L(
-    `Apply ${readyCount.value} item(s) at their full verified cost? Each posts a today-dated revaluation — undoable in Activity.`,
-    `تطبيق ${readyCount.value} صنف بتكلفتهم الكاملة المعتمدة؟ كل صنف قيد إعادة تقييم بتاريخ النهاردة — قابل للعكس من Activity.`,
-    "Appliquer ?"))) return;
+    `Apply ${readyCount.value} item(s) at their full verified cost? Each posts RETROACTIVELY from its first 2026 receipt (old COGS heals) — undoable in Activity.`,
+    `تطبيق ${readyCount.value} صنف بتكلفتهم الكاملة المعتمدة؟ كل صنف بيتطبق بأثر رجعي من أول استلام 2026 (COGS القديم بيتصلح) — قابل للعكس من Activity.`,
+    "Appliquer (rétroactif) ?"))) return;
   busy.value = true;
   try {
-    const done = await api.call(`${SC}.apply_shipment`, { pr: s.value.pr, year: props.year || undefined, dry_run: 0, retro: 1 });
+    // big sheets post in server waves of 40 — loop until nothing remains
+    let done = null;
+    for (let w = 0; w < 10; w++) {
+      const r = await api.call(`${SC}.apply_shipment`, { pr: s.value.pr, year: props.year || undefined, dry_run: 0, retro: 1 });
+      if (done) {
+        r.posted = [...done.posted, ...r.posted];
+        r.skipped = [...done.skipped, ...r.skipped];
+        r.proposed = [...(done.proposed || []), ...(r.proposed || [])];
+      }
+      done = r;
+      if (!r.remaining || !r.posted.length) break;
+    }
     emit("saved");
-    await load();
+    await load(true);           // keep the posted/skipped summary on screen
     subPrev.value = done;
+    // retro recos leave Repost jobs Queued — drain so GL catches up
+    let drained = false;
+    for (let i = 0; i < 12; i++) {
+      try {
+        const r = await api.call("accounting_portal.api.valuation.drain_reposts", { budget_s: 45 }, { fresh: true });
+        if (!r.remaining) { drained = true; break; }
+      } catch (e) { toast.error(e.message || "Repost drain failed"); break; }
+    }
+    if (!drained) toast.info(L("Reposts still running — they'll finish in the background", "إعادة الحساب لسه شغالة — هتكمل في الخلفية", "Recalcul en cours"));
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { busy.value = false; }
 }
