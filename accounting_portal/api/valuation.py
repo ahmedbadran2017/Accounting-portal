@@ -570,8 +570,35 @@ def item_fix_preview(company=None, item_code=None):
             "fixed": _fixed_action(item_code)}
 
 
+def _state_asof(item_code, warehouse, date):
+    """(qty, valuation_rate) at the END of `date` — the back-dated reco must
+    carry that day's quantity, and the old rate prices the impact estimate."""
+    r = frappe.db.sql(
+        """SELECT qty_after_transaction q, valuation_rate vr
+           FROM `tabStock Ledger Entry`
+           WHERE item_code=%s AND warehouse=%s AND is_cancelled=0 AND posting_date <= %s
+           ORDER BY posting_date DESC, posting_time DESC, creation DESC LIMIT 1""",
+        (item_code, warehouse, date), as_dict=True)
+    return (flt(r[0].q), flt(r[0].vr)) if r else (0.0, 0.0)
+
+
+def _retro_anchor(target, item_code):
+    """The earliest date a retro fix may take effect: the item's first receipt
+    in the company, clamped to the policy floor (closed years never restate).
+    Falls back to today when there is no history to heal."""
+    r = frappe.db.sql(
+        """SELECT MIN(posting_date) FROM `tabStock Ledger Entry`
+           WHERE company=%s AND item_code=%s AND is_cancelled=0 AND actual_qty>0""",
+        (target, item_code))
+    first = str(r[0][0]) if r and r[0][0] else None
+    if not first:
+        return nowdate()
+    anchor = max(first, _POLICY_FLOOR)
+    return anchor if anchor < nowdate() else nowdate()
+
+
 @frappe.whitelist()
-def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=0):
+def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=0, retro=0):
     """The reviewer's Fix button: revalue EVERY bin of this product in ONE
     today-dated Stock Reconciliation at the FULL rate = verified PRODUCT cost
     (`rate`, defaults to the evidence-based figure; overriding requires a note)
@@ -616,26 +643,52 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
             frappe.throw(f"Rate {product} differs from the evidence-based cost {bench} — a note explaining the override is required")
         landed = landed_unit(item_code)
         r = round(product + landed, 2)   # the FULL applied rate
-    date = nowdate()   # today-dated cutover: no back-dated repost, cheap + safe
+    retro = str(retro) in ("1", "true", "True")
+    date = _retro_anchor(target, item_code) if retro else nowdate()
+    retro = retro and date < nowdate()   # no history → degenerates to today mode
     reserved = _reserved_by_wh(item_code)
     rows, impact, skipped, release_whs = [], 0.0, [], []
-    for b in _fix_bins(target, item_code):
-        if abs(r - flt(b.vr)) < 0.01:
-            continue
-        if flt(reserved.get(b.warehouse)):
-            # reserved bins are INCLUDED: the poster releases the reservations,
-            # posts the reco, then re-reserves via ERPNext's own API — atomic
-            # (any failure rolls it all back). Orders reserve 24/7 here, so
-            # "wait for the reservation to ship" never comes.
-            release_whs.append(b.warehouse)
+    if retro:
+        # RETRO: reco lands at the anchor date and ERPNext reposts every later
+        # SLE — old COGS heals inside the stock ledger itself. Rows come from
+        # the warehouses that held stock ON that date (not today's bins), at
+        # that day's quantity (the poster re-resolves via _qty_asof). Current
+        # rate being "already correct" is NOT a skip reason here: the whole
+        # point is repricing the interim months.
+        whs = [w[0] for w in frappe.db.sql(
+            """SELECT DISTINCT sle.warehouse FROM `tabStock Ledger Entry` sle
+               JOIN `tabWarehouse` w ON w.name=sle.warehouse
+               WHERE sle.company=%s AND sle.item_code=%s AND sle.is_cancelled=0
+                 AND sle.posting_date <= %s AND IFNULL(w.disabled,0)=0""",
+            (target, item_code, date))]
+        for wh in whs:
+            q_then, vr_then = _state_asof(item_code, wh, date)
+            if q_then <= 0:
+                continue
+            if flt(reserved.get(wh)):
+                release_whs.append(wh)
+            rows.append({"item_code": item_code, "warehouse": wh, "rate": r})
+            impact += abs((r - vr_then) * q_then)
+        if not rows:
+            frappe.throw(f"No warehouse held this item on {date} — nothing to fix retroactively")
+    else:
+        for b in _fix_bins(target, item_code):
+            if abs(r - flt(b.vr)) < 0.01:
+                continue
+            if flt(reserved.get(b.warehouse)):
+                # reserved bins are INCLUDED: the poster releases the reservations,
+                # posts the reco, then re-reserves via ERPNext's own API — atomic
+                # (any failure rolls it all back). Orders reserve 24/7 here, so
+                # "wait for the reservation to ship" never comes.
+                release_whs.append(b.warehouse)
+                rows.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
+                impact += abs((r - flt(b.vr)) * flt(b.qty))
+                continue
+            if b.wh_disabled:
+                skipped.append(f"{b.warehouse} (disabled warehouse)")
+                continue
             rows.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
             impact += abs((r - flt(b.vr)) * flt(b.qty))
-            continue
-        if b.wh_disabled:
-            skipped.append(f"{b.warehouse} (disabled warehouse)")
-            continue
-        rows.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
-        impact += abs((r - flt(b.vr)) * flt(b.qty))
     if not rows:
         frappe.throw("Nothing fixable now — every bin is already correct or blocked by reservations: "
                      + ("; ".join(skipped) or "none"))
@@ -653,6 +706,7 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         reference_doctype="Item", reference_name=item_code,
         notes=((note or f"Verified cost fix — {item_code}")
                + ("" if full_rate else f" · product {product} + landed {landed} = {r} ({tc.get('source')})")
+               + (f" · RETRO from {date} (reposts later SLEs)" if retro else "")
                + (f" · skipped: {'; '.join(skipped)}" if skipped else "")))
     if isinstance(res, dict):
         res["skipped_reserved"] = skipped
@@ -690,3 +744,36 @@ def kick_repost(name=None):
     frappe.enqueue(repost, doc=doc, queue="long", timeout=3600,
                    job_name=f"portal_repost_{doc.name}", enqueue_after_commit=True)
     return {"status": "enqueued", "name": doc.name}
+
+
+@frappe.whitelist()
+def drain_reposts(budget_s=45, names=None):
+    """Process queued repost jobs SYNCHRONOUSLY, oldest first, inside a strict
+    time budget — the reliable half of the retro engine when the long-queue
+    workers sit on jobs (the known Queued gotcha). Each job commits its own
+    progress via ERPNext's repost(), so hitting the budget leaves a clean,
+    resumable queue. Super Admin only — heavy machinery."""
+    from accounting_portal.api.permissions import can_manage_users
+    if not can_manage_users():
+        frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
+    import time
+    from erpnext.stock.doctype.repost_item_valuation.repost_item_valuation import repost
+    budget = min(flt(budget_s) or 45, 280)   # stay under the gunicorn timeout
+    if names and isinstance(names, str):
+        names = json.loads(names)
+    todo = names or [r.name for r in frappe.get_all(
+        "Repost Item Valuation", filters={"docstatus": 1, "status": "Queued"},
+        order_by="creation asc", limit_page_length=20, fields=["name"])]
+    start, processed = time.monotonic(), []
+    for nm in todo:
+        if time.monotonic() - start > budget:
+            break
+        doc = frappe.get_doc("Repost Item Valuation", nm)
+        if doc.status not in ("Queued", "In Progress"):
+            continue
+        repost(doc)   # In Progress → Completed/Failed; commits internally
+        processed.append({"name": nm,
+                          "status": frappe.db.get_value("Repost Item Valuation", nm, "status")})
+    return {"processed": processed,
+            "remaining": frappe.db.count("Repost Item Valuation",
+                                         {"docstatus": 1, "status": "Queued"})}

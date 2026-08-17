@@ -435,6 +435,10 @@
             <input type="checkbox" v-model="fixConfirm" class="accent-accent w-3.5 h-3.5" />
             {{ L("I verified this figure against the actual supplier invoice","اتحققت من الرقم ده من فاتورة المورّد الفعلية","J'ai vérifié ce chiffre") }}
           </label>
+          <label class="flex items-center gap-2 text-[12px] text-ink-2 cursor-pointer">
+            <input type="checkbox" v-model="fixRetro" class="accent-accent w-3.5 h-3.5" />
+            🕰 {{ L("Retro — apply from the item's first 2026 receipt and heal past months (reposts its old moves)","رجعي — يتطبق من أول استلام في 2026 ويصلح الشهور اللي فاتت (بيعيد حساب حركاته القديمة)","Rétro — depuis la première réception 2026") }}
+          </label>
           <button class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                   :disabled="!canSubmit || fixing"
                   :title="!canSubmit ? submitBlockReason : ''"
@@ -549,6 +553,10 @@
               <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="lb = null">{{ L("Close","إغلاق","Fermer") }}</button>
             </template>
             <template v-else>
+              <label class="flex items-center gap-1.5 text-[11.5px] text-ink-2 cursor-pointer">
+                <input type="checkbox" v-model="lbRetro" class="accent-accent w-3.5 h-3.5" />
+                🕰 {{ L("Retro from first 2026 receipt","رجعي من أول استلام 2026","Rétro 2026") }}
+              </label>
               <span class="text-[11px] text-ink-muted flex-1">{{ L("Each item posts as its own Stock Reco — individually undoable from the Activity Log.","كل صنف بيترحّل بتسوية مستقلة — ليه Undo لوحده من سجل النشاط.","Chaque article est réversible individuellement.") }}</span>
               <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="lb = null">{{ L("Cancel","إلغاء","Annuler") }}</button>
               <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
@@ -620,6 +628,7 @@ const fixPrev = ref(null);
 const fixRate = ref(null);
 const fixNote = ref("");
 const fixConfirm = ref(false);
+const fixRetro = ref(true);   // retro is the default: verified cost heals history too
 const fixing = ref(false);
 const SCM = "accounting_portal.api.shipment_costing";
 const itemLanded = ref(null);
@@ -701,8 +710,11 @@ async function applyFix() {
     const res = await api.call(`${SCM}.apply_item`, {
       item_code: trace.value.item_code,
       rate: fixRate.value, note: fixNote.value || undefined,
+      retro: fixRetro.value ? 1 : 0,
     });
-    if (res.status === "Posted") toast.success(L("Cost fixed — one today-dated entry posted", "اتظبطت — قيد واحد بتاريخ اليوم", "Corrigé"));
+    if (res.status === "Posted") toast.success(fixRetro.value
+      ? L("Cost fixed retroactively — old moves are reposting", "اتظبطت بأثر رجعي — الحركات القديمة بيعاد حسابها", "Corrigé rétroactivement")
+      : L("Cost fixed — one today-dated entry posted", "اتظبطت — قيد واحد بتاريخ اليوم", "Corrigé"));
     else toast.info(res.status);
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: trace.value.item_code }, { fresh: true });
     ct.load();
@@ -733,6 +745,7 @@ ct.load();
 watch([srcFilter, supFilter, moFilter, fixFilter], () => { ct.page.value = 1; ct.load(); });
 // ── Bulk local apply — preview (dry_run) → confirm → post in waves ──
 const lb = ref(null);
+const lbRetro = ref(true);
 async function openLocalBulk() {
   lb.value = { loading: true, rows: [], stats: {}, total_delta: 0, posting: false, finished: false, progress: 0, posted: 0, failed: 0, done: {} };
   try {
@@ -747,7 +760,7 @@ async function runLocalBulk() {
     // waves of 25 so one long request never times out; the server re-scans each
     // wave, so anything already fixed simply drops out of the next one
     for (let guard = 0; guard < 40; guard++) {
-      const r = await api.call(`${M}.apply_local_batch`, { dry_run: 0, limit: 25 }, { fresh: true });
+      const r = await api.call(`${M}.apply_local_batch`, { dry_run: 0, limit: 25, retro: lbRetro.value ? 1 : 0 }, { fresh: true });
       // a failed item stays "ready" on the server and reappears next wave —
       // count each item once, and stop when a wave makes no forward progress
       for (const p of r.posted) { if (!lb.value.done[p.item_code]) lb.value.posted++; lb.value.done[p.item_code] = "ok"; }

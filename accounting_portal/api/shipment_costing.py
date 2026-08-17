@@ -532,7 +532,7 @@ def save_item_cost(item_code=None, cost=None, note=None, year=None):
 
 
 @frappe.whitelist()
-def apply_item(item_code=None, rate=None, note=None, year=None):
+def apply_item(item_code=None, rate=None, note=None, year=None, retro=0):
     """The SKU page's ④ Submit: apply verified product cost + this item's LIVE
     landed. Blocked while any of the item's shipments is not freight-costed
     (its landed would be understated). Gated/reversible via fix_item_cost."""
@@ -555,7 +555,7 @@ def apply_item(item_code=None, rate=None, note=None, year=None):
     full = round(product + landed, 2)
     from accounting_portal.api.valuation import fix_item_cost
     return fix_item_cost(
-        company=SALES, item_code=item_code, rate=full, full_rate=1,
+        company=SALES, item_code=item_code, rate=full, full_rate=1, retro=retro,
         note=((note or "").strip() or f"SKU verify — {item_code}")
              + f" · product {product} + landed {landed} = {full} "
              f"({len(d['receipts'])} shipment(s))")
@@ -610,7 +610,7 @@ def _batch_readiness(year=None):
 
 
 @frappe.whitelist()
-def apply_batch(company=None, limit=20, dry_run=1, year=None):
+def apply_batch(company=None, limit=20, dry_run=1, year=None, retro=0):
     """Apply in waves — same completeness rule as the per-shipment submit
     (NO frozen-basis requirement): an item posts only when every one of its
     shipments is freight-costed and verified. Each post is undoable."""
@@ -630,7 +630,7 @@ def apply_batch(company=None, limit=20, dry_run=1, year=None):
         r = ready[ic]
         try:
             res = fix_item_cost(
-                company=SALES, item_code=ic, rate=r["full"], full_rate=1,
+                company=SALES, item_code=ic, rate=r["full"], full_rate=1, retro=retro,
                 note=f"Batch apply — product {r['product']} + landed {r['landed']} = {r['full']}")
             done.append({"item_code": ic, "rate": r["full"],
                          "voucher": (res or {}).get("voucher_no")})

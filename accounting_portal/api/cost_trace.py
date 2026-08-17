@@ -686,7 +686,7 @@ def _local_batch_rows():
 
 
 @frappe.whitelist()
-def apply_local_batch(limit=25, dry_run=1):
+def apply_local_batch(limit=25, dry_run=1, retro=0):
     """Bulk-fix the local catalogue: each ready item gets its own reversible
     Stock Reco via fix_item_cost (full rate = invoice rate, landed 0 by
     nature). One failure never stops the wave — it lands in `skipped`."""
@@ -702,6 +702,7 @@ def apply_local_batch(limit=25, dry_run=1):
         try:
             res = fix_item_cost(
                 company=SALES, item_code=r["item_code"], rate=r["rate"], full_rate=1,
+                retro=retro,
                 note=(f"Local bulk — supplier invoice {r['rate']} MAD/unit "
                       f"(basis {round(r['basis_qty'])}u), landed 0 (domestic)"))
             done.append({"item_code": r["item_code"], "rate": r["rate"],
