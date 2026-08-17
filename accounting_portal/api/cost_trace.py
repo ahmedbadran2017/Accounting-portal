@@ -698,7 +698,11 @@ def apply_local_batch(limit=25, dry_run=1, retro=0):
                 "total_delta": round(sum(r["delta"] for r in ready), 2)}
     from accounting_portal.api.valuation import fix_item_cost
     done, skipped = [], []
-    for r in ready[:limit]:
+    # walk the WHOLE ready list until `limit` successes — a permanently-failing
+    # head (e.g. already-at-rate without retro) must not wedge every wave
+    for r in ready:
+        if len(done) >= limit:
+            break
         try:
             res = fix_item_cost(
                 company=SALES, item_code=r["item_code"], rate=r["rate"], full_rate=1,
@@ -711,4 +715,4 @@ def apply_local_batch(limit=25, dry_run=1, retro=0):
             skipped.append({"item_code": r["item_code"], "reason": str(e)[:140]})
             continue
     return {"dry_run": False, "posted": done, "skipped": skipped,
-            "remaining": max(stats["ready"] - len(ready[:limit]), 0)}
+            "remaining": max(stats["ready"] - len(done) - len(skipped), 0)}

@@ -508,7 +508,7 @@
             <span class="text-ink-muted">{{ L("already fixed","متظبط","corrigés") }}: <b class="tnum">{{ lb.stats.already_fixed }}</b></span>
             <span class="flex-1"></span>
             <span>{{ L("net book change","صافي التغيير الدفتري","Δ net") }}:
-              <b class="tnum" :style="{ color: lb.total_delta > 0 ? '#b45309' : '#047857' }">{{ fmtNum(lb.total_delta) }} MAD</b></span>
+              <b class="tnum" dir="ltr" :style="{ color: lb.total_delta > 0 ? '#b45309' : '#047857' }">{{ fmtNum(lb.total_delta) }} MAD</b></span>
           </div>
 
           <div class="flex-1 overflow-y-auto">
@@ -529,7 +529,7 @@
                   <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ fmtNum(r.qty) }}</td>
                   <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.book_rate, 2) }}</td>
                   <td class="px-3 py-1.5 text-end tnum font-semibold text-emerald-700">{{ fmtNum(r.rate, 2) }}</td>
-                  <td class="px-3 py-1.5 text-end tnum" :style="{ color: r.delta > 0 ? '#b45309' : '#78716c' }">{{ fmtNum(r.delta) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum" dir="ltr" :style="{ color: r.delta > 0 ? '#b45309' : '#78716c' }">{{ fmtNum(r.delta) }}</td>
                   <td class="px-3 py-1.5 text-center text-[12px]">
                     <span v-if="lb.done[r.item_code] === 'ok'" class="text-emerald-700 font-bold">✓</span>
                     <span v-else-if="lb.done[r.item_code]" class="text-sale font-bold" :title="lb.done[r.item_code]">✕</span>
@@ -549,6 +549,8 @@
             <template v-else-if="lb.finished">
               <span class="text-[12px] font-bold text-emerald-700">✓ {{ L("Posted","اترحّل","Comptabilisé") }} {{ lb.posted }}</span>
               <span v-if="lb.failed" class="text-[12px] font-bold text-sale">· {{ L("failed","فشل","échoués") }} {{ lb.failed }}</span>
+              <span v-if="lb.error" class="text-[11px] text-sale truncate max-w-[260px]">⚠ {{ lb.error }}</span>
+              <span v-if="lb.draining" class="text-[11px] text-ink-muted">⏳ {{ L("reposting old moves…","بيعاد حساب الحركات القديمة…","recalcul en cours…") }}</span>
               <span class="flex-1"></span>
               <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="lb = null">{{ L("Close","إغلاق","Fermer") }}</button>
             </template>
@@ -715,11 +717,17 @@ async function applyFix() {
     if (res.status === "Posted") toast.success(fixRetro.value
       ? L("Cost fixed retroactively — old moves are reposting", "اتظبطت بأثر رجعي — الحركات القديمة بيعاد حسابها", "Corrigé rétroactivement")
       : L("Cost fixed — one today-dated entry posted", "اتظبطت — قيد واحد بتاريخ اليوم", "Corrigé"));
-    if (res.status === "Posted" && fixRetro.value) await drainReposts();
     else toast.info(res.status);
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: trace.value.item_code }, { fresh: true });
     ct.load();
     loadTower();
+    api.call(`${M}.cost_overview`, {}, { fresh: true }).then((r) => { ov.value = r; }).catch(() => {});
+    // drain AFTER the UI refreshed — the reco is already posted; this only
+    // catches the GL up, so release the Submit spinner first
+    if (res.status === "Posted" && fixRetro.value) {
+      fixing.value = false;
+      await drainReposts();
+    }
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { fixing.value = false; }
 }
@@ -770,25 +778,36 @@ async function openLocalBulk() {
 async function runLocalBulk() {
   if (!lb.value || lb.value.posting) return;
   lb.value.posting = true;
+  let exhausted = true;
   try {
     // waves of 25 so one long request never times out; the server re-scans each
     // wave, so anything already fixed simply drops out of the next one
     for (let guard = 0; guard < 40; guard++) {
       const r = await api.call(`${M}.apply_local_batch`, { dry_run: 0, limit: 25, retro: lbRetro.value ? 1 : 0 }, { fresh: true });
       // a failed item stays "ready" on the server and reappears next wave —
-      // count each item once, and stop when a wave makes no forward progress
-      for (const p of r.posted) { if (!lb.value.done[p.item_code]) lb.value.posted++; lb.value.done[p.item_code] = "ok"; }
+      // count each item once (a retry that succeeds moves failed → posted),
+      // and stop when a wave makes no forward progress
+      for (const p of r.posted) {
+        const prev = lb.value.done[p.item_code];
+        if (!prev) lb.value.posted++;
+        else if (prev !== "ok") { lb.value.failed--; lb.value.posted++; }
+        lb.value.done[p.item_code] = "ok";
+      }
       for (const s of r.skipped) { if (!lb.value.done[s.item_code]) lb.value.failed++; lb.value.done[s.item_code] = s.reason || "failed"; }
       lb.value.progress = lb.value.posted + lb.value.failed;
-      if (lbRetro.value) await drainReposts();   // keep GL in step with each wave
-      if (!r.posted.length || !r.remaining) break;
+      if (!r.posted.length || !r.remaining) { exhausted = false; break; }
     }
-    toast.success(L(`Posted ${lb.value.posted} item(s)`, `اترحّل ${lb.value.posted} صنف`, `${lb.value.posted} comptabilisés`));
+    if (exhausted) toast.info(L("Stopped at the wave cap — reopen to continue the rest", "وقفنا عند حد الدفعات — افتحوه تاني لتكملة الباقي", "Limite atteinte — rouvrir pour continuer"));
+    toast.success(L(`Posted ${lb.value?.posted ?? 0} item(s)`, `اترحّل ${lb.value?.posted ?? 0} صنف`, `${lb.value?.posted ?? 0} comptabilisés`));
+  } catch (e) { toast.error(e.message || "Failed"); if (lb.value) lb.value.error = e.message || "Failed"; }
+  finally {
+    // refresh even after a mid-run failure — earlier waves DID post
     ct.load();
     api.call(`${M}.cost_overview`, {}, { fresh: true }).then((r) => { ov.value = r; }).catch(() => {});
     loadTower();
-  } catch (e) { toast.error(e.message || "Failed"); }
-  finally { lb.value.posting = false; lb.value.finished = true; }
+    if (lb.value) { lb.value.posting = false; lb.value.finished = true; lb.value.draining = lbRetro.value; }
+    if (lbRetro.value) { await drainReposts(); if (lb.value) lb.value.draining = false; }
+  }
 }
 
 // a Turkish supplier name can be very long — trim for chips/cells

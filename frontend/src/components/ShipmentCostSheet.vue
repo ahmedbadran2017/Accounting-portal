@@ -327,7 +327,7 @@ async function runSubmit() {
     "Appliquer ?"))) return;
   busy.value = true;
   try {
-    const done = await api.call(`${SC}.apply_shipment`, { pr: s.value.pr, year: props.year || undefined, dry_run: 0 });
+    const done = await api.call(`${SC}.apply_shipment`, { pr: s.value.pr, year: props.year || undefined, dry_run: 0, retro: 1 });
     emit("saved");
     await load();
     subPrev.value = done;

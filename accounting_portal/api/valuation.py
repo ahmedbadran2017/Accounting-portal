@@ -22,7 +22,7 @@ expose and push them from the portal.
 import json
 
 import frappe
-from frappe.utils import flt, nowdate
+from frappe.utils import flt, nowdate, now_datetime
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
 from accounting_portal.api import _actions
@@ -255,10 +255,12 @@ def _valfix_reverter(action):
     # a retro fix posts a CHAIN of recos (anchor + one pin per poisoned date);
     # revert must cancel every link, newest first, then the anchor voucher
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    cancelled = 0
+    cancelled, pin_bins = 0, set()
     for nm in reversed(p.get("posted_pins") or []):
         if frappe.db.exists("Stock Reconciliation", nm):
             d = frappe.get_doc("Stock Reconciliation", nm)
+            for it in d.items:
+                pin_bins.add((it.item_code, it.warehouse))
             if d.docstatus == 1:
                 d.cancel()
                 cancelled += 1
@@ -268,9 +270,13 @@ def _valfix_reverter(action):
         if doc.docstatus == 1:
             doc.cancel()
         for item_code, warehouse in rows:
-            _sync_bin_from_ledger(item_code, warehouse)
+            pin_bins.add((item_code, warehouse))
+    for item_code, warehouse in pin_bins:
+        _sync_bin_from_ledger(item_code, warehouse)
+    pending = frappe.db.count("Repost Item Valuation", {"docstatus": 1, "status": "Queued"})
     return {"voucher_type": "Stock Reconciliation", "voucher_no": action.voucher_no,
-            "result": "cancelled" + (f" (+{cancelled} retro pin(s))" if cancelled else "")}
+            "result": "cancelled" + (f" (+{cancelled} retro pin(s))" if cancelled else "")
+                      + (f" — {pending} repost(s) queued: run the drain" if pending else "")}
 
 
 _actions.register_poster(FIX_ACTION, _valfix_poster)
@@ -319,6 +325,10 @@ def revalue_bins(company=None, bins=None, effective_date=None, dry_run=1, notes=
     the preview (per bin old→new, total impact) and posts nothing. Gated on the
     total absolute impact; revert cancels the reconciliation."""
     assert_can_write()
+    if effective_date and str(effective_date)[:10] < nowdate():
+        frappe.throw("Back-dated bulk revaluation is disabled: a single back-dated reco "
+                     "does not stick (later wrong-rate entries re-poison the average) — "
+                     "use the per-item fix with Retro instead, which pins every polluted day")
     target = _target(company)
     bins = json.loads(bins) if isinstance(bins, str) else (bins or [])
     if not (target and bins):
@@ -406,6 +416,12 @@ def _revalue_poster(action):
         # the anchor (deviant manual receipts / FX receipts / old-rate returns
         # re-drag the average — the canary proved one anchor is not enough)
         posted_pins = []
+        # re-resolve the PIN PLAN too (same doctrine as the rows above): a
+        # Failed action retried later must pin pollution that arrived since
+        # the plan was captured, not replay the stale list
+        if p.get("retro_pins"):
+            p["retro_pins"] = _retro_pins(
+                company, items[0]["item_code"], date, flt(items[0]["valuation_rate"]))
         for pin in (p.get("retro_pins") or []):
             pin_items = []
             for wh in pin["whs"]:
@@ -639,7 +655,6 @@ def _retro_pins(target, item_code, anchor, rate, tolerance=0.02):
            JOIN `tabWarehouse` w ON w.name=sle.warehouse
            WHERE sle.company=%s AND sle.item_code=%s AND sle.is_cancelled=0
              AND sle.actual_qty>0 AND sle.posting_date > %s
-             AND sle.voucher_type != 'Stock Reconciliation'
              AND IFNULL(w.disabled,0)=0""", (target, item_code, anchor), as_dict=True)
     by_date = {}
     for x in rows:
@@ -657,6 +672,14 @@ def _retro_anchor(target, item_code):
            WHERE company=%s AND item_code=%s AND is_cancelled=0 AND actual_qty>0""",
         (target, item_code))
     first = str(r[0][0]) if r and r[0][0] else None
+    if not first:
+        # reco-born items (opening dumps) have no receipt SLE — anchor on the
+        # first moment the item actually held stock instead
+        r = frappe.db.sql(
+            """SELECT MIN(posting_date) FROM `tabStock Ledger Entry`
+               WHERE company=%s AND item_code=%s AND is_cancelled=0
+                 AND qty_after_transaction > 0""", (target, item_code))
+        first = str(r[0][0]) if r and r[0][0] else None
     if not first:
         return nowdate()
     anchor = max(first, _POLICY_FLOOR)
@@ -769,6 +792,10 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
     # cleared, a warehouse toggled), the retry gets a FRESH action instead of
     # replaying a stale Failed payload under the same key.
     wh_sig = frappe.generate_hash(",".join(sorted(x["warehouse"] for x in rows)), 8)
+    # retro: the pin plan is part of the identity — new pollution since the last
+    # run means a DIFFERENT fix, not a dedupe hit on the old Posted action
+    if retro and retro_pins:
+        wh_sig += "-" + frappe.generate_hash(json.dumps(retro_pins, sort_keys=True), 8)
     res = _actions.execute(
         REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}:{wh_sig}",
         # basis_on stamps WHICH frozen basis this fix used — an unfreeze/refreeze
@@ -837,16 +864,72 @@ def drain_reposts(budget_s=45, names=None):
     todo = names or [r.name for r in frappe.get_all(
         "Repost Item Valuation", filters={"docstatus": 1, "status": "Queued"},
         order_by="creation asc", limit_page_length=20, fields=["name"])]
-    start, processed = time.monotonic(), []
+    start, processed, failed = time.monotonic(), [], 0
     for nm in todo:
         if time.monotonic() - start > budget:
             break
-        doc = frappe.get_doc("Repost Item Valuation", nm)
-        if doc.status not in ("Queued", "In Progress"):
+        # row-lock the status so two concurrent drains (or a drain racing the
+        # background worker) can never run the SAME job twice — interleaved
+        # recomputation of one item's SLE chain commits conflicting valuations
+        st = frappe.db.get_value("Repost Item Valuation", nm, ["status", "modified"],
+                                 as_dict=True, for_update=True)
+        stale = st and st.status == "In Progress" and \
+            (now_datetime() - st.modified).total_seconds() > 1800
+        if not st or (st.status != "Queued" and not stale):
+            frappe.db.commit()   # release the row lock
             continue
-        repost(doc)   # In Progress → Completed/Failed; commits internally
-        processed.append({"name": nm,
-                          "status": frappe.db.get_value("Repost Item Valuation", nm, "status")})
-    return {"processed": processed,
-            "remaining": frappe.db.count("Repost Item Valuation",
-                                         {"docstatus": 1, "status": "Queued"})}
+        doc = frappe.get_doc("Repost Item Valuation", nm)
+        try:
+            repost(doc)   # In Progress → Completed/Failed; commits internally
+        except Exception:
+            frappe.log_error(title=f"drain_reposts: {nm}")
+        st2 = frappe.db.get_value("Repost Item Valuation", nm, "status")
+        if st2 == "Failed":
+            failed += 1
+        processed.append({"name": nm, "status": st2})
+    remaining = frappe.db.count("Repost Item Valuation", {"docstatus": 1, "status": "Queued"})
+    backfilled = 0
+    if not remaining:
+        # queue drained → close the OTHER leak found in the live audit: a sale
+        # of zero-valued stock posts NO GL at all; when a later fix reprices its
+        # SLE inline (same-day future-SLE processing skips GL regeneration) the
+        # ledger moves but the GL never does. Sweep and regenerate.
+        try:
+            backfilled = backfill_stock_gl()["backfilled"]
+        except Exception:
+            pass   # the sweep is hygiene, never fail the drain over it
+    return {"processed": processed, "remaining": remaining,
+            "failed": failed, "gl_backfilled": backfilled}
+
+
+@frappe.whitelist()
+def backfill_stock_gl(company=None, days=60):
+    """Find stock vouchers whose SLE value no longer matches their stock-account
+    GL (the zero-value-sale-repriced-later leak — 12 live DNs found in 30 days)
+    and regenerate their GL via ERPNext's own repost_gle_for_stock_vouchers."""
+    assert_can_write()
+    target = _target(company)
+    since = frappe.utils.add_days(nowdate(), -int(days))
+    rows = frappe.db.sql("""
+        SELECT v, vt, SUM(gl) gl, SUM(sle) sle, MIN(d) d FROM (
+          SELECT voucher_no v, voucher_type vt, SUM(debit)-SUM(credit) gl, 0 sle,
+                 MIN(posting_date) d
+          FROM `tabGL Entry`
+          WHERE company=%(c)s AND is_cancelled=0 AND posting_date >= %(s)s
+            AND account IN (SELECT name FROM `tabAccount`
+                            WHERE company=%(c)s AND account_type='Stock')
+          GROUP BY voucher_no, voucher_type
+          UNION ALL
+          SELECT voucher_no v, voucher_type vt, 0 gl, SUM(stock_value_difference) sle,
+                 MIN(posting_date) d
+          FROM `tabStock Ledger Entry`
+          WHERE company=%(c)s AND is_cancelled=0 AND posting_date >= %(s)s
+          GROUP BY voucher_no, voucher_type) t
+        GROUP BY v, vt HAVING ABS(SUM(gl)-SUM(sle)) > 0.01
+        ORDER BY MIN(d) LIMIT 200""", {"c": target, "s": since}, as_dict=True)
+    if not rows:
+        return {"backfilled": 0, "vouchers": []}
+    from erpnext.accounts.utils import repost_gle_for_stock_vouchers
+    repost_gle_for_stock_vouchers([(r.vt, r.v) for r in rows], str(rows[0].d))
+    frappe.db.commit()
+    return {"backfilled": len(rows), "vouchers": [r.v for r in rows]}

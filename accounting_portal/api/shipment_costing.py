@@ -319,7 +319,7 @@ def _live_landed(items, receipts):
 
 
 @frappe.whitelist()
-def apply_shipment(pr=None, year=None, dry_run=1):
+def apply_shipment(pr=None, year=None, dry_run=1, retro=0):
     """The shipment's SUBMIT: apply the full cost (verified product + live
     landed) to every line item whose data is COMPLETE — i.e. every one of the
     item's import shipments this year is freight-costed AND carries a verified
@@ -389,7 +389,7 @@ def apply_shipment(pr=None, year=None, dry_run=1):
     for ic, product, landed, full in ready:
         try:
             res = fix_item_cost(
-                company=SALES, item_code=ic, rate=full, full_rate=1,
+                company=SALES, item_code=ic, rate=full, full_rate=1, retro=retro,
                 note=f"Shipment submit {pr} — product {product} + landed {landed} = {full} "
                      f"(weighted across {len(item_prs.get(ic, ()))} shipment(s))")
             done.append({"item_code": ic, "full": full,
@@ -618,15 +618,18 @@ def apply_batch(company=None, limit=20, dry_run=1, year=None, retro=0):
     limit = min(int(limit or 20), 100)
     ready, waiting, n_cand = _batch_readiness(year=year)
     fixed = _fixed_map()
-    todo = sorted([ic for ic in ready if ic not in fixed])[:limit]
-    n_ready_total = len([ic for ic in ready if ic not in fixed])
+    todo_all = sorted([ic for ic in ready if ic not in fixed])
     if str(dry_run) in ("1", "true", "True"):
         return {"dry_run": True, "waiting": waiting,
-                "next_wave": [{"item_code": ic, "rate": ready[ic]["full"]} for ic in todo],
-                "remaining": max(n_ready_total - len(todo), 0)}
+                "next_wave": [{"item_code": ic, "rate": ready[ic]["full"]} for ic in todo_all[:limit]],
+                "remaining": max(len(todo_all) - limit, 0)}
     from accounting_portal.api.valuation import fix_item_cost
     done, skipped = [], []
-    for ic in todo:
+    # walk the WHOLE ready list until `limit` successes — a permanently-failing
+    # head (e.g. "already correct" without retro) must not wedge every wave
+    for ic in todo_all:
+        if len(done) >= limit:
+            break
         r = ready[ic]
         try:
             res = fix_item_cost(
@@ -638,4 +641,4 @@ def apply_batch(company=None, limit=20, dry_run=1, year=None, retro=0):
             skipped.append({"item_code": ic, "reason": str(e)[:140]})
             continue
     return {"dry_run": False, "posted": done, "skipped": skipped,
-            "remaining": max(n_ready_total - len(todo), 0)}
+            "remaining": max(len(todo_all) - len(done) - len(skipped), 0)}

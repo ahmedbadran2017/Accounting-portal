@@ -344,7 +344,7 @@ async function runApply() {
     "Appliquer la prochaine vague ?"))) return;
   busy.value = true;
   try {
-    applyPrev.value = await api.call(`${SC}.apply_batch`, { company: currentCompany(), dry_run: 0, year: yearSel.value });
+    applyPrev.value = await api.call(`${SC}.apply_batch`, { company: currentCompany(), dry_run: 0, year: yearSel.value, retro: 1 });
     await loadList();
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { busy.value = false; }
