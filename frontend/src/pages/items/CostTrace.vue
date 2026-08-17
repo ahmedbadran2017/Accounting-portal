@@ -31,10 +31,10 @@
 
     <!-- ══ Shipment costing file (opened from the queue below or from Purchases → Shipments) ══ -->
     <template v-if="openPr">
-      <button class="text-[11.5px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="openPr = null; loadReady(); loadTower();">
+      <button class="text-[11.5px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="openPr = null; loadTower();">
         <Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ L("Back to catalogue","رجوع للكتالوج","Retour") }}
       </button>
-      <ShipmentCostSheet :pr="openPr" @saved="loadReady" />
+      <ShipmentCostSheet :pr="openPr" @saved="loadTower" />
     </template>
 
     <!-- Catalogue overview + worklist (shown when no single item is picked) -->
@@ -62,31 +62,6 @@
         <span class="text-[11px] text-ink-muted flex-1">{{ L("Every new purchase document with an implausible exchange rate is rejected at entry — no new contamination.","أي مستند شراء جديد بسعر صرف غلط بيترفض لحظة الإدخال — مفيش تلوّث جديد.","Tout document au taux invraisemblable est rejeté.") }}</span>
       </div>
 
-      <!-- ② freeze the landed basis — the day-to-day work happens in the
-           PR-centric Shipments workspace; this card stays as the recon/freeze view -->
-      <router-link to="/accounting/purchases/shipments"
-                   class="block bg-white border rounded-[14px] shadow-card px-4 py-3 hover:bg-app-warm" style="border-color:#c7d2fe">
-        <span class="text-[12px] font-bold">📦 {{ L("Freight assembly (Purchases → Shipments)","تجميع الشحن (المشتريات → الشحنات)","Assemblage du fret") }}</span>
-        <span class="text-[11px] text-ink-muted ms-2">{{ L("attach each shipment's freight bills there; once a shipment's freight is actual it appears below, ready for product-cost verification HERE.",
-             "ارفقوا فواتير شحن كل شحنة هناك؛ أول ما شحن الشحنة يبقى فعلي بتظهر تحت هنا جاهزة للتحقق من تكلفة البضاعة.",
-             "Joindre les factures là-bas ; la vérification se fait ici.") }}</span>
-        <span class="text-[12px] font-bold text-accent-dark ms-2">→</span>
-      </router-link>
-      <div v-if="readyPrs.length" class="bg-white border rounded-[14px] shadow-card px-4 py-3" style="border-color:#a7f3d0">
-        <div class="text-[12px] font-bold mb-1.5">🧾 {{ L("Shipment files — bulk verification","ملفات الشحنات — تحقق مجمّع","Dossiers d'expédition") }} ({{ readyPrs.length }})
-          <span class="text-[10.5px] text-ink-muted font-normal ms-1">{{ L("open a file to verify all its lines at once + confirm its freight","افتحوا الملف للتحقق من كل سطوره مرة واحدة + اعتماد شحنه","vérification groupée") }}</span>
-        </div>
-        <div class="flex gap-1.5 flex-wrap">
-          <button v-for="r in readyPrs.slice(0, 12)" :key="r.name"
-                  class="inline-flex items-center gap-1.5 text-[11px] border border-line rounded-[8px] px-2 py-1 hover:bg-app-warm"
-                  @click="openPr = r.name">
-            <span class="font-mono text-[10.5px]" dir="ltr">{{ r.name }}</span>
-            <span>{{ r.channel === "air" ? "🛫" : "🚢" }}</span>
-            <span class="tnum text-ink-muted">{{ r.n_verified }}/{{ r.n_lines }}</span>
-          </button>
-          <span v-if="readyPrs.length > 12" class="text-[10.5px] text-ink-muted self-center">+{{ readyPrs.length - 12 }}</span>
-        </div>
-      </div>
       <!-- ③ the catalogue crawl -->
       <div v-if="tower" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
         <div class="flex items-center gap-2 flex-wrap">
@@ -473,14 +448,6 @@ const M = "accounting_portal.api.cost_trace";
 
 const route = useRoute();
 const openPr = ref(route.query.pr || null);
-const readyPrs = ref([]);
-async function loadReady() {
-  try {
-    const d = await api.call("accounting_portal.api.shipment_costing.shipments", { company: currentCompany() }, { fresh: true });
-    readyPrs.value = (d.rows || []).filter((r) => r.n_verified < r.n_lines || !["bills", "rate"].includes(r.freight.source));
-  } catch (e) { readyPrs.value = []; }
-}
-loadReady();
 
 const q = ref("");
 const results = ref([]);
