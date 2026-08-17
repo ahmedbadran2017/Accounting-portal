@@ -41,4 +41,7 @@ doc_events = {
     "Purchase Invoice": {
         "validate": "accounting_portal.api.fx_guard.validate_fx",
     },
+    "Stock Entry": {
+        "validate": "accounting_portal.api.stock_guard.validate_stock_entry",
+    },
 }
