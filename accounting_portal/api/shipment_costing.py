@@ -467,8 +467,15 @@ def item_landed_detail(item_code=None, year=None):
                 saved_meta = {"by": fb.get("by"), "on": fb.get("on")}
         except Exception:
             pass
+    is_local = bool(frappe.db.sql(
+        """SELECT 1 FROM `tabPurchase Invoice Item` pii
+           JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+           JOIN `tabSupplier` s ON s.name=pi.supplier
+           WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code=%s
+             AND IFNULL(s.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+           LIMIT 1""", (SALES, item_code))) and not mine and not hist_row
     return {"item_code": item_code, "receipts": mine, "sheet_cost": sheet_cost,
-            "saved_meta": saved_meta,
+            "saved_meta": saved_meta, "local": is_local,
             "landed_unit": landed, "historical": hist_row,
             "waiting": waiting, "complete": (not waiting) and bool(mine or hist_row),
             "no_receipts": not mine and not hist_row,

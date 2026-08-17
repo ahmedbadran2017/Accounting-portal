@@ -114,6 +114,7 @@
           <select v-model="srcFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
             <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
             <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
+            <option value="local_pi">{{ L("Local suppliers","موردين محليين","Fourn. locaux") }}</option>
             <option value="morocco_pr">{{ L("Morocco-direct","مغرب مباشر","Maroc") }}</option>
             <option value="unpriced">{{ L("Unpriced","بلا سعر","Sans prix") }}</option>
           </select>
@@ -346,7 +347,11 @@
             <span class="tnum font-semibold flex-1 text-end" dir="ltr">{{ fmtNum(itemLanded.historical.unit, 2) }} / {{ L("unit","وحدة","u") }}</span>
             <span class="text-[10px] text-ink-muted">{{ L("contract tariff (100/110/126 air · 23.6 sea) × receipt date","تعريفة العقد (جوي 100/110/126 · بحري 23.6) بتاريخ الاستلام","tarif contractuel") }}</span>
           </div>
-          <div v-if="!itemLanded.receipts.length && !itemLanded.historical" class="text-[11px] text-ink-muted">{{ L("No import shipments at all — landed = 0 (manual-cost product).","مفيش شحنات استيراد خالص — الشحن = 0 (منتج بتكلفة يدوية).","Aucune expédition — fret 0.") }}</div>
+          <div v-if="itemLanded.local" class="rounded-[8px] px-3 py-2 text-[11.5px]" style="background:#fff7ed;border:1px solid #fed7aa">
+            🏠 <b style="color:#c2410c">{{ L("Local product","منتج محلي","Produit local") }}</b> —
+            {{ L("bought inside Morocco: no freight layer by nature. The fix = match the receipt value to the supplier invoice (① evidence).","مشتريات داخل المغرب: مفيش طبقة شحن بطبيعته. الإصلاح = مطابقة قيمة الاستلام بفاتورة المورد (الدليل في ①).","Acheté au Maroc : pas de fret ; alignement sur la facture fournisseur.") }}
+          </div>
+          <div v-else-if="!itemLanded.receipts.length && !itemLanded.historical" class="text-[11px] text-ink-muted">{{ L("No import shipments at all — landed = 0 (manual-cost product).","مفيش شحنات استيراد خالص — الشحن = 0 (منتج بتكلفة يدوية).","Aucune expédition — fret 0.") }}</div>
         </div>
       </div>
 
@@ -714,6 +719,7 @@ async function postTrueup(r) {
 
 const SRC = {
   maslak_pi: [L("Maslak", "Maslak", "Maslak"), "background:#ecfdf5;color:#047857"],
+  local_pi: [L("Local", "محلي", "Local"), "background:#fff7ed;color:#c2410c"],
   morocco_pr: [L("Morocco", "مغرب", "Maroc"), "background:#eff6ff;color:#2563eb"],
   unpriced: [L("unpriced", "بلا سعر", "sans prix"), "background:#fffbeb;color:#b45309"],
 };
@@ -722,6 +728,7 @@ const srcChip = (s) => (SRC[s] ? SRC[s][1] : "");
 
 const srcLabel = computed(() => ({
   maslak_pi: L("Maslak invoice", "فاتورة Maslak", "Facture Maslak"),
+  local_pi: L("Local supplier invoice", "فاتورة مورد محلي", "Facture fournisseur local"),
   morocco_pr: L("Morocco receipt", "استلام المغرب", "Réception Maroc"),
   orphan: L("no source", "بلا مصدر", "sans source"),
   fx_unavailable: L("no FX rate", "بلا سعر صرف", "sans taux"),

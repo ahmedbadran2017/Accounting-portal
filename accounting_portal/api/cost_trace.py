@@ -114,6 +114,25 @@ def true_cost(item_code=None):
             return {"item_code": item_code, "cost_mad": round(v / q, 2),
                     "source": "maslak_pi", "basis_qty": round(q),
                     "note": "Maslak supplier invoice (TRY) @ correct FX — product cost only"}
+    # 1b) LOCAL supplier invoices (MAD) — domestic products' truth: no FX, no landed
+    lpi = frappe.db.sql(
+        """SELECT pii.base_rate rate_mad, pi.posting_date dt, pii.qty
+           FROM `tabPurchase Invoice Item` pii
+           JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+           JOIN `tabSupplier` s ON s.name=pi.supplier
+           WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code=%s AND pii.qty>0
+             AND IFNULL(s.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+           ORDER BY pi.posting_date DESC""", (SALES, item_code), as_dict=True)
+    if lpi:
+        q = v = 0.0
+        for r in lpi:
+            if q >= _BASIS_QTY:
+                break
+            q += flt(r.qty); v += flt(r.rate_mad) * flt(r.qty)
+        if q > 0 and v > 0:
+            return {"item_code": item_code, "cost_mad": round(v / q, 2),
+                    "source": "local_pi", "basis_qty": round(q),
+                    "note": "Local supplier invoice (MAD) — domestic product, no landed layer"}
     # 2) fallback — Morocco direct purchase receipts, FX-corrected
     mo = frappe.db.sql(
         """SELECT pri.rate rate_fc, pr.currency cur, pr.posting_date dt, pri.qty
@@ -212,6 +231,21 @@ def _true_cost_bulk(item_codes, fx):
            ORDER BY pi.posting_date DESC""", (SOURCING, codes), as_dict=True)
     _agg(pi, True, "maslak_pi")
 
+    # LOCAL products (bought inside Morocco): the truth is the local supplier's
+    # PURCHASE INVOICE in MAD — no FX, no landed. Fix = match the receipt to
+    # the invoice value.
+    missing = [c for c in item_codes if c not in out]
+    if missing:
+        lpi = frappe.db.sql(
+            """SELECT pii.item_code, pii.base_rate rate, 'MAD' cur, pi.posting_date dt, pii.qty
+               FROM `tabPurchase Invoice Item` pii
+               JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+               JOIN `tabSupplier` s ON s.name=pi.supplier
+               WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
+                 AND IFNULL(s.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+               ORDER BY pi.posting_date DESC""", (SALES, tuple(missing)), as_dict=True)
+        _agg(lpi, False, "local_pi")
+
     missing = [c for c in item_codes if c not in out]
     if missing:
         pr = frappe.db.sql(
@@ -292,7 +326,7 @@ def cost_overview(company=None):
            WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""", (SALES,), as_dict=True)
     tc = _true_cost_bulk([b.item_code for b in bins], fx)
     landed = _landed_map([b.item_code for b in bins])
-    n = {"maslak_pi": 0, "morocco_pr": 0, "unpriced": 0}
+    n = {"maslak_pi": 0, "local_pi": 0, "morocco_pr": 0, "unpriced": 0}
     cur_val = true_val = over = 0.0
     priced_qty = 0.0
     for b in bins:
@@ -309,7 +343,8 @@ def cost_overview(company=None):
         "company": SALES, "items": len(bins),
         "current_value": round(cur_val), "true_value_priced": round(true_val),
         "overvaluation": round(over),
-        "maslak_pi": n["maslak_pi"], "morocco_pr": n["morocco_pr"], "unpriced": n["unpriced"],
+        "maslak_pi": n["maslak_pi"], "local_pi": n["local_pi"],
+        "morocco_pr": n["morocco_pr"], "unpriced": n["unpriced"],
     }
 
 
@@ -411,7 +446,7 @@ def cost_table(company=None, start=0, page_size=50, source=None, search=None,
                      "stale_fix": bool(has_fix and not is_fixed),
                      # a fixed item drifting again = a NEW bad inbound — surface it
                      "repolluted": bool(is_fixed and dev is not None and abs(dev) > 15)})
-    if source in ("maslak_pi", "morocco_pr", "unpriced"):
+    if source in ("maslak_pi", "local_pi", "morocco_pr", "unpriced"):
         rows = [r for r in rows if r["source"] == source]
     if fix_status == "fixed":
         rows = [r for r in rows if r["fixed"]]

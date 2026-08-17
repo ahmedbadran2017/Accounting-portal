@@ -455,6 +455,17 @@ def item_fix_preview(company=None, item_code=None):
            WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code=%s AND pii.qty>0
            ORDER BY pi.posting_date DESC LIMIT 5""", (SOURCING, item_code), as_dict=True)
     if not ev:
+        # LOCAL supplier invoices (MAD) — the domestic product's truth
+        ev = frappe.db.sql(
+            """SELECT pi.name doc, pi.posting_date dt, pi.supplier, 'MAD' cur,
+                      ROUND(pii.qty,0) qty, ROUND(pii.base_rate,2) rate
+               FROM `tabPurchase Invoice Item` pii
+               JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+               JOIN `tabSupplier` s ON s.name=pi.supplier
+               WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code=%s AND pii.qty>0
+                 AND IFNULL(s.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+               ORDER BY pi.posting_date DESC LIMIT 5""", (target, item_code), as_dict=True)
+    if not ev:
         ev = frappe.db.sql(
             """SELECT pr.name doc, pr.posting_date dt, pr.supplier, pr.currency cur,
                       ROUND(pri.qty,0) qty, ROUND(pri.rate,2) rate
