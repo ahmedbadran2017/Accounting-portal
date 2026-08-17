@@ -255,16 +255,19 @@ def apply_batch(company=None, limit=20, dry_run=1):
     next wave; every posted item is individually undoable in Activity."""
     assert_can_write()
     from accounting_portal.api.landed_prep import get_basis
-    if not get_basis():
-        frappe.throw("Landed basis is not frozen — finish the freight side (unallocated = 0) "
-                     "and freeze before applying")
+    frozen = bool(get_basis())
     limit = min(int(limit or 20), 100)
     weighted = _verified_item_costs()
     fixed = _fixed_map()
     todo = sorted([ic for ic in weighted if ic not in fixed])[:limit]
     if str(dry_run) in ("1", "true", "True"):
-        return {"dry_run": True, "next_wave": [{"item_code": ic, "rate": weighted[ic]} for ic in todo],
+        # preview works WITHOUT the frozen basis — only the real run is gated
+        return {"dry_run": True, "frozen": frozen,
+                "next_wave": [{"item_code": ic, "rate": weighted[ic]} for ic in todo],
                 "remaining": max(len([i for i in weighted if i not in fixed]) - len(todo), 0)}
+    if not frozen:
+        frappe.throw("Landed basis is not frozen — finish the freight side (unallocated = 0) "
+                     "and freeze before applying")
     from accounting_portal.api.valuation import fix_item_cost
     done, skipped = [], []
     for ic in todo:
