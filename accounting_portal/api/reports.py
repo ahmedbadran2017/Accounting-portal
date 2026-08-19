@@ -746,7 +746,7 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
         # 71.002.5 (delivery cost booked on the mistyped internal-invoicing
         # account — 1.9M of 2026 DN cost lives there); Stock Adjustment (71.004,
         # the correction bucket) presents adjacent to COGS, not in OPEX
-        if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.5")):
+        if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.5", "71.999")):
             return "Cost of goods sold"
         if at == "Stock Adjustment":
             return "Inventory corrections"
@@ -878,7 +878,8 @@ def verified_dd(company=None):
         """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
            WHERE g.company=%s AND g.is_cancelled=0 AND g.posting_date>=%s
              AND (a.account_type IN ('Cost of Goods Sold','Stock Adjustment')
-                  OR a.name LIKE '71.801%%' OR a.name LIKE '71.002.5%%')""",
+                  OR a.name LIKE '71.801%%' OR a.name LIKE '71.002.5%%'
+                  OR a.name LIKE '71.999%%')""",
         (target, fy))[0][0])
     gross_margin = round((rev - cogs) / rev * 100, 1) if rev else 0
     cash = flt(frappe.db.sql(
@@ -999,7 +1000,7 @@ def pnl_monthly(company=None, year=None):
     def classify(rt, at, name=""):
         if rt == "Income":
             return "revenue"
-        if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.5")):
+        if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.5", "71.999")):
             return "cogs"
         # 71.004 correction bucket — belongs with COGS, not OPEX
         if at == "Stock Adjustment":
