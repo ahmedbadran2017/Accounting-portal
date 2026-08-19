@@ -115,10 +115,29 @@
         <span class="text-[13px]">🏠</span>
         <span class="text-[11.5px]" style="color:#c2410c">{{ L("Local / domestic product — no freight layer by nature: the supplier invoice IS the full cost. Weight is irrelevant here.","منتج محلي — مفيش طبقة شحن بطبيعته: فاتورة المورد هي التكلفة الكاملة، والوزن مش مطلوب هنا.","Produit local — pas de fret : la facture fournisseur est le coût complet.") }}</span>
       </div>
-      <!-- 🚢❓ IMPORTED but NO import receipts on record (manual-entry era / pre-2026) -->
-      <div v-else-if="d.receipts && !d.receipts.length" class="rounded-[12px] border px-4 py-2.5 flex items-center gap-2" style="background:#fffbeb;border-color:#fde68a">
-        <span class="text-[13px]">🚢❓</span>
-        <span class="text-[11.5px]" style="color:#b45309">{{ L("IMPORTED (the evidence is a sourcing invoice) but NO import receipts are on record this year — its stock likely arrived via manual entries, so freight can't be computed automatically. If you want landed inside the cost, add it to the verified figure manually (note required).","مستورد (الدليل فاتورة توريد) لكن مفيش استلامات استيراد مسجلة عليه السنة دي — غالبًا دخل باستلامات يدوية، فالشحن مش هيتحسب تلقائيًا. لو عايز تحمّل شحن، ضيفه يدويًا جوه التكلفة المعتمدة بملاحظة.","Importé mais aucune réception d'import enregistrée — ajouter le fret manuellement au coût vérifié.") }}</span>
+      <!-- 🚢❓ IMPORTED but NO import receipts on record — manual landed calculator -->
+      <div v-else-if="d.receipts && !d.receipts.length" class="rounded-[12px] border px-4 py-2.5 space-y-2" style="background:#fffbeb;border-color:#fde68a">
+        <div class="flex items-center gap-2">
+          <span class="text-[13px]">🚢❓</span>
+          <span class="text-[11.5px]" style="color:#b45309">{{ L("IMPORTED but NO import receipts on record — stock arrived via manual entries, so freight can't distribute automatically. Estimate it here: real weight × the era's contract tariff, and it folds into the verified cost with an audit note.","مستورد لكن مفيش استلامات استيراد مسجلة — دخل باستلامات يدوية فالشحن مش بيتوزع تلقائيًا. قدّره هنا: الوزن الحقيقي × تعريفة العقد لفترته، وهيتجمع على التكلفة المعتمدة بملاحظة توثيق.","Importé sans réceptions — estimer le fret ici.") }}</span>
+        </div>
+        <div v-if="canWrite" class="flex items-center gap-2 flex-wrap">
+          <span class="text-[11px] font-bold">{{ L("Freight estimate:","تقدير الشحن:","Fret :") }}</span>
+          <input v-model.number="mlW" type="number" step="0.01" min="0.01" max="50" placeholder="kg"
+                 class="h-[26px] w-[70px] text-[11.5px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr"
+                 :title="L('REAL unit weight incl. packaging — weigh it, don\'t guess','الوزن الحقيقي للوحدة بالتغليف — اتوزن متتخمنش','poids réel')" />
+          <span class="text-[11px]">×</span>
+          <select v-model.number="mlRate" class="h-[26px] text-[11px] px-1.5 rounded-[7px] border border-line">
+            <option :value="100">{{ L("Air 2025 (100/kg)","جوي 2025 (100/كجم)","Air 100") }}</option>
+            <option :value="110">{{ L("Air →Apr-2026 (110/kg)","جوي حتى أبريل 2026 (110)","Air 110") }}</option>
+            <option :value="126">{{ L("Air current (126/kg)","جوي حالي (126)","Air 126") }}</option>
+            <option :value="23.6">{{ L("Sea (23.6/kg)","بحري (23.6/كجم)","Mer 23.6") }}</option>
+          </select>
+          <span v-if="mlEst > 0" class="text-[11.5px] tnum font-bold" dir="ltr">= {{ mlEst.toFixed(2) }}</span>
+          <span v-if="mlEst > 0" class="text-[11px] text-ink-muted tnum" dir="ltr">→ {{ L("full","الشامل","total") }} {{ ((rate || d.model.suggested || 0) + mlEst).toFixed(2) }}</span>
+          <button v-if="mlEst > 0" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark"
+                  @click="applyManualLanded">{{ L("Fold into the cost","اجمعها على التكلفة","Ajouter au coût") }}</button>
+        </div>
       </div>
 
       <!-- ⚖️ family weight — only meaningful for IMPORTED models -->
@@ -315,6 +334,20 @@ async function applyFamilyWeight() {
 
 const savedCost = ref(null);
 const savingCost = ref(false);
+// manual landed calculator (imported, no receipts): weight × era tariff
+const mlW = ref(null);
+const mlRate = ref(100);
+const mlEst = computed(() => (mlW.value > 0 && mlRate.value > 0 ? +(mlW.value * mlRate.value).toFixed(2) : 0));
+function applyManualLanded() {
+  const product = rate.value || d.value?.model?.suggested || 0;
+  if (!(product >= 0.5) || !(mlEst.value > 0)) return;
+  rate.value = +(product + mlEst.value).toFixed(2);
+  const stamp = `شامل شحن تقديري: ${mlW.value}kg × ${mlRate.value}/kg = ${mlEst.value.toFixed(2)} (منتج ${product})`;
+  note.value = note.value ? `${note.value} · ${stamp}` : stamp;
+  toast.success(L("Freight folded into the verified cost — the note documents the math",
+                  "الشحن اتجمع على التكلفة المعتمدة — والملاحظة وثّقت الحسبة",
+                  "Fret ajouté au coût"));
+}
 async function saveCost() {
   if (!(rate.value >= 0.5)) return;
   savingCost.value = true;
