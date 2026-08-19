@@ -367,9 +367,9 @@ def _revalue_poster(action):
     # and actively-reserved stock — instead of trusting the captured list.
     release_whs = set(p.get("release_whs") or [])
     rsv_cache = {}
-    items = []
+    items, any_change = [], False
     for r in p["rows"]:
-        q = _qty_asof(r["item_code"], r["warehouse"], date)
+        q, vr = _state_asof(r["item_code"], r["warehouse"], date)
         if q <= 0:
             continue
         if frappe.db.get_value("Warehouse", r["warehouse"], "disabled"):
@@ -378,10 +378,17 @@ def _revalue_poster(action):
             rsv_cache[r["item_code"]] = _reserved_by_wh(r["item_code"])
         if flt(rsv_cache[r["item_code"]].get(r["warehouse"])) and r["warehouse"] not in release_whs:
             continue
+        if abs(flt(r["rate"]) - vr) >= 0.005:
+            any_change = True
         items.append({"item_code": r["item_code"], "warehouse": r["warehouse"],
                       "qty": q, "valuation_rate": flt(r["rate"])})
     if not items:
         frappe.throw("No postable bins — everything is empty on the effective date, reserved, or in a disabled warehouse")
+    # ERPNext refuses a reconciliation where NO row changes anything ("None of
+    # the items have any change…"). A book that already sits at the target rate
+    # is a SUCCESS, not an error — skip the anchor doc, still walk the pin
+    # chain (interim eras may deviate), and post nothing if the chain is clean.
+    base_ic, base_rate = items[0]["item_code"], flt(items[0]["valuation_rate"])
     # ATOMIC: the gateway's Failed handler commits after marking the action, so a
     # mid-submit failure here must leave NOTHING behind (the DEV test leaked a
     # draft and a half-submitted reco). Savepoint + rollback = all-or-nothing —
@@ -402,16 +409,18 @@ def _revalue_poster(action):
             whs += [w for w in pin_whs if w in release_whs and w not in whs]
             if whs:
                 released_sos += _release_reservations(ic, whs)
-        doc = frappe.get_doc({
-            "doctype": "Stock Reconciliation", "company": company,
-            "purpose": "Stock Reconciliation",
-            "posting_date": date, "posting_time": "23:59:00", "set_posting_time": 1,
-            "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
-            "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
-            "items": items,
-        })
-        doc.insert(ignore_permissions=True)
-        doc.submit()
+        doc = None
+        if any_change:
+            doc = frappe.get_doc({
+                "doctype": "Stock Reconciliation", "company": company,
+                "purpose": "Stock Reconciliation",
+                "posting_date": date, "posting_time": "23:59:00", "set_posting_time": 1,
+                "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
+                "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
+                "items": items,
+            })
+            doc.insert(ignore_permissions=True)
+            doc.submit()
         # retro chain: re-pin the rate at the end of every poisoned day after
         # the anchor (deviant manual receipts / FX receipts / old-rate returns
         # re-drag the average — the canary proved one anchor is not enough)
@@ -426,24 +435,25 @@ def _revalue_poster(action):
             if flt(rs.get("product")) > 0:
                 from accounting_portal.api.shipment_costing import retro_schedule
                 try:
-                    sched = retro_schedule(items[0]["item_code"], flt(rs["product"]),
+                    sched = retro_schedule(base_ic, flt(rs["product"]),
                                            year=rs.get("year"))
                 except Exception:
                     sched = []
-            final_rate = flt(sched[-1]["rate"]) if sched else flt(items[0]["valuation_rate"])
+            final_rate = flt(sched[-1]["rate"]) if sched else base_rate
             p["retro_pins"] = _pins_from_sched(
-                company, items[0]["item_code"], date, final_rate, sched)
+                company, base_ic, date, final_rate, sched)
         for pin in (p.get("retro_pins") or []):
-            pin_items = []
+            pin_items, pin_change = [], False
             for wh in pin["whs"]:
-                q_pin = _qty_asof(items[0]["item_code"], wh, pin["date"])
+                q_pin, vr_pin = _state_asof(base_ic, wh, pin["date"])
                 if q_pin <= 0 or frappe.db.get_value("Warehouse", wh, "disabled"):
                     continue
-                pin_items.append({"item_code": items[0]["item_code"], "warehouse": wh,
-                                  "qty": q_pin,
-                                  "valuation_rate": flt(pin.get("rate")
-                                                        or items[0]["valuation_rate"])})
-            if not pin_items:
+                pr = flt(pin.get("rate") or base_rate)
+                if abs(pr - vr_pin) >= 0.005:
+                    pin_change = True
+                pin_items.append({"item_code": base_ic, "warehouse": wh,
+                                  "qty": q_pin, "valuation_rate": pr})
+            if not pin_items or not pin_change:
                 continue
             pd_doc = frappe.get_doc({
                 "doctype": "Stock Reconciliation", "company": company,
@@ -463,8 +473,13 @@ def _revalue_poster(action):
     except Exception:
         frappe.db.rollback(save_point="reval_atomic")
         raise
-    return {"voucher_type": "Stock Reconciliation", "voucher_no": doc.name,
-            "result": f"revalued {len(items)} bins @ {date}"
+    if not doc and not posted_pins:
+        return {"voucher_type": None, "voucher_no": None,
+                "result": f"book already at the target rate @ {date} — nothing to post ({len(items)} bin(s) verified)"}
+    return {"voucher_type": "Stock Reconciliation",
+            "voucher_no": doc.name if doc else posted_pins[0],
+            "result": (f"revalued {len(items)} bins @ {date}" if doc
+                       else f"anchor already correct @ {date}")
                       + (f" + {len(posted_pins)} retro pin(s)" if posted_pins else "")
                       + (f" (reservations cycled on {len(release_whs)} bin(s))" if release_whs else "")}
 
@@ -891,9 +906,10 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
                 if flt(reserved.get(wh)) and wh not in release_whs:
                     release_whs.append(wh)
     if not retro:
-        rows, release_whs = [], []
+        rows, release_whs, correct = [], [], []
         for b in _fix_bins(target, item_code):
             if abs(r - flt(b.vr)) < 0.01:
+                correct.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
                 continue
             if flt(reserved.get(b.warehouse)):
                 # reserved bins are INCLUDED: the poster releases the reservations,
@@ -909,6 +925,11 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
                 continue
             rows.append({"item_code": item_code, "warehouse": b.warehouse, "rate": r})
             impact += abs((r - flt(b.vr)) * flt(b.qty))
+        if not rows and correct:
+            # already at the target everywhere — record the verification as a
+            # Posted no-op (the poster detects zero change and posts no voucher)
+            # so the item earns its ✓ instead of a red error
+            rows = correct
     if not rows:
         frappe.throw("Nothing fixable now — every bin is already correct or blocked by reservations: "
                      + ("; ".join(skipped) or "none"))
