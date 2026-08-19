@@ -114,10 +114,13 @@
           <div class="h-[8px] rounded-full overflow-hidden flex-1 min-w-[120px] max-w-[220px]" style="background:#f5f5f4">
             <div class="h-full rounded-full transition-all" style="background:#059669" :style="{ width: (msb.n_models_fixed / Math.max(msb.n_models, 1) * 100) + '%' }"></div>
           </div>
-          <span v-if="msb.report" class="text-[11.5px] tnum" dir="ltr">
-            <span class="text-ink-muted">{{ L("booked","مسجل","comptab.") }}</span> {{ fmtNum(msb.report.booked) }}
-            → <span class="text-ink-muted">{{ L("true","حقيقي","vrai") }}</span> {{ fmtNum(msb.report.true) }}
-            · <b :style="{ color: Math.abs(msb.report.delta) < 5000 ? '#047857' : '#b45309' }">Δ {{ fmtNum(msb.report.delta) }}</b>
+          <span v-if="msb.meter" class="text-[11.5px] tnum inline-flex items-center gap-2 flex-wrap" dir="ltr"
+                :title="L('booked = this month\'s COGS in the ledger RIGHT NOW (repost-corrected live). corrected = the slice already rewritten by your fixes. projected = where the month lands when every model is done (product + landed).','المسجل = COGS الشهر في الدفاتر دلوقتي (بيتحدث مع كل repost). المصحح = الجزء اللي اتكتب فعلًا بالتكلفة الصح. المتوقع = الشهر هيقف فين لما كل الموديلات تخلص.','comptabilisé / corrigé / projeté')">
+            <span><span class="text-ink-muted">{{ L("COGS booked","COGS المسجل","comptab.") }}</span> <b>{{ fmtNum(msb.meter.booked) }}</b></span>
+            <span class="text-emerald-700">✓ {{ L("corrected","اتصحح","corrigé") }} {{ fmtNum(msb.meter.corrected) }} ({{ msb.meter.corrected_pct }}%)</span>
+            <span>→ <span class="text-ink-muted">{{ L("projected","المتوقع","projeté") }}</span> <b>{{ fmtNum(msb.meter.projected) }}</b></span>
+            <b :style="{ color: Math.abs(msb.meter.delta_remaining) < 5000 ? '#047857' : '#b45309' }">Δ {{ msb.meter.delta_remaining > 0 ? "+" : "" }}{{ fmtNum(msb.meter.delta_remaining) }}</b>
+            <span v-if="msb.meter.unpriced_booked" class="text-[10px] text-amber-600">({{ fmtNum(msb.meter.unpriced_booked) }} {{ L("unpriced","بلا مصدر","sans prix") }})</span>
           </span>
           <span v-if="monthDone" class="text-[11.5px] font-bold text-emerald-700">✅ {{ L("Month looks done","الشهر شكله خلص","Mois terminé") }}</span>
           <button v-if="nextMonth" class="h-[28px] px-3 rounded-[9px] text-[11.5px] font-bold border"

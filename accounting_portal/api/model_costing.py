@@ -368,16 +368,42 @@ def month_scoreboard(month=None):
                 # every member that touched this month is fixed
                 if any(m in fixed for m in mem):
                     out["n_models_fixed"] += 1
-    # the report line: booked (live GL) vs true (engine) for the month
+    # ── the COGS METER: booked-now (SLE truth) decomposed by correction
+    # state, plus the projection after completion — the before/after the CFO
+    # watches while working the month. (The true-up card keeps its own lens.)
     try:
-        from accounting_portal.api.cogs_trueup import monthly_review
-        y = int(str(month)[:4])
-        for r in (monthly_review(year=y) or {}).get("rows", []):
-            if r["month"] == month:
-                out["report"] = {"booked": r["booked"], "true": r["true"],
-                                 "delta": r["delta"], "coverage_pct": r["coverage_pct"],
-                                 "posted": bool(r.get("posted"))}
-                break
+        from accounting_portal.api.cost_trace import _fixed_items, _true_cost_bulk, _fx_series
+        from accounting_portal.api.shipment_costing import _live_landed
+        from accounting_portal.api.landed_prep import shipment_review
+        fixedmap = _fixed_items()
+        codes = list(msales)
+        tc = _true_cost_bulk(codes, _fx_series()) if codes else {}
+        sr = shipment_review()
+        live = _live_landed(set(codes), sr["receipts"], year=sr["year"]) if codes else {}
+        booked = corrected = unfixed_booked = unpriced_booked = projected_unfixed = 0.0
+        for ic, ms in msales.items():
+            v = flt(ms["booked"])
+            booked += v
+            f = fixedmap.get(ic)
+            if f and f.get("rate"):
+                # its SLE is already repriced by the retro chain — booked IS corrected
+                corrected += v
+                continue
+            t = tc.get(ic)
+            if t and t.get("cost_mad"):
+                unfixed_booked += v
+                projected_unfixed += flt(ms["qty"]) * (flt(t["cost_mad"]) + flt(live.get(ic)))
+            else:
+                unpriced_booked += v
+        projected = corrected + projected_unfixed + unpriced_booked
+        out["meter"] = {
+            "booked": round(booked),
+            "corrected": round(corrected),
+            "corrected_pct": round(100 * corrected / booked, 1) if booked else 0,
+            "projected": round(projected),
+            "delta_remaining": round(projected - booked),
+            "unpriced_booked": round(unpriced_booked),
+        }
     except Exception:
         pass
     return out
