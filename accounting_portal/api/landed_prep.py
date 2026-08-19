@@ -498,6 +498,21 @@ def allocate_bill(company=None, year=None, voucher=None, prs=None):
         frappe.throw(f"{voucher} is not a freight bill on the included accounts for {yr}")
     if b["excluded"]:
         frappe.throw(f"{voucher} is excluded (marked not-freight) — restore it before allocating")
+    # ONE capitalization path per bill: if a submitted Landed Cost Voucher
+    # already carries this bill (src:<voucher> stamp), the stock ALREADY got
+    # its value — allocating it here too would capitalize it twice (once via
+    # the LCV, once inside the reco's applied rate)
+    lcv = frappe.db.sql(
+        """SELECT l.name FROM `tabLanded Cost Voucher` l
+           JOIN `tabLanded Cost Taxes and Charges` t ON t.parent=l.name
+           WHERE l.company=%s AND l.docstatus=1 AND t.description LIKE %s
+           LIMIT 1""", (target, f"%src:{voucher}%"))
+    if lcv:
+        frappe.throw(
+            f"{voucher} اترسم خلاص بـLanded Cost Voucher معتمد ({lcv[0][0]}) — "
+            "المخزون واخد قيمته؛ ربطه هنا كمان هيرسّمه مرتين. "
+            f"Already capitalized by submitted LCV {lcv[0][0]} — one path per bill.",
+            title="Double-capitalization guard")
     prs = json.loads(prs) if isinstance(prs, str) else (prs or [])
     prs = [p for p in prs if p]
     if prs:
