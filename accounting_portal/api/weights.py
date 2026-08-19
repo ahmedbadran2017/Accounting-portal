@@ -320,3 +320,26 @@ def apply_weight_estimates(items=None):
     except Exception:
         pass
     return {"applied": applied, "skipped": skipped}
+
+
+@frappe.whitelist()
+def item_weight_info(item_code=None, with_estimate=0):
+    """One item's weight status for the SKU page's ② card: current value, the
+    suspect flag, the ≈-estimate registry source — and, on demand
+    (with_estimate=1, builds the corpus ~2s), the ladder's suggestion."""
+    assert_portal_access()
+    if not item_code:
+        frappe.throw("item_code required")
+    it = frappe.db.get_value(
+        "Item", item_code, ["item_name", "variant_of", "IFNULL(weight_per_unit,0) as w"],
+        as_dict=True)
+    if not it:
+        frappe.throw(f"Unknown item {item_code}")
+    out = {"item_code": item_code, "weight": flt(it.w), "flag": _flag(it.w),
+           "est_src": _reg_all().get(item_code)}
+    if str(with_estimate) in ("1", "true", "True"):
+        ctx = _estimator_ctx()
+        w, src = _estimate_one(_toks(it.item_name), it.variant_of, ctx)
+        out["est"] = w
+        out["src"] = src
+    return out

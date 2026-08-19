@@ -331,6 +331,27 @@
           <span v-else-if="itemLanded.waiting.length" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">⏳ {{ itemLanded.waiting.length }} {{ L("shipment(s) missing freight","شحنة ناقصة شحن","exp. sans fret") }}</span>
         </div>
         <div class="p-4 space-y-2">
+          <!-- unit WEIGHT — the multiplier of every freight figure below; fix it right here -->
+          <div class="flex items-center gap-2 flex-wrap rounded-[9px] px-3 py-2"
+               :style="wInfo && wInfo.flag ? 'background:#fffbeb;border:1px solid #fde68a' : 'background:#fafaf9;border:1px solid #f0efed'">
+            <span class="text-[11.5px] font-bold">⚖️ {{ L("Unit weight","وزن الوحدة","Poids unitaire") }}</span>
+            <span class="text-[12px] tnum font-bold" :class="wInfo && wInfo.flag ? 'text-amber-700' : 'text-ink-2'" dir="ltr">{{ (trace.weight_per_unit || 0).toFixed(2) }} kg</span>
+            <span v-if="wInfo && wInfo.flag" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">
+              {{ wInfo.flag === 'zero' ? L("missing — freight uses the shipment average","ناقص — الشحن بياخد متوسط الشحنة","manquant") : wInfo.flag === 'default' ? L("0.50 default — probably never measured","0.50 افتراضي — غالبًا ما اتقاسش","défaut") : L("suspiciously low","منخفض بشكل مريب","suspect") }}
+            </span>
+            <span v-else-if="wInfo && wInfo.est_src" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f3ff;color:#6d28d9">≈ {{ L("estimated","مقدر","estimé") }} — {{ L("a manual entry overrides","الإدخال اليدوي بيغلبه","manuel prioritaire") }}</span>
+            <span class="text-[10px] text-ink-muted">{{ L("every freight share below = this × rate/kg","كل نصيب شحن تحت = الوزن ده × سعر الكيلو","part = poids × taux/kg") }}</span>
+            <div class="flex-1"></div>
+            <template v-if="canWrite">
+              <span v-if="wEst && wEst.est" class="text-[10.5px] text-violet-700 font-bold tnum" dir="ltr">✨ {{ wEst.est.toFixed(2) }}kg <span class="font-normal">({{ { family: L('family','عائلة','famille'), similar: L('similar','أشباه','similaires'), class: L('class','فئة','classe') }[wEst.src] || wEst.src }})</span></span>
+              <button v-else class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line hover:bg-app-warm disabled:opacity-40"
+                      :disabled="wBusy" @click="suggestWeight">{{ wBusy ? "…" : "✨ " + L("Suggest","اقتراح","Suggérer") }}</button>
+              <input v-model.number="wEdit" type="number" step="0.01" min="0.005" max="50" :placeholder="wEst && wEst.est ? String(wEst.est) : 'kg'"
+                     class="h-[26px] w-[76px] text-[11.5px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
+              <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                      :disabled="!((wEdit ?? wEst?.est) > 0) || wBusy" @click="saveWeight">{{ L("Save","حفظ","OK") }}</button>
+            </template>
+          </div>
           <div v-if="itemLanded.receipts.length" class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
             <table class="w-full text-[11.5px]">
               <thead><tr style="background:#fafaf9" class="sticky top-0">
@@ -661,6 +682,40 @@ const fixConfirm = ref(false);
 const fixRetro = ref(true);   // retro is the default: verified cost heals history too
 const fixing = ref(false);
 const SCM = "accounting_portal.api.shipment_costing";
+// ── ② unit-weight correction (the freight multiplier) ──
+const wInfo = ref(null);
+const wEst = ref(null);
+const wEdit = ref(null);
+const wBusy = ref(false);
+const W = "accounting_portal.api.weights";
+async function loadWeightInfo(itemCode) {
+  wInfo.value = null; wEst.value = null; wEdit.value = null;
+  try { wInfo.value = await api.call(`${W}.item_weight_info`, { item_code: itemCode }, { fresh: true }); }
+  catch { wInfo.value = null; }
+}
+async function suggestWeight() {
+  wBusy.value = true;
+  try {
+    const r = await api.call(`${W}.item_weight_info`, { item_code: trace.value.item_code, with_estimate: 1 }, { fresh: true });
+    wEst.value = r;
+    if (!r.est) toast.info(L("No confident estimate for this item — enter it manually", "مفيش تقدير واثق للصنف ده — أدخلوه يدويًا", "Pas d'estimation fiable"));
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { wBusy.value = false; }
+}
+async function saveWeight() {
+  const w = wEdit.value ?? wEst.value?.est;
+  if (!(w > 0)) return;
+  wBusy.value = true;
+  try {
+    await api.call(`${W}.set_item_weight`, { item_code: trace.value.item_code, weight: w });
+    toast.success(L(`Weight saved — ${w} kg. Freight below recalculated.`, `الوزن اتسجل — ${w} كجم. الشحن تحت اتعاد حسابه.`, `Poids enregistré — ${w} kg`));
+    trace.value.weight_per_unit = w;
+    await loadWeightInfo(trace.value.item_code);
+    await loadItemLanded(trace.value.item_code);
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { wBusy.value = false; }
+}
+
 const itemLanded = ref(null);
 async function loadItemLanded(itemCode) {
   try { itemLanded.value = await api.call(`${SCM}.item_landed_detail`, { item_code: itemCode }, { fresh: true }); }
@@ -740,6 +795,7 @@ async function pick(itemCode) {
     q.value = trace.value.sku || itemCode;
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: itemCode }, { fresh: true });
     await loadItemLanded(itemCode);
+    loadWeightInfo(itemCode);
     // prefer the team's own bulk-sheet figure over the engine suggestion —
     // and NEVER prefill a near-zero figure (a missing FX conversion, not a price)
     const pf = itemLanded.value?.sheet_cost ?? fixPrev.value?.true_cost?.cost_mad ?? null;
