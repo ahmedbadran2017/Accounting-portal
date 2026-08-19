@@ -110,10 +110,15 @@
         </div>
       </div>
 
-      <!-- 🏠 local product — no freight layer by nature -->
-      <div v-if="d.receipts && !d.receipts.length" class="rounded-[12px] border px-4 py-2.5 flex items-center gap-2" style="background:#fff7ed;border-color:#fed7aa">
+      <!-- 🏠 truly LOCAL (cost source = local supplier invoice) — no freight by nature -->
+      <div v-if="d.receipts && !d.receipts.length && d.model.source === 'local_pi'" class="rounded-[12px] border px-4 py-2.5 flex items-center gap-2" style="background:#fff7ed;border-color:#fed7aa">
         <span class="text-[13px]">🏠</span>
         <span class="text-[11.5px]" style="color:#c2410c">{{ L("Local / domestic product — no freight layer by nature: the supplier invoice IS the full cost. Weight is irrelevant here.","منتج محلي — مفيش طبقة شحن بطبيعته: فاتورة المورد هي التكلفة الكاملة، والوزن مش مطلوب هنا.","Produit local — pas de fret : la facture fournisseur est le coût complet.") }}</span>
+      </div>
+      <!-- 🚢❓ IMPORTED but NO import receipts on record (manual-entry era / pre-2026) -->
+      <div v-else-if="d.receipts && !d.receipts.length" class="rounded-[12px] border px-4 py-2.5 flex items-center gap-2" style="background:#fffbeb;border-color:#fde68a">
+        <span class="text-[13px]">🚢❓</span>
+        <span class="text-[11.5px]" style="color:#b45309">{{ L("IMPORTED (the evidence is a sourcing invoice) but NO import receipts are on record this year — its stock likely arrived via manual entries, so freight can't be computed automatically. If you want landed inside the cost, add it to the verified figure manually (note required).","مستورد (الدليل فاتورة توريد) لكن مفيش استلامات استيراد مسجلة عليه السنة دي — غالبًا دخل باستلامات يدوية، فالشحن مش هيتحسب تلقائيًا. لو عايز تحمّل شحن، ضيفه يدويًا جوه التكلفة المعتمدة بملاحظة.","Importé mais aucune réception d'import enregistrée — ajouter le fret manuellement au coût vérifié.") }}</span>
       </div>
 
       <!-- ⚖️ family weight — only meaningful for IMPORTED models -->
