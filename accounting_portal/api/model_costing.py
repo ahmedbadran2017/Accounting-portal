@@ -292,11 +292,16 @@ def model_detail(item_code=None):
             if l.ic in smap:
                 item_prs.setdefault(l.ic, set()).add(prn)
     t = pick[2] if pick else None
-    variants, waiting_prs = [], set()
+    # live landed per stocked member — powers the per-variant impact preview
+    from accounting_portal.api.shipment_costing import _live_landed
+    live = _live_landed(set(smap), sr["receipts"], year=sr["year"]) if smap else {}
+    variants, waiting_prs, fam_prs = [], set(), set()
     for m in sorted(smap, key=lambda x: (meta.get(x) and meta[x].custom_sku) or x):
         s = smap[m]
         waits = sorted(p for p in item_prs.get(m, ()) if p not in costed)
         waiting_prs |= set(waits)
+        fam_prs |= set(item_prs.get(m, ()))
+        w = flt(meta[m].w) if m in meta else 0
         variants.append({
             "item_code": m, "sku": meta[m].custom_sku if m in meta else m,
             "item_name": meta[m].item_name if m in meta else "",
@@ -305,7 +310,28 @@ def model_detail(item_code=None):
             "batch_tracked": bool(m in meta and meta[m].trk),
             "n_shipments": len(item_prs.get(m, ())),
             "waiting": waits,
+            "weight": w,
+            "weight_suspect": bool(w <= 0.2 or w == 0.5),
+            "landed_unit": round(flt(live.get(m)), 2),
         })
+    # the FAMILY's shipments — same picture the SKU page shows, one row per PR,
+    # with which variants ride in it and the same channel/rate actions
+    from accounting_portal.api.landed_prep import get_air_rates, _air_rate_at, get_basis
+    bands = get_air_rates(sr["year"])
+    sku_of = {m: (meta[m].custom_sku if m in meta else m) for m in smap}
+    receipts = []
+    for r in sr["receipts"]:
+        if r["name"] not in fam_prs:
+            continue
+        mems = sorted(sku_of[m] for m in smap if r["name"] in item_prs.get(m, ()))
+        receipts.append({
+            "pr": r["name"], "dt": r["dt"], "channel": r["channel"],
+            "channel_confirmed": bool(r.get("channel_confirmed")),
+            "pr_qty": r["qty"], "source": r["source"], "rate_kg": r["rate_kg"],
+            "band_rate": _air_rate_at(bands, r["dt"]) if r["channel"] == "air" else 0,
+            "members": mems,
+        })
+    receipts.sort(key=lambda x: x["dt"], reverse=True)
     return {
         "model": {"seed": item_code, "n_members": len(members),
                   "n_stocked": len(variants),
@@ -313,6 +339,8 @@ def model_detail(item_code=None):
                   "source": (t or {}).get("source"),
                   "basis_qty": (t or {}).get("basis_qty")},
         "evidence": ev, "variants": variants,
+        "receipts": receipts, "year": sr["year"],
+        "frozen": bool(get_basis(year=sr["year"])),
         "waiting_prs": sorted(waiting_prs),
     }
 
@@ -353,6 +381,32 @@ def month_scoreboard(month=None):
     except Exception:
         pass
     return out
+
+
+@frappe.whitelist()
+def set_family_weight(item_code=None, weight=None, only_suspect=1):
+    """One measured weight for the whole family (variants of a model share
+    packaging). By default only fills SUSPECT weights (zero/0.5/≤200g) —
+    a deliberate different weight on one size is respected."""
+    assert_can_write()
+    from accounting_portal.api.weights import set_item_weight, _flag
+    w = flt(weight)
+    members = _resolve_family(item_code)
+    stocked = frappe.db.sql(
+        """SELECT DISTINCT b.item_code FROM `tabBin` b
+           JOIN `tabWarehouse` wh ON wh.name=b.warehouse
+           WHERE wh.company=%s AND b.actual_qty>0 AND b.item_code IN %s""",
+        (SALES, tuple(members)), pluck=True)
+    only = str(only_suspect) in ("1", "true", "True")
+    applied, skipped = [], []
+    for m in stocked:
+        cur = flt(frappe.db.get_value("Item", m, "weight_per_unit"))
+        if only and not _flag(cur):
+            skipped.append(m)
+            continue
+        set_item_weight(item_code=m, weight=w)
+        applied.append(m)
+    return {"applied": applied, "skipped": skipped, "weight": w}
 
 
 # ── write side ──────────────────────────────────────────────────────────────

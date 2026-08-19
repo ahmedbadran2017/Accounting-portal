@@ -96,7 +96,7 @@
       <!-- model file (opened from the model catalogue) -->
       <div v-if="modelSeed" class="space-y-3">
         <button class="text-[12px] font-bold text-accent-dark hover:underline" @click="closeModel">→ {{ L("Back to models","رجوع للموديلات","Retour") }}</button>
-        <ModelFile :key="modelSeed" :seed="modelSeed" @applied="onModelApplied" />
+        <ModelFile :key="modelSeed" :seed="modelSeed" @applied="onModelApplied" @open-item="openVariant" />
       </div>
 
       <!-- 📅 the MONTH WORKBENCH — pick a month, close it, move on -->
@@ -900,6 +900,7 @@ const modelSeed = ref("");
 const modelCat = ref(null);
 function openModel(seed) { modelSeed.value = seed; }
 function closeModel() { modelSeed.value = ""; modelCat.value?.load(); }
+function openVariant(ic) { modelSeed.value = ""; pick(ic); }
 function onModelApplied() {
   ct.load();
   loadTower();

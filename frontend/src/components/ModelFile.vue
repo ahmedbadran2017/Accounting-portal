@@ -55,6 +55,68 @@
         </div>
       </div>
 
+      <!-- ② freight — the family's shipments, same actions as the SKU page -->
+      <div v-if="d.receipts && d.receipts.length" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+        <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
+          <span class="text-[13px] font-bold">② {{ L("Freight — the family's shipments","الشحن — شحنات العيلة","② Fret") }}</span>
+          <span v-if="!d.waiting_prs.length" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">✓ {{ L("complete","مكتمل","complet") }}</span>
+          <span v-else class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">⏳ {{ d.waiting_prs.length }} {{ L("missing freight","ناقصها شحن","sans fret") }}</span>
+        </div>
+        <div class="overflow-x-auto max-h-[220px] overflow-y-auto">
+          <table class="w-full text-[11.5px]">
+            <thead><tr style="background:#fafaf9" class="sticky top-0">
+              <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Shipment","الشحنة","Expédition") }}</th>
+              <th class="px-3 py-1.5 text-center text-[10px] font-bold text-ink-muted">{{ L("Ch.","قناة","Can.") }}</th>
+              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("PR qty","كمية","Qté") }}</th>
+              <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
+              <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Variants in it","الأصناف فيها","Variantes") }}</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="r in d.receipts" :key="r.pr" class="border-t border-line-hair">
+                <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.pr }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
+                <td class="px-3 py-1.5 text-center whitespace-nowrap">
+                  <button v-if="canWrite && !d.frozen" class="text-[12px]"
+                          :title="r.channel_confirmed ? L('confirmed — click to flip','مؤكدة — دوس للقلب','confirmé') : L('SUGGESTED — click to flip','اقتراح — دوس للقلب','suggestion')"
+                          @click="flipChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></button>
+                  <button v-if="canWrite && !d.frozen && !r.channel_confirmed" class="ms-0.5 text-[10px] font-bold text-emerald-700 hover:underline"
+                          :title="L('confirm as-is','تأكيد زي ما هي','confirmer')" @click="confirmChannel(r)">✓</button>
+                  <template v-if="!canWrite || d.frozen">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></template>
+                </td>
+                <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.pr_qty) }}</td>
+                <td class="px-3 py-1.5 whitespace-nowrap">
+                  <template v-if="['bills','rate'].includes(r.source)">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ r.source === 'bills' ? L("bills","فواتير","factures") : L("rate ✓","سعر ✓","taux ✓") }}</span>
+                    <span class="text-[10px] text-ink-muted" dir="ltr"> @{{ r.rate_kg }}/kg</span>
+                  </template>
+                  <template v-else-if="r.channel === 'air' && (r.channel_confirmed || r.pr_qty < 500) && canWrite && !d.frozen">
+                    <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
+                           class="w-[58px] h-[24px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
+                    <button class="ms-1 h-[24px] px-2 rounded-[6px] text-[10px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+                            :disabled="!((r._draft ?? r.band_rate) > 0) || fBusy" @click="confirmRate(r)">✓ {{ L("rate","السعر","taux") }}</button>
+                  </template>
+                  <template v-else>
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">{{ L("none","لا يوجد","aucun") }}</span>
+                    <span class="text-[10px] text-ink-muted ms-1">{{ L("attach its bills in Shipments","ارفقوا فواتيرها في الشحنات","joindre dans Expéditions") }}</span>
+                  </template>
+                </td>
+                <td class="px-3 py-1.5 text-[10px] text-ink-muted truncate max-w-[180px]">{{ r.members.join("، ") }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ⚖️ family weight — one measured weight fills every suspect variant -->
+      <div v-if="canWrite && suspectWeights.length" class="rounded-[12px] border px-4 py-2.5 flex items-center gap-2 flex-wrap" style="background:#fffbeb;border-color:#fde68a">
+        <span class="text-[11.5px] font-bold">⚖️ {{ L("Family weight","وزن العيلة","Poids famille") }}</span>
+        <span class="text-[10.5px]" style="color:#b45309">{{ suspectWeights.length }} {{ L("variant(s) with suspect weight — freight shares are unfair until fixed","variant وزنهم مشكوك — نصيب الشحن مش عادل لحد ما يتظبطوا","poids suspects") }}</span>
+        <div class="flex-1"></div>
+        <input v-model.number="famWeight" type="number" step="0.01" min="0.005" max="50" placeholder="kg"
+               class="h-[26px] w-[76px] text-[11.5px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
+        <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                :disabled="!(famWeight > 0) || fBusy" @click="applyFamilyWeight">{{ L("Fill the suspects","املأ الناقصين","Remplir") }}</button>
+      </div>
+
       <!-- ③ variants -->
       <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
@@ -70,6 +132,9 @@
               <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Variant","الصنف","Variante") }}</th>
               <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
               <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
+              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">kg</th>
+              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Landed","الشحن","Fret") }}</th>
+              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("New → Δ","الجديد → Δ","Nouveau") }}</th>
               <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
               <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted"></th>
             </tr></thead>
@@ -82,6 +147,16 @@
                 <td class="px-4 py-1.5"><span class="font-semibold">{{ v.sku || v.item_code }}</span><span class="text-[10px] text-ink-muted"> · {{ v.item_name }}</span></td>
                 <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(v.qty) }}</td>
                 <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(v.book_rate, 2) }}</td>
+                <td class="px-3 py-1.5 text-end tnum" :class="v.weight_suspect ? 'text-amber-600 font-bold' : 'text-ink-3'">{{ v.weight.toFixed(2) }}</td>
+                <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ v.landed_unit ? "+" + fmtNum(v.landed_unit, 2) : "—" }}</td>
+                <td class="px-3 py-1.5 text-end tnum whitespace-nowrap" dir="ltr">
+                  <template v-if="rate > 0 && !v.fixed">
+                    <b>{{ fmtNum(rate + v.landed_unit, 2) }}</b>
+                    <span class="text-[10px]" :style="{ color: (rate + v.landed_unit - v.book_rate) > 0 ? '#b45309' : '#047857' }">
+                      {{ (rate + v.landed_unit - v.book_rate) > 0 ? "▲" : "▼" }}{{ fmtNum(Math.abs(rate + v.landed_unit - v.book_rate), 2) }}</span>
+                  </template>
+                  <span v-else class="text-ink-3">—</span>
+                </td>
                 <td class="px-3 py-1.5 text-center">
                   <span v-if="v.fixed" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">✓ {{ L("fixed","متظبط","corrigé") }}</span>
                   <span v-else-if="v.batch_tracked" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#faf5ff;color:#7c3aed" :title="L('batch/serial tracked — manual path','بتتبع باتشات — مسار يدوي','suivi par lot')">🧬</span>
@@ -92,6 +167,8 @@
                   <span v-if="results[v.item_code] === 'ok'" class="text-emerald-700 font-bold">✓</span>
                   <span v-else-if="results[v.item_code] === 'proposed'" class="text-indigo-600 font-bold" :title="L('proposed — awaiting approval','مقترح — في انتظار الموافقة','proposé')">📩</span>
                   <span v-else-if="results[v.item_code]" class="text-sale font-bold" :title="results[v.item_code]">✕</span>
+                  <button class="ms-1 text-[10px] text-accent-dark hover:underline" :title="L('open the item page','افتح صفحة الصنف','ouvrir')"
+                          @click="$emit('open-item', v.item_code)">↗</button>
                 </td>
               </tr>
             </tbody>
@@ -132,7 +209,7 @@ import { useToast } from "@/composables/useToast";
 import { useAuth } from "@/composables/useAuth";
 
 const props = defineProps({ seed: { type: String, required: true } });
-const emit = defineEmits(["applied"]);
+const emit = defineEmits(["applied", "open-item"]);
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const toast = useToast();
@@ -172,6 +249,53 @@ function toggleExclude(ic) {
   const s = new Set(excluded.value);
   s.has(ic) ? s.delete(ic) : s.add(ic);
   excluded.value = s;
+}
+
+// ── ② freight + ⚖️ weight actions (same endpoints as the SKU page) ──
+const fBusy = ref(false);
+const famWeight = ref(null);
+const suspectWeights = computed(() =>
+  (d.value?.variants || []).filter((v) => v.weight_suspect && !v.fixed));
+async function setChannel(r, to) {
+  if (fBusy.value) return;
+  fBusy.value = true;
+  try {
+    await api.call("accounting_portal.api.landed_prep.set_pr_channel", { pr: r.pr, channel: to, year: d.value?.year });
+    toast.success(L("Channel confirmed", "القناة اتأكدت", "Canal confirmé"));
+    await load();
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { fBusy.value = false; }
+}
+async function flipChannel(r) {
+  const to = r.channel === "air" ? "sea" : "air";
+  if (!window.confirm(L(`Classify ${r.pr} as ${to === "sea" ? "SEA 🚢" : "AIR 🛫"}?`,
+                        `تصنيف ${r.pr} ${to === "sea" ? "بحري 🚢" : "جوي 🛫"}؟`, `Classer ${to} ?`))) return;
+  await setChannel(r, to);
+}
+async function confirmChannel(r) { await setChannel(r, r.channel); }
+async function confirmRate(r) {
+  fBusy.value = true;
+  try {
+    await api.call("accounting_portal.api.landed_prep.set_pr_rate", { pr: r.pr, rate: r._draft ?? r.band_rate, year: d.value?.year });
+    toast.success(L("Rate confirmed", "السعر اتعتمد", "Tarif confirmé"));
+    await load();
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { fBusy.value = false; }
+}
+async function applyFamilyWeight() {
+  if (!(famWeight.value > 0)) return;
+  if (!window.confirm(L(
+    `Set ${famWeight.value} kg on ${suspectWeights.value.length} suspect variant(s)? Measured weights are untouched.`,
+    `تسجيل ${famWeight.value} كجم على ${suspectWeights.value.length} variant وزنهم مشكوك؟ الأوزان المقاسة متتلمسش.`,
+    `Appliquer ${famWeight.value} kg ?`))) return;
+  fBusy.value = true;
+  try {
+    const r = await api.call(`${M}.set_family_weight`, { item_code: props.seed, weight: famWeight.value, only_suspect: 1 });
+    toast.success(L(`Weight set on ${r.applied.length} variant(s) — freight shares recalculated`, `الوزن اتسجل على ${r.applied.length} — الشحن اتعاد حسابه`, `${r.applied.length} appliqués`));
+    famWeight.value = null;
+    await load();
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { fBusy.value = false; }
 }
 
 async function load() {
