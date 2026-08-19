@@ -108,7 +108,7 @@ def propose_inventory_correction(company=None):
             (target,), as_dict=True)
         return (r[0].name, flt(r[0].bal)) if r else (None, 0.0)
 
-    stock_acct, stock_bal = _top("a.account_type='Stock'")
+    stock_acct, stock_bal = _top("a.account_type='Stock' AND a.root_type='Asset'")
     adj_acct, adj_bal = _top("a.account_name LIKE '%%Stock Adjustment%%'")
     cogs_acct, _ = _top("a.account_type='Cost of Goods Sold'")
     if not (stock_acct and adj_acct):

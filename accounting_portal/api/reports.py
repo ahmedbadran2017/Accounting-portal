@@ -193,7 +193,8 @@ def inventory_health(company=None):
     stock = flt(frappe.db.sql(
         """SELECT ROUND(SUM(gle.debit - gle.credit)) FROM `tabGL Entry` gle
            JOIN `tabAccount` a ON a.name=gle.account
-           WHERE gle.company=%s AND gle.is_cancelled=0 AND a.account_type='Stock'""",
+           WHERE gle.company=%s AND gle.is_cancelled=0 AND a.account_type='Stock'
+             AND a.root_type='Asset'""",
         (target,))[0][0] or 0)
     adj = frappe.db.sql(
         """SELECT a.name, ROUND(SUM(gle.debit - gle.credit)) AS bal FROM `tabGL Entry` gle
@@ -212,7 +213,12 @@ def inventory_health(company=None):
     result = {
         "company": target, "stock_in_hand": stock, "adjustment_account": adj_acct,
         "adjustment_balance": adj_bal, "revenue": revenue,
-        "distortion": abs(stock) + abs(adj_bal),
+        "distortion": abs(stock) + abs(flt(frappe.db.sql(
+            """SELECT SUM(gle.debit - gle.credit) FROM `tabGL Entry` gle
+               JOIN `tabAccount` a ON a.name=gle.account
+               WHERE gle.company=%s AND gle.is_cancelled=0
+                 AND a.account_name LIKE '%%Stock Adjustment%%'
+                 AND gle.posting_date < '2026-01-01'""", (target,))[0][0])),
         "healthy": abs(stock) < 50_000_000,
     }
     try:
@@ -648,7 +654,7 @@ def cash_forecast(company=None):
 
 
 # ── Full classified financial statements (P&L + Balance Sheet + Cash Flow) ──
-def _classify_asset(at):
+def _classify_asset(at, name=""):
     if at in ("Bank", "Cash"): return "Cash & bank"
     if at == "Receivable": return "Receivables"
     if at in ("Stock", "Stock Adjustment"): return "Inventory"
@@ -656,7 +662,7 @@ def _classify_asset(at):
     return "Other assets"
 
 
-def _classify_liab(at):
+def _classify_liab(at, name=""):
     if at == "Payable": return "Payables"
     if at == "Tax": return "Tax & duties"
     return "Other liabilities"
@@ -687,7 +693,7 @@ def _grouped(rows, sign_key, classify, prior_map=None, prior_key=None):
     secs = {}
     for r in rows:
         amt = sign_key(r)
-        sec = classify(r.get("at"))
+        sec = classify(r.get("at"), r.get("name") or "")
         s = secs.setdefault(sec, {"section": sec, "total": 0.0, "prior": 0.0, "accounts": []})
         prior = flt((prior_map or {}).get(r["name"], 0))
         if prior_map is not None and prior_key:
@@ -735,9 +741,17 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
     inc_p = {k: v for k, v in pri.items() if v["root_type"] == "Income"}
     exp_p = {k: v for k, v in pri.items() if v["root_type"] == "Expense"}
 
-    def _exp_class(at):
-        return "Cost of goods sold" if at == "Cost of Goods Sold" else "Operating expenses"
-    revenue = _grouped(inc, lambda r: flt(r["net"]), lambda at: "Revenue",
+    def _exp_class(at, name=""):
+        # account_type OR the known COGS families by name: 71.801 (DN cost) and
+        # 71.002.5 (delivery cost booked on the mistyped internal-invoicing
+        # account — 1.9M of 2026 DN cost lives there); Stock Adjustment (71.004,
+        # the correction bucket) presents adjacent to COGS, not in OPEX
+        if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.5")):
+            return "Cost of goods sold"
+        if at == "Stock Adjustment":
+            return "Inventory corrections"
+        return "Operating expenses"
+    revenue = _grouped(inc, lambda r: flt(r["net"]), lambda at, name="": "Revenue",
                        inc_p, lambda v: flt(v["net"]) if v else 0)
     expenses = _grouped(exp, lambda r: -flt(r["net"]), _exp_class,
                         exp_p, lambda v: -flt(v["net"]) if v else 0)
@@ -775,7 +789,7 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
     liabs = _grouped([r for r in bcur if r["root_type"] == "Liability"], lambda r: -flt(r["bal"]),
                      _classify_liab, bpri, lambda v: -flt(v or 0))
     equity = _grouped([r for r in bcur if r["root_type"] == "Equity"], lambda r: -flt(r["bal"]),
-                      lambda at: "Equity", bpri, lambda v: -flt(v or 0))
+                      lambda at, name="": "Equity", bpri, lambda v: -flt(v or 0))
     # The P&L was never closed to retained earnings — add cumulative earnings
     # (income − expense, all-time) to equity so the sheet balances.
     def _cum_earn(as_on):
@@ -862,7 +876,9 @@ def verified_dd(company=None):
     rev = _root("Income", fy)
     cogs = flt(frappe.db.sql(
         """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Cost of Goods Sold' AND g.posting_date>=%s""",
+           WHERE g.company=%s AND g.is_cancelled=0 AND g.posting_date>=%s
+             AND (a.account_type IN ('Cost of Goods Sold','Stock Adjustment')
+                  OR a.name LIKE '71.801%%' OR a.name LIKE '71.002.5%%')""",
         (target, fy))[0][0])
     gross_margin = round((rev - cogs) / rev * 100, 1) if rev else 0
     cash = flt(frappe.db.sql(
@@ -980,17 +996,22 @@ def pnl_monthly(company=None, year=None):
            GROUP BY a.name, ym""",
         (target, f"{y}-01-01", f"{y}-12-31"), as_dict=True)
 
-    def classify(rt, at):
+    def classify(rt, at, name=""):
         if rt == "Income":
             return "revenue"
-        return "cogs" if at == "Cost of Goods Sold" else "opex"
+        if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.5")):
+            return "cogs"
+        # 71.004 correction bucket — belongs with COGS, not OPEX
+        if at == "Stock Adjustment":
+            return "cogs"
+        return "opex"
 
     accts = {}
     for r in rows:
         i = midx.get(r["ym"])
         if i is None:
             continue
-        sec = classify(r["rt"], r["at"])
+        sec = classify(r["rt"], r["at"], r["name"])
         amt = (1 if r["rt"] == "Income" else -1) * flt(r["net"])  # revenue +, expense +
         a = accts.setdefault(r["name"], {"account": r["name"], "name": r["an"], "section": sec,
                                          "monthly": [0.0] * n, "total": 0.0})

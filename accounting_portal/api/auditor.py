@@ -720,7 +720,7 @@ def _anomaly_findings(target, mat=None):
     # 3) Stock control (GL) vs warehouse valuation (Bin) — perpetual-inventory tie-out.
     gl_stock = flt(frappe.db.sql(
         "SELECT IFNULL(ROUND(SUM(g.debit-g.credit)),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
-        "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Stock'", (target,))[0][0])
+        "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Stock' AND a.root_type='Asset'", (target,))[0][0])
     bin_val = flt(frappe.db.sql(
         "SELECT IFNULL(ROUND(SUM(b.stock_value)),0) FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse "
         "WHERE w.company=%s", (target,))[0][0])

@@ -29,7 +29,12 @@ from accounting_portal.api.permissions import (
 
 SALES = "Justyol Morocco"
 TRUEUP_ACTION = "Monthly COGS true-up"
-COGS_LIKE = "71.801%"          # booked COGS accounts
+# booked COGS families: 71.801 (the proper DN cost account) + 71.002.5 (the
+# mistyped internal-invoicing account that 33k 2026 DN rows ALSO cost into —
+# 1.9M MAD; leaving it out understated booked COGS and would have made the
+# true-up double-count that slice)
+COGS_LIKES = ("71.801%", "71.002.5%")
+COGS_LIKE = "71.801%"          # the true-up JE still POSTS to 71.801 only
 BUCKET_LIKE = "71.004%"        # the labeled correction bucket (Stock Adjustment)
 
 
@@ -96,8 +101,10 @@ def _true_month_costs(target, year):
 def _booked_by_month(target, year):
     return {int(m): flt(v) for m, v in frappe.db.sql(
         """SELECT MONTH(posting_date), SUM(debit-credit) FROM `tabGL Entry`
-           WHERE company=%s AND account LIKE %s AND is_cancelled=0 AND YEAR(posting_date)=%s
-           GROUP BY MONTH(posting_date)""", (target, COGS_LIKE, int(year)))}
+           WHERE company=%s AND (account LIKE %s OR account LIKE %s)
+             AND is_cancelled=0 AND YEAR(posting_date)=%s
+           GROUP BY MONTH(posting_date)""",
+        (target, COGS_LIKES[0], COGS_LIKES[1], int(year)))}
 
 
 def _posted_trueups(target, year, basis_on=None):

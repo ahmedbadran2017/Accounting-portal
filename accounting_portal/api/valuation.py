@@ -1008,6 +1008,14 @@ def drain_reposts(budget_s=45, names=None):
             backfilled = backfill_stock_gl()["backfilled"]
         except Exception:
             pass   # the sweep is hygiene, never fail the drain over it
+    if processed:
+        # the GL just changed historically (reposted vouchers) — stale report
+        # caches would show pre-repost numbers for up to their TTL
+        try:
+            from accounting_portal.api._cache import bust_report_caches
+            bust_report_caches(_target(None))
+        except Exception:
+            pass
     return {"processed": processed, "remaining": remaining,
             "failed": failed, "gl_backfilled": backfilled}
 
@@ -1042,4 +1050,9 @@ def backfill_stock_gl(company=None, days=60):
     from erpnext.accounts.utils import repost_gle_for_stock_vouchers
     repost_gle_for_stock_vouchers([(r.vt, r.v) for r in rows], str(rows[0].d))
     frappe.db.commit()
+    try:
+        from accounting_portal.api._cache import bust_report_caches
+        bust_report_caches(target)
+    except Exception:
+        pass
     return {"backfilled": len(rows), "vouchers": [r.v for r in rows]}

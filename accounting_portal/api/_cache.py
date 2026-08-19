@@ -17,6 +17,8 @@ _PREFIXES = (
     # page-invariant list count/summary caches (short TTL, bust so a new doc shows at once)
     "ap_orders_sc:", "ap_orders_tot:", "ap_inv_sum:", "ap_rcpt_sum:",
     "ap_team_perf:", "ap_expense_cockpit:", "ap_payroll_cockpit:",
+    # cash forecast (was never busted — audit finding)
+    "ap_cashfc:",
 )
 
 
@@ -38,5 +40,11 @@ def bust_report_caches(company=None):
     for p in _PREFIXES:
         try:
             frappe.cache().delete_keys(p + (company or ""))
+        except Exception:
+            pass
+    # keys NOT keyed by company (audit finding: ap_consol:USD never matched)
+    for p in ("ap_consol:", "ap_cashfc:", "ap_model_catalogue"):
+        try:
+            frappe.cache().delete_keys(p)
         except Exception:
             pass
