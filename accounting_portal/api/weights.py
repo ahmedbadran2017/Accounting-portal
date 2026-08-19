@@ -108,7 +108,15 @@ def set_item_weight(item_code=None, weight=None):
         frappe.throw("item_code required")
     w = flt(weight)
     if not (_MIN_KG <= w <= _MAX_KG):
-        frappe.throw(f"Weight must be between {_MIN_KG} and {_MAX_KG} kg — got {w}")
+        hint = ""
+        if w in (100, 110, 126) or w > _MAX_KG:
+            # the classic slip: the AIR TARIFF (MAD/kg) typed into the WEIGHT box
+            hint = (" — لو قصدك سعر الشحن للكيلو (زي 110 درهم/كجم) فده بيتعتمد من زرار "
+                    "«✓ اعتماد السعر» في جدول الشحنات، مش من خانة الوزن. "
+                    "If you meant the freight RATE per kg, confirm it on the shipment row instead.")
+        frappe.throw(
+            f"الوزن لازم يكون بين {_MIN_KG} و{_MAX_KG} كجم — المدخل: {w}{hint}",
+            title="Weight sanity guard")
     doc = frappe.get_doc("Item", item_code)
     doc.db_set("weight_per_unit", w)
     if not doc.weight_uom:

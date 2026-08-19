@@ -451,8 +451,13 @@ def set_family_weight(item_code=None, weight=None, only_suspect=1):
     packaging). By default only fills SUSPECT weights (zero/0.5/≤200g) —
     a deliberate different weight on one size is respected."""
     assert_can_write()
-    from accounting_portal.api.weights import set_item_weight, _flag
+    from accounting_portal.api.weights import set_item_weight, _flag, _MIN_KG, _MAX_KG
     w = flt(weight)
+    if not (_MIN_KG <= w <= _MAX_KG):
+        frappe.throw(
+            f"الوزن لازم يكون بين {_MIN_KG} و{_MAX_KG} كجم — المدخل: {w}. "
+            "لو قصدك سعر الشحن للكيلو فده مكانه جدول الشحنات (✓ اعتماد السعر).",
+            title="Weight sanity guard")
     members = _resolve_family(item_code)
     stocked = frappe.db.sql(
         """SELECT DISTINCT b.item_code FROM `tabBin` b
