@@ -164,7 +164,8 @@ def _month_sales(month):
 
 
 @frappe.whitelist()
-def model_catalogue(search=None, fix_status=None, start=0, page_size=50, month=None):
+def model_catalogue(search=None, fix_status=None, start=0, page_size=50, month=None,
+                    supplier=None, proc_month=None, source=None):
     """The catalogue grouped by MODEL: one row per family with pooled cost
     evidence, aggregate stock and the fix progress (✓ n/N). With `month`
     ("2026-01"): only models SOLD in that month, ranked by that month's
@@ -183,10 +184,13 @@ def model_catalogue(search=None, fix_status=None, start=0, page_size=50, month=N
     ck = f"ap_model_catalogue:{month or 'all'}"
     cached = frappe.cache().get_value(ck)
     if cached is not None:
-        return _slice_catalogue(cached, search, fix_status, start, page_size)
+        return _slice_catalogue(cached, search, fix_status, start, page_size,
+                                supplier, proc_month, source)
     msales = _month_sales(month) if month else {}
     tc = _true_cost_bulk(codes, _fx_series())
     fixed = _fixed_map()
+    from accounting_portal.api.cost_trace import _item_procurement
+    proc = _item_procurement(codes)
     rows = []
     for g in _model_groups(codes):
         mem = g["members"]
@@ -221,6 +225,10 @@ def model_catalogue(search=None, fix_status=None, start=0, page_size=50, month=N
             # between the suggested true product cost and the avg booked rate
             "month_impact": round(abs(month_qty * flt((t or {}).get("cost_mad") or 0)
                                       - month_booked)) if (month and t) else 0,
+            "suppliers": sorted({(proc.get(m2) or {}).get("supplier") for m2 in mem
+                                 if (proc.get(m2) or {}).get("supplier")})[:6],
+            "proc_months": sorted({mo for m2 in mem
+                                   for mo in ((proc.get(m2) or {}).get("months") or ())})[:24],
         })
     sev = {"ready": 0, "partial": 1, "unpriced": 2, "fixed": 3}
     if month:
@@ -231,10 +239,12 @@ def model_catalogue(search=None, fix_status=None, start=0, page_size=50, month=N
         frappe.cache().set_value(ck, rows, expires_in_sec=300)
     except Exception:
         pass
-    return _slice_catalogue(rows, search, fix_status, start, page_size)
+    return _slice_catalogue(rows, search, fix_status, start, page_size,
+                            supplier, proc_month, source)
 
 
-def _slice_catalogue(rows, search, fix_status, start, page_size):
+def _slice_catalogue(rows, search, fix_status, start, page_size,
+                     supplier=None, proc_month=None, source=None):
     counts = {}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1   # BEFORE filters
@@ -243,6 +253,12 @@ def _slice_catalogue(rows, search, fix_status, start, page_size):
         rows = [r for r in rows if q in (r["name"] or "").lower() or q in (r["base"] or "").lower()]
     if fix_status in ("fixed", "partial", "ready", "unpriced"):
         rows = [r for r in rows if r["status"] == fix_status]
+    if supplier:
+        rows = [r for r in rows if supplier in (r.get("suppliers") or ())]
+    if proc_month:
+        rows = [r for r in rows if proc_month in (r.get("proc_months") or ())]
+    if source:
+        rows = [r for r in rows if r.get("source") == source]
     start, page_size = int(start or 0), min(int(page_size or 50), 200)
     return {"total": len(rows), "counts": counts,
             "rows": rows[start:start + page_size]}

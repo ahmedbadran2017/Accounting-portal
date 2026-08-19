@@ -4,6 +4,21 @@
       <span class="text-[13px] font-bold">③ {{ L("Catalogue — by model","③ الكتالوج — بالموديل","③ Catalogue par modèle") }}</span>
       <span v-if="data" class="text-[11px] text-ink-muted tnum">{{ data.total }} {{ L("models","موديل","modèles") }}</span>
       <div class="flex-1"></div>
+      <select v-model="supFilter" @change="start = 0; load()" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line max-w-[170px]">
+        <option value="">{{ L("All suppliers","كل الموردين","Fournisseurs") }}</option>
+        <option v-for="sp in filters.suppliers" :key="sp.supplier" :value="sp.supplier">{{ shortSup(sp.supplier) }} ({{ sp.items }})</option>
+      </select>
+      <select v-model="moFilter" @change="start = 0; load()" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+        <option value="">{{ L("All months","كل الشهور","Mois") }}</option>
+        <option v-for="mo in filters.months" :key="mo" :value="mo">{{ mo }}</option>
+      </select>
+      <select v-model="srcFilter" @change="start = 0; load()" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+        <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
+        <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
+        <option value="local_pi">{{ L("Local suppliers","موردين محليين","Locaux") }}</option>
+        <option value="family_pi">{{ L("Family evidence","دليل العائلة","Famille") }}</option>
+        <option value="morocco_pr">{{ L("Morocco-direct","مغرب مباشر","Maroc") }}</option>
+      </select>
       <div class="flex items-center gap-1.5" v-if="data">
         <button v-for="f in statuses" :key="f.k"
                 class="h-[26px] px-2.5 rounded-[8px] text-[11px] font-bold border"
@@ -72,6 +87,12 @@ const loading = ref(false);
 const err = ref("");
 const search = ref("");
 const stFilter = ref("");
+const supFilter = ref("");
+const moFilter = ref("");
+const srcFilter = ref("");
+const filters = ref({ suppliers: [], months: [] });
+api.call("accounting_portal.api.cost_trace.cost_filters", {}).then((r) => { filters.value = r; }).catch(() => {});
+const shortSup = (s) => (s ? String(s).replace(/\s*(T[İI]C\.?|SAN\.?|LTD\.?|Ş[Tt][İI]\.?|A\.?Ş\.?|İMALAT).*$/i, "").trim().slice(0, 22) || String(s).slice(0, 22) : "");
 const start = ref(0);
 const pageSize = 50;
 
@@ -89,6 +110,8 @@ async function load() {
     data.value = await api.call(`${M}.model_catalogue`, {
       search: search.value || undefined, fix_status: stFilter.value || undefined,
       start: start.value, page_size: pageSize, month: props.month || undefined,
+      supplier: supFilter.value || undefined, proc_month: moFilter.value || undefined,
+      source: srcFilter.value || undefined,
     }, { fresh: true });
   } catch (e) { err.value = e.message || "Failed"; }
   finally { loading.value = false; }
