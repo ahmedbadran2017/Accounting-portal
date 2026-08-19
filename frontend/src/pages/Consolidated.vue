@@ -77,6 +77,101 @@
       </div>
       <div v-if="d.rate_warnings && d.rate_warnings.length" class="text-[10.5px] text-amber-700 mt-2">{{ L("No FX rate for","لا سعر صرف لـ","Pas de taux pour") }}: {{ d.rate_warnings.join(", ") }} — {{ L("translated at 1.0","محوَّل بسعر 1.0","converti à 1,0") }}</div>
     </div>
+
+    <!-- ══ GROUP P&L — policy-eliminated (the honest read) ══ -->
+    <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
+        <span class="text-[13px] font-bold">📊 {{ L("Group P&L — policy-eliminated","قائمة دخل المجموعة — باستبعاد سياساتي","P&L Groupe") }}</span>
+        <span class="text-[10.5px] text-ink-muted">{{ L("external revenue only · Morocco's corrected COGS (= the group's true cost) · everyone's OPEX","إيراد خارجي فقط · COGS المغرب المصحح (= تكلفة المجموعة) · مصاريف الجميع","revenu externe · COGS corrigé · OPEX de tous") }}</span>
+        <div class="flex-1"></div>
+        <button v-for="c in ['MAD','USD']" :key="c" class="h-[24px] px-2.5 rounded-[7px] text-[10.5px] font-bold border"
+                :class="gCcy === c ? 'text-white bg-brand border-brand' : 'text-ink-3 border-line'"
+                @click="gCcy = c; loadGroup()">{{ c }}</button>
+      </div>
+      <div v-if="gLoading" class="py-8 text-center text-[12px] text-ink-muted">{{ L("Computing…","بيحسب…","Calcul…") }}</div>
+      <div v-else-if="g" class="overflow-x-auto">
+        <table class="w-full text-[11.5px]">
+          <thead><tr style="background:#fafaf9">
+            <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
+            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Revenue","الإيراد","Revenu") }}</th>
+            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">COGS</th>
+            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Gross","مجمل","Brut") }}</th>
+            <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">GM%</th>
+            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">OPEX</th>
+            <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Net","الصافي","Net") }}</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="r in g.rows" :key="r.month" class="border-t border-line-hair">
+              <td class="px-4 py-1.5 font-mono text-[10.5px]" dir="ltr">{{ r.month }}</td>
+              <td class="px-3 py-1.5 text-end tnum">{{ gm(r.revenue) }}</td>
+              <td class="px-3 py-1.5 text-end tnum">{{ gm(r.cogs) }}</td>
+              <td class="px-3 py-1.5 text-end tnum font-semibold">{{ gm(r.gross) }}</td>
+              <td class="px-3 py-1.5 text-center"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" :style="r.gm_pct >= 15 && r.gm_pct <= 75 ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'">{{ r.gm_pct }}%</span></td>
+              <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ gm(r.opex) }}</td>
+              <td class="px-4 py-1.5 text-end tnum font-bold" :style="{ color: r.net >= 0 ? '#047857' : '#b91c1c' }" dir="ltr">{{ gm(r.net) }}</td>
+            </tr>
+            <tr style="background:#fafaf9" class="border-t-2 border-line font-bold">
+              <td class="px-4 py-2">{{ L("Total","الإجمالي","Total") }}</td>
+              <td class="px-3 py-2 text-end tnum">{{ gm(g.total.revenue) }}</td>
+              <td class="px-3 py-2 text-end tnum">{{ gm(g.total.cogs) }}</td>
+              <td class="px-3 py-2 text-end tnum">{{ gm(g.total.gross) }}</td>
+              <td class="px-3 py-2 text-center">{{ g.total.gm_pct }}%</td>
+              <td class="px-3 py-2 text-end tnum">{{ gm(g.total.opex) }}</td>
+              <td class="px-4 py-2 text-end tnum" dir="ltr" :style="{ color: g.total.net >= 0 ? '#047857' : '#b91c1c' }">{{ gm(g.total.net) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="px-4 py-2.5 border-t border-line-hair flex flex-wrap gap-x-5 gap-y-1 text-[10.5px] text-ink-muted">
+          <span class="font-bold">{{ L("Eliminated (disclosed):","المستبعد (مُفصح عنه):","Éliminé :") }}</span>
+          <span v-for="(v, co) in g.eliminated" :key="co" class="tnum" dir="ltr">{{ co }}: rev {{ gm(v.revenue) }} · IC cost {{ gm(v.ic_cost) }}</span>
+          <span v-for="(v, co) in g.opex_by_company" :key="'o'+co" class="tnum text-ink-3" dir="ltr">{{ co }} OPEX {{ gm(v) }}</span>
+        </div>
+        <div v-if="g.anomalies && g.anomalies.length" class="px-4 pb-2.5 text-[10.5px] text-amber-700">
+          ⚠ {{ L("Policy anomalies:","شذوذ عن السياسة:","Anomalies :") }}
+          <span v-for="a in g.anomalies" :key="a.account + a.month" class="me-3" dir="ltr">{{ a.company }} · {{ a.account.slice(0, 30) }} · {{ gm(a.amount) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ IC MIRROR MATRIX — the settlement work queue ══ -->
+    <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
+        <span class="text-[13px] font-bold">🪞 {{ L("Intercompany mirrors — settlement queue","مرايا الشركات — طابور التسوية","Miroirs intersociétés") }}</span>
+        <span class="text-[10.5px] text-ink-muted">{{ L("each pair: seller-side docs vs what the buyer recorded — the gap is the work","كل زوج: فواتير البايع مقابل اللي المشتري سجله — الفرق هو الشغل","l'écart est le travail") }}</span>
+      </div>
+      <div v-if="m" class="p-4 space-y-3">
+        <div v-for="p in m.pairs" :key="p.seller + p.buyer" class="border border-line rounded-[10px] overflow-hidden">
+          <div class="px-3 py-2 flex items-center gap-2 flex-wrap" style="background:#fafaf9">
+            <span class="text-[11.5px] font-bold">{{ p.seller }} → {{ p.buyer }}</span>
+            <span class="text-[10.5px] tnum" dir="ltr">{{ L("seller","البايع","vendeur") }}: {{ p.seller_docs }} docs · {{ gm(p.seller_total) }} {{ p.seller_ccy }}</span>
+            <span class="text-[10.5px] tnum" dir="ltr">{{ L("buyer recorded","المشتري سجل","acheteur") }}: {{ p.buyer_docs }} docs · {{ gm(p.buyer_total) }} {{ p.buyer_ccy }}</span>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" :style="p.buyer_docs >= p.seller_docs ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'">
+              {{ p.buyer_docs }}/{{ p.seller_docs }} {{ L("mirrored","متسجل","reflété") }}</span>
+          </div>
+          <table class="w-full text-[10.5px]">
+            <tbody>
+              <tr v-for="mo in p.months" :key="mo.month" class="border-t border-line-hair">
+                <td class="px-3 py-1 font-mono" dir="ltr">{{ mo.month }}</td>
+                <td class="px-3 py-1 text-end tnum" dir="ltr">{{ mo.seller_n }} × {{ gm(mo.seller_amt) }}</td>
+                <td class="px-3 py-1 text-end tnum" dir="ltr" :class="mo.buyer_n < mo.seller_n ? 'text-sale font-bold' : ''">{{ mo.buyer_n }} × {{ gm(mo.buyer_amt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="border border-line rounded-[10px] overflow-hidden">
+          <div class="px-3 py-2 text-[11.5px] font-bold" style="background:#fafaf9">{{ L("IC balances awaiting settlement","أرصدة بينية في انتظار التسوية","Soldes IC") }}</div>
+          <table class="w-full text-[10.5px]">
+            <tbody>
+              <tr v-for="b in m.balances" :key="b.company + b.account" class="border-t border-line-hair">
+                <td class="px-3 py-1 text-ink-muted whitespace-nowrap">{{ b.company.replace("Justyol ", "") }}</td>
+                <td class="px-3 py-1 truncate max-w-[300px]">{{ b.account }}</td>
+                <td class="px-3 py-1 text-end tnum font-semibold whitespace-nowrap" dir="ltr" :class="b.balance < 0 ? 'text-sale' : ''">{{ gm(b.balance) }} {{ b.ccy }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -95,6 +190,25 @@ const money = (n) => fmtAmount(n);
 
 const SAMPLE = { base: "USD", rows: [{ company: "Justyol Morocco", abbr: "JM", currency: "MAD", rate: 0.105, base: { net: 70695385, assets: 72183437, cash: 71073 } }], totals: { income: 2580000, net: 70536553, assets: 73035766, cash: 232584 }, rate_warnings: [] };
 const d = ref({ rows: [], totals: {} });
+// ── group P&L (policy-eliminated) + IC matrix ──
+const g = ref(null);
+const m = ref(null);
+const gCcy = ref("MAD");
+const gLoading = ref(false);
+const gm = (n) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n || 0);
+async function loadGroup() {
+  gLoading.value = true;
+  try {
+    g.value = await api.call("accounting_portal.api.group_pnl.group_pnl", { ccy: gCcy.value }, { fresh: true });
+  } catch (e) { g.value = null; }
+  finally { gLoading.value = false; }
+}
+async function loadMatrix() {
+  try { m.value = await api.call("accounting_portal.api.group_pnl.ic_matrix", {}, { fresh: true }); }
+  catch (e) { m.value = null; }
+}
+loadGroup();
+loadMatrix();
 const isLive = ref(null);
 async function load() {
   try { d.value = await api.call("accounting_portal.api.consolidation.consolidated_financials", { base: "USD" }); isLive.value = true; }
