@@ -709,8 +709,51 @@ def _grouped(rows, sign_key, classify, prior_map=None, prior_key=None):
     return out
 
 
+def _usd_rate_at(to_ccy, date):
+    r = frappe.db.sql(
+        """SELECT exchange_rate FROM `tabCurrency Exchange`
+           WHERE from_currency='USD' AND to_currency=%s AND date<=%s
+           ORDER BY date DESC LIMIT 1""", (to_ccy, date))
+    return flt(r[0][0]) if r else 0.0
+
+
+def _usd_rate_avg(to_ccy, from_date, to_date):
+    r = frappe.db.sql(
+        """SELECT AVG(exchange_rate) FROM `tabCurrency Exchange`
+           WHERE from_currency='USD' AND to_currency=%s AND date BETWEEN %s AND %s""",
+        (to_ccy, from_date, to_date))
+    v = flt(r[0][0]) if r else 0.0
+    return v or _usd_rate_at(to_ccy, to_date)
+
+
+def _pres_rates(base_ccy, pres_ccy, from_date, to_date):
+    """(avg_rate, closing_rate) base→presentation, cross-rated through USD —
+    the ERPNext convention: P&L at the period AVERAGE, BS at CLOSING."""
+    if not pres_ccy or pres_ccy == base_ccy:
+        return 1.0, 1.0
+
+    def _cross(u_p, u_b):
+        return (u_p / u_b) if (u_p and u_b) else 0.0
+    up_a = 1.0 if pres_ccy == "USD" else _usd_rate_avg(pres_ccy, from_date, to_date)
+    ub_a = 1.0 if base_ccy == "USD" else _usd_rate_avg(base_ccy, from_date, to_date)
+    up_c = 1.0 if pres_ccy == "USD" else _usd_rate_at(pres_ccy, to_date)
+    ub_c = 1.0 if base_ccy == "USD" else _usd_rate_at(base_ccy, to_date)
+    return _cross(up_a, ub_a), _cross(up_c, ub_c)
+
+
+def _scale(node, k):
+    """Scale every numeric leaf of the grouped-sections structure."""
+    if isinstance(node, list):
+        return [_scale(x, k) for x in node]
+    if isinstance(node, dict):
+        return {kk: (_scale(v, k) if isinstance(v, (list, dict))
+                     else (round(v * k) if isinstance(v, (int, float)) and kk not in ("gm_pct",) else v))
+                for kk, v in node.items()}
+    return node
+
+
 @frappe.whitelist()
-def financial_statements(company=None, from_date=None, to_date=None, compare=1):
+def financial_statements(company=None, from_date=None, to_date=None, compare=1, pres_ccy=None):
     """P&L (structured), classified Balance Sheet, and a Cash-Flow statement — with
     a prior-period comparison column. The team's full statement pack."""
     assert_portal_access()
@@ -720,7 +763,7 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
     if not (from_date and to_date):
         from_date, to_date = _year_bounds()
     compare = int(compare or 0)
-    ck = f"ap_fs:{target}:{from_date}:{to_date}:{compare}"
+    ck = f"ap_fs:{target}:{from_date}:{to_date}:{compare}:{pres_ccy or ''}"
     cached_hit = frappe.cache().get_value(ck)
     if cached_hit is not None:
         return cached_hit
@@ -847,8 +890,21 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
         "method": "direct",
     }
 
+    presentation = None
+    if pres_ccy and pres_ccy != ccy:
+        k_avg, k_close = _pres_rates(ccy, pres_ccy, from_date, to_date)
+        if k_avg and k_close:
+            pnl_pack = _scale(pnl_pack, k_avg)          # P&L at period AVERAGE
+            cf_pack = _scale(cf_pack, k_avg)
+            bs_pack = _scale(bs_pack, k_close)          # BS at CLOSING rate
+            presentation = {"ccy": pres_ccy, "base": ccy,
+                            "rate_avg": round(k_avg, 6), "rate_close": round(k_close, 6)}
+        else:
+            presentation = {"ccy": ccy, "base": ccy, "error": f"no FX rate for {pres_ccy}"}
     result = {
-        "company": target, "currency": ccy, "from_date": from_date, "to_date": to_date,
+        "company": target, "currency": (presentation or {}).get("ccy") or ccy,
+        "presentation": presentation,
+        "from_date": from_date, "to_date": to_date,
         "prior_from": p_from, "prior_to": p_to, "compare": compare,
         "pnl": pnl_pack, "balance_sheet": bs_pack, "cash_flow": cf_pack,
     }
@@ -981,7 +1037,7 @@ def fixed_assets(company=None):
 
 
 @frappe.whitelist()
-def pnl_monthly(company=None, year=None):
+def pnl_monthly(company=None, year=None, pres_ccy=None):
     """Profit & loss broken down month-by-month (columns) for a fiscal year — the
     'see the months side by side' view. Accounts grouped Revenue → COGS → Gross →
     OpEx → Net, each with a per-month array + a year total."""
@@ -990,7 +1046,7 @@ def pnl_monthly(company=None, year=None):
     if not target:
         return {}
     y = int(year or nowdate()[:4])
-    ck = f"ap_fs:{target}:monthly:{y}"
+    ck = f"ap_fs:{target}:monthly:{y}:{pres_ccy or ''}"
     hit = frappe.cache().get_value(ck)
     if hit is not None:
         return hit
@@ -1008,6 +1064,19 @@ def pnl_monthly(company=None, year=None):
              AND g.posting_date BETWEEN %s AND %s
            GROUP BY a.name, ym""",
         (target, f"{y}-01-01", f"{y}-12-31"), as_dict=True)
+    presentation = None
+    if pres_ccy and pres_ccy != ccy:
+        from accounting_portal.api.group_pnl import _month_rates
+        mr = _month_rates({ccy}, pres_ccy, y).get(ccy, {})
+        if any(mr.values()):
+            for r in rows:
+                mm = int(str(r.ym)[5:7])
+                r.net = flt(r.net) * flt(mr.get(mm))
+            presentation = {"ccy": pres_ccy, "base": ccy,
+                            "rates": {m: round(v, 6) for m, v in mr.items() if v}}
+            ccy = pres_ccy
+        else:
+            presentation = {"ccy": ccy, "base": ccy, "error": f"no FX rate for {pres_ccy}"}
 
     def classify(rt, at, name=""):
         if rt == "Income":
@@ -1053,7 +1122,7 @@ def pnl_monthly(company=None, year=None):
     gross = [rev[i] - cogs[i] for i in range(n)]
     net = [gross[i] - opex[i] for i in range(n)]
     result = {
-        "company": target, "currency": ccy, "year": y, "months": months,
+        "company": target, "presentation": presentation, "currency": ccy, "year": y, "months": months,
         "sections": sections,
         "gross_monthly": gross, "gross_total": sum(gross),
         "net_monthly": net, "net_total": sum(net),

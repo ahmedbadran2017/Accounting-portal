@@ -9,6 +9,12 @@
       <div class="ms-auto flex items-center gap-1.5">
         <template v-if="tab !== 'monthly'">
           <button v-for="p in PRESETS" :key="p.key" @click="setPreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="preset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>
+          <select v-model="presCcy" @change="load(); if (tab === 'monthly') loadMonthly();"
+                  class="text-[11px] font-semibold px-2 py-1 rounded-full border border-line-2 bg-white"
+                  :title="L('Presentation currency — P&L at the period average rate, balance sheet at closing (ERPNext convention)','عملة العرض — قائمة الدخل بمتوسط الفترة والميزانية بسعر الإقفال','Devise de présentation')">
+            <option value="">{{ L("Base ccy","العملة الأساسية","Devise") }}</option>
+            <option v-for="c in presCcyOptions" :key="c" :value="c">{{ c }}</option>
+          </select>
           <button @click="compare = compare ? 0 : 1, load()" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="compare ? 'bg-accent/10 text-accent-dark border-accent/30' : 'bg-white text-ink-3 border-line-2'">{{ L("Compare","مقارنة","Comparer") }}</button>
         </template>
         <button @click="printIt" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />{{ L("Print","طباعة","Imprimer") }}</button>
@@ -24,7 +30,7 @@
         <Icon name="alert" :size="15" color="#b45309" /><span class="text-[11.5px] text-ink-2">{{ L("Net is distorted by","الصافي متأثر بـ","Faussé par") }} “{{ d.pnl.anomaly.name }}” ({{ money(d.pnl.anomaly.amount) }}) — {{ L("the broken stock/COGS posting. Read net with care.","قيد المخزون/التكلفة المعطّل. اقرأ الصافي بحذر.","écriture stock/CMV cassée.") }}</span>
       </div>
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-        <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("Profit & loss","الأرباح والخسائر","Compte de résultat") }}</span><span class="text-[10px] text-ink-muted">{{ d.currency }}</span></div>
+        <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("Profit & loss","الأرباح والخسائر","Compte de résultat") }}</span><span class="text-[10px] text-ink-muted">{{ d.currency }}</span><span v-if="d.presentation && d.presentation.rate_avg" class="text-[10px] text-violet-700 tnum" dir="ltr" :title="L('translated from ' + d.presentation.base + ' — P&L @ period average, BS @ closing','محوّل من ' + d.presentation.base + ' — الدخل بمتوسط الفترة والميزانية بالإقفال','converti')">{{ d.presentation.base }}→{{ d.presentation.ccy }} @ {{ d.presentation.rate_avg }} / {{ d.presentation.rate_close }}</span><span v-else-if="d.presentation && d.presentation.error" class="text-[10px] text-amber-600">⚠ {{ d.presentation.error }}</span></div>
         <table class="w-full text-[12.5px]">
           <thead v-if="compare"><tr style="background:#fafaf9"><th></th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Current","الحالية","Actuel") }}</th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Prior","السابقة","Précéd.") }}</th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">Δ</th></tr></thead>
           <tbody>
@@ -181,10 +187,12 @@ const d = ref({ pnl: { revenue: [], cogs: {}, opex: [], anomaly: null }, balance
 const live = ref(null);
 const loading = ref(true);
 const compare = usePersistedRef("ap_stmt_compare", 1);
+const presCcy = usePersistedRef("ap_stmt_ccy", "");
+const presCcyOptions = ["MAD", "USD", "EUR", "TRY"];
 async function load() {
   loading.value = true;
   const r = range();
-  try { d.value = await api.call("accounting_portal.api.reports.financial_statements", { company: currentCompany(), from_date: r.from, to_date: r.to, compare: compare.value }); live.value = true; }
+  try { d.value = await api.call("accounting_portal.api.reports.financial_statements", { company: currentCompany(), from_date: r.from, to_date: r.to, compare: compare.value, pres_ccy: presCcy.value || undefined }); live.value = true; }
   catch { live.value = false; }
   finally { loading.value = false; }
 }
@@ -201,7 +209,7 @@ const MON_AR = ["ينا", "فبر", "مار", "أبر", "ماي", "يون", "ي�
 const monLabel = (ym) => { const m = +String(ym).slice(5, 7) - 1; return (locale.value === "ar" ? MON_AR : MON)[m] || ym; };
 async function loadMonthly() {
   mLoading.value = true;
-  try { dm.value = await api.call("accounting_portal.api.reports.pnl_monthly", { company: currentCompany(), year: mYear.value }); }
+  try { dm.value = await api.call("accounting_portal.api.reports.pnl_monthly", { company: currentCompany(), year: mYear.value, pres_ccy: presCcy.value || undefined }); }
   catch { dm.value = { months: [], sections: [] }; }
   finally { mLoading.value = false; }
 }
