@@ -348,6 +348,7 @@ def expense_form_options(company=None):
     return {
         "company": target, "currency": base, "currencies": currencies,
         "expense_accounts": _expense_accounts(target),
+        "landed_clearing": frappe.db.get_value("Company", target, "expenses_included_in_valuation"),
         "pay_accounts": pay, "suppliers": suppliers, "vat_accounts": vat,
         "default_pay": next((p.name for p in pay if p.typ == "Cash"),
                             next((p.name for p in pay if p.typ == "Bank"), pay[0].name if pay else None)),

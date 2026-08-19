@@ -39,7 +39,12 @@ doc_events = {
         "validate": "accounting_portal.api.fx_guard.validate_fx",
     },
     "Purchase Invoice": {
-        "validate": "accounting_portal.api.fx_guard.validate_fx",
+        "validate": [
+            "accounting_portal.api.fx_guard.validate_fx",
+            # new freight bills must debit 153.03 (clearing), not the 770.07
+            # P&L family — see api/landed_guard.py (runtime-togglable)
+            "accounting_portal.api.landed_guard.validate_landed_account",
+        ],
     },
     "Stock Entry": {
         "validate": "accounting_portal.api.stock_guard.validate_stock_entry",

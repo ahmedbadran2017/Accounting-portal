@@ -44,8 +44,26 @@
             </div>
           </div>
 
+          <!-- 🚢 freight bill (landed) — books to 153.03 clearing, shows up in Shipments for allocation -->
+          <label v-if="modeType === 'bill' && opt.landed_clearing" class="flex items-start gap-2 rounded-[9px] px-3 py-2 cursor-pointer"
+                 :style="freightBill ? 'background:#eff6ff;border:1px solid #bfdbfe' : 'background:#fafaf9;border:1px solid #f0efed'">
+            <input type="checkbox" v-model="freightBill" class="mt-0.5" />
+            <span class="min-w-0">
+              <span class="block text-[11.5px] font-bold">🚢✈ {{ L("Freight / import bill (landed)", "فاتورة شحن / استيراد (landed)", "Facture de fret (landed)") }}</span>
+              <span class="block text-[10.5px] text-ink-muted mt-0.5">
+                {{ freightBill
+                  ? L("Books to 153.03 (clearing) — will appear in Purchases → Shipments for allocation to its shipment. No P&L touched.",
+                      "هتتسجل على 153.03 (وسيط) — وهتظهر في المشتريات → الشحنات لتوزيعها على شحنتها. مفيش لمس للأرباح.",
+                      "Comptabilisée sur 153.03 — apparaîtra dans Expéditions.")
+                  : L("Freight, customs, clearance, port fees — never a P&L account anymore.",
+                      "شحن، جمارك، تخليص، رسوم ميناء — مفيش تسجيل على حسابات الأرباح تاني.",
+                      "Fret, douane, frais de port.") }}
+              </span>
+            </span>
+          </label>
+
           <!-- expense account — single searchable combobox -->
-          <div class="block">
+          <div class="block" v-if="!(modeType === 'bill' && freightBill)">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Expense account", "حساب المصروف", "Compte de charge") }}</span>
             <div class="relative mt-1" v-click-outside="() => (acctOpen = false)">
               <input v-model="acctQuery" @focus="acctOpen = true" @input="onAcctInput"
@@ -177,7 +195,7 @@
           <div v-if="canPreview" class="border border-line rounded-[12px] overflow-hidden text-[11.5px]">
             <div class="px-3 py-1.5 bg-app-warm/50 text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Journal preview", "معاينة القيد", "Aperçu de l'écriture") }}</div>
             <div class="flex items-center justify-between px-3 py-2 border-t border-line-hair">
-              <span class="truncate">{{ L("Dr", "مدين", "Dr") }} · {{ shortAcct(expenseAccount) }}</span>
+              <span class="truncate">{{ L("Dr", "مدين", "Dr") }} · {{ shortAcct(effAccount) }}</span>
               <span class="tnum font-bold text-teal-700">{{ money(netAmount) }}</span>
             </div>
             <div v-if="hasTax && taxValue > 0" class="flex items-center justify-between px-3 py-2 border-t border-line-hair">
@@ -233,6 +251,7 @@ const optLoad = ref(true);
 const acctQuery = ref("");
 const acctOpen = ref(false);
 const expenseAccount = ref("");
+const freightBill = ref(false);
 const amount = ref(null);
 const postingDate = ref(new Date().toISOString().slice(0, 10));
 const payAccount = ref("");
@@ -375,8 +394,10 @@ function onAcctInput() { acctOpen.value = true; if (expenseAccount.value) expens
 function pickAccount(a) { expenseAccount.value = a.name; acctQuery.value = acctLabel(a); acctOpen.value = false; }
 const payMap = computed(() => Object.fromEntries((opt.value.pay_accounts || []).map((a) => [a.name, a])));
 const isPayable = computed(() => payMap.value[payAccount.value]?.typ === "Payable");
+const effAccount = computed(() =>
+  (modeType.value === "bill" && freightBill.value && opt.value.landed_clearing) || expenseAccount.value);
 const canPreview = computed(() =>
-  expenseAccount.value && Number(amount.value) > 0 &&
+  effAccount.value && Number(amount.value) > 0 &&
   (modeType.value === "bill" ? !!supplier.value : !!payAccount.value));
 const currencyWarn = computed(() => {
   if (modeType.value === "bill") return false; // PI handles its own currency
@@ -386,7 +407,7 @@ const currencyWarn = computed(() => {
   return ea && pa && eccy !== pccy;
 });
 const canSubmit = computed(() =>
-  expenseAccount.value && Number(amount.value) > 0 &&
+  effAccount.value && Number(amount.value) > 0 &&
   (!hasTax.value || (taxAccount.value && netAmount.value > 0)) &&
   (!isFx.value || effRate.value > 0) &&
   (modeType.value === "bill"
@@ -411,7 +432,7 @@ async function submit() {
   posting.value = true;
   try {
     const common = {
-      company: currentCompany(), client_key: clientKey, expense_account: expenseAccount.value,
+      company: currentCompany(), client_key: clientKey, expense_account: effAccount.value,
       amount: netAmount.value, posting_date: postingDate.value,
       description: description.value || undefined,
       tax_amount: taxValue.value || undefined,
