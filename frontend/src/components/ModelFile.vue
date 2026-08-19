@@ -127,12 +127,16 @@
                  class="h-[26px] w-[70px] text-[11.5px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr"
                  :title="L('REAL unit weight incl. packaging — weigh it, don\'t guess','الوزن الحقيقي للوحدة بالتغليف — اتوزن متتخمنش','poids réel')" />
           <span class="text-[11px]">×</span>
-          <select v-model.number="mlRate" class="h-[26px] text-[11px] px-1.5 rounded-[7px] border border-line">
-            <option :value="100">{{ L("Air 2025 (100/kg)","جوي 2025 (100/كجم)","Air 100") }}</option>
-            <option :value="110">{{ L("Air →Apr-2026 (110/kg)","جوي حتى أبريل 2026 (110)","Air 110") }}</option>
-            <option :value="126">{{ L("Air current (126/kg)","جوي حالي (126)","Air 126") }}</option>
-            <option :value="23.6">{{ L("Sea (23.6/kg)","بحري (23.6/كجم)","Mer 23.6") }}</option>
-          </select>
+          <input v-model.number="mlRate" type="number" step="0.1" min="0.1"
+                 class="h-[26px] w-[74px] text-[11.5px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr"
+                 :title="L('MAD per kg — type ANY rate; the chips are just the known contract tariffs','درهم/كجم — اكتب أي رقم؛ الأزرار مجرد التعريفات المعروفة','MAD/kg — libre')" />
+          <span class="text-[10px] text-ink-muted">{{ L("/kg","درهم/كجم","/kg") }}</span>
+          <span class="inline-flex gap-1">
+            <button v-for="c in [[100,'جوي 25'],[110,'جوي 26'],[126,'جوي الآن'],[23.6,'بحري']]" :key="c[0]"
+                    class="h-[22px] px-1.5 rounded-[6px] text-[10px] font-bold border"
+                    :class="mlRate === c[0] ? 'text-white bg-brand border-brand' : 'text-ink-3 border-line hover:bg-white'"
+                    @click="mlRate = c[0]">{{ c[0] }} {{ locale === 'ar' ? c[1] : '' }}</button>
+          </span>
           <span v-if="mlEst > 0" class="text-[11.5px] tnum font-bold" dir="ltr">= {{ mlEst.toFixed(2) }}</span>
           <span v-if="mlEst > 0" class="text-[11px] text-ink-muted tnum" dir="ltr">→ {{ L("full","الشامل","total") }} {{ ((rate || d.model.suggested || 0) + mlEst).toFixed(2) }}</span>
           <button v-if="mlEst > 0" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark"
