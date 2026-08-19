@@ -774,11 +774,10 @@ def _retro_anchor(target, item_code):
     # before the floor — anchoring at the floor finds nothing to fix. Fall
     # FORWARD to the first incoming on/after the floor instead.
     if anchor == _POLICY_FLOOR and first < _POLICY_FLOOR:
-        held = flt(frappe.db.sql(
-            """SELECT SUM(actual_qty) FROM `tabStock Ledger Entry`
-               WHERE company=%s AND item_code=%s AND is_cancelled=0
-                 AND posting_date < %s""", (target, item_code, _POLICY_FLOOR))[0][0])
-        if held <= 0.01:
+        # SUM(actual_qty) lies here: a zeroing Stock Reconciliation carries
+        # actual_qty=0 while resetting the balance — so ask the ledger which
+        # warehouses actually HELD stock at the floor instead
+        if not _holding_whs(target, item_code, _POLICY_FLOOR):
             nxt = frappe.db.sql(
                 """SELECT MIN(posting_date) FROM `tabStock Ledger Entry`
                    WHERE company=%s AND item_code=%s AND is_cancelled=0
