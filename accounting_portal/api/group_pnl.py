@@ -88,7 +88,10 @@ def _month_rates(currencies, pres, year):
 
 
 def _is_cogs_row(at, name):
-    return at in ("Cost of Goods Sold", "Stock Adjustment") or str(name).startswith(_COGS_NAMES)
+    n = str(name)
+    if n.startswith(("770.07", "770.0.7")) and not n.startswith("770.07.004"):
+        return True   # legacy inbound freight + its 71.004 offset live with COGS
+    return at in ("Cost of Goods Sold", "Stock Adjustment") or n.startswith(_COGS_NAMES)
 
 
 def _is_ic_name(name):

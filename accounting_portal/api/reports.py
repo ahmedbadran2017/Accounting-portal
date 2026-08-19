@@ -741,6 +741,16 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
     inc_p = {k: v for k, v in pri.items() if v["root_type"] == "Income"}
     exp_p = {k: v for k, v in pri.items() if v["root_type"] == "Expense"}
 
+    def _inbound_freight(name):
+        # inbound landed family (air/sea/customs/ports/clearance) — legacy
+        # bills that the recos capitalize; presented WITH the inventory
+        # corrections so freight+71.004 net inside one block and OPEX stops
+        # showing freight. 770.07.004 (Cathadis delivery fee to customers) is
+        # a SELLING expense and stays in OPEX.
+        n = str(name)
+        return (n.startswith(("770.07", "770.0.7"))
+                and not n.startswith("770.07.004"))
+
     def _exp_class(at, name=""):
         # account_type OR the known COGS families by name: 71.801 (DN cost) and
         # 71.002.5 (delivery cost booked on the mistyped internal-invoicing
@@ -748,7 +758,7 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1):
         # the correction bucket) presents adjacent to COGS, not in OPEX
         if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.5", "71.999")):
             return "Cost of goods sold"
-        if at == "Stock Adjustment":
+        if at == "Stock Adjustment" or _inbound_freight(name):
             return "Inventory corrections"
         return "Operating expenses"
     revenue = _grouped(inc, lambda r: flt(r["net"]), lambda at, name="": "Revenue",
@@ -879,7 +889,9 @@ def verified_dd(company=None):
            WHERE g.company=%s AND g.is_cancelled=0 AND g.posting_date>=%s
              AND (a.account_type IN ('Cost of Goods Sold','Stock Adjustment')
                   OR a.name LIKE '71.801%%' OR a.name LIKE '71.002.5%%'
-                  OR a.name LIKE '71.999%%')""",
+                  OR a.name LIKE '71.999%%'
+                  OR ((a.name LIKE '770.07%%' OR a.name LIKE '770.0.7%%')
+                      AND a.name NOT LIKE '770.07.004%%'))""",
         (target, fy))[0][0])
     gross_margin = round((rev - cogs) / rev * 100, 1) if rev else 0
     cash = flt(frappe.db.sql(
@@ -1002,8 +1014,12 @@ def pnl_monthly(company=None, year=None):
             return "revenue"
         if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.5", "71.999")):
             return "cogs"
-        # 71.004 correction bucket — belongs with COGS, not OPEX
+        # 71.004 correction bucket + legacy INBOUND freight (its offset) —
+        # both belong with COGS, not OPEX (Cathadis delivery fee stays OPEX)
         if at == "Stock Adjustment":
+            return "cogs"
+        n = str(name)
+        if n.startswith(("770.07", "770.0.7")) and not n.startswith("770.07.004"):
             return "cogs"
         return "opex"
 
