@@ -165,6 +165,10 @@ def charge_inbox(company=None):
               -- (COD return/refund delivery fees hit the same Freight account but are
               -- P&L operating cost, never inventory landed cost)
               AND g.voucher_type NOT IN ('Sales Invoice', 'Delivery Note', 'Sales Order', 'POS Invoice')
+              -- journal entries stamped [non-landed] are P&L reclasses (e.g. the
+              -- shipping-revenue sweep debiting 770.07) — money that never was a
+              -- freight bill and must never be offered for capitalisation
+              AND IFNULL(g.remarks,'') NOT LIKE '%%[non-landed]%%'
               AND ({_INBOUND} OR g.account = %(clr)s)
             GROUP BY g.voucher_type, g.voucher_no, g.account, a.account_name, a.root_type, g.posting_date
             HAVING SUM(g.debit-g.credit) > 0.5
