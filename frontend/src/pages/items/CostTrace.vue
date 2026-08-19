@@ -276,8 +276,8 @@
 
     <!-- Trace result -->
     <div v-if="trace" class="space-y-3">
-      <button class="text-[11.5px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="trace = null; q = ''">
-        <Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ L("Back to catalogue","رجوع للكتالوج","Retour") }}
+      <button class="text-[11.5px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="backFromTrace">
+        <Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ cameFromModel ? L("Back to the model","رجوع للموديل","Retour au modèle") : L("Back to catalogue","رجوع للكتالوج","Retour") }}
       </button>
       <!-- Product header + KPIs -->
       <div class="bg-white border border-line rounded-[14px] shadow-card p-4">
@@ -903,7 +903,16 @@ const modelSeed = ref("");
 const modelCat = ref(null);
 function openModel(seed) { modelSeed.value = seed; }
 function closeModel() { modelSeed.value = ""; modelCat.value?.load(); }
-function openVariant(ic) { modelSeed.value = ""; pick(ic); }
+const cameFromModel = ref("");
+function openVariant(ic) { cameFromModel.value = modelSeed.value; modelSeed.value = ""; pick(ic); }
+function backFromTrace() {
+  trace.value = null;
+  q.value = "";
+  if (cameFromModel.value) {
+    modelSeed.value = cameFromModel.value;   // return exactly where we came from
+    cameFromModel.value = "";
+  }
+}
 function onModelApplied() {
   ct.load();
   loadTower();

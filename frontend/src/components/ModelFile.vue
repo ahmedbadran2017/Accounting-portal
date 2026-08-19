@@ -12,6 +12,10 @@
           <div class="text-[11px] text-ink-muted mt-0.5">
             {{ d.model.n_stocked }} {{ L("variant(s) in stock","variant في المخزون","variantes en stock") }}
             · {{ L("one price for the whole model","سعر واحد للموديل كله","un prix pour le modèle") }}
+            <template v-if="famWeightInfo.w > 0">
+              · ⚖️ <span class="tnum" dir="ltr">{{ famWeightInfo.w.toFixed(2) }} kg</span>
+              <span v-if="famWeightInfo.suspect" class="text-amber-600 font-bold" :title="L('default/suspect value — weigh a real unit','قيمة افتراضية مشكوك فيها — اتوزن وحدة حقيقية','valeur suspecte')">⚠</span>
+            </template>
           </div>
         </div>
         <div class="text-end">
@@ -125,7 +129,8 @@
         <div v-if="canWrite" class="flex items-center gap-2 flex-wrap">
           <span class="text-[11px] font-bold">{{ L("Freight estimate:","تقدير الشحن:","Fret :") }}</span>
           <input v-model.number="mlW" type="number" step="0.01" min="0.01" max="50" placeholder="kg"
-                 class="h-[26px] w-[70px] text-[11.5px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr"
+                 class="h-[26px] w-[70px] text-[11.5px] text-end px-1.5 rounded-[7px] border tnum" dir="ltr"
+                 :class="famWeightInfo.suspect && mlW === famWeightInfo.w ? 'border-amber-400 bg-amber-50' : 'border-line'"
                  :title="L('REAL unit weight incl. packaging — weigh it, don\'t guess','الوزن الحقيقي للوحدة بالتغليف — اتوزن متتخمنش','poids réel')" />
           <span class="text-[11px]">×</span>
           <input v-model.number="mlRate" type="number" step="0.1" min="0.1"
@@ -346,6 +351,17 @@ const savedCost = ref(null);
 const savingCost = ref(false);
 // manual landed calculator (imported, no receipts): weight × era tariff
 const mlW = ref(null);
+// the model-level weight: median of TRUSTED variant weights; falls back to the
+// suspect (default 0.50 etc.) value FLAGGED — visible in the header and used
+// as the calculator's editable starting point
+const famWeightInfo = computed(() => {
+  const vs = d.value?.variants || [];
+  const tw = vs.filter((v) => !v.weight_suspect && v.weight > 0).map((v) => v.weight).sort((a, b) => a - b);
+  if (tw.length) return { w: +tw[Math.floor(tw.length / 2)].toFixed(2), suspect: false };
+  const sw = vs.filter((v) => v.weight > 0).map((v) => v.weight).sort((a, b) => a - b);
+  if (sw.length) return { w: +sw[Math.floor(sw.length / 2)].toFixed(2), suspect: true };
+  return { w: 0, suspect: false };
+});
 const mlRate = ref(100);
 const mlEst = computed(() => (mlW.value > 0 && mlRate.value > 0 ? +(mlW.value * mlRate.value).toFixed(2) : 0));
 function applyManualLanded() {
@@ -377,11 +393,7 @@ async function load() {
     // manual-landed calculator prefills — REFERENCE numbers, always editable:
     // weight = median of the variants' TRUSTED weights (suspect ones ignored);
     // rate = the contract tariff of the model's own invoice era
-    if (!mlW.value) {
-      const tw = (d.value.variants || []).filter((v) => !v.weight_suspect && v.weight > 0)
-        .map((v) => v.weight).sort((a, b) => a - b);
-      if (tw.length) mlW.value = +tw[Math.floor(tw.length / 2)].toFixed(2);
-    }
+    if (!mlW.value && famWeightInfo.value.w > 0) mlW.value = famWeightInfo.value.w;
     const lastDt = (d.value.evidence || []).map((e) => e.dt).sort().pop() || "";
     mlRate.value = lastDt >= "2026-04-23" ? 126 : lastDt >= "2025-07-25" ? 110 : 100;
     // prefill priority: the team's own SAVED draft > the engine suggestion
