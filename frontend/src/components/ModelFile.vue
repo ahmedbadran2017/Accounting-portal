@@ -6,6 +6,7 @@
     <template v-else-if="d">
       <!-- model header -->
       <div class="bg-white border border-line rounded-[14px] shadow-card px-5 py-4 flex items-center gap-4 flex-wrap">
+        <img v-if="d.model.image" :src="d.model.image" class="w-14 h-14 rounded-[10px] object-cover border border-line-hair flex-shrink-0" />
         <div class="min-w-0 flex-1">
           <div class="text-[15px] font-bold truncate">{{ modelName }}</div>
           <div class="text-[11px] text-ink-muted mt-0.5">
@@ -182,7 +183,12 @@
                   <input type="checkbox" :checked="!excluded.has(v.item_code) && !v.waiting.length" :disabled="v.fixed || v.batch_tracked || v.waiting.length > 0 || posting"
                          @change="toggleExclude(v.item_code)" />
                 </td>
-                <td class="px-4 py-1.5"><span class="font-semibold">{{ v.sku || v.item_code }}</span><span class="text-[10px] text-ink-muted"> · {{ v.item_name }}</span></td>
+                <td class="px-4 py-1.5">
+                  <span class="inline-flex items-center gap-2">
+                    <img v-if="v.image" :src="v.image" class="w-7 h-7 rounded-[6px] object-cover border border-line-hair flex-shrink-0" />
+                    <span class="min-w-0"><span class="font-semibold">{{ v.sku || v.item_code }}</span><span class="text-[10px] text-ink-muted"> · {{ v.item_name }}</span></span>
+                  </span>
+                </td>
                 <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(v.qty) }}</td>
                 <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(v.book_rate, 2) }}</td>
                 <td class="px-3 py-1.5 text-end tnum" :class="v.weight_suspect ? 'text-amber-600 font-bold' : 'text-ink-3'">{{ v.weight.toFixed(2) }}</td>

@@ -286,7 +286,7 @@ def model_detail(item_code=None):
     fixed = _fixed_map()
     meta = {m.name: m for m in frappe.db.sql(
         """SELECT name, item_name, custom_sku, IFNULL(has_batch_no,0)+IFNULL(has_serial_no,0) trk,
-                  IFNULL(weight_per_unit,0) w
+                  IFNULL(weight_per_unit,0) w, image
            FROM `tabItem` WHERE name IN %s""", (tuple(members),), as_dict=True)}
     # evidence: preview the member the SUGGESTED figure actually comes from
     # (deterministic pick) — never the arbitrary clicked seed, whose own
@@ -329,6 +329,7 @@ def model_detail(item_code=None):
             "weight": w,
             "weight_suspect": bool(w <= 0.2 or w == 0.5),
             "landed_unit": round(flt(live.get(m)), 2),
+            "image": meta[m].image if m in meta else None,
         })
     # the FAMILY's shipments — same picture the SKU page shows, one row per PR,
     # with which variants ride in it and the same channel/rate actions
@@ -367,8 +368,9 @@ def model_detail(item_code=None):
                 break
         except Exception:
             pass
+    model_image = next((v["image"] for v in variants if v.get("image")), None)
     return {
-        "model": {"seed": item_code, "n_members": len(members),
+        "model": {"seed": item_code, "image": model_image, "n_members": len(members),
                   "n_stocked": len(variants),
                   "suggested": (t or {}).get("cost_mad"),
                   "saved_cost": saved_cost,
