@@ -33,7 +33,7 @@ ROLES = {          # ap_group_roles config overrides
 }
 _IC_KEYWORDS = ("morocco", "maslak", "china", "holding", "istanbul",
                 "intercompan", "internal invoic")
-_COGS_NAMES = ("71.801", "71.002.5", "71.999")
+_COGS_NAMES = ("71.801", "71.002.", "71.999")
 
 
 def _roles():

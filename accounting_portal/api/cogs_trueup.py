@@ -33,7 +33,7 @@ TRUEUP_ACTION = "Monthly COGS true-up"
 # mistyped internal-invoicing account that 33k 2026 DN rows ALSO cost into —
 # 1.9M MAD; leaving it out understated booked COGS and would have made the
 # true-up double-count that slice)
-COGS_LIKES = ("71.801%", "71.002.5%", "71.999%")
+COGS_LIKES = ("71.801%", "71.002.%", "71.999%")
 COGS_LIKE = "71.801%"          # the true-up JE still POSTS to 71.801 only
 BUCKET_LIKE = "71.004%"        # the labeled correction bucket (Stock Adjustment)
 
