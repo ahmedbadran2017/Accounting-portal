@@ -770,6 +770,21 @@ def _retro_anchor(target, item_code):
     if not first:
         return nowdate()
     anchor = max(first, _POLICY_FLOOR)
+    # the LM2C3110 case: first receipt was pre-2026 but the stock ran dry
+    # before the floor — anchoring at the floor finds nothing to fix. Fall
+    # FORWARD to the first incoming on/after the floor instead.
+    if anchor == _POLICY_FLOOR and first < _POLICY_FLOOR:
+        held = flt(frappe.db.sql(
+            """SELECT SUM(actual_qty) FROM `tabStock Ledger Entry`
+               WHERE company=%s AND item_code=%s AND is_cancelled=0
+                 AND posting_date < %s""", (target, item_code, _POLICY_FLOOR))[0][0])
+        if held <= 0.01:
+            nxt = frappe.db.sql(
+                """SELECT MIN(posting_date) FROM `tabStock Ledger Entry`
+                   WHERE company=%s AND item_code=%s AND is_cancelled=0
+                     AND actual_qty>0 AND posting_date >= %s""",
+                (target, item_code, _POLICY_FLOOR))
+            anchor = str(nxt[0][0]) if nxt and nxt[0][0] else nowdate()
     return anchor if anchor < nowdate() else nowdate()
 
 
@@ -863,15 +878,21 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
             rows.append({"item_code": item_code, "warehouse": wh, "rate": anchor_rate})
             impact += abs((anchor_rate - vr_then) * q_then)
         if not rows:
-            frappe.throw(f"No warehouse held this item on {date} — nothing to fix retroactively")
-        retro_pins = _pins_from_sched(target, item_code, date, r, sched)
+            # nothing held stock on the anchor day — degrade gracefully to the
+            # today-dated fix instead of failing the whole submit
+            retro = False
+            sched = []
+            date = nowdate()
+            anchor_rate = r
+        retro_pins = _pins_from_sched(target, item_code, date, r, sched) if retro else []
         # pin warehouses that are reserved TODAY need the same release/re-reserve
         # cycle, or the pin reco trips ERPNext's reservation validation
         for pin in retro_pins:
             for wh in pin["whs"]:
                 if flt(reserved.get(wh)) and wh not in release_whs:
                     release_whs.append(wh)
-    else:
+    if not retro:
+        rows, release_whs = [], []
         for b in _fix_bins(target, item_code):
             if abs(r - flt(b.vr)) < 0.01:
                 continue
