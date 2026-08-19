@@ -348,10 +348,30 @@ def model_detail(item_code=None):
             "members": mems,
         })
     receipts.sort(key=lambda x: x["dt"], reverse=True)
+    # the family's SAVED draft cost (①'s Save) — sheet figure or the orphan slot
+    from accounting_portal.api.shipment_costing import _sheets_bulk
+    saved_cost = None
+    sheets_all = _sheets_bulk()
+    for mm in sorted(smap):
+        for sh in sheets_all.values():
+            v = flt(((sh or {}).get("costs") or {}).get(mm))
+            if v > 0:
+                saved_cost = v
+                break
+        if saved_cost:
+            break
+        try:
+            d0 = frappe.parse_json(frappe.db.get_default(f"ap_itemcost_{mm}") or "{}") or {}
+            if flt(d0.get("cost")) > 0:
+                saved_cost = flt(d0["cost"])
+                break
+        except Exception:
+            pass
     return {
         "model": {"seed": item_code, "n_members": len(members),
                   "n_stocked": len(variants),
                   "suggested": (t or {}).get("cost_mad"),
+                  "saved_cost": saved_cost,
                   "source": (t or {}).get("source"),
                   "basis_qty": (t or {}).get("basis_qty")},
         "evidence": ev, "variants": variants,
@@ -452,6 +472,36 @@ def set_family_weight(item_code=None, weight=None, only_suspect=1):
 
 
 # ── write side ──────────────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def save_model_cost(item_code=None, rate=None, note=None):
+    """①'s Save at model level: store the verified product cost as a DRAFT on
+    every stocked, unfixed variant (sheets / orphan slots via the same
+    save_item_cost the SKU page uses) — no posting, no GL."""
+    assert_can_write()
+    v = flt(rate)
+    if v <= 0:
+        frappe.throw("A positive cost is required")
+    from accounting_portal.api.shipment_costing import save_item_cost, _fixed_map
+    members = _resolve_family(item_code)
+    stocked = frappe.db.sql(
+        """SELECT DISTINCT b.item_code FROM `tabBin` b
+           JOIN `tabWarehouse` w ON w.name=b.warehouse
+           WHERE w.company=%s AND b.actual_qty>0 AND b.item_code IN %s""",
+        (SALES, tuple(members)), pluck=True)
+    fixed = _fixed_map()
+    saved, skipped = [], []
+    for m in sorted(stocked):
+        if m in fixed:
+            skipped.append(m)
+            continue
+        try:
+            save_item_cost(item_code=m, cost=v, note=note)
+            saved.append(m)
+        except Exception as e:
+            skipped.append(f"{m}: {str(e)[:60]}")
+    return {"saved": saved, "skipped": skipped, "cost": round(v, 2)}
+
 
 @frappe.whitelist()
 def apply_model(item_code=None, rate=None, note=None, retro=1, exclude=None, limit=15):

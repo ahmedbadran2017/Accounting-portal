@@ -51,6 +51,10 @@
             <input v-model="note" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيرتوا الرقم)','Note')"
                    class="h-[30px] flex-1 min-w-[220px] text-[12px] px-2.5 rounded-[8px] border"
                    :class="noteNeeded ? 'border-amber-400' : 'border-line'" />
+            <span v-if="savedCost && rate === savedCost" class="text-[10.5px] font-bold text-emerald-700">✓ {{ L("saved","محفوظ","enregistré") }}</span>
+            <span v-else-if="savedCost && rate !== savedCost" class="text-[10.5px] font-bold text-amber-600" :title="L('differs from the saved draft','مختلف عن المحفوظ','différent')">✎ {{ savedCost }}</span>
+            <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[9px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                    :disabled="!(rate >= 0.5) || savingCost || posting" @click="saveCost">{{ savingCost ? "…" : L("Save","حفظ","OK") }}</button>
           </div>
         </div>
       </div>
@@ -106,8 +110,14 @@
         </div>
       </div>
 
-      <!-- ⚖️ family weight — one measured weight fills every suspect variant -->
-      <div v-if="canWrite && suspectWeights.length" class="rounded-[12px] border px-4 py-2.5 flex items-center gap-2 flex-wrap" style="background:#fffbeb;border-color:#fde68a">
+      <!-- 🏠 local product — no freight layer by nature -->
+      <div v-if="d.receipts && !d.receipts.length" class="rounded-[12px] border px-4 py-2.5 flex items-center gap-2" style="background:#fff7ed;border-color:#fed7aa">
+        <span class="text-[13px]">🏠</span>
+        <span class="text-[11.5px]" style="color:#c2410c">{{ L("Local / domestic product — no freight layer by nature: the supplier invoice IS the full cost. Weight is irrelevant here.","منتج محلي — مفيش طبقة شحن بطبيعته: فاتورة المورد هي التكلفة الكاملة، والوزن مش مطلوب هنا.","Produit local — pas de fret : la facture fournisseur est le coût complet.") }}</span>
+      </div>
+
+      <!-- ⚖️ family weight — only meaningful for IMPORTED models -->
+      <div v-if="canWrite && suspectWeights.length && d.receipts && d.receipts.length" class="rounded-[12px] border px-4 py-2.5 flex items-center gap-2 flex-wrap" style="background:#fffbeb;border-color:#fde68a">
         <span class="text-[11.5px] font-bold">⚖️ {{ L("Family weight","وزن العيلة","Poids famille") }}</span>
         <span class="text-[10.5px]" style="color:#b45309">{{ suspectWeights.length }} {{ L("variant(s) with suspect weight — freight shares are unfair until fixed","variant وزنهم مشكوك — نصيب الشحن مش عادل لحد ما يتظبطوا","poids suspects") }}</span>
         <div class="flex-1"></div>
@@ -298,12 +308,29 @@ async function applyFamilyWeight() {
   finally { fBusy.value = false; }
 }
 
+const savedCost = ref(null);
+const savingCost = ref(false);
+async function saveCost() {
+  if (!(rate.value >= 0.5)) return;
+  savingCost.value = true;
+  try {
+    const r = await api.call(`${M}.save_model_cost`, { item_code: props.seed, rate: rate.value, note: note.value || undefined });
+    savedCost.value = r.cost;
+    toast.success(L(`Saved on ${r.saved.length} variant(s)`, `اتحفظ على ${r.saved.length} variant`, `${r.saved.length} enregistrés`));
+  } catch (e) { toast.error(e.message || "Failed"); }
+  finally { savingCost.value = false; }
+}
 async function load() {
   loading.value = true;
   err.value = "";
   try {
     d.value = await api.call(`${M}.model_detail`, { item_code: props.seed }, { fresh: true });
-    if (d.value.model.suggested >= 0.5 && !rate.value) rate.value = d.value.model.suggested;
+    savedCost.value = d.value.model.saved_cost >= 0.5 ? d.value.model.saved_cost : null;
+    // prefill priority: the team's own SAVED draft > the engine suggestion
+    if (!rate.value) {
+      if (savedCost.value) rate.value = savedCost.value;
+      else if (d.value.model.suggested >= 0.5) rate.value = d.value.model.suggested;
+    }
   } catch (e) { err.value = e.message || "Failed"; }
   finally { loading.value = false; }
 }
