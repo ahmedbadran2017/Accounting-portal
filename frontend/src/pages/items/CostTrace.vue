@@ -99,6 +99,33 @@
         <ModelFile :key="modelSeed" :seed="modelSeed" @applied="onModelApplied" />
       </div>
 
+      <!-- 📅 the MONTH WORKBENCH — pick a month, close it, move on -->
+      <div v-if="!modelSeed" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3 space-y-2.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-[12.5px] font-bold">📅 {{ L("Working month","شهر الشغل","Mois de travail") }}</span>
+          <button v-for="mm in monthChips" :key="mm.v"
+                  class="h-[26px] px-2.5 rounded-[8px] text-[11px] font-bold border"
+                  :class="workMonth === mm.v ? 'text-white bg-brand border-brand' : 'text-ink-3 border-line hover:bg-app-warm'"
+                  @click="setWorkMonth(workMonth === mm.v ? '' : mm.v)">{{ mm.l }}</button>
+          <span class="text-[10.5px] text-ink-muted">{{ L("saved — stays selected until you close the month","محفوظ — بيفضل مختار لحد ما تقفل الشهر","enregistré") }}</span>
+        </div>
+        <div v-if="workMonth && msb" class="flex items-center gap-4 flex-wrap pt-2 border-t border-line-hair">
+          <span class="text-[11.5px]"><b class="tnum">{{ msb.n_models_fixed }}</b>/<b class="tnum">{{ msb.n_models }}</b> {{ L("models fixed","موديل متظبط","modèles corrigés") }} · <span class="tnum text-ink-muted">{{ msb.n_items }} {{ L("items","صنف","articles") }} / {{ fmtNum(msb.units) }} {{ L("units sold","وحدة مباعة","unités") }}</span></span>
+          <div class="h-[8px] rounded-full overflow-hidden flex-1 min-w-[120px] max-w-[220px]" style="background:#f5f5f4">
+            <div class="h-full rounded-full transition-all" style="background:#059669" :style="{ width: (msb.n_models_fixed / Math.max(msb.n_models, 1) * 100) + '%' }"></div>
+          </div>
+          <span v-if="msb.report" class="text-[11.5px] tnum" dir="ltr">
+            <span class="text-ink-muted">{{ L("booked","مسجل","comptab.") }}</span> {{ fmtNum(msb.report.booked) }}
+            → <span class="text-ink-muted">{{ L("true","حقيقي","vrai") }}</span> {{ fmtNum(msb.report.true) }}
+            · <b :style="{ color: Math.abs(msb.report.delta) < 5000 ? '#047857' : '#b45309' }">Δ {{ fmtNum(msb.report.delta) }}</b>
+          </span>
+          <span v-if="monthDone" class="text-[11.5px] font-bold text-emerald-700">✅ {{ L("Month looks done","الشهر شكله خلص","Mois terminé") }}</span>
+          <button v-if="nextMonth" class="h-[28px] px-3 rounded-[9px] text-[11.5px] font-bold border"
+                  :class="monthDone ? 'text-white bg-emerald-600 border-emerald-600 hover:bg-emerald-700' : 'text-ink-3 border-line hover:bg-app-warm'"
+                  @click="setWorkMonth(nextMonth)">{{ L("Next month","الشهر التالي","Mois suivant") }} ←</button>
+        </div>
+      </div>
+
       <!-- catalogue: models (default) ⇄ items -->
       <div v-if="!modelSeed" class="flex items-center gap-1.5">
         <button v-for="m in [['models', L('Models','موديلات','Modèles')], ['items', L('Items','أصناف','Articles')]]" :key="m[0]"
@@ -108,7 +135,7 @@
         <span class="text-[10.5px] text-ink-muted">{{ L("models group every variant family — one review, one Submit","الموديلات بتجمع عيلة الـvariants — تحقق واحد واعتماد واحد","un modèle = toute la famille") }}</span>
       </div>
 
-      <ModelCatalogue v-show="!modelSeed && catMode === 'models'" ref="modelCat" @open="openModel" />
+      <ModelCatalogue v-show="!modelSeed && catMode === 'models'" ref="modelCat" :month="workMonth" @open="openModel" />
 
       <div v-if="!modelSeed && catMode === 'items'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
@@ -834,6 +861,39 @@ async function applyFix() {
   finally { fixing.value = false; }
 }
 
+// ── 📅 month workbench: persisted working month + live scoreboard ──
+const workMonth = ref(localStorage.getItem("ap_work_month") || "");
+const msb = ref(null);
+const monthChips = computed(() => {
+  const out = [{ v: "", l: L("All", "الكل", "Tout") }];
+  const now = new Date();
+  const names = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  for (let m = 1; m <= (now.getFullYear() === 2026 ? now.getMonth() + 1 : 12); m++) {
+    const v = `2026-${String(m).padStart(2, "0")}`;
+    out.push({ v, l: locale.value === "ar" ? names[m - 1] : v });
+  }
+  return out;
+});
+const nextMonth = computed(() => {
+  if (!workMonth.value) return "";
+  const idx = monthChips.value.findIndex((c) => c.v === workMonth.value);
+  return monthChips.value[idx + 1]?.v || "";
+});
+const monthDone = computed(() =>
+  msb.value && msb.value.n_models > 0 && msb.value.n_models_fixed >= msb.value.n_models);
+function setWorkMonth(v) {
+  workMonth.value = v;
+  localStorage.setItem("ap_work_month", v);
+  msb.value = null;
+  if (v) loadScoreboard();
+}
+async function loadScoreboard() {
+  if (!workMonth.value) return;
+  try { msb.value = await api.call("accounting_portal.api.model_costing.month_scoreboard", { month: workMonth.value }, { fresh: true }); }
+  catch { msb.value = null; }
+}
+if (workMonth.value) loadScoreboard();
+
 // ── Models view (default): one row per variant family ──
 const catMode = ref("models");
 const modelSeed = ref("");
@@ -844,6 +904,7 @@ function onModelApplied() {
   ct.load();
   loadTower();
   modelCat.value?.load();
+  loadScoreboard();
   api.call(`${M}.cost_overview`, {}, { fresh: true }).then((r) => { ov.value = r; }).catch(() => {});
 }
 

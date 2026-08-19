@@ -23,7 +23,7 @@
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Model","الموديل","Modèle") }}</th>
           <th class="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Variants","الأصناف","Var.") }}</th>
           <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Stock","المخزون","Stock") }}</th>
-          <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Value","القيمة","Valeur") }}</th>
+          <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ month ? L("Month impact","أثر الشهر","Impact mois") : L("Value","القيمة","Valeur") }}</th>
           <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book range","مدى الدفاتر","Livre") }}</th>
           <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("True","الحقيقي","Vrai") }}</th>
           <th class="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-ink-muted">✓</th>
@@ -33,7 +33,7 @@
             <td class="px-4 py-2.5"><span class="font-semibold truncate block max-w-[280px]">{{ r.name }}</span><span class="text-[10px] text-ink-muted font-mono">{{ r.base }}</span></td>
             <td class="px-3 py-2.5 text-center"><span class="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-2">×{{ r.n_variants }}</span></td>
             <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ fmt(r.qty) }}</td>
-            <td class="px-3 py-2.5 text-end tnum">{{ fmt(r.value) }}</td>
+            <td class="px-3 py-2.5 text-end tnum" :class="month && r.month_impact ? 'font-bold text-amber-700' : ''">{{ month ? fmt(r.month_impact) : fmt(r.value) }}</td>
             <td class="px-3 py-2.5 text-end tnum text-ink-3" dir="ltr">{{ r.book_min === r.book_max ? fmt2(r.book_min) : fmt2(r.book_min) + "–" + fmt2(r.book_max) }}</td>
             <td class="px-3 py-2.5 text-end tnum font-semibold" :class="r.true_cost != null ? 'text-emerald-700' : 'text-amber-600'">{{ r.true_cost != null ? fmt2(r.true_cost) : "—" }}</td>
             <td class="px-4 py-2.5 text-center">
@@ -55,10 +55,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 
+const props = defineProps({ month: { type: String, default: "" } });
 defineEmits(["open"]);
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -87,11 +88,12 @@ async function load() {
   try {
     data.value = await api.call(`${M}.model_catalogue`, {
       search: search.value || undefined, fix_status: stFilter.value || undefined,
-      start: start.value, page_size: pageSize,
+      start: start.value, page_size: pageSize, month: props.month || undefined,
     }, { fresh: true });
   } catch (e) { err.value = e.message || "Failed"; }
   finally { loading.value = false; }
 }
 load();
+watch(() => props.month, () => { start.value = 0; load(); });
 defineExpose({ load });
 </script>

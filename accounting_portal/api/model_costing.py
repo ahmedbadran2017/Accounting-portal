@@ -146,10 +146,29 @@ def _resolve_family(item_code):
 
 # ── read side ───────────────────────────────────────────────────────────────
 
+def _month_sales(month):
+    """{item: {"qty", "booked"}} — Delivery-Note outflows of one sales month.
+    `month` = "2026-01". Reads LIVE SLE (repost-corrected)."""
+    try:
+        y, m = str(month).split("-")
+        y, m = int(y), int(m)
+    except Exception:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT item_code, SUM(-actual_qty) q, SUM(-stock_value_difference) v
+           FROM `tabStock Ledger Entry`
+           WHERE company=%s AND is_cancelled=0 AND voucher_type='Delivery Note'
+             AND actual_qty < 0 AND YEAR(posting_date)=%s AND MONTH(posting_date)=%s
+           GROUP BY item_code""", (SALES, y, m), as_dict=True)
+    return {r.item_code: {"qty": flt(r.q), "booked": flt(r.v)} for r in rows}
+
+
 @frappe.whitelist()
-def model_catalogue(search=None, fix_status=None, start=0, page_size=50):
+def model_catalogue(search=None, fix_status=None, start=0, page_size=50, month=None):
     """The catalogue grouped by MODEL: one row per family with pooled cost
-    evidence, aggregate stock and the fix progress (✓ n/N)."""
+    evidence, aggregate stock and the fix progress (✓ n/N). With `month`
+    ("2026-01"): only models SOLD in that month, ranked by that month's
+    estimated report impact — the month-workbench lens."""
     assert_portal_access()
     from accounting_portal.api.cost_trace import _true_cost_bulk, _fx_series
     from accounting_portal.api.shipment_costing import _fixed_map
@@ -161,10 +180,11 @@ def model_catalogue(search=None, fix_status=None, start=0, page_size=50):
     qty = {s.item_code: flt(s.q) for s in stocked}
     val = {s.item_code: flt(s.sv) for s in stocked}
     codes = list(qty)
-    ck = "ap_model_catalogue"
+    ck = f"ap_model_catalogue:{month or 'all'}"
     cached = frappe.cache().get_value(ck)
     if cached is not None:
         return _slice_catalogue(cached, search, fix_status, start, page_size)
+    msales = _month_sales(month) if month else {}
     tc = _true_cost_bulk(codes, _fx_series())
     fixed = _fixed_map()
     rows = []
@@ -176,6 +196,15 @@ def model_catalogue(search=None, fix_status=None, start=0, page_size=50):
         mq = sum(qty.get(m, 0) for m in mem)
         mv = sum(val.get(m, 0) for m in mem)
         book_rates = [round(val[m] / qty[m], 2) for m in mem if qty.get(m)]
+        month_qty = month_booked = 0.0
+        if month:
+            for m2 in mem:
+                ms = msales.get(m2)
+                if ms:
+                    month_qty += ms["qty"]
+                    month_booked += ms["booked"]
+            if month_qty <= 0:
+                continue   # month lens: only models that hit this month's report
         rows.append({
             "key": g["key"], "name": g["name"], "base": g["base"],
             "n_variants": len(mem), "qty": round(mq), "value": round(mv),
@@ -186,9 +215,18 @@ def model_catalogue(search=None, fix_status=None, start=0, page_size=50):
             "status": ("fixed" if n_fixed >= len(mem) else
                        "partial" if n_fixed else
                        "ready" if t else "unpriced"),
+            "month_qty": round(month_qty),
+            "month_booked": round(month_booked),
+            # estimated correction on THIS month's report: sold units × the gap
+            # between the suggested true product cost and the avg booked rate
+            "month_impact": round(abs(month_qty * flt((t or {}).get("cost_mad") or 0)
+                                      - month_booked)) if (month and t) else 0,
         })
     sev = {"ready": 0, "partial": 1, "unpriced": 2, "fixed": 3}
-    rows.sort(key=lambda r: (sev[r["status"]], -r["value"]))
+    if month:
+        rows.sort(key=lambda r: (sev[r["status"]], -r["month_impact"], -r["month_booked"]))
+    else:
+        rows.sort(key=lambda r: (sev[r["status"]], -r["value"]))
     try:
         frappe.cache().set_value(ck, rows, expires_in_sec=300)
     except Exception:
@@ -279,6 +317,44 @@ def model_detail(item_code=None):
     }
 
 
+@frappe.whitelist()
+def month_scoreboard(month=None):
+    """The month workbench header: how many models hit this month's report,
+    how many are fully fixed, and the LIVE booked-vs-true COGS line (the
+    booked side is re-read from GL, so every retro apply moves it)."""
+    assert_portal_access()
+    if not month:
+        frappe.throw("month required (YYYY-MM)")
+    from accounting_portal.api.cost_trace import _true_cost_bulk, _fx_series
+    from accounting_portal.api.shipment_costing import _fixed_map
+    msales = _month_sales(month)
+    out = {"month": month, "n_items": len(msales), "n_models": 0, "n_models_fixed": 0,
+           "booked": round(sum(v["booked"] for v in msales.values())),
+           "units": round(sum(v["qty"] for v in msales.values()))}
+    if msales:
+        fixed = _fixed_map()
+        for g in _model_groups(list(msales)):
+            mem = g["members"]
+            out["n_models"] += 1
+            if all(m in fixed or m not in msales for m in mem):
+                # every member that touched this month is fixed
+                if any(m in fixed for m in mem):
+                    out["n_models_fixed"] += 1
+    # the report line: booked (live GL) vs true (engine) for the month
+    try:
+        from accounting_portal.api.cogs_trueup import monthly_review
+        y = int(str(month)[:4])
+        for r in (monthly_review(year=y) or {}).get("rows", []):
+            if r["month"] == month:
+                out["report"] = {"booked": r["booked"], "true": r["true"],
+                                 "delta": r["delta"], "coverage_pct": r["coverage_pct"],
+                                 "posted": bool(r.get("posted"))}
+                break
+    except Exception:
+        pass
+    return out
+
+
 # ── write side ──────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
@@ -347,7 +423,10 @@ def apply_model(item_code=None, rate=None, note=None, retro=1, exclude=None, lim
             skipped.append({"item_code": m, "reason": str(e)[:140]})
             continue
     try:
-        frappe.cache().delete_value("ap_model_catalogue")   # the ✓ n/N moved
+        frappe.cache().delete_value("ap_model_catalogue:all")   # the ✓ n/N moved
+        today = frappe.utils.nowdate()
+        for mm in range(1, 13):
+            frappe.cache().delete_value(f"ap_model_catalogue:{today[:4]}-{mm:02d}")
     except Exception:
         pass
     return {"posted": done, "skipped": skipped, "proposed": proposed,
