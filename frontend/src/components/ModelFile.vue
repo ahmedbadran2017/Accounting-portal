@@ -368,6 +368,16 @@ async function load() {
   try {
     d.value = await api.call(`${M}.model_detail`, { item_code: props.seed }, { fresh: true });
     savedCost.value = d.value.model.saved_cost >= 0.5 ? d.value.model.saved_cost : null;
+    // manual-landed calculator prefills — REFERENCE numbers, always editable:
+    // weight = median of the variants' TRUSTED weights (suspect ones ignored);
+    // rate = the contract tariff of the model's own invoice era
+    if (!mlW.value) {
+      const tw = (d.value.variants || []).filter((v) => !v.weight_suspect && v.weight > 0)
+        .map((v) => v.weight).sort((a, b) => a - b);
+      if (tw.length) mlW.value = +tw[Math.floor(tw.length / 2)].toFixed(2);
+    }
+    const lastDt = (d.value.evidence || []).map((e) => e.dt).sort().pop() || "";
+    mlRate.value = lastDt >= "2026-04-23" ? 126 : lastDt >= "2025-07-25" ? 110 : 100;
     // prefill priority: the team's own SAVED draft > the engine suggestion
     if (!rate.value) {
       if (savedCost.value) rate.value = savedCost.value;
