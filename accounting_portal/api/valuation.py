@@ -870,6 +870,13 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
             sched = []
     if sched:
         date = max(sched[0]["date"], _POLICY_FLOOR)
+        # the schedule's first era usually starts AT the policy floor, which is
+        # not necessarily a day this item held stock — and an anchor day with no
+        # holdings silently degrades the whole retro to a today-dated fix. The
+        # anchor is the authority on "earliest day we can actually reprice".
+        a = _retro_anchor(target, item_code)
+        if a > date:
+            date = a
         r = flt(sched[-1]["rate"])   # final-era average = the ONE-TRUTH applied rate
     else:
         date = _retro_anchor(target, item_code) if retro else nowdate()
