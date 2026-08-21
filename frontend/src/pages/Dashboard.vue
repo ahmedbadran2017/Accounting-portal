@@ -94,6 +94,33 @@
       </div>
     </div>
 
+    <!-- Sales, four ways: one number cannot answer every question, and the
+         gap between ordered and billed IS the return rate. -->
+    <div v-if="sh" class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
+        <span class="text-[13px] font-bold">{{ L("Sales — the four figures","المبيعات — الأربع أرقام","Ventes — les quatre chiffres") }}</span>
+        <span class="text-[10.5px] text-ink-muted">{{ sh.year }} · {{ fmt(sh.orders) }} {{ L("orders","طلب","commandes") }}</span>
+        <div class="flex-1"></div>
+        <span v-if="sh.conversion !== null" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
+              :style="sh.conversion >= 70 ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">
+          {{ sh.conversion }}% {{ L("of orders became invoices","من الطلبات بقت فواتير","des commandes facturées") }}
+        </span>
+      </div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-line-hair rtl:divide-x-reverse">
+        <div v-for="f in shFigs" :key="f.k" class="px-4 py-3.5">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ f.label }}</div>
+          <div class="text-[19px] font-extrabold tnum mt-1" :class="f.strong ? 'text-ink' : 'text-ink-3'" dir="ltr">{{ fmt(f.v) }}</div>
+          <div class="text-[10px] text-ink-muted mt-0.5">{{ f.hint }}</div>
+        </div>
+      </div>
+      <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted">
+        {{ L("Revenue is the P&L line (net of VAT); the VAT you charge belongs to the state, not to you.",
+             "الإيراد هو سطر قائمة الدخل (صافي الضريبة) — الضريبة اللي بتحصّلها فلوس الدولة مش فلوسك.",
+             "Le revenu est net de TVA ; la TVA collectée appartient à l'État.") }}
+        <span v-if="sh.vat" dir="ltr"> · VAT {{ fmt(sh.vat) }}</span>
+      </div>
+    </div>
+
     <!-- COD pipeline funnel -->
     <div v-if="cod.pipeline" class="grid grid-cols-2 lg:grid-cols-5 gap-3">
       <button v-for="b in funnel" :key="b.key" @click="goBucket(b.key)"
@@ -417,10 +444,12 @@ async function load() {
   // Fire both heavy aggregates concurrently (don't serialize 8s + 1s).
   const ccP = api.call("accounting_portal.api.dashboard.command_center", { company: currentCompany() }).catch(() => null);
   const snapP = api.call("accounting_portal.api.dashboard.entity_snapshot", { company: currentCompany() }).catch(() => null);
+  const shP = api.call("accounting_portal.api.dashboard.sales_headline", { company: currentCompany() }).catch(() => null);
   try {
     cockpit.value = await loadCockpit(currentRange.value); isLive.value = !!(cockpit.value && cockpit.value.company);
     cc.value = await ccP;
     entitySnap.value = await snapP;
+    sh.value = await shP;
   }
   finally { loaded.value = true; }
 }
@@ -456,6 +485,28 @@ const DATE_PRESETS = [
 ];
 const periodLabel = computed(() => { const r = currentRange.value; return r.from ? `${r.from} → ${r.to}` : ""; });
 const cod = computed(() => cockpit.value || {});
+const sh = ref(null);
+// four honest answers to "how much did we sell", labelled so nobody picks
+// the wrong one by accident
+const shFigs = computed(() => {
+  const d = sh.value;
+  if (!d) return [];
+  return [
+    { k: "ordered", v: d.ordered, strong: false,
+      label: L("Orders placed", "الطلبات", "Commandes"),
+      hint: L("demand — before returns", "الطلب — قبل المرتجعات", "demande") },
+    { k: "billed", v: d.billed, strong: true,
+      label: L("Billed to customers", "المفوتر للعملاء", "Facturé"),
+      hint: L("including VAT", "شامل الضريبة", "TVA incluse") },
+    { k: "revenue", v: d.revenue, strong: true,
+      label: L("Revenue (P&L)", "الإيراد (قائمة الدخل)", "Revenu (P&L)"),
+      hint: L("net of VAT", "صافي الضريبة", "hors TVA") },
+    { k: "collected", v: d.collected, strong: false,
+      label: L("Cash collected", "المحصّل نقدًا", "Encaissé"),
+      hint: L("received this year", "المستلم هذه السنة", "reçu cette année") },
+  ];
+});
+
 const fmt = (n) => Number(n || 0).toLocaleString("en-US");
 const money = (n) => fmtAmount(n);
 const MON = { "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun", "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec" };

@@ -521,3 +521,72 @@ def entity_snapshot(company=None):
            WHERE company=%s AND docstatus=1 AND outstanding_amount<>0""", (target,))[0][0] or 0)
     return {"company": target, "currency": ccy,
             "bills_ytd": bills.n or 0, "spend_ytd": flt(bills.spend), "open_payable": payable}
+
+
+@frappe.whitelist()
+def sales_headline(company=None, year=None):
+    """The four different "sales" figures side by side, because one number
+    cannot answer every question and picking the wrong one misleads:
+
+      ordered  — value of orders placed (demand; a COD order is not a sale yet)
+      billed   — invoiced to customers INCLUDING VAT (what they actually owe)
+      revenue  — the P&L line, net of VAT (what the business earns)
+      collected— cash received in the period
+
+    The gap between `ordered` and `billed` is the return/failure rate — the
+    number that actually steers a COD business.
+    """
+    assert_portal_access()
+    companies = _resolve_companies(company)
+    target = company if (company and company in companies) else (companies[0] if companies else None)
+    if not target:
+        return {}
+    yr = str(year or nowdate()[:4])
+    ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
+
+    def gl(where, args, sign=1):
+        v = frappe.db.sql(
+            f"""SELECT SUM(credit)-SUM(debit) FROM `tabGL Entry`
+                WHERE company=%s AND is_cancelled=0 AND fiscal_year=%s {where}""",
+            (target, yr, *args))[0][0]
+        return flt(v) * sign
+
+    revenue = gl("AND account LIKE '600.%%'", ())
+    # VAT charged on sales only — settlements and journals must not inflate it
+    vat = gl("""AND account LIKE '391.%%'
+                AND voucher_type IN ('Sales Invoice','Delivery Note','POS Invoice')""", ())
+    ordered = flt(frappe.db.sql(
+        """SELECT SUM(grand_total) FROM `tabSales Order`
+           WHERE company=%s AND docstatus=1 AND YEAR(transaction_date)=%s""", (target, yr))[0][0])
+    orders = frappe.db.sql(
+        """SELECT COUNT(*) FROM `tabSales Order`
+           WHERE company=%s AND docstatus=1 AND YEAR(transaction_date)=%s""", (target, yr))[0][0]
+    collected = flt(frappe.db.sql(
+        """SELECT SUM(base_paid_amount) FROM `tabPayment Entry`
+           WHERE company=%s AND docstatus=1 AND payment_type='Receive'
+             AND YEAR(posting_date)=%s""", (target, yr))[0][0])
+
+    months = []
+    for m in range(1, 13):
+        r = gl("AND MONTH(posting_date)=%s AND account LIKE '600.%%'", (m,))
+        v = gl("""AND MONTH(posting_date)=%s AND account LIKE '391.%%'
+                  AND voucher_type IN ('Sales Invoice','Delivery Note','POS Invoice')""", (m,))
+        o = flt(frappe.db.sql(
+            """SELECT SUM(grand_total) FROM `tabSales Order`
+               WHERE company=%s AND docstatus=1 AND YEAR(transaction_date)=%s
+                 AND MONTH(transaction_date)=%s""", (target, yr, m))[0][0])
+        if not (r or v or o):
+            continue
+        months.append({"month": m, "ordered": round(o), "billed": round(r + v),
+                       "revenue": round(r), "vat": round(v)})
+
+    billed = revenue + vat
+    return {
+        "company": target, "currency": ccy, "year": yr,
+        "orders": int(orders or 0),
+        "ordered": round(ordered), "billed": round(billed),
+        "revenue": round(revenue), "vat": round(vat), "collected": round(collected),
+        # how much of what customers asked for actually became an invoice
+        "conversion": round(100.0 * billed / ordered, 1) if ordered else None,
+        "months": months,
+    }
