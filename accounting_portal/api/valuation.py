@@ -784,22 +784,31 @@ def _retro_anchor(target, item_code):
         first = str(r[0][0]) if r and r[0][0] else None
     if not first:
         return nowdate()
+    today = nowdate()
     anchor = max(first, _POLICY_FLOOR)
-    # the LM2C3110 case: first receipt was pre-2026 but the stock ran dry
-    # before the floor — anchoring at the floor finds nothing to fix. Fall
-    # FORWARD to the first incoming on/after the floor instead.
-    if anchor == _POLICY_FLOOR and first < _POLICY_FLOOR:
-        # SUM(actual_qty) lies here: a zeroing Stock Reconciliation carries
-        # actual_qty=0 while resetting the balance — so ask the ledger which
-        # warehouses actually HELD stock at the floor instead
-        if not _holding_whs(target, item_code, _POLICY_FLOOR):
-            nxt = frappe.db.sql(
-                """SELECT MIN(posting_date) FROM `tabStock Ledger Entry`
-                   WHERE company=%s AND item_code=%s AND is_cancelled=0
-                     AND actual_qty>0 AND posting_date >= %s""",
-                (target, item_code, _POLICY_FLOOR))
-            anchor = str(nxt[0][0]) if nxt and nxt[0][0] else nowdate()
-    return anchor if anchor < nowdate() else nowdate()
+    if anchor >= today:
+        return today
+    # An anchor day that CLOSES at zero carries nothing to reprice — the
+    # reconciliation needs a positive quantity to set a rate on — so the whole
+    # retro would silently degrade to a today-dated fix. Two routine cases land
+    # on such a day: same-day receive-and-ship (the norm for fast movers) and
+    # stock that ran dry before the floor. Walk forward to the first day the
+    # item is actually held at close of business.
+    if not _holding_whs(target, item_code, anchor):
+        dates = frappe.db.sql(
+            """SELECT DISTINCT posting_date FROM `tabStock Ledger Entry`
+               WHERE company=%s AND item_code=%s AND is_cancelled=0
+                 AND posting_date > %s AND posting_date < %s
+               ORDER BY posting_date LIMIT 400""",
+            (target, item_code, anchor, today))
+        anchor = None
+        for d in dates:
+            if _holding_whs(target, item_code, str(d[0])):
+                anchor = str(d[0])
+                break
+        if not anchor:
+            return today
+    return anchor if anchor < today else today
 
 
 @frappe.whitelist()
