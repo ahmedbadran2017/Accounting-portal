@@ -26,11 +26,14 @@ def _enabled():
 
 
 def _patterns():
+    # "770.0.7" is the malformed twin of 770.07 (a real account carrying 288K of
+    # sea freight) — it does NOT match the 770.07 prefix, so name it explicitly
+    default = ["770.07", "770.0.7"]
     try:
         p = frappe.parse_json(frappe.db.get_default("ap_freight_redirect") or "[]") or []
-        return [str(x) for x in p] or ["770.07"]
+        return [str(x) for x in p] or default
     except Exception:
-        return ["770.07"]
+        return default
 
 
 def validate_landed_account(doc, method=None):
@@ -38,13 +41,18 @@ def validate_landed_account(doc, method=None):
     if not _enabled() or doc.company != SALES:
         return
     pats = tuple(_patterns())
-    bad = [d for d in (doc.items or [])
+    # freight arrives BOTH ways: as an item line (expense_account) and as a
+    # charge row (account_head) — guarding only the items let charge-row
+    # freight through untouched
+    bad = [(d.expense_account or "") for d in (doc.items or [])
            if (d.expense_account or "").startswith(pats)]
+    bad += [(t.account_head or "") for t in (doc.taxes or [])
+            if (t.account_head or "").startswith(pats)]
     if not bad:
         return
     clearing = frappe.db.get_value("Company", SALES, "expenses_included_in_valuation") \
         or "153.03 - Expenses Included In Valuation"
-    accs = ", ".join(sorted({d.expense_account for d in bad})[:3])
+    accs = ", ".join(sorted(set(bad))[:3])
     frappe.throw(
         f"New freight/import bills must NOT hit the P&L family ({accs}). "
         f"Book them to <b>{clearing}</b> — in the portal's New-expense screen tick "
