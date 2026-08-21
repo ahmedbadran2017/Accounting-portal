@@ -246,6 +246,9 @@
           </button>
         </template>
       </div>
+
+      <!-- ⑤ activity: who touched this model's variants -->
+      <ItemActivity ref="activityRef" :items="memberCodes" />
     </template>
   </div>
 </template>
@@ -256,6 +259,7 @@ import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
 import { useAuth } from "@/composables/useAuth";
+import ItemActivity from "@/components/ItemActivity.vue";
 
 const props = defineProps({ seed: { type: String, required: true } });
 const emit = defineEmits(["applied", "open-item"]);
@@ -280,6 +284,10 @@ const draining = ref(false);
 const posted = ref(0);
 const failed = ref(0);
 const progress = ref(0);
+
+const activityRef = ref(null);
+// every variant of the model, so the log covers the whole family
+const memberCodes = computed(() => (d.value?.variants || []).map((v) => v.item_code));
 
 const modelName = computed(() => {
   const n = d.value?.variants?.[0]?.item_name || props.seed;
@@ -448,6 +456,7 @@ async function runSubmit() {
     posting.value = false;
     finished.value = true;
     emit("applied");
+    activityRef.value?.reload();   // the log should show the apply that just ran
     await load();
     if (posted.value) {
       draining.value = true;

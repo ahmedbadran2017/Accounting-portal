@@ -561,6 +561,9 @@
         </div>
         <div v-if="!trace.ladder.length" class="py-10 text-center text-[12px] text-ink-muted">{{ L("No purchase documents found for this product.","لا مستندات شراء لهذا المنتج.","Aucun document d'achat.") }}</div>
       </div>
+
+      <!-- who touched this SKU's cost -->
+      <ItemActivity ref="skuActivityRef" :item-code="trace.item_code" />
     </div>
 
     <div v-else-if="!loading && !err" class="py-16 text-center text-[12px] text-ink-muted">
@@ -661,6 +664,7 @@ import ModelFile from "@/components/ModelFile.vue";
 import LandedBasisCard from "@/components/LandedBasisCard.vue";
 import ShipmentCostSheet from "@/components/ShipmentCostSheet.vue";
 import FreightChip from "@/components/FreightChip.vue";
+import ItemActivity from "@/components/ItemActivity.vue";
 import { useServerTable } from "@/composables/useServerTable";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -747,6 +751,7 @@ async function saveWeight() {
 }
 
 const itemLanded = ref(null);
+const skuActivityRef = ref(null);
 async function loadItemLanded(itemCode) {
   try { itemLanded.value = await api.call(`${SCM}.item_landed_detail`, { item_code: itemCode }, { fresh: true }); }
   catch (e) { itemLanded.value = null; }
@@ -803,6 +808,7 @@ async function saveItemCost() {
       toast.success(L("Saved — reflected in the shipment sheets too", "اتحفظ — وبيظهر في مسودات الشحنات كمان", "Enregistré"));
     }
     await loadItemLanded(trace.value.item_code);
+    skuActivityRef.value?.reload();
   } catch (e) { toast.error(e.message || "Failed"); }
   finally { fixing.value = false; }
 }
@@ -851,6 +857,7 @@ async function applyFix() {
       : L("Cost fixed — one today-dated entry posted", "اتظبطت — قيد واحد بتاريخ اليوم", "Corrigé"));
     else toast.info(res.status);
     fixPrev.value = await api.call(`${V}.item_fix_preview`, { company: currentCompany(), item_code: trace.value.item_code }, { fresh: true });
+    skuActivityRef.value?.reload();
     ct.load();
     loadTower();
     api.call(`${M}.cost_overview`, {}, { fresh: true }).then((r) => { ov.value = r; }).catch(() => {});
