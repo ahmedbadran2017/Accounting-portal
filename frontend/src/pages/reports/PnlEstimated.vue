@@ -12,6 +12,12 @@
       </div>
     </div>
 
+    <div class="flex items-center gap-1 bg-white border border-line rounded-chip p-1 w-fit">
+      <button v-for="o in scopes" :key="o.k" class="px-3 py-1.5 rounded-lg text-[12px] whitespace-nowrap"
+              :class="scope === o.k ? 'text-accent-dark font-semibold bg-app-warm shadow-card' : 'text-ink-3 font-medium hover:text-ink'"
+              @click="setScope(o.k)">{{ o.label }}</button>
+    </div>
+
     <div v-if="loading" class="py-16 text-center text-[12px] text-ink-muted">{{ L("Loading…","جاري التحميل…","Chargement…") }}</div>
     <div v-else-if="err" class="py-16 text-center text-[12px]" style="color:#b91c1c">{{ err }}</div>
 
@@ -170,6 +176,11 @@ const A = "accounting_portal.api.pnl_estimated";
 const loading = ref(true);
 const err = ref("");
 const d = ref(null);
+const scope = ref("company");
+const scopes = computed(() => [
+  { k: "company", label: L("Morocco only", "المغرب فقط", "Maroc seul") },
+  { k: "group", label: L("Group · USD", "المجموعة · دولار", "Groupe · USD") },
+]);
 
 const fmt = (n) => (n === null || n === undefined ? "—"
   : new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n));
@@ -217,6 +228,11 @@ const rows = computed(() => {
     { k: "opex", label: L("Operating expenses", "المصاريف التشغيلية", "Charges d'exploitation"),
       vals: x.opex.map((v) => -v), total: -sum(x.opex) },
   ];
+  (x.siblings || []).forEach((s2, j) => out.push({
+    k: "sib" + j, label: "  " + L("opex carried by", "مصاريف تتحملها", "charges portées par") + " " + s2.company,
+    vals: s2.monthly.map((v) => -v), total: -s2.total,
+    note: L("other entity", "كيان آخر", "autre entité"),
+  }));
   (x.accruals || []).forEach((a, j) => out.push({
     k: "acc" + j, label: "  " + L("accrued", "استحقاق", "provision") + " · " + a.label,
     vals: a.monthly.map((v) => -v), total: -a.total, note: L("not billed", "غير مفوترة", "non facturé"),
@@ -226,13 +242,21 @@ const rows = computed(() => {
   return out.map((r) => ({ ...r, vals: r.vals.slice(0, n) }));
 });
 
-onMounted(async () => {
+async function load() {
+  loading.value = true;
+  err.value = "";
   try {
-    d.value = await api.call(A + ".pnl_estimated", {});
+    d.value = await api.call(A + ".pnl_estimated", { scope: scope.value });
   } catch (e) {
     err.value = (e && e.message) || "Failed to load";
   } finally {
     loading.value = false;
   }
-});
+}
+function setScope(k) {
+  if (scope.value === k) return;
+  scope.value = k;
+  load();
+}
+onMounted(load);
 </script>

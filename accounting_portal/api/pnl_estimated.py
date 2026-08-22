@@ -227,15 +227,65 @@ def _is_product_cost(name, at):
     return str(name).startswith("71.") or at in ("Cost of Goods Sold", "Stock Adjustment")
 
 
+def _usd_at(ccy, month):
+    """USD per unit of a local currency, at mid-month. 1.0 for USD books."""
+    if ccy == "USD":
+        return 1.0
+    r = frappe.db.sql(
+        """SELECT exchange_rate FROM `tabCurrency Exchange`
+           WHERE from_currency='USD' AND to_currency=%s AND date<=%s
+           ORDER BY date DESC LIMIT 1""", (ccy, month + "-15"))
+    v = flt(r[0][0]) if r else 0.0
+    return (1.0 / v) if v else 0.0
+
+
+def _sibling_opex(company, months, exclude):
+    """Operating cost the group carries in the other entities, converted to USD.
+
+    Morocco is the only company that sells to a customer, so reading its P&L alone
+    hides everything the group spends elsewhere on the same trade — most of the
+    Turkish payroll, a big slice of the ad spend, the Istanbul office. Product cost
+    is deliberately NOT taken from here: the model already values goods at what
+    Maslak paid a third party, so adding Maslak's own cost of sales would count the
+    same goods twice, and its sales to Morocco are internal and never revenue.
+    """
+    out = []
+    n = len(months)
+    for co in frappe.get_all("Company", pluck="name"):
+        if co == exclude:
+            continue
+        ccy = frappe.db.get_value("Company", co, "default_currency") or "USD"
+        row = [0.0] * n
+        for i, m in enumerate(months):
+            v = flt(frappe.db.sql(
+                """SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g
+                   JOIN `tabAccount` a ON a.name=g.account
+                   WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type='Expense'
+                     AND a.name NOT LIKE '71.%%'
+                     AND NOT (a.name LIKE '770.07%%' AND a.name NOT LIKE '770.07.004%%')
+                     AND DATE_FORMAT(g.posting_date,'%%Y-%%m')=%s""", (co, m))[0][0])
+            row[i] = v * _usd_at(ccy, m)
+        if any(abs(x) > 1 for x in row):
+            out.append({"company": co, "currency": ccy,
+                        "monthly": [round(x) for x in row], "total": round(sum(row))})
+    return out
+
+
 @frappe.whitelist()
-def pnl_estimated(company=None, year=None):
-    """Monthly P&L with a modelled cost of goods. Read-only; posts nothing."""
+def pnl_estimated(company=None, year=None, scope=None):
+    """Monthly P&L with a modelled cost of goods. Read-only; posts nothing.
+
+    scope="group" adds the operating cost the other entities carry and restates
+    everything in USD, which is the only level the result means anything at:
+    Morocco sells, Maslak sources and pays a large share of the overhead.
+    """
     assert_portal_access()
     target = _target(company)
     if not target:
         return {}
+    group = str(scope or "") == "group"
     y = int(year or nowdate()[:4])
-    ck = f"ap_pnlest:{target}:{y}"
+    ck = f"ap_pnlest:{target}:{y}:{scope or ''}"
     hit = frappe.cache().get_value(ck)
     if hit is not None:
         return hit
@@ -328,10 +378,37 @@ def pnl_estimated(company=None, year=None):
         a["monthly"] = [round(x) for x in a["monthly"]]
         a["total"] = round(a["total"])
 
+    siblings, fxr = [], [1.0] * n
+    if group:
+        siblings = _sibling_opex(target, months, target)
+        fxr = [_usd_at(ccy, m) for m in months]
+        for i in range(n):
+            k = fxr[i]
+            revenue[i] *= k
+            model_cogs[i] *= k
+            booked_cogs[i] *= k
+            opex[i] *= k
+            accrual_total[i] *= k
+            for a in opex_accts.values():
+                a["monthly"][i] *= k
+            for s2 in vat.values():
+                if isinstance(s2, list):
+                    s2[i] = round(s2[i] * k)
+            opex[i] += sum(s["monthly"][i] for s in siblings)
+        for a in opex_accts.values():
+            a["total"] = sum(a["monthly"])
+        for s2 in ("credit_left", "monthly_burn"):
+            vat[s2] = round(flt(vat[s2]) * (fxr[-1] or 1.0))
+        gross = [revenue[i] - model_cogs[i] for i in range(n)]
+        net = [gross[i] - opex[i] - accrual_total[i] for i in range(n)]
+        gap = [booked_cogs[i] - model_cogs[i] for i in range(n)]
+        ccy = "USD"
+
     gross_billed = [revenue[i] + vat["output"][i] for i in range(n)]
     result = {
         "company": target, "currency": ccy, "year": y, "months": months,
-        "estimated": True,
+        "estimated": True, "scope": "group" if group else "company",
+        "siblings": siblings,
         "model": meta,
         "vat": vat,
         "revenue_gross": [round(x) for x in gross_billed],
