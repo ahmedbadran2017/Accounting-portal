@@ -688,8 +688,13 @@ def _pnl_rows(company, fr, to):
            GROUP BY a.name HAVING ROUND(SUM(g.credit-g.debit))<>0""", (company, fr, to), as_dict=True)
 
 
-def _grouped(rows, sign_key, classify, prior_map=None, prior_key=None):
-    """Group account rows into sections {section: {total, prior, accounts:[...]}}."""
+def _grouped(rows, sign_key, classify, prior_map=None, prior_key=None, subgroup=None):
+    """Group account rows into sections {section: {total, prior, accounts:[...]}}.
+
+    `subgroup` optionally rolls the accounts of a section into named buckets, so a
+    section with many small accounts reads as a few ideas with the detail one
+    click away. Sections without a bucket keep their flat account list.
+    """
     secs = {}
     for r in rows:
         amt = sign_key(r)
@@ -700,11 +705,24 @@ def _grouped(rows, sign_key, classify, prior_map=None, prior_key=None):
             prior = prior_key(prior_map.get(r["name"]))
         s["total"] += amt
         s["prior"] += prior
-        s["accounts"].append({"account": r["name"], "name": r["account_name"], "amount": round(amt), "prior": round(prior)})
+        row = {"account": r["name"], "name": r["account_name"],
+               "amount": round(amt), "prior": round(prior)}
+        if subgroup:
+            row["group"] = subgroup(r["name"])
+        s["accounts"].append(row)
     out = list(secs.values())
     for s in out:
         s["total"] = round(s["total"]); s["prior"] = round(s["prior"])
         s["accounts"].sort(key=lambda a: -abs(a["amount"]))
+        # a section is only worth collapsing when every one of its accounts has
+        # a home; a half-grouped list is harder to read than a flat one
+        if subgroup and s["accounts"] and all(a.get("group") for a in s["accounts"]):
+            g = {}
+            for a in s["accounts"]:
+                b = g.setdefault(a["group"], {"group": a["group"], "total": 0, "prior": 0, "accounts": []})
+                b["total"] += a["amount"]; b["prior"] += a["prior"]
+                b["accounts"].append(a)
+            s["groups"] = sorted(g.values(), key=lambda b: -abs(b["total"]))
     out.sort(key=lambda s: -abs(s["total"]))
     return out
 
@@ -794,6 +812,25 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
         return (n.startswith(("770.07", "770.0.7"))
                 and not n.startswith("770.07.004"))
 
+    # Eighteen raw accounts under one heading cannot be read. These roll into
+    # four ideas, and the detail stays one click away. The freight bucket is
+    # named for what it should have been — inbound landed cost belongs inside
+    # the stock value, and its size here is the measure of how much never got
+    # capitalised.
+    def _cost_group(name):
+        n = str(name)
+        if n.startswith("71.801"):
+            return "Product cost"
+        if n.startswith(("71.004", "71.999")):
+            return "Inventory corrections"
+        if n.startswith("71.002."):
+            return "Internal transfer (paper)"
+        if _inbound_freight(n):
+            return "Inbound freight & duty"
+        # not a cost-of-sales account: operating expenses keep their flat list,
+        # where each account name already reads as its own idea
+        return None
+
     def _exp_class(at, name=""):
         # account_type OR the known COGS families by name: 71.801 (DN cost) and
         # 71.002.5 (delivery cost booked on the mistyped internal-invoicing
@@ -807,7 +844,8 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
     revenue = _grouped(inc, lambda r: flt(r["net"]), lambda at, name="": "Revenue",
                        inc_p, lambda v: flt(v["net"]) if v else 0)
     expenses = _grouped(exp, lambda r: -flt(r["net"]), _exp_class,
-                        exp_p, lambda v: -flt(v["net"]) if v else 0)
+                        exp_p, lambda v: -flt(v["net"]) if v else 0,
+                        subgroup=_cost_group)
     rev_total = sum(s["total"] for s in revenue)
     rev_prior = sum(s["prior"] for s in revenue)
     cogs = next((s for s in expenses if s["section"] == "Cost of goods sold"), {"total": 0, "prior": 0})

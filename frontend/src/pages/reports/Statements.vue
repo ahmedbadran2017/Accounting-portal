@@ -36,7 +36,27 @@
           <tbody>
             <template v-for="sec in pnlSections" :key="sec.key">
               <tr class="border-t border-line-hair" style="background:#fcfcfb"><td class="px-5 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3" :colspan="compare ? 4 : 2">{{ sec.title }}</td></tr>
-              <tr v-for="(a, i) in sec.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/40" :class="a.account && 'cursor-pointer'" @click="a.account && drill(a.account)">
+              <!-- a cost section rolls into a few ideas; the accounts open underneath -->
+              <template v-if="sec.groups">
+                <template v-for="g in sec.groups" :key="sec.key + g.group">
+                  <tr class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="toggleGroup(sec.key + g.group)">
+                    <td class="px-5 py-1.5 ps-8 font-semibold text-ink-2">
+                      <span class="text-[10px] text-ink-muted me-1">{{ openGroups.has(sec.key + g.group) ? "▾" : "▸" }}</span>{{ g.group }}
+                      <span class="text-[10px] text-ink-muted ms-1">({{ g.accounts.length }})</span>
+                    </td>
+                    <td class="px-5 py-1.5 text-end tnum font-semibold" :class="g.total < 0 ? 'text-sale' : ''">{{ fmt(g.total) }}</td>
+                    <template v-if="compare"><td class="px-5 py-1.5 text-end tnum text-ink-muted">{{ fmt(g.prior) }}</td><td class="px-5 py-1.5 text-end tnum" :class="delta(g.total, g.prior).c">{{ delta(g.total, g.prior).t }}</td></template>
+                  </tr>
+                  <tr v-for="(a, i) in (openGroups.has(sec.key + g.group) ? g.accounts : [])" :key="sec.key + g.group + i"
+                      class="border-t border-line-hair hover:bg-app-warm/40" :class="a.account && 'cursor-pointer'" @click="a.account && drill(a.account)"
+                      style="background:#fcfcfb">
+                    <td class="px-5 py-1 ps-12 text-[11.5px] text-ink-3 truncate max-w-[280px] hover:text-accent-dark">{{ a.name }}</td>
+                    <td class="px-5 py-1 text-end tnum text-[11.5px]">{{ fmt(a.amount) }}</td>
+                    <template v-if="compare"><td class="px-5 py-1 text-end tnum text-[11.5px] text-ink-muted">{{ fmt(a.prior) }}</td><td class="px-5 py-1 text-end tnum text-[11.5px]" :class="delta(a.amount, a.prior).c">{{ delta(a.amount, a.prior).t }}</td></template>
+                  </tr>
+                </template>
+              </template>
+              <tr v-else v-for="(a, i) in sec.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/40" :class="a.account && 'cursor-pointer'" @click="a.account && drill(a.account)">
                 <td class="px-5 py-1.5 ps-8 text-ink-2 truncate max-w-[280px] hover:text-accent-dark">{{ a.name }}</td>
                 <td class="px-5 py-1.5 text-end tnum">{{ fmt(a.amount) }}</td>
                 <template v-if="compare"><td class="px-5 py-1.5 text-end tnum text-ink-muted">{{ fmt(a.prior) }}</td><td class="px-5 py-1.5 text-end tnum" :class="delta(a.amount, a.prior).c">{{ delta(a.amount, a.prior).t }}</td></template>
@@ -233,11 +253,18 @@ const pnlSections = computed(() => {
   const secs = [];
   (p.revenue || []).forEach((s) => secs.push({ key: "rev", title: L("Revenue", "الإيرادات", "Produits"), accounts: s.accounts }));
   secs.push({ key: "revtot", title: "", accounts: [], subtotal: p.revenue_total, subtotalPrior: p.revenue_prior, subtotalLabel: L("Total revenue", "إجمالي الإيراد", "Total produits") });
-  if (p.cogs && p.cogs.accounts) { secs.push({ key: "cogs", title: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), accounts: p.cogs.accounts }); secs.push({ key: "gp", title: "", accounts: [], subtotal: p.gross_profit, subtotalPrior: p.gross_prior, subtotalLabel: L("Gross profit", "الربح الإجمالي", "Marge brute") }); }
-  (p.opex || []).forEach((s) => secs.push({ key: "opex" + s.section, title: s.section, accounts: s.accounts }));
+  if (p.cogs && p.cogs.accounts) { secs.push({ key: "cogs", title: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), accounts: p.cogs.accounts, groups: p.cogs.groups }); secs.push({ key: "gp", title: "", accounts: [], subtotal: p.gross_profit, subtotalPrior: p.gross_prior, subtotalLabel: L("Gross profit", "الربح الإجمالي", "Marge brute") }); }
+  (p.opex || []).forEach((s) => secs.push({ key: "opex" + s.section, title: s.section, accounts: s.accounts, groups: s.groups }));
   secs.push({ key: "opextot", title: "", accounts: [], subtotal: p.opex_total, subtotalPrior: p.opex_prior, subtotalLabel: L("Total operating expenses", "إجمالي المصروفات", "Total charges") });
   return secs;
 });
+
+const openGroups = ref(new Set());
+function toggleGroup(k) {
+  const n = new Set(openGroups.value);
+  n.has(k) ? n.delete(k) : n.add(k);
+  openGroups.value = n;
+}
 
 function delta(cur, prior) {
   const dv = (Number(cur) || 0) - (Number(prior) || 0);
