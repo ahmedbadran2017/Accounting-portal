@@ -303,6 +303,9 @@ def pnl_estimated(company=None, year=None):
         model_cogs[i] += v
         tier_val[c["tier"]][i] += v
 
+    # ── the money before tax, and where the tax actually goes ─────────────────
+    vat = _vat(target, idx, n, fr, to)
+
     # ── accrue the recurring costs that simply stopped being billed ────────────
     accruals = _accruals(target, months, opex_accts)
 
@@ -325,10 +328,13 @@ def pnl_estimated(company=None, year=None):
         a["monthly"] = [round(x) for x in a["monthly"]]
         a["total"] = round(a["total"])
 
+    gross_billed = [revenue[i] + vat["output"][i] for i in range(n)]
     result = {
         "company": target, "currency": ccy, "year": y, "months": months,
         "estimated": True,
         "model": meta,
+        "vat": vat,
+        "revenue_gross": [round(x) for x in gross_billed],
         "revenue": [round(x) for x in revenue],
         "cogs": [round(x) for x in model_cogs],
         "cogs_booked": [round(x) for x in booked_cogs],
@@ -346,6 +352,10 @@ def pnl_estimated(company=None, year=None):
             "cogs_booked": round(sum(booked_cogs)), "gap": round(sum(gap)),
             "gross": round(sum(gross)), "opex": round(sum(opex)),
             "accruals": round(sum(accrual_total)), "net": round(sum(net)),
+            "revenue_gross": round(sum(gross_billed)),
+            "vat_output": round(sum(vat["output"])),
+            "vat_input": round(sum(vat["input"])),
+            "vat_net": round(sum(vat["net"])),
             "gross_pct": round(100.0 * sum(gross) / sum(revenue), 1) if sum(revenue) else 0.0,
             "net_pct": round(100.0 * sum(net) / sum(revenue), 1) if sum(revenue) else 0.0,
         },
@@ -355,6 +365,52 @@ def pnl_estimated(company=None, year=None):
     except Exception:
         pass
     return result
+
+
+def _vat(company, idx, n, fr, to):
+    """What the customer paid on top, and what of it actually leaves as cash.
+
+    Revenue is booked net, so the gross a customer hands over is invisible in a
+    normal P&L. Showing it costs nothing in rigour as long as the VAT is deducted
+    right underneath — it is collected for the state, never earned. The part worth
+    watching is the last line: almost none of it is being paid in cash, because a
+    pre-existing input-VAT credit is absorbing it, and that credit is finite.
+    """
+    out = [0.0] * n
+    inp = [0.0] * n
+    for r in frappe.db.sql(
+            """SELECT DATE_FORMAT(s.posting_date,'%%Y-%%m') AS ym,
+                      SUM(t.base_tax_amount) AS v
+               FROM `tabSales Taxes and Charges` t JOIN `tabSales Invoice` s ON s.name=t.parent
+               WHERE s.company=%s AND s.docstatus=1 AND t.account_head LIKE '391.%%'
+                 AND s.posting_date BETWEEN %s AND %s
+               GROUP BY ym""", (company, fr, to), as_dict=True):
+        i = idx.get(r["ym"])
+        if i is not None:
+            out[i] += flt(r["v"])
+    for r in frappe.db.sql(
+            """SELECT DATE_FORMAT(posting_date,'%%Y-%%m') AS ym, SUM(debit-credit) AS v
+               FROM `tabGL Entry` WHERE company=%s AND is_cancelled=0
+                 AND account LIKE '191.%%' AND posting_date BETWEEN %s AND %s
+               GROUP BY ym""", (company, fr, to), as_dict=True):
+        i = idx.get(r["ym"])
+        if i is not None:
+            inp[i] += flt(r["v"])
+    credit = flt(frappe.db.sql(
+        """SELECT SUM(debit-credit) FROM `tabGL Entry`
+           WHERE company=%s AND is_cancelled=0
+             AND (account LIKE '191.%%' OR account LIKE '391.1%%' OR account LIKE '391.6%%')""",
+        (company,))[0][0])
+    net = [out[i] - inp[i] for i in range(n)]
+    burn = (sum(net) / n) if n else 0.0
+    return {
+        "output": [round(x) for x in out],
+        "input": [round(x) for x in inp],
+        "net": [round(x) for x in net],
+        "credit_left": round(credit),
+        "monthly_burn": round(burn),
+        "runway_months": round(credit / burn, 1) if burn > 0 else None,
+    }
 
 
 _RECURRING = [
