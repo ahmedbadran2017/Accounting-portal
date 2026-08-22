@@ -88,9 +88,9 @@
         <div class="px-4 py-3 border-b border-line-hair">
           <div class="text-[13px] font-bold">{{ L("VAT — charged, and what actually leaves","الضريبة — المحصّل والمدفوع فعلًا","TVA — collectée et décaissée") }}</div>
           <div class="text-[10.5px] text-ink-muted mt-0.5">
-            {{ L("The VAT above is collected for the state, never earned. Almost none of it is paid in cash today — an input-VAT credit built up on stock is absorbing it, and that credit is finite.",
-                 "الضريبة اللي فوق محصّلة لحساب الدولة، مش إيراد. وتقريبًا مافيش منها حاجة بتتدفع كاش دلوقتي — رصيد ضريبة المشتريات المتراكم على المخزون هو اللي بيمتصّها، والرصيد ده محدود.",
-                 "La TVA est collectée pour l'État ; un crédit de TVA l'absorbe aujourd'hui.") }}
+            {{ L("Revenue above keeps the VAT charged, because almost none of it is handed over — a credit built up on earlier stock absorbs it, and only what is settled in cash appears as a cost. That credit is finite and is not being replaced.",
+                 "الإيراد فوق شامل الضريبة، لأن تقريبًا مافيش منها حاجة بتتسلّم للدولة — رصيد اتكوّن على مشتريات قديمة هو اللي بيمتصّها، واللي بيتدفع كاش بس هو اللي بيظهر كمصروف. والرصيد ده محدود ومش بيتعوّض.",
+                 "Le revenu inclut la TVA ; seul le règlement en espèces est une charge.") }}
           </div>
         </div>
         <div class="overflow-x-auto">
@@ -100,13 +100,15 @@
               <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("VAT charged","الضريبة المحصّلة","TVA collectée") }}</th>
               <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("VAT on purchases","ضريبة المشتريات","TVA déductible") }}</th>
               <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Net owed","الصافي المستحق","Net dû") }}</th>
+              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Settled in cash","المدفوع كاش","Réglé") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="(m, i) in d.months" :key="m" class="border-t border-line-hair hover:bg-[#fafaf9]">
                 <td class="px-3 py-2 font-semibold">{{ mLabel(m) }}</td>
                 <td class="px-3 py-2 text-end tnum" dir="ltr">{{ fmt(d.vat.output[i]) }}</td>
                 <td class="px-3 py-2 text-end tnum text-ink-muted" dir="ltr">{{ fmt(d.vat.input[i]) }}</td>
-                <td class="px-3 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(d.vat.net[i]) }}</td>
+                <td class="px-3 py-2 text-end tnum" dir="ltr">{{ fmt(d.vat.net[i]) }}</td>
+                <td class="px-3 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(d.vat.settled[i]) }}</td>
               </tr>
             </tbody>
           </table>
@@ -192,14 +194,16 @@ const stats = computed(() => {
   const t = d.value && d.value.totals;
   if (!t) return [];
   return [
-    { k: "billed", label: L("Billed (incl. VAT)", "المحصّل (شامل الضريبة)", "Facturé TTC"),
-      v: fmt(t.revenue_gross),
-      sub: fmt(t.revenue) + " " + L("net of VAT", "بعد الضريبة", "HT"), tone: "" },
+    { k: "rev", label: L("Revenue (incl. VAT)", "الإيراد (شامل الضريبة)", "Revenu TTC"),
+      v: fmt(t.revenue),
+      sub: fmt(t.revenue_net) + " " + L("net of VAT", "صافي بعد الضريبة", "HT"), tone: "" },
     { k: "gm", label: L("Gross margin", "الهامش المجمل", "Marge brute"),
       v: t.gross_pct + "%", sub: fmt(t.gross), tone: "" },
     { k: "net", label: L("Net result", "النتيجة", "Résultat"), v: fmt(t.net),
       sub: t.net_pct + "% " + L("of revenue", "من الإيراد", "du revenu"),
       tone: t.net < 0 ? "text-sale" : "" },
+    { k: "vat", label: L("VAT kept", "ضريبة محتفظ بيها", "TVA conservée"), v: fmt(t.vat_kept),
+      sub: fmt(t.vat_settled) + " " + L("settled in cash", "مدفوعة كاش", "réglée"), tone: "" },
     { k: "gap", label: L("Correction gap", "فجوة التصحيح", "Écart"), v: fmt(t.gap),
       sub: L("books minus model", "الدفاتر ناقص النموذج", "livres - modèle"),
       tone: Math.abs(t.gap) > 500000 ? "text-sale" : "" },
@@ -213,12 +217,10 @@ const rows = computed(() => {
   const pct = (a, b) => a.map((v, i) => (b[i] ? (100 * v) / b[i] : 0));
   const sum = (a) => a.reduce((s, v) => s + v, 0);
   const out = [
-    { k: "gross_billed", label: L("Billed to customers (incl. VAT)", "المحصّل من العملاء (شامل الضريبة)", "Facturé TTC"),
-      vals: x.revenue_gross, total: sum(x.revenue_gross), strong: true },
-    { k: "vat", label: "  " + L("VAT charged — collected for the state", "الضريبة المحصّلة — مستحقة للدولة", "TVA collectée"),
-      vals: x.vat.output.map((v) => -v), total: -sum(x.vat.output) },
-    { k: "rev", label: L("Revenue (net of VAT)", "الإيراد (بعد الضريبة)", "Revenu HT"),
-      vals: x.revenue, total: sum(x.revenue), strong: true, bg: "#f5f5f4" },
+    { k: "rev", label: L("Revenue (VAT included)", "الإيراد (شامل الضريبة)", "Revenu TTC"),
+      vals: x.revenue, total: sum(x.revenue), strong: true },
+    { k: "revnet", label: "  " + L("of which net of VAT", "منه صافي بعد الضريبة", "dont HT"),
+      vals: x.revenue_net, total: sum(x.revenue_net) },
     { k: "cogs", label: L("Cost of goods (modelled)", "تكلفة البضاعة (نموذج)", "Coût des marchandises (modèle)"),
       vals: x.cogs.map((v) => -v), total: -sum(x.cogs), note: L("estimated", "تقديري", "estimé") },
     { k: "gross", label: L("Gross profit", "الربح المجمل", "Marge brute"),

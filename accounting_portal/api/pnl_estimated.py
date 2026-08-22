@@ -484,6 +484,18 @@ def pnl_estimated(company=None, year=None, scope=None):
     # ── accrue the recurring costs that simply stopped being billed ────────────
     accruals = _accruals(target, months, opex_accts)
 
+    # Revenue is stated VAT-inclusive on purpose. The VAT charged is not being handed
+    # over: an input-VAT credit built up on earlier stock absorbs almost all of it, so
+    # only what is genuinely settled in cash is treated as a cost. This is a management
+    # view — a statutory statement from the same ledger shows revenue net and a smaller
+    # profit, and the two have to be reconciled before either goes outside.
+    revenue_net = list(revenue)
+    for i in range(n):
+        revenue[i] += vat["output"][i]
+    opex_accts["__vat__"] = {"account": "__vat__", "name": "VAT settled with the state",
+                             "monthly": [flt(v) for v in vat["settled"]],
+                             "total": float(sum(vat["settled"]))}
+
     opex = [0.0] * n
     for a in opex_accts.values():
         for i in range(n):
@@ -503,6 +515,7 @@ def pnl_estimated(company=None, year=None, scope=None):
         for i in range(n):
             k = fxr[i]
             revenue[i] *= k
+            revenue_net[i] *= k
             model_cogs[i] *= k
             booked_cogs[i] *= k
             opex[i] *= k
@@ -537,7 +550,8 @@ def pnl_estimated(company=None, year=None, scope=None):
         cats[key] = {"account": key, "name": key, "monthly": list(arr),
                      "total": sum(arr), "accounts": [], "cross_entity": True}
     for a in opex_accts.values():
-        key = _category(a["account"], a["name"])
+        key = ("VAT settled with the state" if a["account"] == "__vat__"
+               else _category(a["account"], a["name"]))
         c = cats.setdefault(key, {"account": key, "name": key,
                                   "monthly": [0.0] * n, "total": 0.0, "accounts": []})
         for i in range(n):
@@ -551,7 +565,6 @@ def pnl_estimated(company=None, year=None, scope=None):
         a["total"] = round(a["total"])
         a["accounts"].sort(key=lambda x: -abs(x["total"]))
 
-    gross_billed = [revenue[i] + vat["output"][i] for i in range(n)]
     result = {
         "company": target, "currency": ccy, "year": y, "months": months,
         "estimated": True, "scope": "group" if group else "company",
@@ -563,8 +576,9 @@ def pnl_estimated(company=None, year=None, scope=None):
                if group else None),
         "model": meta,
         "vat": vat,
-        "revenue_gross": [round(x) for x in gross_billed],
         "revenue": [round(x) for x in revenue],
+        "revenue_net": [round(x) for x in revenue_net],
+        "vat_included": True,
         "cogs": [round(x) for x in model_cogs],
         "cogs_booked": [round(x) for x in booked_cogs],
         "gap": [round(x) for x in gap],
@@ -581,8 +595,10 @@ def pnl_estimated(company=None, year=None, scope=None):
             "cogs_booked": round(sum(booked_cogs)), "gap": round(sum(gap)),
             "gross": round(sum(gross)), "opex": round(sum(opex)),
             "accruals": round(sum(accrual_total)), "net": round(sum(net)),
-            "revenue_gross": round(sum(gross_billed)),
+            "revenue_net": round(sum(revenue_net)),
             "vat_output": round(sum(vat["output"])),
+            "vat_settled": round(sum(vat["settled"])),
+            "vat_kept": round(sum(vat["output"]) - sum(vat["settled"])),
             "vat_input": round(sum(vat["input"])),
             "vat_net": round(sum(vat["net"])),
             "gross_pct": round(100.0 * sum(gross) / sum(revenue), 1) if sum(revenue) else 0.0,
@@ -630,12 +646,27 @@ def _vat(company, idx, n, fr, to):
            WHERE company=%s AND is_cancelled=0
              AND (account LIKE '191.%%' OR account LIKE '391.1%%' OR account LIKE '391.6%%')""",
         (company,))[0][0])
+    # what is actually settled with the state: a debit to the VAT liability from
+    # something that is not a sales or purchase invoice — i.e. a payment or a filing
+    settled = [0.0] * n
+    for r in frappe.db.sql(
+            """SELECT DATE_FORMAT(posting_date,'%%Y-%%m') AS ym, SUM(debit) AS v
+               FROM `tabGL Entry` WHERE company=%s AND is_cancelled=0
+                 AND account LIKE '391.%%'
+                 AND voucher_type NOT IN ('Sales Invoice','Purchase Invoice')
+                 AND posting_date BETWEEN %s AND %s
+               GROUP BY ym""", (company, fr, to), as_dict=True):
+        i = idx.get(r["ym"])
+        if i is not None:
+            settled[i] += flt(r["v"])
     net = [out[i] - inp[i] for i in range(n)]
     burn = (sum(net) / n) if n else 0.0
     return {
         "output": [round(x) for x in out],
         "input": [round(x) for x in inp],
         "net": [round(x) for x in net],
+        "settled": [round(x) for x in settled],
+        "kept": round(sum(out) - sum(settled)),
         "credit_left": round(credit),
         "monthly_burn": round(burn),
         "runway_months": round(credit / burn, 1) if burn > 0 else None,
