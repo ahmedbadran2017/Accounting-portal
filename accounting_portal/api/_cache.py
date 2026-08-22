@@ -17,6 +17,8 @@ _PREFIXES = (
     # page-invariant list count/summary caches (short TTL, bust so a new doc shows at once)
     "ap_orders_sc:", "ap_orders_tot:", "ap_inv_sum:", "ap_rcpt_sum:",
     "ap_team_perf:", "ap_expense_cockpit:", "ap_payroll_cockpit:",
+    # estimated P&L — modelled cost of goods + its calibration
+    "ap_pnlest:",
     # cash forecast (was never busted — audit finding)
     "ap_cashfc:",
 )
