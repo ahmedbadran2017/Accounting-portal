@@ -85,7 +85,7 @@ def _verified(company):
             rows = (frappe.parse_json(a.payload) or {}).get("rows") or []
         except Exception:
             continue
-        if rows and flt(rows[0].get("rate")) > 0:
+        if a.ic and rows and flt(rows[0].get("rate")) > 0:
             out[a.ic] = flt(rows[0].get("rate"))
     return out
 
@@ -107,6 +107,8 @@ def _invoice_costs(company, mad_per_try):
     for r in rows:
         rate = flt(r.r) * (mad_per_try(r.d) if r.co == SOURCE else 1.0)
         if rate <= 0:
+            continue
+        if not r.ic:
             continue
         a = acc.setdefault(r.ic, [0.0, 0.0, False])
         a[0] += rate * flt(r.q)
@@ -160,7 +162,7 @@ def _unit_costs(company):
     mad_per_try = _fx_table()
     verified = _verified(company)
     inv = _invoice_costs(company, mad_per_try)
-    items = sorted(set(list(inv.keys()) + list(verified.keys())))
+    items = sorted({k for k in list(inv.keys()) + list(verified.keys()) if k})
     wt = _weights(items)
 
     def modelled(ic):
@@ -193,6 +195,8 @@ def _unit_costs(company):
            WHERE IFNULL(it.variant_of,'')<>'' AND it.disabled=0""", as_dict=True)
     by_fam, orphans = {}, []
     for r in fam_rows:
+        if not r.ic or not r.v:
+            continue
         if r.ic in costs:
             by_fam.setdefault(r.v, []).append(costs[r.ic]["cost"])
         else:
@@ -212,6 +216,40 @@ def _unit_costs(company):
     return costs, meta
 
 
+_CATEGORY = [
+    # Checked against the account NAME first, because the chart puts several costs in
+    # the wrong branch: Google Cloud sits under 760.01.009, a marketing number, and
+    # ERPNext development under 770.05, professional fees. Reading the number alone
+    # reports cloud infrastructure as advertising and understates software by half.
+    ("Software & cloud", ("cloud", "hosting", "erpnext", "shopify", "saas", "subscription",
+                          "zoho", "openai", "chatgpt", "anthropic", "aftership", "manus")),
+    ("Travel", ("airplane", "ticket", "travel")),
+    ("Food & staff welfare", ("food", "catering", "hospitality")),
+]
+_BY_NUMBER = (
+    ("770.07.004", "Courier to customer"), ("770.07.008", "Courier to customer"),
+    ("760.", "Advertising"), ("720.", "Payroll"), ("770.001", "Rent & office"),
+    ("770.012", "Software & cloud"), ("770.05", "Professional fees"),
+    ("770.06", "Travel"), ("770.09", "Taxes & duties"), ("78.", "Bank charges & FX"),
+    ("770.01", "Utilities & supplies"), ("770.03", "Utilities & supplies"),
+    ("770.08", "Utilities & supplies"), ("708.", "Food & staff welfare"),
+)
+
+
+def _category(number, name):
+    """Group an expense account by what it IS, name before number."""
+    n = (name or "").lower()
+    for label, words in _CATEGORY:
+        for w in words:
+            if w in n:
+                return label
+    num = str(number or "")
+    for prefix, label in _BY_NUMBER:
+        if num.startswith(prefix):
+            return label
+    return "Other"
+
+
 def _months(year):
     y = int(year)
     last = int(nowdate()[5:7]) if y == int(nowdate()[:4]) else 12
@@ -227,48 +265,135 @@ def _is_product_cost(name, at):
     return str(name).startswith("71.") or at in ("Cost of Goods Sold", "Stock Adjustment")
 
 
-def _usd_at(ccy, month):
-    """USD per unit of a local currency, at mid-month. 1.0 for USD books."""
+def _doc_rates(months):
+    """Monthly FX taken from the documents the books actually posted, not a table.
+
+    The `Currency Exchange` table holds three USD/MAD records for the whole of 2026
+    and stops in March, so anything derived from it silently re-prices half the year
+    at a stale rate. Every payment and every foreign purchase, on the other hand,
+    carries the rate the business really transacted at. Those are averaged per month
+    and carried forward into the gaps, which keeps the series continuous without
+    inventing a number.
+    """
+    usdmad, madtry = {}, {}
+    for m in months:
+        um = frappe.db.sql(
+            """SELECT AVG(r) FROM (
+                 SELECT source_exchange_rate r FROM `tabPayment Entry`
+                   WHERE company=%s AND docstatus=1 AND paid_from_account_currency='USD'
+                     AND source_exchange_rate BETWEEN 7 AND 13
+                     AND DATE_FORMAT(posting_date,'%%Y-%%m')=%s
+                 UNION ALL SELECT conversion_rate FROM `tabPurchase Receipt`
+                   WHERE company=%s AND docstatus=1 AND currency='USD'
+                     AND conversion_rate BETWEEN 7 AND 13
+                     AND DATE_FORMAT(posting_date,'%%Y-%%m')=%s
+                 UNION ALL SELECT conversion_rate FROM `tabPurchase Invoice`
+                   WHERE company=%s AND docstatus=1 AND currency='USD'
+                     AND conversion_rate BETWEEN 7 AND 13
+                     AND DATE_FORMAT(posting_date,'%%Y-%%m')=%s) x""",
+            (SALES, m, SALES, m, SALES, m))[0][0]
+        mt = frappe.db.sql(
+            """SELECT AVG(r) FROM (
+                 SELECT conversion_rate r FROM `tabPurchase Receipt`
+                   WHERE company=%s AND docstatus=1 AND currency='TRY'
+                     AND conversion_rate BETWEEN 0.15 AND 0.30
+                     AND DATE_FORMAT(posting_date,'%%Y-%%m')=%s
+                 UNION ALL SELECT conversion_rate FROM `tabPurchase Invoice`
+                   WHERE company=%s AND docstatus=1 AND currency='TRY'
+                     AND conversion_rate BETWEEN 0.15 AND 0.30
+                     AND DATE_FORMAT(posting_date,'%%Y-%%m')=%s
+                 UNION ALL SELECT source_exchange_rate FROM `tabPayment Entry`
+                   WHERE company=%s AND docstatus=1 AND paid_from_account_currency='TRY'
+                     AND source_exchange_rate BETWEEN 0.15 AND 0.30
+                     AND DATE_FORMAT(posting_date,'%%Y-%%m')=%s) x""",
+            (SALES, m, SALES, m, SALES, m))[0][0]
+        usdmad[m] = flt(um)
+        madtry[m] = flt(mt)
+
+    def fill(d):
+        last = 0.0
+        for m in months:                      # carry forward
+            if d[m]:
+                last = d[m]
+            else:
+                d[m] = last
+        nxt = 0.0
+        for m in reversed(months):            # and back, for a gap at the start
+            if d[m]:
+                nxt = d[m]
+            else:
+                d[m] = nxt
+        return d
+
+    return fill(usdmad), fill(madtry)
+
+
+_RATE_CACHE = {}
+
+
+def _usd_at(ccy, month, rates=None):
+    """USD per unit of a local currency, from the month's own documents."""
     if ccy == "USD":
         return 1.0
-    r = frappe.db.sql(
-        """SELECT exchange_rate FROM `tabCurrency Exchange`
-           WHERE from_currency='USD' AND to_currency=%s AND date<=%s
-           ORDER BY date DESC LIMIT 1""", (ccy, month + "-15"))
-    v = flt(r[0][0]) if r else 0.0
-    return (1.0 / v) if v else 0.0
+    if rates is None:
+        rates = _RATE_CACHE.get("r")
+    if not rates:
+        return 0.0
+    usdmad, madtry = rates
+    um = usdmad.get(month) or 0.0
+    if ccy == "MAD":
+        return (1.0 / um) if um else 0.0
+    if ccy == "TRY":
+        mt = madtry.get(month) or 0.0
+        return (mt / um) if (um and mt) else 0.0
+    return 0.0
 
 
 def _sibling_opex(company, months, exclude):
-    """Operating cost the group carries in the other entities, converted to USD.
+    """Operating cost the group carries in the other entities, by category, in USD.
 
     Morocco is the only company that sells to a customer, so reading its P&L alone
     hides everything the group spends elsewhere on the same trade — most of the
-    Turkish payroll, a big slice of the ad spend, the Istanbul office. Product cost
-    is deliberately NOT taken from here: the model already values goods at what
-    Maslak paid a third party, so adding Maslak's own cost of sales would count the
-    same goods twice, and its sales to Morocco are internal and never revenue.
+    Turkish payroll, the Istanbul office, and a quarter of the ad spend. These land
+    in the SAME categories as Morocco's own costs rather than a single lump, because
+    "advertising" is a question about the group, not about one entity.
+
+    Product cost is deliberately not taken from here: the model already values goods
+    at what Maslak paid a third party, so adding Maslak's own cost of sales would
+    count the same goods twice, and its sales to Morocco are internal, never revenue.
     """
-    out = []
     n = len(months)
+    cats, by_co = {}, {}
     for co in frappe.get_all("Company", pluck="name"):
         if co == exclude:
             continue
         ccy = frappe.db.get_value("Company", co, "default_currency") or "USD"
-        row = [0.0] * n
-        for i, m in enumerate(months):
-            v = flt(frappe.db.sql(
-                """SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g
-                   JOIN `tabAccount` a ON a.name=g.account
-                   WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type='Expense'
-                     AND a.name NOT LIKE '71.%%'
-                     AND NOT (a.name LIKE '770.07%%' AND a.name NOT LIKE '770.07.004%%')
-                     AND DATE_FORMAT(g.posting_date,'%%Y-%%m')=%s""", (co, m))[0][0])
-            row[i] = v * _usd_at(ccy, m)
-        if any(abs(x) > 1 for x in row):
-            out.append({"company": co, "currency": ccy,
-                        "monthly": [round(x) for x in row], "total": round(sum(row))})
-    return out
+        rows = frappe.db.sql(
+            """SELECT a.name AS acc, a.account_name AS an,
+                      DATE_FORMAT(g.posting_date,'%%Y-%%m') AS ym,
+                      SUM(g.debit-g.credit) AS v
+               FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+               WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type='Expense'
+                 AND a.name NOT LIKE '71.%%'
+                 AND NOT (a.name LIKE '770.07%%' AND a.name NOT LIKE '770.07.004%%'
+                          AND a.name NOT LIKE '770.07.008%%')
+                 AND g.posting_date BETWEEN %s AND %s
+               GROUP BY a.name, ym""",
+            (co, months[0] + "-01", months[-1] + "-31"), as_dict=True)
+        total = [0.0] * n
+        for r in rows:
+            if r["ym"] not in months:
+                continue
+            i = months.index(r["ym"])
+            v = flt(r["v"]) * _usd_at(ccy, r["ym"])
+            key = _category(r["acc"], r["an"])
+            c = cats.setdefault(key, [0.0] * n)
+            c[i] += v
+            total[i] += v
+        if max(abs(x) for x in total) > 1:
+            by_co[co] = {"company": co, "currency": ccy,
+                         "monthly": [round(x) for x in total], "total": round(sum(total))}
+    return cats, list(by_co.values())
 
 
 @frappe.whitelist()
@@ -369,18 +494,11 @@ def pnl_estimated(company=None, year=None, scope=None):
     net = [gross[i] - opex[i] - accrual_total[i] for i in range(n)]
     gap = [booked_cogs[i] - model_cogs[i] for i in range(n)]
 
-    def cov(i):
-        tot = sum(tier_val[t][i] for t in (0, 1, 2))
-        return round(100.0 * tier_val[0][i] / tot, 1) if tot else 0.0
-
-    ol = sorted(opex_accts.values(), key=lambda a: -abs(a["total"]))
-    for a in ol:
-        a["monthly"] = [round(x) for x in a["monthly"]]
-        a["total"] = round(a["total"])
-
-    siblings, fxr = [], [1.0] * n
+    # ── restate to USD and fold in the other entities, before anything is grouped ──
+    siblings, fxr, sib_cats = [], [1.0] * n, {}
     if group:
-        siblings = _sibling_opex(target, months, target)
+        _RATE_CACHE["r"] = _doc_rates(months)
+        sib_cats, siblings = _sibling_opex(target, months, target)
         fxr = [_usd_at(ccy, m) for m in months]
         for i in range(n):
             k = fxr[i]
@@ -394,9 +512,13 @@ def pnl_estimated(company=None, year=None, scope=None):
             for s2 in vat.values():
                 if isinstance(s2, list):
                     s2[i] = round(s2[i] * k)
-            opex[i] += sum(s["monthly"][i] for s in siblings)
+            opex[i] += sum(c[i] for c in sib_cats.values())
         for a in opex_accts.values():
             a["total"] = sum(a["monthly"])
+        for x in accruals:
+            x["monthly"] = [round(x["monthly"][i] * fxr[i]) for i in range(n)]
+            x["total"] = sum(x["monthly"])
+            x["run_rate"] = round(flt(x["run_rate"]) * (fxr[-1] or 1.0))
         for s2 in ("credit_left", "monthly_burn"):
             vat[s2] = round(flt(vat[s2]) * (fxr[-1] or 1.0))
         gross = [revenue[i] - model_cogs[i] for i in range(n)]
@@ -404,11 +526,41 @@ def pnl_estimated(company=None, year=None, scope=None):
         gap = [booked_cogs[i] - model_cogs[i] for i in range(n)]
         ccy = "USD"
 
+    def cov(i):
+        tot = sum(tier_val[t][i] for t in (0, 1, 2))
+        return round(100.0 * tier_val[0][i] / tot, 1) if tot else 0.0
+
+    # ── one line per idea, not per account: cloud infrastructure filed under a
+    #    marketing number reads as advertising until it is grouped by what it is ──
+    cats = {}
+    for key, arr in sib_cats.items():
+        cats[key] = {"account": key, "name": key, "monthly": list(arr),
+                     "total": sum(arr), "accounts": [], "cross_entity": True}
+    for a in opex_accts.values():
+        key = _category(a["account"], a["name"])
+        c = cats.setdefault(key, {"account": key, "name": key,
+                                  "monthly": [0.0] * n, "total": 0.0, "accounts": []})
+        for i in range(n):
+            c["monthly"][i] += a["monthly"][i]
+        c["total"] += a["total"]
+        c["accounts"].append({"account": a["account"], "name": a["name"],
+                              "total": round(a["total"])})
+    ol = sorted(cats.values(), key=lambda a: -abs(a["total"]))
+    for a in ol:
+        a["monthly"] = [round(x) for x in a["monthly"]]
+        a["total"] = round(a["total"])
+        a["accounts"].sort(key=lambda x: -abs(x["total"]))
+
     gross_billed = [revenue[i] + vat["output"][i] for i in range(n)]
     result = {
         "company": target, "currency": ccy, "year": y, "months": months,
         "estimated": True, "scope": "group" if group else "company",
         "siblings": siblings,
+        "fx": ({"usd_per_mad": [round(1.0 / v, 4) if v else 0 for v in
+                                [_RATE_CACHE["r"][0][m] for m in months]],
+                "mad_per_try": [round(_RATE_CACHE["r"][1][m], 4) for m in months],
+                "source": "documents posted in each month, not the Currency Exchange table"}
+               if group else None),
         "model": meta,
         "vat": vat,
         "revenue_gross": [round(x) for x in gross_billed],

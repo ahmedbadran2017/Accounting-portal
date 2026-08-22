@@ -225,14 +225,14 @@ const rows = computed(() => {
       vals: x.gross, total: sum(x.gross), strong: true, bg: "#f5f5f4" },
     { k: "gm", label: L("Gross margin %", "نسبة الهامش المجمل", "Marge %"),
       vals: pct(x.gross, x.revenue), total: x.totals.gross_pct, pct: true, bg: "#f5f5f4" },
-    { k: "opex", label: L("Operating expenses", "المصاريف التشغيلية", "Charges d'exploitation"),
-      vals: x.opex.map((v) => -v), total: -sum(x.opex) },
   ];
-  (x.siblings || []).forEach((s2, j) => out.push({
-    k: "sib" + j, label: "  " + L("opex carried by", "مصاريف تتحملها", "charges portées par") + " " + s2.company,
-    vals: s2.monthly.map((v) => -v), total: -s2.total,
-    note: L("other entity", "كيان آخر", "autre entité"),
+  (x.opex_accounts || []).forEach((c, j) => out.push({
+    k: "cat" + j, label: "  " + c.name,
+    vals: c.monthly.map((v) => -v), total: -c.total,
+    note: c.cross_entity ? L("group", "المجموعة", "groupe") : "",
   }));
+  out.push({ k: "opex", label: L("Total operating expenses", "إجمالي المصاريف التشغيلية", "Total des charges"),
+             vals: x.opex.map((v) => -v), total: -sum(x.opex), strong: true });
   (x.accruals || []).forEach((a, j) => out.push({
     k: "acc" + j, label: "  " + L("accrued", "استحقاق", "provision") + " · " + a.label,
     vals: a.monthly.map((v) => -v), total: -a.total, note: L("not billed", "غير مفوترة", "non facturé"),
