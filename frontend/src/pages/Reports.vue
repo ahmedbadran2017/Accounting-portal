@@ -21,6 +21,7 @@
     <CashForecast v-else-if="activeSub === 'forecast'" />
     <MissingDocs v-else-if="activeSub === 'missingdocs'" />
     <Statements v-else-if="activeSub === 'statements'" />
+    <Investors v-else-if="activeSub === 'investors'" />
     <TaxReports v-else-if="activeSub === 'taxreports'" />
     <VerifiedDD v-else-if="activeSub === 'dd'" />
     <ScaffoldTable v-else />
@@ -39,6 +40,7 @@ import ReceivablesPayables from "@/pages/reports/ReceivablesPayables.vue";
 import CashForecast from "@/pages/reports/CashForecast.vue";
 import MissingDocs from "@/pages/reports/MissingDocs.vue";
 import Statements from "@/pages/reports/Statements.vue";
+import Investors from "@/pages/reports/Investors.vue";
 import TaxReports from "@/pages/reports/TaxReports.vue";
 import VerifiedDD from "@/pages/reports/VerifiedDD.vue";
 import { useUi } from "@/composables/useUi";

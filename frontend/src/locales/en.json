@@ -109,7 +109,8 @@
     "activity": "Activity & audit",
     "payroll": "Payroll",
     "valuation": "Valuation fix",
-    "shipments": "Shipments"
+    "shipments": "Shipments",
+    "investors": "Investors"
   },
   "jonly": {
     "cod": "COD remittance",
