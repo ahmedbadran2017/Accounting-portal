@@ -126,7 +126,11 @@
                   <td class="px-3 py-1.5 tnum text-ink-muted" dir="ltr">{{ m.date }}</td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ fmt(m.local) }}</td>
                   <td class="px-3 py-1.5 text-end tnum text-[10px] text-ink-muted" dir="ltr">@{{ m.rate }}</td>
-                  <td class="px-3 py-1.5 text-end tnum font-bold" dir="ltr">{{ fmt(m.deal) }} {{ st.deal_currency }}</td>
+                  <td class="px-3 py-1.5 text-end tnum font-bold" dir="ltr">
+                    {{ fmt(m.deal) }} {{ st.deal_currency }}
+                    <span v-if="m.estimated" class="text-[9px] font-bold px-1 py-0.5 rounded ms-1" style="background:#fffbeb;color:#b45309"
+                          :title="L('converted at the rate of that date — the amount was not recorded in ' + st.deal_currency,'محوّل بسعر التاريخ — المبلغ مش متسجل بالـ' + st.deal_currency,'estimé')">≈</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -134,6 +138,8 @@
           <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
             <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold">
               {{ L("Drawings","المسحوبات","Retraits") }}
+              <span class="text-[10px] font-normal text-ink-muted">
+                — {{ L("each valued at its own date's rate","كل واحد بسعر تاريخه","au taux de sa date") }}</span>
               <span v-if="!st.profit_account" class="text-[10px] font-normal text-ink-muted"> — {{ L("no drawings account","مفيش حساب مسحوبات","aucun compte") }}</span>
             </div>
             <table class="w-full text-[11px]">
@@ -141,7 +147,11 @@
                 <tr v-for="(d, i) in st.draws" :key="i" class="border-t border-line-hair">
                   <td class="px-3 py-1.5 tnum text-ink-muted" dir="ltr">{{ d.date }}</td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ fmt(d.local) }}</td>
-                  <td class="px-3 py-1.5 text-end tnum font-bold" dir="ltr">{{ fmt(d.deal) }} {{ st.deal_currency }}</td>
+                  <td class="px-3 py-1.5 text-end tnum text-[10px] text-ink-muted" dir="ltr">@{{ d.rate }}</td>
+                  <td class="px-3 py-1.5 text-end tnum font-bold" dir="ltr">
+                    {{ fmt(d.deal) }} {{ st.deal_currency }}
+                    <span v-if="d.estimated" class="text-[9px] font-bold px-1 py-0.5 rounded ms-1" style="background:#fffbeb;color:#b45309">≈</span>
+                  </td>
                 </tr>
                 <tr v-if="!st.draws.length"><td class="px-3 py-4 text-center text-[11px] text-ink-muted">—</td></tr>
               </tbody>

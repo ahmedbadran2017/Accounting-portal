@@ -58,6 +58,26 @@ def _fx(ccy, date):
     return (1.0 / rate) if rate else 0.0
 
 
+def _deal_amount(base, row, foreign, ccy, date, out=False):
+    """The movement's value in the currency the deal was struck in.
+
+    Every line here should already carry it — ERPNext stores the account-currency
+    amount when the account is foreign — and that recorded figure is authoritative
+    because it is what the parties transacted at, not what a rate table says today.
+    Only when it is absent (a line posted without one, or a capital account kept in
+    the books' own currency while the deal was agreed in another) does this fall
+    back to the rate of that date, and the row is marked so the screen can show it
+    as an estimate rather than passing it off as recorded fact.
+    """
+    if foreign:
+        rec = (flt(row.dac) - flt(row.cac)) if out else (flt(row.cac) - flt(row.dac))
+        if abs(rec) > 0.005:
+            return rec, False
+    else:
+        return base, False
+    rate = _fx(ccy, date)
+    return (base * rate, True) if rate else (0.0, True)
+
 def _accounts():
     """Investor capital accounts: the 400.x family, plus anything the terms name."""
     rows = frappe.db.sql(
@@ -249,11 +269,12 @@ def investor_statement(account=None, date_from=None, date_to=None):
                FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0
                ORDER BY posting_date, creation""", (account,), as_dict=True):
         base = flt(r.credit) - flt(r.debit)           # credit = money in
-        deal = (flt(r.cac) - flt(r.dac)) if foreign else base
+        deal, est = _deal_amount(base, r, foreign, ccy, str(r.posting_date))
         rate = (base / deal) if deal else None        # base units per deal unit
         moves.append({"date": str(r.posting_date)[:10], "voucher": r.voucher_no,
                       "local": round(base, 2), "rate": round(rate, 4) if rate else None,
-                      "deal": round(deal, 2), "note": (r.remarks or "")[:120]})
+                      "deal": round(deal, 2), "estimated": est,
+                      "note": (r.remarks or "")[:120]})
     cap_local = sum(m["local"] for m in moves)
     cap_deal = sum(m["deal"] or 0 for m in moves)
 
@@ -268,9 +289,11 @@ def investor_statement(account=None, date_from=None, date_to=None):
                    FROM `tabGL Entry` WHERE account=%s AND is_cancelled=0
                    ORDER BY posting_date, creation""", (pa,), as_dict=True):
             base = flt(r.debit) - flt(r.credit)       # debit = drawn out
-            deal = (flt(r.dac) - flt(r.cac)) if pf else base
+            deal, est = _deal_amount(base, r, pf, ccy, str(r.posting_date), out=True)
+            rate = (base / deal) if deal else None
             draws.append({"date": str(r.posting_date)[:10], "voucher": r.voucher_no,
-                          "local": round(base, 2), "deal": round(deal, 2)})
+                          "local": round(base, 2), "deal": round(deal, 2),
+                          "rate": round(rate, 4) if rate else None, "estimated": est})
     drawn_local = sum(d["local"] for d in draws)
     drawn_deal = sum(d["deal"] or 0 for d in draws)
 
