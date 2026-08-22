@@ -968,7 +968,96 @@ def _anomaly_findings(target, mat=None):
                       "amount": len(miss), "account": None,
                       "recommendation": "Confirm they left, are on unpaid leave, or run their slip.",
                       "drill": {"module": "accountant", "sub": "payroll", "label": "Payroll"}})
+
+    # A recurring cost that suddenly stops is almost never a saving — it is a bill
+    # nobody entered yet, and it silently flatters every margin in that month.
+    # Compare each cost stream's recent months against its own established run-rate.
+    f += _missing_recurring(target, ccy)
     return f
+
+
+# streams that bill every month; a blank month is a red flag, not good news
+_RECURRING = [
+    ("760.%", "Marketing / ads"),
+    ("770.07.004%", "Courier (COD delivery)"),
+    ("770.012%", "Software & subscriptions"),
+    ("770.001%", "Rent / warehouse"),
+    ("720.%", "Payroll"),
+]
+# deliberately NOT here: inbound freight, customs, taxes. They are driven by
+# shipments and filings, not by the calendar, so a quiet month means nothing
+# arrived — flagging them would train everyone to ignore this control.
+
+
+def _missing_recurring(target, ccy, months=8, gap_pct=0.35):
+    """Flag cost streams that billed consistently and then went quiet.
+
+    A stream qualifies only if it has a real history (4+ months of activity), so
+    genuinely one-off costs never trip it. The run-rate is the MEDIAN of the
+    active months — a mean would be dragged by the catch-up months that this very
+    problem creates.
+
+    Two different faults look alike month by month, and the fix differs, so they
+    are named apart: a stream whose TOTAL matches its run-rate is merely booked in
+    the wrong months (late bills), while a short total means bills are genuinely
+    absent. Only the shortfall is reported as an amount — counting each quiet
+    month against the run-rate would double-count a simple timing shift.
+    """
+    # the current month is still being lived in — a bill that has not arrived yet
+    # is not a missing bill, so only completed months are judged
+    today = nowdate()
+    ym = [(int(today[:4]), int(today[5:7]) - i) for i in range(1, months + 1)]
+    ym = [(y + (m - 1) // 12, (m - 1) % 12 + 1) for y, m in ym]
+    ym.reverse()
+    out = []
+    for like, label in _RECURRING:
+        series = []
+        for y, m in ym:
+            v = flt(frappe.db.sql(
+                """SELECT SUM(debit)-SUM(credit) FROM `tabGL Entry`
+                   WHERE company=%s AND is_cancelled=0 AND account LIKE %s
+                     AND YEAR(posting_date)=%s AND MONTH(posting_date)=%s""",
+                (target, like, y, m))[0][0])
+            series.append({"y": y, "m": m, "v": v})
+        active = sorted(x["v"] for x in series if x["v"] > 0)
+        if len(active) < 4:
+            continue
+        mid = len(active) // 2
+        run_rate = active[mid] if len(active) % 2 else (active[mid - 1] + active[mid]) / 2.0
+        if run_rate <= 0:
+            continue
+        gaps = [x for x in series if x["v"] < run_rate * gap_pct]
+        if not gaps:
+            continue
+        booked = sum(x["v"] for x in series)
+        shortfall = run_rate * len(series) - booked
+        names = ", ".join(f"{g['y']}-{g['m']:02d}" for g in gaps)
+        if shortfall < run_rate * 0.5:
+            title = f"{label}: {len(gaps)} month(s) booked in the wrong period"
+            detail = (f"This cost runs at about {run_rate:,.0f} {ccy} a month, but {names} carry "
+                      f"almost nothing while other months carry double. The total is broadly right, "
+                      "so the bills exist — they landed in the wrong months, which flatters one "
+                      "month's margin and punishes another.")
+            rec = ("Re-date the late bills to the month they belong to, or accrue monthly and clear "
+                   "on arrival.")
+            sev, amount = "medium", max(shortfall, 0)
+        else:
+            title = f"{label}: {len(gaps)} month(s) with no bill entered"
+            detail = (f"This cost runs at about {run_rate:,.0f} {ccy} a month and {names} came in far "
+                      f"below that. Against the run-rate the period is short by roughly "
+                      f"{shortfall:,.0f} {ccy} — cost that exists but is not in the books, so those "
+                      "months' margins read better than they were.")
+            rec = ("Enter the outstanding bills, or accrue them at the run-rate and reverse when the "
+                   "invoice arrives, so each month carries its own cost.")
+            sev = "high" if shortfall > run_rate * 1.5 else "medium"
+            amount = shortfall
+        out.append({
+            "id": f"anom_missing_cost_{like.strip('%.').replace('.', '_')}",
+            "severity": sev, "metric": label, "title": title, "detail": detail,
+            "amount": round(amount), "account": None, "recommendation": rec,
+            "drill": {"module": "purchases", "sub": "", "label": "Bills"},
+        })
+    return out
 
 
 def _audit(target, kind):
