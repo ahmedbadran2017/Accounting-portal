@@ -30,11 +30,10 @@ _TERMS_KEY = "ap_investor_terms"
 
 # the layers, outermost first; each one is the previous minus its own costs
 _LAYERS = [
-    ("gross_margin", "Gross margin", "revenue - product cost"),
-    ("cm1", "After delivery & COD", "less courier and collection fees"),
-    ("cm2", "After marketing", "less advertising"),
-    ("cm3", "After fulfilment", "less packaging and warehouse labour"),
-    ("operating", "Operating result", "less rent, software, admin, depreciation"),
+    ("gross_margin", "Gross margin on the goods", "revenue less what the goods cost"),
+    ("cm1", "After delivering them", "less courier to the customer"),
+    ("cm2", "After selling them", "less advertising"),
+    ("operating", "Profit on the goods", "less the running costs the goods needed"),
 ]
 
 
@@ -144,70 +143,156 @@ def investor_list():
     return {"investors": out, "layers": [{"key": k, "label": l, "hint": h} for k, l, h in _LAYERS]}
 
 
-def _cycle(date_from, date_to):
-    """The trading cycle across the group, layer by layer, in USD.
+def _capital_snapshot():
+    """The counted stock the capital share is struck on.
 
-    Internal invoicing cancels when the entities are summed, so what remains is
-    external revenue less what the group really paid third parties.
+    Deliberately not read from the stock ledger. That ledger carries a million
+    phantom units in a Turkish rejects warehouse from one mistyped receipt, and its
+    quantities disagree with the system's own bin balances by over a million units.
+    A stock somebody counted and valued does not have that problem, so the share is
+    struck on a snapshot the finance team enters each cycle: a date, the counted
+    value in USD, and the investor capital standing against it.
     """
+    d = frappe.parse_json(frappe.db.get_default("ap_investor_capital") or "{}") or {}
+    return {
+        "date": d.get("date") or "2025-12-31",
+        "stock_usd": flt(d.get("stock_usd") or 493279),
+        "source": d.get("source") or "STOCK VALUATION 2025.xlsx, each location in its own currency",
+        "detail": d.get("detail") or [
+            {"location": "Justyol Morocco", "skus": 2314, "units": 36761, "native": "3,112,348 MAD", "usd": 342016},
+            {"location": "Maslak, Turkey", "skus": 134, "units": 2025, "native": "440,430 TRY", "usd": 10303},
+            {"location": "Justyol China", "skus": 1039, "units": 15388, "native": "54,466 USD", "usd": 54466},
+            {"location": "In transit", "skus": 181, "units": 19625, "native": "3,697,511 TRY", "usd": 86494},
+        ],
+    }
+
+
+# A cost is charged to the goods when handling or selling them required it. It
+# stays with the company when the group would not have carried it buying through
+# an agent - which is the whole of the Turkish sourcing operation: an agent at 5%
+# of goods value would cost about 45,000 a year against the 328,000 that entity
+# actually costs. Building it is an investment in the group, not a cost of a cycle.
+_GOODS_SHARE = [
+    ("Morocco payroll", "Justyol Morocco", ["720.%"], 0.87,
+     "26 of 30 heads are warehouse, customer service or procurement"),
+    ("Morocco warehouses", "Justyol Morocco", ["770.001%"], 1.0, "where the goods sit"),
+    ("Store software", None, ["770.012.005%", "770.012.004%", "760.01.009%"], 1.0,
+     "Shopify, Aftership, cloud - there is no store without them"),
+    ("Morocco utilities & supplies", "Justyol Morocco",
+     ["770.01%", "770.03%"], 0.5, "the warehouse half"),
+]
+
+
+def _cycle(date_from, date_to):
+    """The trading cycle on the goods, layer by layer, in USD.
+
+    Product cost is modelled rather than booked: the booked figure carries FX
+    mislabels and receipts priced above their own invoice. Rates come from the
+    documents each month actually posted, not the sparse Currency Exchange table.
+    """
+    from accounting_portal.api.pnl_estimated import _doc_rates, _unit_costs, _usd_at, _RATE_CACHE
     SALES, SRC = "Justyol Morocco", "Maslak LTD"
-    mad = _fx("MAD", date_to) or 0.105
-    try_ = _fx("TRY", date_to) or 0.021
+    months = []
+    y0, m0 = int(date_from[:4]), int(date_from[5:7])
+    y1, m1 = int(date_to[:4]), int(date_to[5:7])
+    while (y0, m0) <= (y1, m1):
+        months.append(f"{y0}-{m0:02d}")
+        m0 += 1
+        if m0 > 12:
+            m0 = 1
+            y0 += 1
+    _RATE_CACHE["r"] = _doc_rates(months)
 
-    def gl(company, like, rate, credit_side=False):
-        col = "SUM(credit)-SUM(debit)" if credit_side else "SUM(debit)-SUM(credit)"
-        v = flt(frappe.db.sql(
-            f"""SELECT {col} FROM `tabGL Entry`
-                WHERE company=%s AND is_cancelled=0 AND account LIKE %s
-                  AND posting_date BETWEEN %s AND %s""",
-            (company, like, date_from, date_to))[0][0])
-        return v * rate
+    def usd(company, v, m):
+        ccy = frappe.db.get_value("Company", company, "default_currency") or "USD"
+        r = _usd_at(ccy, m)
+        return v * r
 
-    # revenue: Morocco's external sales (Maslak sells only to Morocco)
-    revenue = gl(SALES, "600.%", mad, credit_side=True)
-    # product cost from the stock ledger, not the COGS accounts: those carry the
-    # correction entries, which would net the cost away to nothing
-    def stock_out(company, rate):
-        out = flt(frappe.db.sql(
-            """SELECT -SUM(stock_value_difference) FROM `tabStock Ledger Entry`
-               WHERE company=%s AND is_cancelled=0 AND voucher_type='Delivery Note'
-                 AND actual_qty < 0 AND posting_date BETWEEN %s AND %s""",
-            (company, date_from, date_to))[0][0])
-        back = flt(frappe.db.sql(
-            """SELECT SUM(stock_value_difference) FROM `tabStock Ledger Entry`
-               WHERE company=%s AND is_cancelled=0 AND voucher_type='Delivery Note'
-                 AND actual_qty > 0 AND posting_date BETWEEN %s AND %s""",
-            (company, date_from, date_to))[0][0])
-        return (out - back) * rate
+    def gl(company, like, m, root=None, credit=False):
+        col = "SUM(g.credit)-SUM(g.debit)" if credit else "SUM(g.debit)-SUM(g.credit)"
+        q = ("SELECT " + col + " FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
+             "WHERE g.company=%s AND g.is_cancelled=0 AND a.name LIKE %s "
+             "AND DATE_FORMAT(g.posting_date,'%%Y-%%m')=%s "
+             "AND g.voucher_type NOT IN ('Stock Reconciliation','Stock Entry')")
+        p = [company, like, m]
+        if root:
+            q += " AND a.root_type=%s"
+            p.append(root)
+        return flt(frappe.db.sql(q, tuple(p))[0][0])
 
-    product = stock_out(SALES, mad)
-    # the sourcing entity's shortfall IS the rest of the true product cost: what
-    # it paid suppliers beyond the paper price it charged Morocco
-    src_exp = gl(SRC, "7%", try_)
-    src_internal = gl(SRC, "600.801%", try_, credit_side=True)
-    src_gap = max(src_exp - src_internal, 0)
+    costs, meta = _unit_costs(SALES)
+    revenue = product = courier = ads = 0.0
+    units = uncovered = 0.0
+    for m in months:
+        revenue += usd(SALES, gl(SALES, "6%", m, "Income", credit=True), m)
+        courier += usd(SALES, gl(SALES, "770.07.004%", m) + gl(SALES, "770.07.008%", m), m)
+        ads += usd(SALES, gl(SALES, "760.%", m) - gl(SALES, "760.01.009%", m), m)
+        ads += usd(SRC, gl(SRC, "760.%", m) - gl(SRC, "760.01.009%", m)
+                   - gl(SRC, "760.002.001%", m), m)
+        for r in frappe.db.sql(
+                """SELECT sle.item_code AS ic, SUM(-sle.actual_qty) AS q
+                   FROM `tabStock Ledger Entry` sle
+                   WHERE sle.company=%s AND sle.is_cancelled=0
+                     AND sle.voucher_type='Delivery Note'
+                     AND DATE_FORMAT(sle.posting_date,'%%Y-%%m')=%s
+                   GROUP BY sle.item_code""", (SALES, m), as_dict=True):
+            c = costs.get(r["ic"])
+            q = flt(r["q"])
+            units += q
+            if c:
+                product += usd(SALES, q * c["cost"], m)
+            else:
+                uncovered += q
 
-    courier = gl(SALES, "770.07.004%", mad)
-    ads = gl(SALES, "760.%", mad) + gl(SRC, "760.%", try_)
-    fulfil = gl(SALES, "71.005%", mad)
-    payroll = gl(SALES, "720.%", mad) + gl(SRC, "720.%", try_)
-    rent = gl(SALES, "770.001%", mad) + gl(SRC, "770.001%", try_)
-    soft = gl(SALES, "770.012%", mad) + gl(SRC, "770.012%", try_)
+    # overhead, split by what it served
+    goods_oh, oh_rows = 0.0, []
+    for label, company, likes, share, why in _GOODS_SHARE:
+        v = 0.0
+        for m in months:
+            for like in likes:
+                if company:
+                    v += usd(company, gl(company, like, m), m)
+                else:
+                    for co in (SALES, SRC):
+                        v += usd(co, gl(co, like, m), m)
+        v *= share
+        goods_oh += v
+        oh_rows.append({"label": label, "usd": round(v), "share_pct": round(share * 100),
+                        "why": why})
+    total_oh = 0.0
+    for m in months:
+        for co in (SALES, SRC):
+            total_oh += usd(co, flt(frappe.db.sql(
+                """SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g
+                   JOIN `tabAccount` a ON a.name=g.account
+                   WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type='Expense'
+                     AND a.name NOT LIKE '71.%%'
+                     AND NOT ((a.name LIKE '770.07%%' OR a.name LIKE '770.0.7%%')
+                              AND a.name NOT LIKE '770.07.004%%'
+                              AND a.name NOT LIKE '770.07.008%%')
+                     AND DATE_FORMAT(g.posting_date,'%%Y-%%m')=%s""",
+                (co, m))[0][0]), m)
 
-    gm = revenue - product - src_gap
+    gm = revenue - product
     cm1 = gm - courier
     cm2 = cm1 - ads
-    cm3 = cm2 - fulfil
-    op = cm3 - payroll - rent - soft
+    on_goods = cm2 - goods_oh
+    snap = _capital_snapshot()
+    stock = flt(snap["stock_usd"])
     return {
-        "from": date_from, "to": date_to, "currency": "USD",
-        "revenue": round(revenue), "product_cost": round(product + src_gap),
-        "courier": round(courier), "marketing": round(ads), "fulfilment": round(fulfil),
-        "payroll": round(payroll), "rent": round(rent), "software": round(soft),
+        "from": date_from, "to": date_to, "currency": "USD", "months": months,
+        "revenue": round(revenue), "product_cost": round(product),
+        "units": round(units), "units_unpriced": round(uncovered),
+        "courier": round(courier), "marketing": round(ads),
         "gross_margin": round(gm), "cm1": round(cm1), "cm2": round(cm2),
-        "cm3": round(cm3), "operating": round(op),
+        "overhead_total": round(total_oh), "overhead_goods": round(goods_oh),
+        "overhead_rows": oh_rows,
+        "overhead_goods_pct": round(100.0 * goods_oh / total_oh, 1) if total_oh else None,
+        "operating": round(on_goods),
         "gm_pct": round(100.0 * gm / revenue, 1) if revenue else None,
-        "rates": {"MAD": round(mad, 5), "TRY": round(try_, 5)},
+        "capital": snap,
+        "model": meta,
+        "stock_usd": round(stock),
     }
 
 
@@ -314,8 +399,62 @@ def investor_statement(account=None, date_from=None, date_to=None):
                      "note": "the cycle is negative and the terms do not share losses"}
         else:
             share = {"basis_value": base, "amount": round(base * flt(t["share_pct"]) / 100.0)}
+    # The share on the goods: capital buys a proportion of the stock, that
+    # proportion earns its slice of what the goods made, and the operator takes
+    # half of it. Order does not matter - halving before or after the split lands
+    # on the same number - so it is shown the way the deal was struck.
+    goods = None
+    cap_usd = cap_deal if deal_ccy == "USD" else (
+        cap_deal * (_fx(deal_ccy, date_to) or 0))
+    stock = flt(cyc.get("stock_usd"))
+    if stock > 0 and cap_usd > 0:
+        pct = cap_usd / stock
+        profit = flt(cyc.get("operating"))
+        op_half = flt(t.get("operator_pct") or 50) / 100.0
+        his = profit * pct
+        drawn_usd = drawn_deal if deal_ccy == "USD" else (
+            drawn_deal * (_fx(deal_ccy, date_to) or 0))
+        goods = {
+            "capital_usd": round(cap_usd), "stock_usd": round(stock),
+            "company_usd": round(stock - cap_usd),
+            "pct": round(100.0 * pct, 1),
+            "company_pct": round(100.0 * (1 - pct), 1),
+            "profit": round(profit),
+            "his_capital_share": round(his),
+            "company_capital_share": round(profit - his),
+            "his_half": round(his * (1 - op_half)),
+            "operator_half": round(his * op_half),
+            "drawn": round(drawn_usd),
+            "outstanding": round(his * (1 - op_half) - drawn_usd),
+            "operator_pct": round(op_half * 100),
+            "sensitivity": [],
+        }
+        # The share moves with what counts as "the capital he bought into", and
+        # that is a judgement, not a fact. Show the answer on each defensible
+        # reading so the number is argued once rather than every cycle.
+        det = cyc.get("capital", {}).get("detail") or []
+        bases = [("all stock counted, everywhere", stock)]
+        transit = sum(flt(d.get("usd")) for d in det
+                      if "transit" in str(d.get("location", "")).lower())
+        if transit:
+            bases.append(("landed stock only, in-transit excluded", stock - transit))
+        mor = sum(flt(d.get("usd")) for d in det
+                  if "morocco" in str(d.get("location", "")).lower())
+        if mor:
+            bases.append(("stock in the selling country only", mor))
+        for lbl, base in bases:
+            if base <= 0:
+                continue
+            p2 = min(cap_usd / base, 1.0)
+            goods["sensitivity"].append({
+                "label": lbl, "base_usd": round(base), "pct": round(100.0 * p2, 1),
+                "amount": round(profit * p2 * (1 - op_half)),
+                "chosen": abs(base - stock) < 1,
+            })
+
     return {
         "account": account, "name": acc.account_name, "company": acc.company,
+        "goods": goods,
         "currency": ccy, "deal_currency": deal_ccy,
         "capital_local": round(cap_local, 2), "capital_deal": round(cap_deal, 2),
         "owed_in_base": round(owed_in_base, 2) if owed_in_base is not None else None,
@@ -325,6 +464,9 @@ def investor_statement(account=None, date_from=None, date_to=None):
         "drawn_local": round(drawn_local, 2), "drawn_deal": round(drawn_deal, 2),
         "moves": moves, "draws": draws, "profit_account": pa,
         "terms": t, "cycle": cyc, "share": share,
+        "capital_basis": cyc.get("capital"),
+        "overhead_rows": cyc.get("overhead_rows"),
+        "model": cyc.get("model"),
         "layers": [{"key": k, "label": l, "hint": h, "value": cyc.get(k)} for k, l, h in _LAYERS],
         "quality": _quality_flags(),
         "provisional": True,
@@ -333,7 +475,7 @@ def investor_statement(account=None, date_from=None, date_to=None):
 
 @frappe.whitelist()
 def set_investor_terms(account=None, share_pct=None, basis=None, start=None,
-                       deal_currency=None, shares_losses=None):
+                       deal_currency=None, shares_losses=None, operator_pct=None):
     """Record what was agreed. Restricted, and deliberately explicit about loss
     sharing — silence on that point is where these arrangements go wrong."""
     if not can_manage_users():
@@ -350,7 +492,30 @@ def set_investor_terms(account=None, share_pct=None, basis=None, start=None,
         "start": start or None,
         "deal_currency": (deal_currency or "USD").upper(),
         "shares_losses": str(shares_losses) in ("1", "true", "True", "yes"),
+        "operator_pct": flt(operator_pct) if operator_pct not in (None, "") else 50,
     }
     frappe.db.set_default(_TERMS_KEY, json.dumps(t))
     frappe.db.commit()
     return t[account]
+
+
+@frappe.whitelist()
+def set_capital_snapshot(date=None, stock_usd=None, source=None, detail=None):
+    """Record the counted stock the capital share is struck on.
+
+    Entered rather than read, because the counted figure is the trustworthy one:
+    each location valued in its own currency by the people who held it, against a
+    ledger that still carries a million phantom units from one mistyped receipt.
+    """
+    if not can_manage_users():
+        frappe.throw("Restricted to the Super Admin", frappe.PermissionError)
+    if not flt(stock_usd):
+        frappe.throw("stock_usd required")
+    if isinstance(detail, str):
+        detail = frappe.parse_json(detail or "[]")
+    frappe.db.set_default("ap_investor_capital", json.dumps({
+        "date": date or nowdate(), "stock_usd": flt(stock_usd),
+        "source": source or "counted stock", "detail": detail or [],
+    }))
+    frappe.db.commit()
+    return _capital_snapshot()

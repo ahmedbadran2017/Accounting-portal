@@ -86,6 +86,13 @@
           <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
             <span class="text-[13px] font-bold">{{ L("The cycle their money financed","الدورة اللي موّلها","Le cycle financé") }}</span>
             <span class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ st.cycle.from }} → {{ st.cycle.to }} · USD</span>
+            <div class="flex-1"></div>
+            <span v-if="st.model" class="text-[10px] text-ink-muted tnum" dir="ltr"
+                  :title="L('product cost is modelled, not read from the ledger','تكلفة المنتج محسوبة بالنموذج مش من الدفاتر','coût modélisé')">
+              {{ st.cycle.units }} {{ L("units","قطعة","unités") }} ·
+              {{ st.model.verified }} {{ L("verified","متحقق منها","vérifiés") }} ·
+              <span :style="st.cycle.units_unpriced ? 'color:#b45309' : ''">{{ st.cycle.units_unpriced }} {{ L("unpriced","بدون تكلفة","sans coût") }}</span>
+            </span>
           </div>
           <table class="w-full text-[11.5px]">
             <tbody>
@@ -108,6 +115,11 @@
               <span class="tnum font-extrabold text-[13px]" dir="ltr"> {{ fmt(st.share.amount) }} USD</span>
               <span v-if="st.share.note" class="text-ink-muted"> — {{ st.share.note }}</span>
             </template>
+            <template v-else-if="st.goods">
+              {{ L("The share is computed from the capital table below, not from a percentage typed into terms.",
+                   "النصيب محسوب من جدول رأس المال تحت، مش من نسبة متكتوبة في الشروط.",
+                   "Part calculée depuis le tableau de capital.") }}
+            </template>
             <template v-else>
               {{ L("No terms recorded — the share cannot be computed. Set the percentage, the basis line, and whether losses are shared.",
                    "مفيش شروط مسجّلة — النصيب مش هيتحسب. حدد النسبة والسطر الأساس وهل الخسارة بتتشارك.",
@@ -115,6 +127,135 @@
             </template>
           </div>
         </div>
+
+        <!-- what the goods actually cost to run, and who carried it -->
+        <div v-if="st.overhead_rows && st.overhead_rows.length" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+          <div class="px-4 py-3 border-b border-line-hair">
+            <div class="text-[13px] font-bold">{{ L("Running costs charged to the goods","المصاريف المحمّلة على البضاعة","Frais imputés aux marchandises") }}</div>
+            <div class="text-[11px] text-ink-muted mt-0.5">
+              {{ L("A cost is charged here when handling or selling the goods required it. Building the sourcing operation is an investment in the group, not a cost of this cycle.",
+                   "المصروف بيتحمّل هنا لما تشغيل أو بيع البضاعة يحتاجه. بناء عملية التوريد استثمار في المجموعة، مش تكلفة الدورة دي.",
+                   "Un coût est imputé ici lorsqu'il a été nécessaire.") }}
+            </div>
+          </div>
+          <table class="w-full text-[11.5px]">
+            <tbody>
+              <tr v-for="(o, i) in st.overhead_rows" :key="i" class="border-t border-line-hair">
+                <td class="px-4 py-2 font-bold">{{ o.label }}</td>
+                <td class="px-4 py-2 text-[10.5px] text-ink-muted">{{ o.why }}</td>
+                <td class="px-4 py-2 text-end text-[10.5px] text-ink-muted tnum" dir="ltr">{{ o.share_pct }}%</td>
+                <td class="px-4 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(o.usd) }}</td>
+              </tr>
+              <tr class="border-t border-line" style="background:#fafaf9">
+                <td class="px-4 py-2 font-bold" colspan="3">
+                  {{ L("Charged to the goods","المحمّل على البضاعة","Imputé") }}
+                  <span class="text-[10.5px] font-normal text-ink-muted">
+                    {{ L("of","من","de") }} {{ fmt(st.cycle.overhead_total) }} {{ L("total running costs","إجمالي المصاريف","total") }}
+                    ({{ st.cycle.overhead_goods_pct }}%)</span>
+                </td>
+                <td class="px-4 py-2 text-end tnum font-extrabold" dir="ltr">{{ fmt(st.cycle.overhead_goods) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- capital, share, and what it turns into -->
+        <template v-if="st.goods">
+          <div class="grid lg:grid-cols-2 gap-3">
+            <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+              <div class="px-4 py-2.5 border-b border-line-hair">
+                <div class="text-[12px] font-bold">{{ L("Capital in the goods","رأس المال في البضاعة","Capital dans les marchandises") }}</div>
+                <div class="text-[10.5px] text-ink-muted tnum" dir="ltr">
+                  {{ st.capital_basis && st.capital_basis.date }} · {{ st.capital_basis && st.capital_basis.source }}
+                </div>
+              </div>
+              <table class="w-full text-[11.5px]">
+                <tbody>
+                  <tr v-for="(d, i) in (st.capital_basis && st.capital_basis.detail) || []" :key="i" class="border-t border-line-hair">
+                    <td class="px-4 py-1.5">{{ d.location }}</td>
+                    <td class="px-4 py-1.5 text-end text-[10.5px] text-ink-muted tnum" dir="ltr">{{ d.native }}</td>
+                    <td class="px-4 py-1.5 text-end tnum" dir="ltr">{{ fmt(d.usd) }}</td>
+                  </tr>
+                  <tr class="border-t border-line" style="background:#fafaf9">
+                    <td class="px-4 py-2 font-bold">{{ L("Counted stock","المخزون المجرود","Stock compté") }}</td>
+                    <td></td>
+                    <td class="px-4 py-2 text-end tnum font-extrabold" dir="ltr">{{ fmt(st.goods.stock_usd) }}</td>
+                  </tr>
+                  <tr class="border-t border-line-hair">
+                    <td class="px-4 py-1.5 font-bold">{{ st.name }}</td>
+                    <td class="px-4 py-1.5 text-end text-[10.5px] font-bold tnum" style="color:#047857" dir="ltr">{{ st.goods.pct }}%</td>
+                    <td class="px-4 py-1.5 text-end tnum font-bold" dir="ltr">{{ fmt(st.goods.capital_usd) }}</td>
+                  </tr>
+                  <tr class="border-t border-line-hair">
+                    <td class="px-4 py-1.5">{{ L("The company","الشركة","La société") }}</td>
+                    <td class="px-4 py-1.5 text-end text-[10.5px] text-ink-muted tnum" dir="ltr">{{ st.goods.company_pct }}%</td>
+                    <td class="px-4 py-1.5 text-end tnum" dir="ltr">{{ fmt(st.goods.company_usd) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+              <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold">
+                {{ L("What it comes to","اللي بيطلع منها","Ce qui en résulte") }}
+              </div>
+              <table class="w-full text-[11.5px]">
+                <tbody>
+                  <tr class="border-t border-line-hair">
+                    <td class="px-4 py-2 font-bold">{{ L("Profit on the goods","ربح البضاعة","Profit") }}</td>
+                    <td class="px-4 py-2 text-end tnum font-bold" :class="st.goods.profit < 0 ? 'text-sale' : ''" dir="ltr">{{ fmt(st.goods.profit) }}</td>
+                  </tr>
+                  <tr class="border-t border-line-hair">
+                    <td class="px-4 py-2 ps-7">{{ L("earned by his capital","اللي كسبه رأس ماله","part de son capital") }} · {{ st.goods.pct }}%</td>
+                    <td class="px-4 py-2 text-end tnum" dir="ltr">{{ fmt(st.goods.his_capital_share) }}</td>
+                  </tr>
+                  <tr class="border-t border-line-hair">
+                    <td class="px-4 py-2 ps-7 text-ink-muted">{{ L("earned by the company's capital","اللي كسبه رأس مال الشركة","part de la société") }} · {{ st.goods.company_pct }}%</td>
+                    <td class="px-4 py-2 text-end tnum text-ink-muted" dir="ltr">{{ fmt(st.goods.company_capital_share) }}</td>
+                  </tr>
+                  <tr class="border-t border-line-hair">
+                    <td class="px-4 py-2 font-bold">{{ L("His half of his own share","نصه من نصيبه","Sa moitié") }}</td>
+                    <td class="px-4 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(st.goods.his_half) }}</td>
+                  </tr>
+                  <tr class="border-t border-line-hair">
+                    <td class="px-4 py-2 text-ink-muted">{{ L("the operator's half","نص المشغّل","la moitié de l'opérateur") }}</td>
+                    <td class="px-4 py-2 text-end tnum text-ink-muted" dir="ltr">{{ fmt(st.goods.operator_half) }}</td>
+                  </tr>
+                  <tr class="border-t border-line-hair">
+                    <td class="px-4 py-2">{{ L("Already drawn","المسحوب بالفعل","Déjà retiré") }}</td>
+                    <td class="px-4 py-2 text-end tnum text-sale" dir="ltr">−{{ fmt(st.goods.drawn) }}</td>
+                  </tr>
+                  <tr class="border-t border-line" style="background:#ecfdf5">
+                    <td class="px-4 py-2.5 font-extrabold" style="color:#047857">{{ L("Outstanding to him","المستحق له","Solde dû") }}</td>
+                    <td class="px-4 py-2.5 text-end tnum font-extrabold text-[14px]" style="color:#047857" dir="ltr">{{ fmt(st.goods.outstanding) }} USD</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- the one judgement in the whole statement, argued in the open -->
+          <div v-if="st.goods.sensitivity.length > 1" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-line-hair">
+              <div class="text-[12px] font-bold">{{ L("If the capital base were read differently","لو اتقرأ رأس المال بشكل تاني","Autres lectures du capital") }}</div>
+              <div class="text-[10.5px] text-ink-muted">
+                {{ L("His percentage depends on what counts as the stock he bought into — the only judgement in this statement.",
+                     "نسبته بتتغير حسب إيه اللي يتحسب مخزون اشترى فيه — دي الحاجة الوحيدة اللي فيها اجتهاد هنا.",
+                     "Le seul jugement de ce relevé.") }}
+              </div>
+            </div>
+            <table class="w-full text-[11.5px]">
+              <tbody>
+                <tr v-for="(x, i) in st.goods.sensitivity" :key="i" class="border-t border-line-hair" :class="x.chosen ? 'bg-emerald-50/50' : ''">
+                  <td class="px-4 py-2" :class="x.chosen ? 'font-bold text-emerald-800' : ''">{{ x.label }}</td>
+                  <td class="px-4 py-2 text-end text-[10.5px] text-ink-muted tnum" dir="ltr">{{ fmt(x.base_usd) }}</td>
+                  <td class="px-4 py-2 text-end tnum font-bold" dir="ltr">{{ x.pct }}%</td>
+                  <td class="px-4 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(x.amount) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
 
         <!-- movements -->
         <div class="grid lg:grid-cols-2 gap-3">
