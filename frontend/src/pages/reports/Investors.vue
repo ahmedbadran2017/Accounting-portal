@@ -85,7 +85,13 @@
         <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
           <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
             <span class="text-[13px] font-bold">{{ L("The cycle their money financed","الدورة اللي موّلها","Le cycle financé") }}</span>
-            <span class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ st.cycle.from }} → {{ st.cycle.to }} · USD</span>
+            <span class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ st.cycle.from }} → {{ st.cycle.to }} · {{ st.cycle.months.length }}{{ L("m","ش","m") }} · USD</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style="background:#f5f5f4;color:#57534e"
+                  :title="L('the month being posted is never included — its revenue is in but its payroll, rent and courier bills are not',
+                            'الشهر الجاري مش داخل — إيراده اتسجّل بس مرتباته وإيجاره وفواتير شحنه لسه',
+                            'le mois en cours est exclu')">
+              {{ L("closed months only","شهور مقفولة فقط","mois clos") }}
+            </span>
             <div class="flex-1"></div>
             <span v-if="st.model" class="text-[10px] text-ink-muted tnum" dir="ltr"
                   :title="L('product cost is modelled, not read from the ledger','تكلفة المنتج محسوبة بالنموذج مش من الدفاتر','coût modélisé')">
@@ -225,12 +231,24 @@
                     <td class="px-4 py-2">{{ L("Already drawn","المسحوب بالفعل","Déjà retiré") }}</td>
                     <td class="px-4 py-2 text-end tnum text-sale" dir="ltr">−{{ fmt(st.goods.drawn) }}</td>
                   </tr>
-                  <tr class="border-t border-line" style="background:#ecfdf5">
-                    <td class="px-4 py-2.5 font-extrabold" style="color:#047857">{{ L("Outstanding to him","المستحق له","Solde dû") }}</td>
-                    <td class="px-4 py-2.5 text-end tnum font-extrabold text-[14px]" style="color:#047857" dir="ltr">{{ fmt(st.goods.outstanding) }} USD</td>
+                  <tr class="border-t border-line" :style="st.goods.loss && !st.goods.shares_losses ? 'background:#fffbeb' : 'background:#ecfdf5'">
+                    <td class="px-4 py-2.5 font-extrabold" :style="st.goods.loss && !st.goods.shares_losses ? 'color:#b45309' : 'color:#047857'">
+                      {{ st.goods.loss && !st.goods.shares_losses
+                          ? L("Drawings to recover from a later cycle","مسحوبات تُسترد من دورة جاية","Avances à récupérer")
+                          : L("Outstanding to him","المستحق له","Solde dû") }}
+                    </td>
+                    <td class="px-4 py-2.5 text-end tnum font-extrabold text-[14px]"
+                        :style="st.goods.loss && !st.goods.shares_losses ? 'color:#b45309' : 'color:#047857'" dir="ltr">
+                      {{ fmt(st.goods.loss && !st.goods.shares_losses ? st.goods.advance_outstanding : st.goods.outstanding) }} USD
+                    </td>
                   </tr>
                 </tbody>
               </table>
+              <div v-if="st.goods.loss && !st.goods.shares_losses" class="px-4 py-2.5 border-t border-line-hair text-[11px]" style="background:#fffbeb;color:#92400e">
+                {{ L("The cycle lost money and the terms do not make him carry losses, so his share is nil rather than negative. What he has drawn stands as an advance against a later cycle — not a balance he owes back.",
+                     "الدورة خسرت والشروط ما بتحمّلهوش الخسارة، فنصيبه صفر مش بالسالب. اللي سحبه يفضل سلفة على دورة جاية — مش دين عليه يرجّعه.",
+                     "Le cycle est déficitaire ; sa part est nulle, non négative.") }}
+              </div>
             </div>
           </div>
 

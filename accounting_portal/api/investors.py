@@ -27,6 +27,7 @@ from frappe.utils import flt, nowdate
 from accounting_portal.api.permissions import assert_portal_access, can_manage_users
 
 _TERMS_KEY = "ap_investor_terms"
+SALES_COMPANY = "Justyol Morocco"
 
 # the layers, outermost first; each one is the previous minus its own costs
 _LAYERS = [
@@ -143,6 +144,28 @@ def investor_list():
     return {"investors": out, "layers": [{"key": k, "label": l, "hint": h} for k, l, h in _LAYERS]}
 
 
+def _first_trading_month(account):
+    """Where the cycle honestly begins: the first month in which both the sale
+    and the shipment are in the books, and not before the money arrived.
+
+    Justyol's 2025 revenue was recognised by monthly lump invoice. Two of those
+    months carry submitted sales invoices and not one delivery note - revenue with
+    no goods movement against it. No profit on goods can be measured there, so a
+    cycle that starts in them reports a margin of 100% and then a loss.
+    """
+    first_cap = frappe.db.sql(
+        """SELECT MIN(posting_date) FROM `tabGL Entry`
+           WHERE account=%s AND is_cancelled=0 AND credit>0""", (account,))[0][0]
+    row = frappe.db.sql(
+        """SELECT MIN(DATE_FORMAT(sle.posting_date,'%%Y-%%m-01'))
+           FROM `tabStock Ledger Entry` sle
+           WHERE sle.company=%s AND sle.is_cancelled=0
+             AND sle.voucher_type='Delivery Note'
+             AND sle.posting_date >= %s""", (SALES_COMPANY, first_cap or "2000-01-01"))
+    return str(row[0][0])[:10] if row and row[0][0] else (
+        str(first_cap)[:10] if first_cap else f"{nowdate()[:4]}-01-01")
+
+
 def _capital_snapshot():
     """The counted stock the capital share is struck on.
 
@@ -192,6 +215,16 @@ def _cycle(date_from, date_to):
     """
     from accounting_portal.api.pnl_estimated import _doc_rates, _unit_costs, _usd_at, _RATE_CACHE
     SALES, SRC = "Justyol Morocco", "Maslak LTD"
+    # A cycle never includes the month being posted. Revenue lands daily but
+    # payroll, rent, courier bills and advertising invoices arrive at month end
+    # or later, so a part-month always reads as a loss that is not one.
+    today = nowdate()
+    if date_to[:7] >= today[:7]:
+        y, m = int(today[:4]), int(today[5:7])
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+        date_to = "%04d-%02d-28" % (y, m)
     months = []
     y0, m0 = int(date_from[:4]), int(date_from[5:7])
     y1, m1 = int(date_to[:4]), int(date_to[5:7])
@@ -340,7 +373,7 @@ def investor_statement(account=None, date_from=None, date_to=None):
     ccy = acc.account_currency or frappe.db.get_value("Company", acc.company, "default_currency")
     t = _terms().get(account) or {}
     deal_ccy = t.get("deal_currency") or "USD"
-    date_from = date_from or t.get("start") or f"{nowdate()[:4]}-01-01"
+    date_from = date_from or t.get("start") or _first_trading_month(account)
     date_to = date_to or nowdate()
 
     # When the account is held in the currency the deal was struck in, ERPNext
@@ -426,9 +459,19 @@ def investor_statement(account=None, date_from=None, date_to=None):
             "operator_half": round(his * op_half),
             "drawn": round(drawn_usd),
             "outstanding": round(his * (1 - op_half) - drawn_usd),
+            "loss": profit < 0,
+            "shares_losses": bool(t.get("shares_losses")),
             "operator_pct": round(op_half * 100),
             "sensitivity": [],
         }
+        # A loss is not a negative entitlement. Unless the terms say he carries
+        # losses, his share of one is nil and the drawings stand as an advance to
+        # be recovered from a later cycle - which is a different thing to owe.
+        if profit < 0 and not t.get("shares_losses"):
+            goods["his_half"] = 0
+            goods["operator_half"] = 0
+            goods["outstanding"] = 0
+            goods["advance_outstanding"] = round(drawn_usd)
         # The share moves with what counts as "the capital he bought into", and
         # that is a judgement, not a fact. Show the answer on each defensible
         # reading so the number is argued once rather than every cycle.
@@ -448,7 +491,8 @@ def investor_statement(account=None, date_from=None, date_to=None):
             p2 = min(cap_usd / base, 1.0)
             goods["sensitivity"].append({
                 "label": lbl, "base_usd": round(base), "pct": round(100.0 * p2, 1),
-                "amount": round(profit * p2 * (1 - op_half)),
+                "amount": 0 if (profit < 0 and not t.get("shares_losses"))
+                          else round(profit * p2 * (1 - op_half)),
                 "chosen": abs(base - stock) < 1,
             })
 
