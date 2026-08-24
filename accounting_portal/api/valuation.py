@@ -1203,3 +1203,71 @@ def zero_cost_receipts_review(company=None):
             "model_verified": meta.get("verified"), "model_factor": meta.get("factor"),
         },
     }
+
+
+@frappe.whitelist()
+def reprice_zero_cost(company=None, item_code=None, dry_run=1, rate=None, note=None):
+    """Reprice ONE zero-cost item's on-hand stock to its true PRODUCT cost.
+
+    The urgent half of the manual zero-receipt clean-up: goods that entered at
+    nil value still sit on the shelf understated. This lifts every current bin of
+    the item to the Maslak-anchored product cost (cost_trace benchmark) in ONE
+    today-dated Stock Reconciliation — today-dated on purpose, so nothing after
+    it reposts and there is no heavy back-dated COGS walk (that is the separately
+    reviewed 'already sold' half).
+
+    Product cost only — the inbound freight layer is capitalised on its own track
+    (Landed Cockpit / 153.03); keeping it out here avoids double-counting and
+    means no landed-basis freeze is required. dry_run returns the per-bin
+    before→after; posting is gated on the stock impact, audited and reversible
+    (revert cancels the reconciliation)."""
+    assert_can_write()
+    target = _target(company or "Justyol Morocco")
+    if not (target and item_code):
+        frappe.throw("company and item_code are required")
+    trk = frappe.db.get_value("Item", item_code, ["has_batch_no", "has_serial_no"], as_dict=True)
+    if trk and (trk.has_batch_no or trk.has_serial_no):
+        frappe.throw(f"{item_code} is batch/serial-tracked — reprice it via ERPNext Stock "
+                     "Reconciliation (a plain reco row cannot carry a batch bundle)")
+    target_rate = flt(rate) if rate not in (None, "") else flt(_benchmarks(target, [item_code]).get(item_code))
+    if target_rate <= 0:
+        frappe.throw("No product-cost benchmark for this item — set a manual rate, "
+                     "or leave it for the no-cost worklist")
+    date = nowdate()
+    bins = frappe.db.sql(
+        """SELECT b.warehouse, b.actual_qty qty, b.valuation_rate vr
+           FROM `tabBin` b JOIN `tabWarehouse` w ON w.name=b.warehouse
+           WHERE w.company=%s AND b.item_code=%s AND b.actual_qty > 0
+             AND IFNULL(w.disabled,0)=0""", (target, item_code), as_dict=True)
+    rows, impact = [], 0.0
+    for b in bins:
+        q = _qty_asof(item_code, b.warehouse, date)
+        if q <= 0:
+            continue
+        old = flt(b.vr)
+        # RAISE-ONLY: this fixes the zero-cost UNDER-valuation. A bin already at
+        # or above the true product cost is not the zero-receipt problem — moving
+        # bins DOWN is over-valuation, the Valuation Doctor's separate job — so
+        # skip it here rather than quietly write down other errors from this screen.
+        if old >= target_rate - 0.01:
+            continue
+        delta = round((target_rate - old) * q, 2)
+        rows.append({"item_code": item_code, "warehouse": b.warehouse, "qty": q,
+                     "old_rate": round(old, 2), "rate": round(target_rate, 2), "delta": delta})
+        impact += abs(delta)
+    if not rows:
+        frappe.throw("Nothing to raise — this item's on-hand stock is already at or above "
+                     "its true product cost (its zero receipts were averaged up by other "
+                     "priced receipts). No under-valuation left to recover here.")
+    impact = round(impact, 2)
+    if int(dry_run or 0):
+        return {"dry_run": 1, "date": date, "item_code": item_code,
+                "target_rate": round(target_rate, 2), "rows": rows,
+                "n": len(rows), "impact": impact}
+    key = "zc-reprice:" + frappe.generate_hash(f"{target}:{item_code}:{date}:{target_rate}", 14)
+    return _actions.execute(
+        REVAL_ACTION, target, key,
+        payload={"date": date, "rows": [{"item_code": r["item_code"], "warehouse": r["warehouse"],
+                                         "rate": r["rate"]} for r in rows]},
+        amount=impact,
+        notes=note or f"Zero-cost reprice — {item_code}: {len(rows)} bin(s) → {target_rate:,.2f} MAD ({date})")
