@@ -16,7 +16,8 @@
               @click="goSub(s[0])">{{ t(s[1]) }}</button>
     </div>
 
-    <SalesCollections v-if="activeSub === 'salescol'" />
+    <GroupPnl v-if="activeSub === 'grouppnl'" />
+    <SalesCollections v-else-if="activeSub === 'salescol'" />
     <ReceivablesPayables v-else-if="activeSub === 'arap'" />
     <CashForecast v-else-if="activeSub === 'forecast'" />
     <MissingDocs v-else-if="activeSub === 'missingdocs'" />
@@ -35,6 +36,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
+import GroupPnl from "@/pages/reports/GroupPnl.vue";
 import SalesCollections from "@/pages/reports/SalesCollections.vue";
 import ReceivablesPayables from "@/pages/reports/ReceivablesPayables.vue";
 import CashForecast from "@/pages/reports/CashForecast.vue";
