@@ -230,3 +230,89 @@ def ic_matrix(year=None):
             balances.append({"company": co, "ccy": _ccy_of(co), "account": r.name,
                              "root_type": r.rt, "balance": flt(r.x)})
     return {"year": y, "pairs": pairs, "balances": balances}
+
+
+@frappe.whitelist()
+def group_pnl_corrected(year=None, ccy="USD"):
+    """Group P&L on the CORRECTED cost basis — the trustworthy reading lens.
+
+    Same policy-elimination as group_pnl (sales entity carries external revenue;
+    sourcing/dormant carry OPEX only, their IC revenue+cost disclosed), and the
+    SAME FX. The one difference: cost of goods is the MODELLED landed cost
+    (pnl_estimated._unit_costs), not the booked GL COGS. The booked figure mixes
+    in 71.004 Stock-Adjustment repost noise (June reads a negative COGS, January
+    a 91% margin); the modelled figure is stable month to month, so the monthly
+    P&L is readable now — while the books converge to it as the cost correction
+    lands. cogs_booked is returned alongside so the gap is visible.
+    """
+    assert_portal_access()
+    from accounting_portal.api.pnl_estimated import _unit_costs
+    y = int(year or nowdate()[:4])
+    roles = _roles()
+    companies = list(roles)
+    ccys = {co: _ccy_of(co) for co in companies}
+    rates = _month_rates(set(ccys.values()), ccy, y)
+    months = list(range(1, 13))
+    out_m = {m: {"revenue": 0.0, "cogs": 0.0, "cogs_booked": 0.0, "opex": 0.0} for m in months}
+    opex_by_co = {co: 0.0 for co in companies}
+    eliminated = {co: {"revenue": 0.0, "ic_cost": 0.0} for co in companies}
+    sales_co = next((c for c, r in roles.items() if r == "sales"), None)
+
+    # revenue + opex + eliminations + booked cogs (for the gap) — same as group_pnl
+    for co in companies:
+        role = roles.get(co, "dormant")
+        fx = rates.get(ccys[co], {})
+        rows = frappe.db.sql(
+            """SELECT a.name, a.root_type rt, IFNULL(a.account_type,'') at,
+                      MONTH(g.posting_date) m, SUM(g.credit-g.debit) cr
+               FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+               WHERE g.company=%s AND g.is_cancelled=0
+                 AND a.root_type IN ('Income','Expense') AND YEAR(g.posting_date)=%s
+               GROUP BY a.name, MONTH(g.posting_date)""", (co, y), as_dict=True)
+        for r in rows:
+            m = int(r.m); v = flt(r.cr) * flt(fx.get(m))
+            if r.rt == "Income":
+                if role == "sales": out_m[m]["revenue"] += v
+                else: eliminated[co]["revenue"] += v
+            else:
+                d = -v
+                if role == "sales" and _is_cogs_row(r.at, r.name):
+                    out_m[m]["cogs_booked"] += d      # booked, kept only for the gap
+                elif role != "sales" and (_is_cogs_row(r.at, r.name) or _is_ic_name(r.name)):
+                    eliminated[co]["ic_cost"] += d
+                else:
+                    out_m[m]["opex"] += d
+                    opex_by_co[co] += d
+
+    # corrected COGS: modelled unit cost × delivered qty, sales entity, per month
+    model = {}
+    if sales_co:
+        costs, model = _unit_costs(sales_co)
+        sccy = ccys[sales_co]; sfx = rates.get(sccy, {})
+        for r in frappe.db.sql(
+                """SELECT MONTH(sle.posting_date) m, sle.item_code ic, SUM(-sle.actual_qty) q
+                   FROM `tabStock Ledger Entry` sle
+                   WHERE sle.company=%s AND sle.is_cancelled=0 AND sle.voucher_type='Delivery Note'
+                     AND YEAR(sle.posting_date)=%s GROUP BY MONTH(sle.posting_date), sle.item_code""",
+                (sales_co, y), as_dict=True):
+            c = costs.get(r.ic)
+            if c and flt(c["cost"]) > 0:
+                out_m[int(r.m)]["cogs"] += flt(r.q) * flt(c["cost"]) * flt(sfx.get(int(r.m)))
+
+    rows_out = []
+    for m in months:
+        d = out_m[m]
+        if not (d["revenue"] or d["cogs"] or d["opex"]):
+            continue
+        rows_out.append({"month": f"{y}-{m:02d}", "revenue": round(d["revenue"]),
+                         "cogs": round(d["cogs"]), "cogs_booked": round(d["cogs_booked"]),
+                         "gross": round(d["revenue"] - d["cogs"]),
+                         "gm_pct": round(100 * (d["revenue"] - d["cogs"]) / d["revenue"], 1) if d["revenue"] else 0,
+                         "opex": round(d["opex"]), "net": round(d["revenue"] - d["cogs"] - d["opex"])})
+    tot = {k: sum(r[k] for r in rows_out) for k in ("revenue", "cogs", "cogs_booked", "gross", "opex", "net")}
+    tot["gm_pct"] = round(100 * tot["gross"] / tot["revenue"], 1) if tot["revenue"] else 0
+    return {"year": y, "ccy": ccy, "basis": "corrected", "roles": roles, "rows": rows_out, "total": tot,
+            "opex_by_company": {k: round(v) for k, v in opex_by_co.items()},
+            "eliminated": {k: {kk: round(vv) for kk, vv in v.items()}
+                           for k, v in eliminated.items() if any(v.values())},
+            "model": model}
