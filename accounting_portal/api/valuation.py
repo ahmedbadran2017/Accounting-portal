@@ -1113,3 +1113,93 @@ def backfill_stock_gl(company=None, days=60):
     except Exception:
         pass
     return {"backfilled": len(rows), "vouchers": [r.v for r in rows]}
+
+
+@frappe.whitelist()
+def zero_cost_receipts_review(company=None):
+    """The manual zero-cost Material Receipt queue, for review before any fix.
+
+    Warehouse staff keyed Material Receipts and left the rate at zero. Each such
+    line entered stock at nil value: it diluted the moving average, and every
+    sale that later drew from it booked COGS below the truth. The entry guard
+    (api/stock_guard.py) now blocks new ones; this is the review of the ones
+    already posted, priced at the same modelled landed cost the P&L uses, split
+    into what is still on hand (a cheap reprice of current stock) and what has
+    already sold (needs a back-dated repost to correct historical COGS).
+
+    Read-only — proposes nothing. The reprice runs through the existing
+    correct_valuation / revalue_bins posters once the list is agreed.
+    """
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    from accounting_portal.api.pnl_estimated import _unit_costs
+    costs, meta = _unit_costs(target)
+
+    lines = frappe.db.sql(
+        """SELECT sed.item_code ic, SUM(sed.transfer_qty) zq,
+                  COUNT(*) nlines, COUNT(DISTINCT se.name) ndocs,
+                  MIN(se.posting_date) first_d, MAX(se.posting_date) last_d
+           FROM `tabStock Entry` se
+           JOIN `tabStock Entry Detail` sed ON sed.parent=se.name
+           WHERE se.stock_entry_type='Material Receipt' AND se.docstatus=1
+             AND se.company=%s
+             AND IFNULL(sed.basic_rate,0)=0 AND IFNULL(sed.valuation_rate,0)=0
+           GROUP BY sed.item_code""", (target,), as_dict=True)
+    if not lines:
+        return {"company": target, "rows": [], "summary": {}}
+
+    items = [r.ic for r in lines]
+    names = dict(frappe.db.sql(
+        """SELECT name, IFNULL(item_name,'') FROM `tabItem` WHERE name IN %s""",
+        (tuple(items),))) if items else {}
+    onhand = dict(frappe.db.sql(
+        """SELECT b.item_code, SUM(b.actual_qty) FROM `tabBin` b
+           JOIN `tabWarehouse` w ON w.name=b.warehouse
+           WHERE w.company=%s AND b.item_code IN %s GROUP BY b.item_code""",
+        (target, tuple(items)))) if items else {}
+
+    rows = []
+    s_onhand_u = s_onhand_v = s_sold_u = s_sold_v = 0.0
+    n_nocost = 0
+    for r in lines:
+        zq = flt(r.zq)
+        c = costs.get(r.ic)
+        rate = flt(c["cost"]) if c else 0.0
+        oh = flt(onhand.get(r.ic))
+        still = max(0.0, min(zq, oh))
+        gone = zq - still
+        row = {
+            "item_code": r.ic, "item_name": names.get(r.ic, ""),
+            "docs": r.ndocs, "lines": r.nlines,
+            "first_date": str(r.first_d), "last_date": str(r.last_d),
+            "zero_qty": zq, "on_hand": oh,
+            "still_here": still, "sold": gone,
+            "model_rate": round(rate, 2) if rate else None,
+            "tier": (c["tier"] if c else None),
+            "onhand_value": round(still * rate) if rate else None,
+            "sold_value": round(gone * rate) if rate else None,
+            "flag": "priced" if rate else "no_cost",
+        }
+        if rate:
+            s_onhand_u += still; s_onhand_v += still * rate
+            s_sold_u += gone;    s_sold_v += gone * rate
+        else:
+            n_nocost += 1
+        rows.append(row)
+
+    # priced, biggest inventory understatement first; unpriced sink to the end
+    rows.sort(key=lambda x: (x["flag"] == "no_cost", -(x["onhand_value"] or 0),
+                             -(x["sold_value"] or 0)))
+    return {
+        "company": target, "rows": rows,
+        "summary": {
+            "items": len(rows), "no_cost_items": n_nocost,
+            "onhand_units": round(s_onhand_u), "onhand_value": round(s_onhand_v),
+            "sold_units": round(s_sold_u), "sold_value": round(s_sold_v),
+            "total_units": round(s_onhand_u + s_sold_u),
+            "total_value": round(s_onhand_v + s_sold_v),
+            "model_verified": meta.get("verified"), "model_factor": meta.get("factor"),
+        },
+    }
