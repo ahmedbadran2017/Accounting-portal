@@ -24,7 +24,7 @@ export const SUBTABS = {
   ],
   // legacy screens (costing / valuation / landed / cockpit) are hidden, not
   // deleted — their pages still resolve by direct URL if ever needed
-  items: [["items", "sub.items"], ["costtrace", "sub.costtrace"], ["weights", "sub.weights"], ["zerocost", "sub.zerocost"], ["pricelists", "sub.pricelists"]],
+  items: [["items", "sub.items"], ["costtrace", "sub.costtrace"], ["weights", "sub.weights"], ["zerocost", "sub.zerocost"], ["cutover", "sub.cutover"], ["pricelists", "sub.pricelists"]],
   banking: [
     ["accounts", "sub.accounts"], ["transactions", "sub.transactions"],
     ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["codclose", "sub.codclose"], ["settlements", "sub.settlements"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"], ["cleanup", "sub.cleanup"],

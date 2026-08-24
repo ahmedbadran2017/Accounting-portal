@@ -66,6 +66,7 @@
     "costtrace": "Cost trace",
     "weights": "Weights",
     "zerocost": "Zero-cost receipts",
+    "cutover": "Cost cutover",
     "pricelists": "Price lists",
     "landed": "Landed cost",
     "cockpit": "Landed Cockpit",
