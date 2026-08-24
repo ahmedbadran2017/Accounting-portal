@@ -101,9 +101,11 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { useUi } from "@/composables/useUi";
 import { fmtAmount } from "@/utils/helpers";
 
 const { locale } = useI18n();
+const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const money = (x) => fmtAmount(x);
 const n = (x) => (x === null || x === undefined ? "—" : Math.round(x).toLocaleString("en-US"));
@@ -121,7 +123,7 @@ async function load() {
   loading.value = true; err.value = "";
   try {
     const r = await api.call("accounting_portal.api.valuation.zero_cost_receipts_review",
-      { company: currentCompany.value }, { fresh: true });
+      { company: currentCompany() }, { fresh: true });
     d.value = r || { rows: [] };
     s.value = (r && r.summary) || {};
   } catch (e) {
@@ -131,5 +133,5 @@ async function load() {
   }
 }
 onMounted(load);
-watch(currentCompany, load);
+watch(entityId, load);
 </script>
