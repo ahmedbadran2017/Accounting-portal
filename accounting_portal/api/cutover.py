@@ -95,11 +95,18 @@ def cutover_plan(company=None):
             ready_set = True
         out.append(d)
 
+    # verified % is measured against THIS backlog: the items actually delivered
+    # in 2026. Count only stamped items that are in that set — a global stamp
+    # count over the whole catalogue would misstate the progress bar (and could
+    # exceed 100% when verified items were never delivered this year).
     vtot = len(items)
-    vdone = frappe.db.sql(
-        """SELECT COUNT(DISTINCT reference_name) FROM `tabAccounting Portal Action`
-           WHERE reference_doctype='Item' AND status='Posted'
-             AND IFNULL(reference_name,'')<>''""")[0][0]
+    vdone = 0
+    if items:
+        stamped = {r[0] for r in frappe.db.sql(
+            """SELECT DISTINCT reference_name FROM `tabAccounting Portal Action`
+               WHERE reference_doctype='Item' AND status='Posted'
+                 AND IFNULL(reference_name,'')<>''""")}
+        vdone = sum(1 for i in items if i in stamped)
     total_delta = round(sum(m["delta"] for m in out))
     return {
         "company": target,
