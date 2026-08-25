@@ -113,7 +113,12 @@
         <div v-if="step==='weights'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
             <div class="text-[12.5px] font-bold">{{ L("Unit weights (kg)","أوزان الوحدة (كجم)","Poids unitaires") }}</div>
-            <span class="text-[10.5px] text-ink-muted">{{ det.summary.weights_missing }} {{ L("missing","ناقص","manquants") }}</span>
+            <button class="text-[10.5px] font-bold px-2.5 py-1 rounded-full border"
+                    :class="onlyMissing ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 text-amber-700 border-amber-200'"
+                    @click="onlyMissing = !onlyMissing">
+              {{ det.summary.weights_missing }} {{ L("missing","ناقص","manquants") }}
+              <span class="ms-1">{{ onlyMissing ? "✓" : L("— show only","— اعرضهم بس","— filtrer") }}</span>
+            </button>
             <div class="ms-auto flex gap-2">
               <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border border-line bg-white" @click="fillFamily">{{ L("Inherit within family","توريث داخل العائلة","Hériter famille") }}</button>
               <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold text-white bg-accent disabled:opacity-50" :disabled="!dirtyW.length || saving" @click="saveWeights">
@@ -134,7 +139,7 @@
                 <th class="px-3 py-2 text-end th">{{ L("Weight kg","الوزن كجم","Poids kg") }}</th>
               </tr></thead>
               <tbody>
-                <tr v-for="it in det.items" :key="it.item_code" class="border-t border-line-hair" :class="!wval(it) ? 'bg-amber-50/40' : ''">
+                <tr v-for="it in weightRows" :key="it.item_code" class="border-t border-line-hair" :class="!wval(it) ? 'bg-amber-50/40' : ''">
                   <td class="px-3 py-1.5 tnum text-[10.5px]" dir="ltr">{{ it.sku || it.item_code }}</td>
                   <td class="px-3 py-1.5">{{ (it.item_name || '').slice(0, 44) }}</td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ n(it.sold) }}</td>
@@ -348,6 +353,15 @@ async function saveWeights() {
   finally { saving.value = false; }
 }
 const savingOne = ref(null); const justSaved = ref(null);
+const onlyMissing = ref(false);
+// keep a just-saved row visible in "missing only" mode until the filter is toggled,
+// so the ✓ doesn't vanish under your cursor
+const weightRows = computed(() => {
+  if (!det.value) return [];
+  if (!onlyMissing.value) return det.value.items;
+  return det.value.items.filter(it =>
+    !(parseFloat(wval(it)) > 0) || wDirty.value[it.item_code] !== undefined || justSaved.value === it.item_code);
+});
 async function saveOne(it) {
   const w = parseFloat(wDirty.value[it.item_code]);
   if (!(w > 0)) return;
