@@ -135,30 +135,15 @@ def true_cost(item_code=None):
             return {"item_code": item_code, "cost_mad": round(v / q, 2),
                     "source": "local_pi", "basis_qty": round(q),
                     "note": "Local supplier invoice (MAD) — domestic product, no landed layer"}
-    # 2) fallback — Morocco direct purchase receipts, FX-corrected
-    mo = frappe.db.sql(
-        """SELECT pri.rate rate_fc, pr.currency cur, pr.posting_date dt, pri.qty
-           FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
-           WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code=%s AND pri.qty>0
-           ORDER BY pr.posting_date DESC""", (SALES, item_code), as_dict=True)
-    if mo:
-        q = v = 0.0
-        for r in mo:
-            if q >= _BASIS_QTY:
-                break
-            mad = _to_mad(r.rate_fc, r.cur, r.dt, cache)
-            q += flt(r.qty); v += mad * flt(r.qty)
-        if q > 0 and v > 0:
-            return {"item_code": item_code, "cost_mad": round(v / q, 2),
-                    "source": "morocco_pr", "basis_qty": round(q),
-                    "note": "Morocco direct receipt, FX-corrected — no Maslak invoice"}
-        if q > 0:  # had receipts but no line could be FX-converted
-            return {"item_code": item_code, "cost_mad": None, "source": "fx_unavailable",
-                    "basis_qty": round(q),
-                    "note": "Purchase docs exist but their currency has no usable FX rate — needs a rate"}
+    # NOTE (CFO policy): PURCHASE INVOICES ONLY. Receipts are NOT evidence —
+    # receipt rates are unreliable (0-priced when the invoice carries the
+    # value, or garbage FX artifacts). The half-invoice pattern is fine:
+    # when only part of a purchase is officially invoiced, the PI unit rate
+    # still prices the whole quantity — the non-official remainder is the
+    # same goods at the same unit price (coverage stays flagged in the UI).
     # 3) FAMILY INHERITANCE — a variant whose own code never hit a purchase
-    # document inherits the model's evidence (invoice on a sibling size/colour
-    # or on the template). Same source ladder, scoped to the family.
+    # INVOICE inherits the model's invoice evidence (a sibling size/colour or
+    # the template). Same source ladder, scoped to the family.
     template, members = _family_members(item_code)
     if members:
         fam = tuple(members)
@@ -174,10 +159,6 @@ def true_cost(item_code=None):
                 WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
                   AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
                 ORDER BY pi.posting_date DESC""", (SALES, fam), False, "local invoice"),
-            ("""SELECT pri.item_code ic, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
-                FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
-                WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
-                ORDER BY pr.posting_date DESC""", (SALES, fam), False, "Morocco receipt"),
         ):
             rows = frappe.db.sql(sql, params, as_dict=True)
             if not rows:
@@ -196,9 +177,9 @@ def true_cost(item_code=None):
                         "source": "family_pi", "basis_qty": round(q),
                         "evidence_item": ev_item,
                         "note": f"Family evidence — {lbl} on {ev_sku} (same model, one price across variants)"}
-    # 3) orphan — no cost source anywhere
+    # 4) orphan — no INVOICE evidence anywhere (receipts don't count)
     return {"item_code": item_code, "cost_mad": None, "source": "orphan", "basis_qty": 0,
-            "note": "No Maslak invoice and no Morocco receipt — needs estimated/manual cost"}
+            "note": "No purchase invoice (own or family) — needs a verified/manual cost"}
 
 
 # ── Bulk true-cost engine (Phase 2) — computes the whole catalogue at once ──
@@ -323,19 +304,15 @@ def _true_cost_bulk(item_codes, fx):
                ORDER BY pi.posting_date DESC""", (SALES, tuple(missing)), as_dict=True)
         _agg(lpi, False, "local_pi")
 
-    missing = [c for c in item_codes if c not in out]
-    if missing:
-        pr = frappe.db.sql(
-            """SELECT pri.item_code, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
-               FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
-               WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
-               ORDER BY pr.posting_date DESC""", (SALES, tuple(missing)), as_dict=True)
-        _agg(pr, False, "morocco_pr")
+    # CFO policy: PURCHASE INVOICES ONLY — receipts are never evidence (their
+    # rates are 0 when the invoice carries the value, or FX garbage). The
+    # half-invoice pattern is priced by the official PI unit rate for the
+    # whole quantity; coverage is flagged in the workbench UI, not here.
 
     # ── FAMILY INHERITANCE — variants whose own code never hit a purchase
-    # document inherit the model's evidence (the invoice carries ONE code per
-    # model; the price is the same across sizes/colours). Pooled per template,
-    # same source ladder, newest-first. ~60% of the "unpriced" catalogue.
+    # INVOICE inherit the model's invoice evidence (the invoice carries ONE
+    # code per model; the price is the same across sizes/colours). Pooled per
+    # template, same source ladder, newest-first.
     missing = [c for c in item_codes if c not in out]
     if missing:
         vmap = dict(frappe.db.sql(
@@ -384,12 +361,6 @@ def _true_cost_bulk(item_codes, fx):
                    WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
                      AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
                    ORDER BY pi.posting_date DESC""", (SALES, member_codes), as_dict=True), False)
-            _fam_agg(frappe.db.sql(
-                """SELECT pri.item_code, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
-                   FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
-                   WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
-                   ORDER BY pr.posting_date DESC""", (SALES, member_codes), as_dict=True), False)
-
             for c in missing:
                 f = fam_out.get(vmap.get(c))
                 if f and c not in out:
@@ -465,11 +436,6 @@ def _true_cost_bulk(item_codes, fx):
                        WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
                          AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
                        ORDER BY pi.posting_date DESC""", (SALES, kc), as_dict=True), False)
-                _base_agg(frappe.db.sql(
-                    """SELECT pri.item_code, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
-                       FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
-                       WHERE pr.company=%s AND pr.docstatus=1 AND pri.item_code IN %s AND pri.qty>0
-                       ORDER BY pr.posting_date DESC""", (SALES, kc), as_dict=True), False)
                 for c, b in base_of.items():
                     f = base_out.get(b)
                     if f and c not in out:
