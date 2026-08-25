@@ -97,6 +97,16 @@ def true_cost(item_code=None):
     assert_portal_access()
     if not item_code:
         frappe.throw("item_code required")
+    # family half-invoice pooling wins over every individual path (same model,
+    # ONE price — the bulk engine carries the pooled logic; stay consistent)
+    _bulk = _true_cost_bulk([item_code], _fx_series())
+    _b = _bulk.get(item_code)
+    if _b and _b.get("half_invoice"):
+        _b = dict(_b)
+        _b["item_code"] = item_code
+        _b["note"] = ("HALF-INVOICE (family-pooled): official + non-official halves "
+                      "summed across ALL variants of the model — one price per model")
+        return _b
     cache = {}
     # 1) preferred anchor — Maslak purchase INVOICES (actual bill).
     # HALF-INVOICE pattern: the same physical purchase used to be billed as
@@ -474,6 +484,90 @@ def _true_cost_bulk(item_codes, fx):
                     f = base_out.get(b)
                     if f and c not in out:
                         out[c] = dict(f)
+
+    # ── FAMILY HALF-INVOICE POOLING — same model, ONE price. The official and
+    # non-official halves of one purchase were often booked on DIFFERENT
+    # variant codes (official on Red, non-official on Black), so per-variant
+    # detection sees only one side and prices that variant at HALF. Pool the
+    # WHOLE family's invoice lines (Maslak with cost centers + third-party
+    # full invoices); when the pooled family shows BOTH kinds, the combined
+    # rate = (v_off + v_non + v_full) ÷ (max(q_off, q_non) + q_full) and it
+    # OVERRIDES every member's individual result.
+    fam_key = {}
+    vmap_all = dict(frappe.db.sql(
+        "SELECT name, variant_of FROM `tabItem` WHERE name IN %s", (codes,)))
+    sku_all = dict(frappe.db.sql(
+        "SELECT name, custom_sku FROM `tabItem` WHERE name IN %s", (codes,)))
+    bases_needed = set()
+    for c in item_codes:
+        t = vmap_all.get(c)
+        if t:
+            fam_key[c] = "tpl::" + t
+        else:
+            sku = (sku_all.get(c) or "").strip()
+            if "-" in sku:
+                b = sku.split("-")[0].strip()
+                if len(b) >= 4 and b != sku:
+                    fam_key[c] = "base::" + b
+                    bases_needed.add(b)
+    if fam_key:
+        # member codes per family (from the DB — halves can sit on variants
+        # outside the requested set)
+        fam_members = {}
+        tpls = {k[5:] for k in fam_key.values() if k.startswith("tpl::")}
+        if tpls:
+            for r in frappe.db.sql(
+                    "SELECT name, variant_of FROM `tabItem` WHERE variant_of IN %s",
+                    (tuple(tpls),), as_dict=True):
+                fam_members.setdefault("tpl::" + r.variant_of, set()).add(r.name)
+        for b in bases_needed:
+            kin = frappe.db.sql(
+                """SELECT name FROM `tabItem` WHERE custom_sku=%s OR custom_sku LIKE %s
+                   LIMIT 200""", (b, b + "-%"), pluck=True)
+            if kin:
+                fam_members["base::" + b] = set(kin)
+        all_members = tuple({m for s in fam_members.values() for m in s})
+        if all_members:
+            pool = {}   # fam -> [q_off,v_off,q_non,v_non,q_full,v_full]
+            member_fam = {m: f for f, ms in fam_members.items() for m in ms}
+
+            def _pool_add(item, kind, q, v):
+                f = member_fam.get(item)
+                if not f:
+                    return
+                p = pool.setdefault(f, [0.0] * 6)
+                i = {"off": 0, "non": 2, "full": 4}[kind]
+                p[i] += q; p[i + 1] += v
+            for r in frappe.db.sql(
+                    """SELECT pii.item_code, pii.base_rate rate, pi.posting_date dt, pii.qty,
+                              IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
+                       FROM `tabPurchase Invoice Item` pii
+                       JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                       WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s
+                         AND pii.qty>0""", (SOURCING, all_members), as_dict=True):
+                m = _to_mad_fast(r.rate, "TRY", r.dt, fx)
+                kind = "non" if "non-official" in (r.cc or "").lower() else "off"
+                _pool_add(r.item_code, kind, flt(r.qty), m * flt(r.qty))
+            for r in frappe.db.sql(
+                    """SELECT pii.item_code, pii.base_rate rate, pii.qty
+                       FROM `tabPurchase Invoice Item` pii
+                       JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                       WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s
+                         AND pii.qty>0
+                         AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
+                    """, (SALES, all_members), as_dict=True):
+                _pool_add(r.item_code, "full", flt(r.qty), flt(r.rate) * flt(r.qty))
+            for c, f in fam_key.items():
+                p = pool.get(f)
+                if not p:
+                    continue
+                q_off, v_off, q_non, v_non, q_full, v_full = p
+                if q_off > 0 and q_non > 0:          # the family IS half-invoiced
+                    phys = max(q_off, q_non) + q_full
+                    val = v_off + v_non + v_full
+                    if phys > 0 and val > 0:
+                        out[c] = {"cost_mad": round(val / phys, 2), "source": "family_pi",
+                                  "basis_qty": round(phys), "half_invoice": 1}
     return out
 
 
