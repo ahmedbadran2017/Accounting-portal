@@ -82,41 +82,52 @@ def _moved_universe():
     return out
 
 
+# group companies appear as "suppliers" on internal transfer invoices — paper,
+# never the true origin; excluded from attribution entirely
+_INTERNAL_SUPPLIERS = ("Maslak LTD", "Justyol China", "Justyol Morocco", "Justyol Holding")
+
+
 def _item_vendor_map(item_codes):
-    """item -> (supplier, evidence) resolved from purchase docs, best first:
-    Morocco PI > Maslak PI > Purchase Receipt (any company). On conflict the
-    supplier with the LATEST document wins; count kept for the UI."""
+    """item -> true ORIGIN supplier. The winner is the supplier with the
+    LARGEST CUMULATIVE PURCHASED QTY across all evidence (origin PIs at Maslak,
+    local PIs at Morocco, receipts) — a 24K-unit origin invoice beats a 500-unit
+    top-up regardless of date. Internal transfer 'suppliers' (group companies)
+    are excluded. Invoices outrank receipts only as a tie-break."""
     if not item_codes:
         return {}
     codes = tuple(item_codes)
-    best = {}   # ic -> (posting_date, supplier, source)
+    acc = {}   # ic -> {sup: [qty, has_pi, latest_dt]}
 
-    def _take(rows, source):
+    def _take(rows, is_pi):
         for r in rows:
-            cur = best.get(r.ic)
-            if cur is None or (r.dt and str(r.dt) > str(cur[0])):
-                best[r.ic] = (r.dt, r.sup, source)
+            if not r.sup or r.sup in _INTERNAL_SUPPLIERS:
+                continue
+            d = acc.setdefault(r.ic, {})
+            e = d.setdefault(r.sup, [0.0, 0, ""])
+            e[0] += flt(r.q)
+            e[1] = max(e[1], 1 if is_pi else 0)
+            e[2] = max(e[2], str(r.dt or ""))
 
     _take(frappe.db.sql(
-        """SELECT pii.item_code ic, pi.supplier sup, MAX(pi.posting_date) dt
+        """SELECT pii.item_code ic, pi.supplier sup, SUM(pii.qty) q, MAX(pi.posting_date) dt
            FROM `tabPurchase Invoice Item` pii
            JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
-           WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s
-           GROUP BY pii.item_code, pi.supplier""", (SALES, codes), as_dict=True), "pi_local")
-    _take(frappe.db.sql(
-        """SELECT pii.item_code ic, pi.supplier sup, MAX(pi.posting_date) dt
-           FROM `tabPurchase Invoice Item` pii
-           JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
-           WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s
-           GROUP BY pii.item_code, pi.supplier""", (SOURCING, codes), as_dict=True), "pi_maslak")
+           WHERE pi.docstatus=1 AND pi.company IN %s AND pii.item_code IN %s
+           GROUP BY pii.item_code, pi.supplier""", ((SALES, SOURCING), codes), as_dict=True), True)
     # receipts fill the invoice-less tail (the Town Team pattern)
     _take(frappe.db.sql(
-        """SELECT pri.item_code ic, pr.supplier sup, MAX(pr.posting_date) dt
+        """SELECT pri.item_code ic, pr.supplier sup, SUM(pri.qty) q, MAX(pr.posting_date) dt
            FROM `tabPurchase Receipt Item` pri
            JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
            WHERE pr.docstatus=1 AND pri.item_code IN %s
-           GROUP BY pri.item_code, pr.supplier""", (codes,), as_dict=True), "pr")
-    return {ic: {"supplier": v[1], "source": v[2]} for ic, v in best.items() if v[1]}
+           GROUP BY pri.item_code, pr.supplier""", (codes,), as_dict=True), False)
+
+    out = {}
+    for ic, sups in acc.items():
+        win = sorted(sups.items(), key=lambda kv: (-kv[1][0], -kv[1][1], kv[1][2]))[0]
+        out[ic] = {"supplier": win[0], "source": "pi" if win[1][1] else "pr",
+                   "qty": round(win[1][0])}
+    return out
 
 
 @frappe.whitelist()
@@ -309,31 +320,64 @@ def save_weights(supplier=None, rows=None):
     return {"saved": done, "skipped": skipped}
 
 
+_RATES_KEY = "ap_freight_rates"          # {"sea": 22.7, "air": ..., "china": ...} MAD/kg
+_DEFAULT_RATES = {"sea": 22.7, "air": 213.86, "china": 22.7}
+
+
+def _rates():
+    try:
+        cfg = json.loads(frappe.db.get_default(_RATES_KEY) or "{}") or {}
+    except Exception:
+        cfg = {}
+    out = dict(_DEFAULT_RATES)
+    out.update({k: flt(v) for k, v in cfg.items() if flt(v) > 0})
+    return out
+
+
+def _rate_for(supplier):
+    """MAD/kg for this vendor's channel; 0 for local (no freight layer)."""
+    grp = frappe.db.get_value("Supplier", supplier, "supplier_group") or ""
+    if grp in _LOCAL_GROUPS:
+        return 0.0, "local"
+    ch = _channels().get(supplier) or "sea"
+    return flt(_rates().get(ch) or _rates()["sea"]), ch
+
+
 @frappe.whitelist()
 def freight_summary(supplier=None):
-    """Step 2 read: the vendor's pro-rata slice of the 770 freight pool.
-    Pool stays GLOBAL per channel (sum over vendors == actual bills)."""
+    """Step 2 read: the vendor's pro-rata slice of the 2026 770 freight pool.
+
+    Timing matters (a large share of goods SHIPPED IN 2025): the 2026 pool is
+    allocated over units RECEIVED IN 2026 only — clearing stays honest (the sum
+    over vendors equals the 2026 bills). 2025 freight was expensed in the
+    closed 2025 P&L and is shown as context, never re-allocated. The COSTING
+    side is separate: every imported unit carries channel-rate × weight in the
+    submit, whatever year it shipped."""
     assert_portal_access()
     if not supplier:
         frappe.throw("supplier required")
-    chan = _channels().get(supplier) or ""
-    # channel pools: net (ex-VAT) 2026 balances on legacy 770 freight accounts,
-    # split by the forwarder classification agreed earlier
-    pool = frappe.db.sql(
-        """SELECT a.account_number an, SUM(g.debit-g.credit) x
-           FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-           WHERE g.company=%s AND g.is_cancelled=0
-             AND (a.account_number LIKE '770.07%%' OR a.account_number LIKE '770.0.7%%')
-             AND a.account_number NOT LIKE '770.07.004%%'
-             AND YEAR(g.posting_date)=2026
-           GROUP BY a.account_number""", (SALES,), as_dict=True)
-    total_pool = round(sum(flt(r.x) for r in pool))
-    # vendor's weighted units vs all-imported weighted units (weight × sold+oh)
-    uni = _moved_universe()
-    codes = list(uni)
-    vmap = _item_vendor_map(codes)
-    sup_groups = dict(frappe.db.sql(
-        "SELECT name, IFNULL(supplier_group,'') FROM `tabSupplier`"))
+    rate_kg, chan = _rate_for(supplier)
+
+    def _pool(year):
+        return round(flt(frappe.db.sql(
+            """SELECT SUM(g.debit-g.credit)
+               FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
+               WHERE g.company=%s AND g.is_cancelled=0
+                 AND (a.account_number LIKE '770.07%%' OR a.account_number LIKE '770.0.7%%')
+                 AND a.account_number NOT LIKE '770.07.004%%'
+                 AND YEAR(g.posting_date)=%s""", (SALES, year))[0][0] or 0))
+    pool26, pool25 = _pool(2026), _pool(2025)
+
+    # weighted units RECEIVED in 2026, per vendor vs all-imported
+    recv = frappe.db.sql(
+        """SELECT pri.item_code ic, pr.supplier sup, SUM(pri.qty) q
+           FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
+           WHERE pr.docstatus=1 AND pr.company=%s AND YEAR(pr.posting_date)=2026
+             AND IFNULL(s.supplier_group,'') NOT IN %s
+           GROUP BY pri.item_code, pr.supplier""", (SALES, _LOCAL_GROUPS), as_dict=True)
+    codes = list({r.ic for r in recv})
     w = {}
     for i in range(0, len(codes), 700):
         for r in frappe.db.sql(
@@ -342,26 +386,23 @@ def freight_summary(supplier=None):
             w[r.name] = flt(r.x)
     tot_kg = my_kg = 0.0
     my_units = my_nw = 0
-    for ic, m in uni.items():
-        sup = vmap.get(ic, {}).get("supplier")
-        if not sup or sup_groups.get(sup, "") in _LOCAL_GROUPS:
-            continue
-        units = m["sold"] + m["oh"]
-        kg = w.get(ic, 0.0) * units
+    for r in recv:
+        kg = w.get(r.ic, 0.0) * flt(r.q)
         tot_kg += kg
-        if sup == supplier:
+        if r.sup == supplier:
             my_kg += kg
-            my_units += units
-            if w.get(ic, 0.0) <= 0:
+            my_units += flt(r.q)
+            if w.get(r.ic, 0.0) <= 0:
                 my_nw += 1
     share = (my_kg / tot_kg) if tot_kg else 0.0
-    return {"supplier": supplier, "channel": chan,
-            "pool_mad": total_pool,
+    return {"supplier": supplier, "channel": chan, "rate_kg": rate_kg,
+            "pool_mad": pool26, "pool_2025_mad": pool25,
             "vendor_kg": round(my_kg, 1), "total_kg": round(tot_kg, 1),
             "share_pct": round(100 * share, 2),
-            "vendor_freight_mad": round(total_pool * share),
+            "vendor_freight_mad": round(pool26 * share),
             "vendor_units": round(my_units), "items_without_weight": my_nw,
-            "note": "pool allocation — sum over vendors always equals the actual 770 bills"}
+            "note": "2026 pool over 2026-received units — sum over vendors == 2026 bills; "
+                    "2025 freight sits in the closed 2025 P&L (context only)"}
 
 
 @frappe.whitelist()
@@ -377,32 +418,64 @@ def set_step(supplier=None, step=None, done=1):
     return {"ok": 1, "state": v}
 
 
+def _full_rates(supplier, items):
+    """{item: {product, freight, rate, weight_kg}} — product benchmark plus the
+    channel freight layer (rate/kg × unit weight). Local vendors: freight 0.
+    Every imported unit carries freight in its COST whatever year it shipped —
+    separate from the 2026 pool-clearing view."""
+    from accounting_portal.api.valuation import _benchmarks
+    rate_kg, _ch = _rate_for(supplier)
+    bench = _benchmarks(SALES, items) if items else {}
+    w = {}
+    if items:
+        for i in range(0, len(items), 700):
+            for r in frappe.db.sql(
+                    "SELECT name, IFNULL(weight_per_unit,0) x FROM `tabItem` WHERE name IN %s",
+                    (items[i:i + 700],), as_dict=True):
+                w[r.name] = flt(r.x)
+    out = {}
+    for ic in items:
+        b = flt(bench.get(ic))
+        if b <= 0:
+            out[ic] = {"product": None, "freight": 0, "rate": None, "weight_kg": w.get(ic, 0)}
+            continue
+        fr = round(rate_kg * w.get(ic, 0.0), 2)
+        out[ic] = {"product": b, "freight": fr, "rate": round(b + fr, 2),
+                   "weight_kg": w.get(ic, 0)}
+    return out
+
+
 @frappe.whitelist()
 def submit_preview(supplier=None, items=None):
-    """Step 4 dry-run: for each item show the rate that would be applied and
-    the retro anchor date — so silent degradation (anchor at today) is visible
-    BEFORE anything posts."""
+    """Step 4 dry-run: for each item the FULL rate (product + freight layer)
+    and the retro anchor date — silent degradation (anchor at today) and
+    missing weights are visible BEFORE anything posts."""
     assert_portal_access()
     if not supplier:
         frappe.throw("supplier required")
     items = frappe.parse_json(items or "[]")
-    from accounting_portal.api.valuation import _benchmarks, _retro_anchor
-    bench = _benchmarks(SALES, items) if items else {}
+    from accounting_portal.api.valuation import _retro_anchor
+    rates = _full_rates(supplier, items)
+    rate_kg, chan = _rate_for(supplier)
     out = []
     for ic in items:
-        b = bench.get(ic)
+        rr = rates.get(ic) or {}
         anchor = None
         try:
             anchor = _retro_anchor(SALES, ic)
         except Exception:
             anchor = None
-        out.append({"item_code": ic, "rate": b,
+        out.append({"item_code": ic, "rate": rr.get("rate"),
+                    "product": rr.get("product"), "freight": rr.get("freight"),
+                    "weight_kg": rr.get("weight_kg"),
                     "anchor": str(anchor) if anchor else None,
                     "retro_ok": bool(anchor and str(anchor) < frappe.utils.nowdate()),
-                    "no_cost": not b})
-    return {"supplier": supplier, "rows": out,
+                    "no_cost": not rr.get("rate"),
+                    "no_weight": rate_kg > 0 and flt(rr.get("weight_kg")) <= 0})
+    return {"supplier": supplier, "channel": chan, "rate_kg": rate_kg, "rows": out,
             "ready": sum(1 for r in out if r["rate"] and r["retro_ok"]),
             "no_cost": sum(1 for r in out if r["no_cost"]),
+            "no_weight": sum(1 for r in out if r["no_weight"]),
             "anchor_today": sum(1 for r in out if r["rate"] and not r["retro_ok"])}
 
 
@@ -419,20 +492,28 @@ def submit_batch(supplier=None, items=None, note=None):
         frappe.throw("no items in batch")
     if len(items) > 25:
         frappe.throw("batch too large — send at most 25 items per submit")
-    from accounting_portal.api.valuation import _benchmarks, fix_item_cost
-    bench = _benchmarks(SALES, items)
+    from accounting_portal.api.valuation import fix_item_cost
+    rates = _full_rates(supplier, items)
+    rate_kg, chan = _rate_for(supplier)
     st = _state()
     v = st.setdefault(supplier, {})
     done = v.setdefault("submitted", [])
     results = []
     for ic in items:
-        b = bench.get(ic)
-        if not b:
+        rr = rates.get(ic) or {}
+        if not rr.get("rate"):
             results.append({"item_code": ic, "result": "skipped — no cost evidence"})
             continue
+        if rate_kg > 0 and flt(rr.get("weight_kg")) <= 0:
+            results.append({"item_code": ic, "result": "skipped — no weight (freight layer unknown)"})
+            continue
+        split = (f"vendor workbench — {supplier} [{chan}]: "
+                 f"product {rr['product']} + freight {rr['freight']} "
+                 f"({rate_kg}/kg × {rr['weight_kg']}kg)")
         try:
-            r = fix_item_cost(company=SALES, item_code=ic, rate=b, full_rate=1, retro=1,
-                              note=note or f"vendor workbench submit — {supplier}")
+            r = fix_item_cost(company=SALES, item_code=ic, rate=rr["rate"], full_rate=1,
+                              retro=1, retro_product=rr["product"],
+                              note=(note + " — " if note else "") + split)
             results.append({"item_code": ic, "result": (r or {}).get("result") or "ok"})
             if ic not in done:
                 done.append(ic)

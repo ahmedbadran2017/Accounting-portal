@@ -173,7 +173,14 @@
             <div class="rounded-[12px] border px-3 py-2.5" style="border-color:#bfdbfe;background:#eff6ff"><div class="lab" style="color:#1e40af">{{ L("Vendor freight","شحن المورّد","Fret") }}</div><div class="big tnum" style="color:#1e40af" dir="ltr">{{ n(fr.vendor_freight_mad) }} <span class="text-[10px]">MAD</span></div></div>
             <div class="rounded-[12px] border border-line px-3 py-2.5"><div class="lab">{{ L("Items w/o weight","بدون وزن","Sans poids") }}</div><div class="big tnum" :style="fr.items_without_weight ? 'color:#b45309' : 'color:#047857'" dir="ltr">{{ fr.items_without_weight }}</div></div>
           </div>
-          <p class="text-[11px] text-ink-muted">{{ L("Allocation is pro-rata by weight from ONE global pool — the sum across all vendors always equals the actual bills. Fix weights first for a fair share.","التوزيع بالوزن من بول واحد — مجموع الموردين دايمًا = الفواتير الفعلية. صلّح الأوزان الأول عشان الحصة تبقى عادلة.","Allocation pro-rata au poids depuis un pool global.") }}</p>
+          <p class="text-[11px] text-ink-muted">
+            {{ L("2026 pool over 2026-received units — the sum across vendors always equals the 2026 bills. Costing is separate: every imported unit carries ","بول 2026 على الوحدات اللي وصلت 2026 — مجموع الموردين = فواتير 2026 دايمًا. التكلفة منفصلة: كل وحدة مستوردة بتشيل ","Pool 2026 sur les réceptions 2026. Coût : ") }}
+            <b class="tnum" dir="ltr">{{ fr?.rate_kg }} MAD/kg</b>
+            {{ L(" in its cost whatever year it shipped."," في تكلفتها أيًا كانت سنة شحنها."," par kg.") }}
+            <span v-if="fr?.pool_2025_mad" class="block mt-0.5" style="color:#9a8f86">
+              {{ L("Context: 2025 freight was ","للسياق: شحن 2025 كان ","Contexte : fret 2025 = ") }}<b class="tnum" dir="ltr">{{ n(fr.pool_2025_mad) }} MAD</b>{{ L(" — already expensed in the closed 2025 P&L, never re-allocated here.","— اتصرف في قائمة دخل 2025 المقفولة، مش بيتوزّع هنا تاني.","— déjà chargé en 2025.") }}
+            </span>
+          </p>
           <button class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border" :class="det.state.freight ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-line bg-white'" @click="markStep('freight')">
             {{ det.state.freight ? L("Reviewed ✓","تمت المراجعة ✓","Revu ✓") : L("Mark reviewed","علّم كمُراجع","Marquer revu") }}
           </button>
@@ -225,11 +232,15 @@
                 {{ pvLoading ? "…" : L("Dry-run preview","معاينة بدون ترحيل","Aperçu à blanc") }}
               </button>
             </div>
-            <div v-if="pv" class="grid grid-cols-3 gap-3 mt-3">
+            <div v-if="pv" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
               <div class="rounded-[12px] border px-3 py-2.5" style="border-color:#a7f3d0;background:#ecfdf5"><div class="lab" style="color:#047857">{{ L("Ready (retro OK)","جاهز (رترو سليم)","Prêt") }}</div><div class="big tnum" style="color:#047857" dir="ltr">{{ pv.ready }}</div></div>
               <div class="rounded-[12px] border px-3 py-2.5" style="border-color:#fde68a;background:#fffbeb"><div class="lab" style="color:#b45309">{{ L("Anchor = today","الأنكور = النهاردة","Ancre = auj.") }}</div><div class="big tnum" style="color:#b45309" dir="ltr">{{ pv.anchor_today }}</div></div>
               <div class="rounded-[12px] border px-3 py-2.5" style="border-color:#fecaca;background:#fef2f2"><div class="lab" style="color:#b91c1c">{{ L("No cost evidence","بدون دليل تكلفة","Sans coût") }}</div><div class="big tnum" style="color:#b91c1c" dir="ltr">{{ pv.no_cost }}</div></div>
+              <div v-if="pv.rate_kg > 0" class="rounded-[12px] border px-3 py-2.5" style="border-color:#fde68a;background:#fffbeb"><div class="lab" style="color:#b45309">{{ L("No weight","بدون وزن","Sans poids") }}</div><div class="big tnum" style="color:#b45309" dir="ltr">{{ pv.no_weight }}</div><div class="text-[9.5px]" style="color:#b45309">{{ L("blocked — fix in step 1","محجوب — صلّح في خطوة 1","bloqué") }}</div></div>
             </div>
+            <p v-if="pv" class="text-[10.5px] text-ink-muted mt-2">
+              {{ L("Applied rate = product cost + freight (","السعر المُطبّق = تكلفة المنتج + الشحن (","Taux = produit + fret (") }}<b class="tnum" dir="ltr">{{ pv.rate_kg }} MAD/kg</b>{{ L(" × item weight). Items without weight are blocked, not guessed."," × وزن الصنف). اللي من غير وزن بيتحجب مش بيتخمّن."," × poids).") }}
+            </p>
             <div v-if="pv" class="mt-3 flex items-center gap-2 flex-wrap">
               <button class="h-[34px] px-4 rounded-[9px] text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                       :disabled="submitting || !readyQueue.length" @click="runBatch">
@@ -322,7 +333,7 @@ function fillFamily() {
 const readyQueue = computed(() => {
   if (!pv.value) return [];
   const done = new Set(det.value?.state?.submitted || []);
-  return pv.value.rows.filter(r => r.rate && r.retro_ok && !done.has(r.item_code)).map(r => r.item_code);
+  return pv.value.rows.filter(r => r.rate && r.retro_ok && !r.no_weight && !done.has(r.item_code)).map(r => r.item_code);
 });
 
 async function load() {
