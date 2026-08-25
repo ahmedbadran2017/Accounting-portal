@@ -535,16 +535,20 @@ def freight_summary(supplier=None):
                  AND YEAR(g.posting_date)=%s""", (SALES, year))[0][0] or 0))
     pool26, pool25 = _pool(2026), _pool(2025)
 
-    # weighted units RECEIVED in 2026, per vendor vs all-imported
+    # weighted units RECEIVED in 2026 into the sales company. Kitchen-Life
+    # lesson: goods arrive via the INTERNAL transfer, so the receipt's own
+    # supplier says "Maslak LTD" — each unit must be credited to its TRUE
+    # origin vendor via the same attribution map used everywhere else.
     recv = frappe.db.sql(
-        """SELECT pri.item_code ic, pr.supplier sup, SUM(pri.qty) q
+        """SELECT pri.item_code ic, SUM(pri.qty) q
            FROM `tabPurchase Receipt Item` pri
            JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
-           LEFT JOIN `tabSupplier` s ON s.name=pr.supplier
            WHERE pr.docstatus=1 AND pr.company=%s AND YEAR(pr.posting_date)=2026
-             AND IFNULL(s.supplier_group,'') NOT IN %s
-           GROUP BY pri.item_code, pr.supplier""", (SALES, _LOCAL_GROUPS), as_dict=True)
+           GROUP BY pri.item_code""", (SALES,), as_dict=True)
     codes = list({r.ic for r in recv})
+    vmap = _item_vendor_map(codes)
+    sup_groups = dict(frappe.db.sql(
+        "SELECT name, IFNULL(supplier_group,'') FROM `tabSupplier`"))
     w = {}
     for i in range(0, len(codes), 700):
         for r in frappe.db.sql(
@@ -554,9 +558,12 @@ def freight_summary(supplier=None):
     tot_kg = my_kg = 0.0
     my_units = my_nw = 0
     for r in recv:
+        vend = vmap.get(r.ic, {}).get("supplier")
+        if not vend or sup_groups.get(vend, "") in _LOCAL_GROUPS:
+            continue                      # local goods carry no import freight
         kg = w.get(r.ic, 0.0) * flt(r.q)
         tot_kg += kg
-        if r.sup == supplier:
+        if vend == supplier:
             my_kg += kg
             my_units += flt(r.q)
             if w.get(r.ic, 0.0) <= 0:
