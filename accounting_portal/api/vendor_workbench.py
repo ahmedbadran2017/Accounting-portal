@@ -394,12 +394,60 @@ def _rates():
 
 
 def _rate_for(supplier):
-    """MAD/kg for this vendor's channel; 0 for local (no freight layer)."""
+    """MAD/kg for this vendor: a vendor-specific override (key 'vendor::<name>'
+    in ap_freight_rates) wins, else the channel rate; 0 for local."""
     grp = frappe.db.get_value("Supplier", supplier, "supplier_group") or ""
     if grp in _LOCAL_GROUPS:
         return 0.0, "local"
     ch = _channels().get(supplier) or "sea"
-    return flt(_rates().get(ch) or _rates()["sea"]), ch
+    rates = _rates()
+    ov = flt(rates.get(f"vendor::{supplier}"))
+    return (ov if ov > 0 else flt(rates.get(ch) or rates["sea"])), ch
+
+
+@frappe.whitelist()
+def set_channel(supplier=None, channel=None):
+    """Assign the vendor's freight channel (sea/air/china/local) — updates the
+    shared ap_freight_channels classification used everywhere."""
+    assert_can_write()
+    if not supplier or channel not in ("sea", "air", "china", "local"):
+        frappe.throw("supplier and a valid channel (sea/air/china/local) required")
+    try:
+        cfg = json.loads(frappe.db.get_default(_CHANNELS_KEY) or "{}") or {}
+    except Exception:
+        cfg = {}
+    for ch in list(cfg):
+        cfg[ch] = [s for s in (cfg[ch] or []) if s != supplier]
+    cfg.setdefault(channel, []).append(supplier)
+    frappe.db.set_default(_CHANNELS_KEY, json.dumps(cfg))
+    return {"ok": 1, "supplier": supplier, "channel": channel}
+
+
+@frappe.whitelist()
+def set_rate(channel=None, rate=None, supplier=None):
+    """Set the MAD/kg freight rate. With `supplier`: a vendor-specific override
+    (rate<=0 clears it, falling back to the channel rate). Without: the shared
+    channel rate itself."""
+    assert_can_write()
+    try:
+        cfg = json.loads(frappe.db.get_default(_RATES_KEY) or "{}") or {}
+    except Exception:
+        cfg = {}
+    r = flt(rate)
+    if supplier:
+        key = f"vendor::{supplier}"
+        if r > 0:
+            cfg[key] = r
+        else:
+            cfg.pop(key, None)
+    else:
+        if channel not in ("sea", "air", "china"):
+            frappe.throw("channel must be sea/air/china")
+        if r <= 0:
+            frappe.throw("a positive MAD/kg rate is required")
+        cfg[channel] = r
+    frappe.db.set_default(_RATES_KEY, json.dumps(cfg))
+    return {"ok": 1, "rates": cfg}
 
 
 @frappe.whitelist()
@@ -514,7 +562,11 @@ def freight_summary(supplier=None):
             if w.get(r.ic, 0.0) <= 0:
                 my_nw += 1
     share = (my_kg / tot_kg) if tot_kg else 0.0
+    rates_cfg = _rates()
+    chan_rate = flt(rates_cfg.get(chan) or 0)
     return {"supplier": supplier, "channel": chan, "rate_kg": rate_kg,
+            "channel_rate": chan_rate,
+            "rate_source": "vendor" if flt(rates_cfg.get(f"vendor::{supplier}")) > 0 else "channel",
             "pool_mad": pool26, "pool_2025_mad": pool25,
             "vendor_kg": round(my_kg, 1), "total_kg": round(tot_kg, 1),
             "share_pct": round(100 * share, 2),

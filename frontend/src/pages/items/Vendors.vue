@@ -175,6 +175,33 @@
         <!-- STEP 2: freight -->
         <div v-else-if="step==='freight'" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-4 space-y-3">
           <div class="text-[12.5px] font-bold">{{ L("Vendor's slice of the 770 freight pool","نصيب المورّد من بول شحن 770","Part du pool fret 770") }}</div>
+
+          <!-- channel + rate controls -->
+          <div class="flex items-end gap-3 flex-wrap rounded-[12px] border border-line px-3 py-2.5" style="background:#fafaf9">
+            <div>
+              <div class="lab mb-1">{{ L("Freight type","نوع الشحن","Type de fret") }}</div>
+              <div class="flex gap-1">
+                <button v-for="c in ['sea','air','china','local']" :key="c"
+                        class="h-[28px] px-2.5 rounded-[8px] text-[11px] font-bold border"
+                        :class="fr?.channel===c ? 'text-white border-transparent' : 'bg-white border-line text-ink-muted'"
+                        :style="fr?.channel===c ? chanStyle(c)+';filter:saturate(2)' : ''"
+                        @click="saveChannel(c)">{{ c }}</button>
+              </div>
+            </div>
+            <div v-if="fr?.channel!=='local'">
+              <div class="lab mb-1">
+                {{ L("Rate MAD/kg","السعر درهم/كجم","Taux MAD/kg") }}
+                <span class="normal-case font-normal">({{ fr?.rate_source==='vendor' ? L("vendor override","خاص بالمورّد","fournisseur") : L("channel default","سعر القناة","canal") + " " + fr?.channel_rate }})</span>
+              </div>
+              <div class="flex gap-1.5 items-center">
+                <input type="number" step="0.01" min="0" v-model="rateEdit"
+                       class="w-[92px] h-[28px] px-2 rounded-[8px] border border-line text-end tnum text-[12px]" dir="ltr" />
+                <button class="h-[28px] px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-accent" @click="saveRate(false)">{{ L("Set for vendor","ثبّت للمورّد","Fixer") }}</button>
+                <button class="h-[28px] px-2.5 rounded-[8px] text-[11px] font-bold border border-line bg-white" :title="L('make this the shared rate for every '+(fr?.channel||'')+' vendor','خلّيه السعر الموحد لكل موردين القناة دي','taux partagé du canal')" @click="saveRate(true)">{{ L("Set for channel","ثبّت للقناة","Canal") }}</button>
+                <button v-if="fr?.rate_source==='vendor'" class="h-[28px] px-2 rounded-[8px] text-[11px] border border-line bg-white text-ink-muted" @click="clearVendorRate">{{ L("clear","امسح","×") }}</button>
+              </div>
+            </div>
+          </div>
           <div v-if="fr" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="rounded-[12px] border border-line px-3 py-2.5"><div class="lab">{{ L("Pool (net, 2026)","البول (صافي)","Pool") }}</div><div class="big tnum" dir="ltr">{{ n(fr.pool_mad) }} <span class="text-[10px]">MAD</span></div></div>
             <div class="rounded-[12px] border border-line px-3 py-2.5"><div class="lab">{{ L("Vendor kg-share","حصة الوزن","Part kg") }}</div><div class="big tnum" dir="ltr">{{ fr.share_pct }}%</div><div class="text-[10px] text-ink-muted tnum" dir="ltr">{{ n(fr.vendor_kg) }} / {{ n(fr.total_kg) }} kg</div></div>
@@ -361,6 +388,7 @@ async function open(sup) {
     step.value = det.value.local ? "costs" : "weights";
     if (!det.value.local) {
       fr.value = await api.call("accounting_portal.api.vendor_workbench.freight_summary", { supplier: sup }, { fresh: true });
+      rateEdit.value = fr.value?.rate_kg || "";
     }
   } catch (e) { err.value = (e && e.message) || String(e); }
   finally { dloading.value = false; }
@@ -426,6 +454,36 @@ async function runBatch() {
   } catch (e) { alert((e && e.message) || e); }
   finally { submitting.value = false; }
 }
+// ---- freight channel + rate controls ----
+const rateEdit = ref("");
+async function reloadFreight() {
+  fr.value = await api.call("accounting_portal.api.vendor_workbench.freight_summary",
+    { supplier: sel.value }, { fresh: true });
+  rateEdit.value = fr.value?.rate_kg || "";
+}
+async function saveChannel(c) {
+  try {
+    await api.call("accounting_portal.api.vendor_workbench.set_channel", { supplier: sel.value, channel: c });
+    await reloadFreight();
+    if (det.value) det.value.channel = c;
+  } catch (e) { alert((e && e.message) || e); }
+}
+async function saveRate(forChannel) {
+  const r = parseFloat(rateEdit.value);
+  if (!(r > 0)) return alert(L("Enter a positive MAD/kg rate", "أدخل سعر موجب درهم/كجم", "Taux positif requis"));
+  try {
+    await api.call("accounting_portal.api.vendor_workbench.set_rate",
+      forChannel ? { channel: fr.value.channel, rate: r } : { supplier: sel.value, rate: r });
+    await reloadFreight();
+  } catch (e) { alert((e && e.message) || e); }
+}
+async function clearVendorRate() {
+  try {
+    await api.call("accounting_portal.api.vendor_workbench.set_rate", { supplier: sel.value, rate: 0 });
+    await reloadFreight();
+  } catch (e) { alert((e && e.message) || e); }
+}
+
 // ---- Excel round-trip (missing weights) ----
 const importing = ref(false);
 function exportMissing() {
