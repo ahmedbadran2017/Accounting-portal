@@ -122,12 +122,55 @@ def _item_vendor_map(item_codes):
            WHERE pr.docstatus=1 AND pri.item_code IN %s
            GROUP BY pri.item_code, pr.supplier""", (codes,), as_dict=True), False)
 
+    overrides = _overrides()
     out = {}
     for ic, sups in acc.items():
-        win = sorted(sups.items(), key=lambda kv: (-kv[1][0], -kv[1][1], kv[1][2]))[0]
-        out[ic] = {"supplier": win[0], "source": "pi" if win[1][1] else "pr",
-                   "qty": round(win[1][0])}
+        ranked = sorted(sups.items(), key=lambda kv: (-kv[1][0], -kv[1][1], kv[1][2]))
+        win = ranked[0]
+        rec = {"supplier": win[0], "source": "pi" if win[1][1] else "pr",
+               "qty": round(win[1][0]),
+               "cands": [[s, round(e[0]), int(e[1])] for s, e in ranked[:5]]}
+        ov = overrides.get(ic)
+        if ov and ov in sups:            # manual override wins (must be a real candidate)
+            rec["supplier"] = ov
+            rec["source"] = "manual"
+        elif ov:                          # override to a supplier with no evidence: honor it too
+            rec["supplier"] = ov
+            rec["source"] = "manual"
+        out[ic] = rec
+    # overrides for items with no purchase evidence at all
+    for ic, ov in overrides.items():
+        if ic not in out and ic in (set(item_codes) if not isinstance(item_codes, tuple) else set(codes)):
+            out[ic] = {"supplier": ov, "source": "manual", "qty": 0, "cands": []}
     return out
+
+
+_OVERRIDES_KEY = "ap_vendor_overrides"
+
+
+def _overrides():
+    try:
+        return json.loads(frappe.db.get_default(_OVERRIDES_KEY) or "{}") or {}
+    except Exception:
+        return {}
+
+
+@frappe.whitelist()
+def set_vendor_override(item_code=None, supplier=None):
+    """Manually pin an item to its true vendor (empty supplier clears the pin).
+    The pin wins over the volume rule everywhere in the workbench."""
+    assert_can_write()
+    if not item_code:
+        frappe.throw("item_code required")
+    ov = _overrides()
+    if supplier:
+        if not frappe.db.exists("Supplier", supplier):
+            frappe.throw(f"unknown supplier: {supplier}")
+        ov[item_code] = supplier
+    else:
+        ov.pop(item_code, None)
+    frappe.db.set_default(_OVERRIDES_KEY, json.dumps(ov))
+    return {"ok": 1, "item_code": item_code, "supplier": supplier or None}
 
 
 @frappe.whitelist()
@@ -264,10 +307,13 @@ def vendor_detail(supplier=None):
     from accounting_portal.api.valuation import _benchmarks
     bench = _benchmarks(SALES, mine)
 
+    ovs = _overrides()
     items = []
     for ic in mine:
         m = meta.get(ic) or {}
         h = hist.get(ic) or {}
+        vm = vmap.get(ic) or {}
+        cands = vm.get("cands") or []
         items.append({
             "item_code": ic,
             "item_name": m.get("item_name"),
@@ -280,6 +326,8 @@ def vendor_detail(supplier=None):
             "oh": round(uni[ic]["oh"]),
             "book_rate": round(flt(book.get(ic)), 2) if book.get(ic) else None,
             "bench": bench.get(ic),
+            "multi": cands if len(cands) > 1 else [],
+            "pinned": 1 if ic in ovs else 0,
         })
     items.sort(key=lambda x: -x["sold"])
     st = (_state().get(supplier)) or {}
@@ -341,6 +389,66 @@ def _rate_for(supplier):
         return 0.0, "local"
     ch = _channels().get(supplier) or "sea"
     return flt(_rates().get(ch) or _rates()["sea"]), ch
+
+
+@frappe.whitelist()
+def import_weights(supplier=None, csv_text=None):
+    """Bulk weight import from a team-filled sheet (CSV text — Excel 'Save as
+    CSV'). Flexible: separator ; , or tab; decimal comma accepted; rows are
+    resolved by item_code first, then by SKU (globally unique custom_sku).
+    Returns a full report — nothing silently dropped."""
+    assert_can_write()
+    text = (csv_text or "").strip()
+    if not text:
+        frappe.throw("empty file")
+    lines = [l for l in text.replace("\r\n", "\n").replace("\r", "\n").split("\n") if l.strip()]
+    sep = ";" if lines[0].count(";") >= lines[0].count(",") else ","
+    if "\t" in lines[0] and lines[0].count("\t") > lines[0].count(sep):
+        sep = "\t"
+    hdr = [c.strip().strip('"').lower() for c in lines[0].split(sep)]
+
+    def _col(*names):
+        for nm in names:
+            for i, h in enumerate(hdr):
+                if nm in h:
+                    return i
+        return None
+    ci = _col("item_code", "item code", "code")
+    cs = _col("sku")
+    cw = _col("weight", "وزن", "kg", "poids")
+    if cw is None:
+        frappe.throw("no weight column found (expect a header containing 'weight'/'kg')")
+    saved, unmatched, invalid = [], [], []
+    for ln in lines[1:]:
+        parts = [c.strip().strip('"') for c in ln.split(sep)]
+        if len(parts) <= cw:
+            continue
+        raw_w = parts[cw].replace(",", ".").replace(" ", "")
+        try:
+            w = float(raw_w) if raw_w else 0.0
+        except Exception:
+            w = 0.0
+        code = parts[ci].strip() if ci is not None and len(parts) > ci else ""
+        sku = parts[cs].strip() if cs is not None and len(parts) > cs else ""
+        if w <= 0:
+            continue                        # blank/zero = not filled, skip silently
+        if not (0.005 <= w <= 50):
+            invalid.append({"row": code or sku, "weight": w})
+            continue
+        ic = None
+        if code and frappe.db.exists("Item", code):
+            ic = code
+        elif sku:
+            ic = frappe.db.get_value("Item", {"custom_sku": sku}, "name")
+        if not ic:
+            unmatched.append(code or sku or ln[:30])
+            continue
+        frappe.db.set_value("Item", ic, {"weight_per_unit": w, "weight_uom": "Kg"})
+        saved.append(ic)
+    frappe.db.commit()
+    return {"saved": len(saved), "unmatched": unmatched[:50],
+            "unmatched_n": len(unmatched), "invalid": invalid[:20],
+            "invalid_n": len(invalid)}
 
 
 @frappe.whitelist()

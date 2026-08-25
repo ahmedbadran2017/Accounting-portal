@@ -119,7 +119,12 @@
               {{ det.summary.weights_missing }} {{ L("missing","ناقص","manquants") }}
               <span class="ms-1">{{ onlyMissing ? "✓" : L("— show only","— اعرضهم بس","— filtrer") }}</span>
             </button>
-            <div class="ms-auto flex gap-2">
+            <div class="ms-auto flex gap-2 flex-wrap">
+              <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border border-line bg-white" @click="exportMissing">⬇ {{ L("Excel (missing)","إكسيل (الناقص)","Excel (manquant)") }}</button>
+              <label class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border border-line bg-white inline-flex items-center cursor-pointer">
+                ⬆ {{ importing ? "…" : L("Import filled","رفع المملوء","Importer") }}
+                <input type="file" accept=".csv,.txt" class="hidden" @change="importFile" />
+              </label>
               <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border border-line bg-white" @click="fillFamily">{{ L("Inherit within family","توريث داخل العائلة","Hériter famille") }}</button>
               <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold text-white bg-accent disabled:opacity-50" :disabled="!dirtyW.length || saving" @click="saveWeights">
                 {{ saving ? "…" : L("Save "+dirtyW.length,"حفظ "+dirtyW.length,"Enregistrer") }}
@@ -140,7 +145,10 @@
               </tr></thead>
               <tbody>
                 <tr v-for="it in weightRows" :key="it.item_code" class="border-t border-line-hair" :class="!wval(it) ? 'bg-amber-50/40' : ''">
-                  <td class="px-3 py-1.5 tnum text-[10.5px]" dir="ltr">{{ it.sku || it.item_code }}</td>
+                  <td class="px-3 py-1.5 tnum text-[10.5px]" dir="ltr">
+                    {{ it.sku || it.item_code }}
+                    <MultiVendorBadge :item="it" :current="det.supplier" @moved="open(sel)" />
+                  </td>
                   <td class="px-3 py-1.5">{{ (it.item_name || '').slice(0, 44) }}</td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ n(it.sold) }}</td>
                   <td class="px-3 py-1.5 text-end tnum text-ink-muted" dir="ltr">{{ n(it.oh) }}</td>
@@ -207,7 +215,10 @@
               </tr></thead>
               <tbody>
                 <tr v-for="it in det.items" :key="it.item_code" class="border-t border-line-hair" :class="!it.bench ? 'bg-amber-50/40' : ''">
-                  <td class="px-3 py-1.5 tnum text-[10.5px]" dir="ltr">{{ it.sku || it.item_code }}</td>
+                  <td class="px-3 py-1.5 tnum text-[10.5px]" dir="ltr">
+                    {{ it.sku || it.item_code }}
+                    <MultiVendorBadge :item="it" :current="det.supplier" @moved="open(sel)" />
+                  </td>
                   <td class="px-3 py-1.5">{{ (it.item_name || '').slice(0, 40) }}</td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ n(it.bought) }} <span class="text-[9px] text-ink-muted">{{ it.last_doc }}</span></td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ it.book_rate ?? "—" }}</td>
@@ -415,8 +426,80 @@ async function runBatch() {
   } catch (e) { alert((e && e.message) || e); }
   finally { submitting.value = false; }
 }
+// ---- Excel round-trip (missing weights) ----
+const importing = ref(false);
+function exportMissing() {
+  const rows = det.value.items.filter(it => !(parseFloat(wval(it)) > 0));
+  const esc = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const csv = "﻿" + ["item_code;sku;product;sold;on_hand;weight_kg"]
+    .concat(rows.map(it => [it.item_code, it.sku || "", esc(it.item_name), it.sold, it.oh, ""].join(";")))
+    .join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `weights_${(det.value.supplier || "vendor").replace(/[^\w-]+/g, "_")}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+async function importFile(e) {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  importing.value = true;
+  try {
+    const text = await f.text();
+    const r = await api.call("accounting_portal.api.vendor_workbench.import_weights",
+      { supplier: sel.value, csv_text: text });
+    let msg = L(`Saved ${r.saved} weights.`, `تم حفظ ${r.saved} وزن.`, `${r.saved} enregistrés.`);
+    if (r.unmatched_n) msg += "\n" + L(`Unmatched ${r.unmatched_n}: `, `غير متطابق ${r.unmatched_n}: `, `Non trouvés: `) + r.unmatched.slice(0, 8).join(", ");
+    if (r.invalid_n) msg += "\n" + L(`Invalid ${r.invalid_n} (out of 0.005–50 kg).`, `غير صالح ${r.invalid_n} (خارج 0.005–50 كجم).`, `Invalides: ${r.invalid_n}.`);
+    alert(msg);
+    await open(sel.value);
+  } catch (err2) { alert((err2 && err2.message) || err2); }
+  finally { importing.value = false; }
+}
 onMounted(load);
 watch(entityId, load);
+</script>
+
+<script>
+import { defineComponent, h, ref as _ref } from "vue";
+import apiSvc from "@/services/api";
+// tiny inline badge + reassign select for multi-vendor items
+export const MultiVendorBadge = defineComponent({
+  props: { item: Object, current: String },
+  emits: ["moved"],
+  setup(props, { emit }) {
+    const openSel = _ref(false); const busy = _ref(false);
+    async function reassign(sup) {
+      busy.value = true;
+      try {
+        await apiSvc.call("accounting_portal.api.vendor_workbench.set_vendor_override",
+          { item_code: props.item.item_code, supplier: sup === props.current ? "" : sup });
+        emit("moved");
+      } catch (e) { alert((e && e.message) || e); }
+      finally { busy.value = false; openSel.value = false; }
+    }
+    return () => {
+      const it = props.item;
+      const kids = [];
+      if (it.pinned)
+        kids.push(h("span", { class: "mvb-pin", title: "manually pinned" }, "📌"));
+      if (it.multi && it.multi.length > 1) {
+        kids.push(h("button", {
+          class: "mvb-badge", title: it.multi.map(c => `${c[0]}: ${c[1]}`).join("\n"),
+          onClick: (ev) => { ev.stopPropagation(); openSel.value = !openSel.value; },
+        }, `⇄${it.multi.length}`));
+        if (openSel.value)
+          kids.push(h("span", { class: "mvb-pop" },
+            it.multi.map(c => h("button", {
+              class: "mvb-opt" + (c[0] === props.current ? " cur" : ""), disabled: busy.value,
+              onClick: (ev) => { ev.stopPropagation(); reassign(c[0]); },
+            }, `${c[0].slice(0, 26)} · ${c[1]}${c[2] ? " PI" : " PR"}`))));
+      }
+      return kids.length ? h("span", { class: "mvb-wrap" }, kids) : null;
+    };
+  },
+});
+export default { components: { MultiVendorBadge } };
 </script>
 
 <style scoped>
@@ -427,4 +510,11 @@ watch(entityId, load);
 .dot{width:9px;height:9px;border-radius:99px;background:#e2e8f0;display:inline-block}
 .dot.on{background:#059669}
 .dot.half{background:#f59e0b}
+:deep(.mvb-wrap){position:relative;display:inline-block;margin-inline-start:4px}
+:deep(.mvb-badge){font-size:9px;font-weight:800;padding:1px 5px;border-radius:99px;background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe;cursor:pointer}
+:deep(.mvb-pin){font-size:9px;margin-inline-end:2px}
+:deep(.mvb-pop){position:absolute;z-index:30;top:18px;inset-inline-start:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px;display:flex;flex-direction:column;min-width:210px}
+:deep(.mvb-opt){text-align:start;font-size:10.5px;padding:5px 8px;border-radius:7px;white-space:nowrap}
+:deep(.mvb-opt:hover){background:#f1f5f9}
+:deep(.mvb-opt.cur){font-weight:800;color:#047857}
 </style>
