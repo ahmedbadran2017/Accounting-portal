@@ -114,14 +114,16 @@ def true_cost(item_code=None):
             return {"item_code": item_code, "cost_mad": round(v / q, 2),
                     "source": "maslak_pi", "basis_qty": round(q),
                     "note": "Maslak supplier invoice (TRY) @ correct FX — product cost only"}
-    # 1b) LOCAL supplier invoices (MAD) — domestic products' truth: no FX, no landed
+    # 1b) THIRD-PARTY invoices billed to Morocco (base MAD) — domestic products
+    # AND foreign vendors invoicing Morocco directly (Garbalia/Vienev pattern
+    # since ~April). The only exclusion that matters is group companies: their
+    # "invoices" are internal transfer paper at a made-up price.
     lpi = frappe.db.sql(
         """SELECT pii.base_rate rate_mad, pi.posting_date dt, pii.qty
            FROM `tabPurchase Invoice Item` pii
            JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
-           JOIN `tabSupplier` s ON s.name=pi.supplier
            WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code=%s AND pii.qty>0
-             AND IFNULL(s.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+             AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
            ORDER BY pi.posting_date DESC""", (SALES, item_code), as_dict=True)
     if lpi:
         q = v = 0.0
@@ -170,7 +172,7 @@ def true_cost(item_code=None):
                 JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
                 JOIN `tabSupplier` sp ON sp.name=pi.supplier
                 WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
-                  AND IFNULL(sp.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+                  AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
                 ORDER BY pi.posting_date DESC""", (SALES, fam), False, "local invoice"),
             ("""SELECT pri.item_code ic, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
                 FROM `tabPurchase Receipt Item` pri JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
@@ -307,18 +309,17 @@ def _true_cost_bulk(item_codes, fx):
            ORDER BY pi.posting_date DESC""", (SOURCING, codes), as_dict=True)
     _agg(pi, True, "maslak_pi")
 
-    # LOCAL products (bought inside Morocco): the truth is the local supplier's
-    # PURCHASE INVOICE in MAD — no FX, no landed. Fix = match the receipt to
-    # the invoice value.
+    # THIRD-PARTY invoices billed to Morocco (base MAD): locals AND foreign
+    # vendors invoicing Morocco directly (Garbalia/Vienev pattern since ~April).
+    # Only group companies are excluded — their "invoices" are transfer paper.
     missing = [c for c in item_codes if c not in out]
     if missing:
         lpi = frappe.db.sql(
             """SELECT pii.item_code, pii.base_rate rate, 'MAD' cur, pi.posting_date dt, pii.qty
                FROM `tabPurchase Invoice Item` pii
                JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
-               JOIN `tabSupplier` s ON s.name=pi.supplier
                WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
-                 AND IFNULL(s.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+                 AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
                ORDER BY pi.posting_date DESC""", (SALES, tuple(missing)), as_dict=True)
         _agg(lpi, False, "local_pi")
 
@@ -381,7 +382,7 @@ def _true_cost_bulk(item_codes, fx):
                    JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
                    JOIN `tabSupplier` sp ON sp.name=pi.supplier
                    WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
-                     AND IFNULL(sp.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+                     AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
                    ORDER BY pi.posting_date DESC""", (SALES, member_codes), as_dict=True), False)
             _fam_agg(frappe.db.sql(
                 """SELECT pri.item_code, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
@@ -462,7 +463,7 @@ def _true_cost_bulk(item_codes, fx):
                        JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
                        JOIN `tabSupplier` sp ON sp.name=pi.supplier
                        WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
-                         AND IFNULL(sp.supplier_group,'') IN ('Morocco Local Suppliers', 'Local')
+                         AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
                        ORDER BY pi.posting_date DESC""", (SALES, kc), as_dict=True), False)
                 _base_agg(frappe.db.sql(
                     """SELECT pri.item_code, pri.rate, pr.currency cur, pr.posting_date dt, pri.qty
