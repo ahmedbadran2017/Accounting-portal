@@ -201,6 +201,25 @@
                 <button v-if="fr?.rate_source==='vendor'" class="h-[28px] px-2 rounded-[8px] text-[11px] border border-line bg-white text-ink-muted" @click="clearVendorRate">{{ L("clear","امسح","×") }}</button>
               </div>
             </div>
+            <!-- dated era rates (the air 100/110/120 pattern) -->
+            <div v-if="fr?.channel!=='local'" class="w-full">
+              <button class="text-[10.5px] font-bold text-accent-dark" @click="schedOpen = !schedOpen">
+                {{ schedOpen ? "▾" : "▸" }} {{ L("Dated rates (eras)","أسعار بتواريخ (حقب)","Taux datés") }}
+                <span v-if="fr?.rate_sched?.length" class="tnum" dir="ltr">· {{ fr.rate_sched.length }}</span>
+              </button>
+              <div v-if="schedOpen" class="mt-2 space-y-1.5">
+                <div v-for="(p,i) in schedEdit" :key="i" class="flex items-center gap-2">
+                  <input type="date" v-model="p.date" class="h-[26px] px-2 rounded-[7px] border border-line text-[11px]" dir="ltr" />
+                  <input type="number" step="0.01" min="0" v-model="p.rate" class="w-[84px] h-[26px] px-2 rounded-[7px] border border-line text-end tnum text-[11px]" dir="ltr" :placeholder="'MAD/kg'" />
+                  <button class="text-[11px] text-ink-muted" @click="schedEdit.splice(i,1)">✕</button>
+                </div>
+                <div class="flex gap-2">
+                  <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line bg-white" @click="schedEdit.push({date:'',rate:''})">+ {{ L("era","حقبة","ère") }}</button>
+                  <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-accent" @click="saveSched">{{ L("Save eras","حفظ الحقب","Enregistrer") }}</button>
+                </div>
+                <p class="text-[10px] text-ink-muted">{{ L("Each date opens an era at its MAD/kg — the retro prices every month's freight at ITS era (product avg of the month + era rate × weight). No dates = flat rate.","كل تاريخ بيفتح حقبة بسعرها — الرترو بيسعّر شحن كل شهر بحقبته (متوسط منتج الشهر + سعر الحقبة × الوزن). من غير تواريخ = سعر ثابت.","Chaque date ouvre une ère.") }}</p>
+              </div>
+            </div>
           </div>
           <div v-if="fr" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="rounded-[12px] border border-line px-3 py-2.5"><div class="lab">{{ L("Pool (net, 2026)","البول (صافي)","Pool") }}</div><div class="big tnum" dir="ltr">{{ n(fr.pool_mad) }} <span class="text-[10px]">MAD</span></div></div>
@@ -491,6 +510,7 @@ async function open(sup) {
     if (!det.value.local) {
       fr.value = await api.call("accounting_portal.api.vendor_workbench.freight_summary", { supplier: sup }, { fresh: true });
       rateEdit.value = fr.value?.rate_kg || "";
+      schedEdit.value = (fr.value?.rate_sched || []).map(p2 => ({ ...p2 }));
     }
   } catch (e) { err.value = (e && e.message) || String(e); }
   finally { dloading.value = false; }
@@ -558,10 +578,20 @@ async function runBatch() {
 }
 // ---- freight channel + rate controls ----
 const rateEdit = ref("");
+const schedOpen = ref(false);
+const schedEdit = ref([]);
+async function saveSched() {
+  try {
+    await api.call("accounting_portal.api.vendor_workbench.set_rate_sched",
+      { channel: fr.value.channel, sched: JSON.stringify(schedEdit.value) });
+    await reloadFreight();
+  } catch (e) { alert((e && e.message) || e); }
+}
 async function reloadFreight() {
   fr.value = await api.call("accounting_portal.api.vendor_workbench.freight_summary",
     { supplier: sel.value }, { fresh: true });
   rateEdit.value = fr.value?.rate_kg || "";
+  schedEdit.value = (fr.value?.rate_sched || []).map(p => ({ ...p }));
 }
 async function saveChannel(c) {
   try {

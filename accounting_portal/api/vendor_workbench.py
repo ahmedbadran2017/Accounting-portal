@@ -418,16 +418,76 @@ def _rates():
     return out
 
 
-def _rate_for(supplier):
-    """MAD/kg for this vendor: a vendor-specific override (key 'vendor::<name>'
-    in ap_freight_rates) wins, else the channel rate; 0 for local."""
+_RATE_SCHED_KEY = "ap_freight_rate_scheds"   # {"air":[{"date","rate"},...], ...}
+
+
+def _rate_scheds():
+    """Dated channel rates (era pricing — the air 100/110/120 pattern):
+    each point opens an era at its MAD/kg from that date on."""
+    try:
+        cfg = json.loads(frappe.db.get_default(_RATE_SCHED_KEY) or "{}") or {}
+    except Exception:
+        cfg = {}
+    out = {}
+    for ch, pts in cfg.items():
+        clean = sorted(
+            [{"date": str(p.get("date"))[:10], "rate": flt(p.get("rate"))}
+             for p in (pts or []) if flt(p.get("rate")) > 0 and p.get("date")],
+            key=lambda p: p["date"])
+        if clean:
+            out[ch] = clean
+    return out
+
+
+def _rate_for(supplier, date=None):
+    """MAD/kg for this vendor at `date` (default: today/latest).
+    Precedence: vendor override (scalar) > channel DATED schedule (era rate
+    at the date — the air 100/110/120 pattern) > channel scalar. 0 for local."""
     grp = frappe.db.get_value("Supplier", supplier, "supplier_group") or ""
     if grp in _LOCAL_GROUPS:
         return 0.0, "local"
     ch = _channels().get(supplier) or "sea"
     rates = _rates()
     ov = flt(rates.get(f"vendor::{supplier}"))
-    return (ov if ov > 0 else flt(rates.get(ch) or rates["sea"])), ch
+    if ov > 0:
+        return ov, ch
+    sched = _rate_scheds().get(ch)
+    if sched:
+        d = str(date or frappe.utils.nowdate())[:10]
+        r = sched[0]["rate"]
+        for p in sched:
+            if p["date"] <= d:
+                r = p["rate"]
+            else:
+                break
+        return flt(r), ch
+    return flt(rates.get(ch) or rates["sea"]), ch
+
+
+@frappe.whitelist()
+def set_rate_sched(channel=None, sched=None):
+    """Save the DATED rate schedule for a channel (era pricing). sched =
+    [{date, rate}]; empty list clears it (falls back to the scalar rate)."""
+    assert_can_write()
+    if channel not in ("sea", "air", "china"):
+        frappe.throw("channel must be sea/air/china")
+    pts = frappe.parse_json(sched or "[]")
+    clean = []
+    for p in pts:
+        d = str(p.get("date") or "")[:10]
+        r = flt(p.get("rate"))
+        if len(d) == 10 and r > 0:
+            clean.append({"date": d, "rate": round(r, 2)})
+    try:
+        cfg = json.loads(frappe.db.get_default(_RATE_SCHED_KEY) or "{}") or {}
+    except Exception:
+        cfg = {}
+    if clean:
+        cfg[channel] = sorted(clean, key=lambda p: p["date"])
+    else:
+        cfg.pop(channel, None)
+    frappe.db.set_default(_RATE_SCHED_KEY, json.dumps(cfg))
+    return {"ok": 1, "channel": channel, "sched": cfg.get(channel) or []}
 
 
 @frappe.whitelist()
@@ -596,9 +656,12 @@ def freight_summary(supplier=None):
     share = (my_kg / tot_kg) if tot_kg else 0.0
     rates_cfg = _rates()
     chan_rate = flt(rates_cfg.get(chan) or 0)
+    ch_sched = _rate_scheds().get(chan) or []
+    src = ("vendor" if flt(rates_cfg.get(f"vendor::{supplier}")) > 0
+           else ("schedule" if ch_sched else "channel"))
     return {"supplier": supplier, "channel": chan, "rate_kg": rate_kg,
-            "channel_rate": chan_rate,
-            "rate_source": "vendor" if flt(rates_cfg.get(f"vendor::{supplier}")) > 0 else "channel",
+            "channel_rate": chan_rate, "rate_sched": ch_sched,
+            "rate_source": src,
             "pool_mad": pool26, "pool_2025_mad": pool25,
             "vendor_kg": round(my_kg, 1), "total_kg": round(tot_kg, 1),
             "share_pct": round(100 * share, 2),
@@ -743,15 +806,38 @@ def _invoice_sched(supplier, items):
                 (SALES, chunk, _INTERNAL_SUPPLIERS), as_dict=True):
             if flt(r.rate) > 0:
                 lines.setdefault(r.ic, []).append((str(r.d), flt(r.qty), flt(r.rate)))
+    # freight is era-priced too (the air 100/110/120 pattern): a dated channel
+    # schedule opens freight eras BETWEEN invoices as well — each breakpoint
+    # (invoice date OR rate-change date) gets product-avg-as-of + that era's
+    # freight × weight. A vendor scalar override keeps freight constant.
+    vendor_scalar = flt(_rates().get(f"vendor::{supplier}")) > 0
+    fr_sched = [] if vendor_scalar else (_rate_scheds().get(_ch) or [])
+
+    def fr_rate_at(d):
+        if not fr_sched:
+            return rate_kg
+        r = fr_sched[0]["rate"]
+        for p in fr_sched:
+            if p["date"] <= d:
+                r = p["rate"]
+            else:
+                break
+        return flt(r)
+
     out = {}
     for ic, ls in lines.items():
         ls.sort(key=lambda x: x[0])
-        fr = round(rate_kg * w.get(ic, 0.0), 2)
-        q = v = 0.0
-        pts = []
-        for d, qty, mad in ls:
-            q += qty; v += mad * qty
-            era = round(v / q + fr, 2)
+        wkg = w.get(ic, 0.0)
+        first = ls[0][0]
+        bps = sorted({d for d, _q, _m in ls}
+                     | {p["date"] for p in fr_sched if p["date"] > first})
+        pts, q, v, i = [], 0.0, 0.0, 0
+        for d in bps:
+            while i < len(ls) and ls[i][0] <= d:
+                q += ls[i][1]; v += ls[i][2] * ls[i][1]; i += 1
+            if q <= 0:
+                continue
+            era = round(v / q + fr_rate_at(d) * wkg, 2)
             if pts and pts[-1]["date"] == d:
                 pts[-1]["rate"] = era
             else:
