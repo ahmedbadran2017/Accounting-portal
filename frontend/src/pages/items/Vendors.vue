@@ -299,6 +299,17 @@
                           bench {{ cd.bench.cost_mad ?? "—" }} · {{ cd.bench.source }} · {{ L("basis","أساس","base") }} {{ cd.bench.basis_qty }}
                         </span>
                       </div>
+                      <!-- half-invoice roll-up: official + non-official = full cost -->
+                      <div v-if="cd.half_invoice" class="rounded-[10px] border px-3 py-2 mb-2 text-[11px]"
+                           style="background:#faf5ff;border-color:#e9d5ff;color:#6d28d9">
+                        <b>{{ L("Half-invoice detected","نص فاتورة مكتشفة","Demi-facture") }}:</b>
+                        <span class="tnum" dir="ltr">
+                          {{ L("official","رسمي","off.") }} {{ cd.half_invoice.off_rate }} ({{ n(cd.half_invoice.off_qty) }}u)
+                          + {{ L("non-official","غير رسمي","non-off.") }} {{ cd.half_invoice.non_rate }} ({{ n(cd.half_invoice.non_qty) }}u)
+                          = <b>{{ cd.half_invoice.combined }} MAD</b> / {{ n(cd.half_invoice.physical_qty) }} {{ L("physical units","وحدة فعلية","unités") }}
+                        </span>
+                        <span class="block mt-0.5" style="color:#7c3aed">{{ L("The benchmark already sums both halves — the invoiced qty above double-counts each unit.","الدليل بيجمع النصين تلقائيًا — الكمية المفوترة فوق بتعدّ كل وحدة مرتين.","Le benchmark somme les deux moitiés.") }}</span>
+                      </div>
                       <!-- movements -->
                       <div class="rounded-[10px] border border-line overflow-hidden bg-white mb-2" style="max-height:220px;overflow-y:auto">
                         <table class="w-full text-[10.5px]">
@@ -315,6 +326,8 @@
                                 :style="m.internal ? 'opacity:.45' : ''">
                               <td class="px-2 py-1 tnum" dir="ltr">{{ m.date }}</td>
                               <td class="px-2 py-1 tnum" dir="ltr">{{ m.doc.slice(-9) }}
+                                <span v-if="m.cc==='non'" class="text-[8px] font-bold px-1 py-0.5 rounded" style="background:#ede9fe;color:#6d28d9">{{ L("non-off","غير رسمي","non") }}</span>
+                                <span v-else-if="m.cc==='off'" class="text-[8px] font-bold px-1 py-0.5 rounded" style="background:#ecfdf5;color:#047857">{{ L("official","رسمي","off.") }}</span>
                                 <span v-if="m.internal" class="text-[8.5px]">{{ L("(transfer)","(تحويل)","(transf.)") }}</span>
                                 <span v-else-if="m.linked_pr" class="text-[8.5px]" style="color:#0369a1" :title="m.linked_pr">↔ {{ m.linked_pr.slice(-9) }}</span>
                                 <span v-else class="text-[8.5px]" style="color:#9a8f86">{{ L("(manual)","(يدوي)","(manuel)") }}</span>

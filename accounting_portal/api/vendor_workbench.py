@@ -743,7 +743,8 @@ def item_cost_detail(item_code=None):
         for r in frappe.db.sql(
                 """SELECT pi.name doc, pi.supplier sup, pi.posting_date d, pi.currency ccy,
                           pii.qty, pii.rate, pii.base_rate,
-                          IFNULL(pii.purchase_receipt,'') linked_pr
+                          IFNULL(pii.purchase_receipt,'') linked_pr,
+                          IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
                    FROM `tabPurchase Invoice Item` pii
                    JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
                    WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code=%s AND pii.qty>0
@@ -756,6 +757,8 @@ def item_cost_detail(item_code=None):
                           "rate": flt(r.rate), "ccy": r.ccy,
                           "mad": round(mad, 2) if mad else None,
                           "linked_pr": r.linked_pr or None,
+                          "cc": ("non" if "non-official" in (r.cc or "").lower()
+                                 else ("off" if r.cc else None)),
                           "internal": 1 if internal else 0})
     moves.sort(key=lambda m: m["date"], reverse=True)
     # invoice coverage vs origin receipts — the 'half-invoice' detector
@@ -770,9 +773,21 @@ def item_cost_detail(item_code=None):
     cov = round(100.0 * inv_q / rec_q, 1) if rec_q else None
     tc = true_cost(item_code=item_code)
     ov = _cost_overrides().get(item_code)
+    # half-invoice roll-up for the banner (official + non-official halves)
+    q_o = sum(m["qty"] for m in moves if m.get("cc") == "off" and not m["internal"])
+    v_o = sum(m["qty"] * (m["mad"] or 0) for m in moves if m.get("cc") == "off" and not m["internal"])
+    q_n = sum(m["qty"] for m in moves if m.get("cc") == "non")
+    v_n = sum(m["qty"] * (m["mad"] or 0) for m in moves if m.get("cc") == "non")
+    half = None
+    if q_o > 0 and q_n > 0:
+        half = {"off_qty": round(q_o), "off_rate": round(v_o / q_o, 2),
+                "non_qty": round(q_n), "non_rate": round(v_n / q_n, 2),
+                "combined": round((v_o + v_n) / max(q_o, q_n), 2),
+                "physical_qty": round(max(q_o, q_n))}
     return {"item_code": item_code, "moves": moves[:60],
             "invoiced_qty": inv_q, "received_qty": rec_q, "coverage_pct": cov,
             "partial_invoice": bool(rec_q and inv_q < rec_q * 0.95),
+            "half_invoice": half,
             "bench": tc, "override": ov}
 
 
@@ -797,17 +812,25 @@ def _invoice_sched(supplier, items):
                 (items[i:i + 700],), as_dict=True):
             w[r.name] = flt(r.x)
     lines = {}
+    half = set()      # half-invoice items: official+non-official halves are
+                      # time-shifted, so era pricing would mislead → uniform
+    seen_cc = {}
     for i in range(0, len(items), 700):
         chunk = tuple(items[i:i + 700])
         for r in frappe.db.sql(
                 """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d
-                   , pii.qty FROM `tabPurchase Invoice Item` pii
+                   , pii.qty, IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
+                   FROM `tabPurchase Invoice Item` pii
                    JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
                    WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s
                      AND pii.qty>0 ORDER BY pi.posting_date""", (SOURCING, chunk), as_dict=True):
             mad = _to_mad_fast(flt(r.rate), "TRY", r.d, fx)
             if mad > 0:
                 lines.setdefault(r.ic, []).append((str(r.d), flt(r.qty), mad))
+                kinds = seen_cc.setdefault(r.ic, set())
+                kinds.add("non" if "non-official" in (r.cc or "").lower() else "off")
+                if len(kinds) > 1:
+                    half.add(r.ic)
         for r in frappe.db.sql(
                 """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d
                    , pii.qty FROM `tabPurchase Invoice Item` pii
@@ -838,6 +861,8 @@ def _invoice_sched(supplier, items):
 
     out = {}
     for ic, ls in lines.items():
+        if ic in half:
+            continue          # uniform retro at the combined benchmark
         ls.sort(key=lambda x: x[0])
         wkg = w.get(ic, 0.0)
         first = ls[0][0]

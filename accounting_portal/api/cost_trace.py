@@ -98,20 +98,39 @@ def true_cost(item_code=None):
     if not item_code:
         frappe.throw("item_code required")
     cache = {}
-    # 1) preferred anchor — Maslak purchase INVOICES (actual bill), most recent
+    # 1) preferred anchor — Maslak purchase INVOICES (actual bill).
+    # HALF-INVOICE pattern: the same physical purchase used to be billed as
+    # TWO invoices — an OFFICIAL one (cost center 01*) and a NON-OFFICIAL one
+    # (02*/04*), each at roughly HALF the real unit price. When an item shows
+    # BOTH kinds, the true unit cost = total value of BOTH ÷ the PHYSICAL qty
+    # (= the larger side; the raw sum double-counts every unit).
     pi = frappe.db.sql(
-        """SELECT pii.base_rate rate_try, pi.posting_date dt, pii.qty
+        """SELECT pii.base_rate rate_try, pi.posting_date dt, pii.qty,
+                  IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
            FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
            WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code=%s AND pii.qty>0
            ORDER BY pi.posting_date DESC""", (SOURCING, item_code), as_dict=True)
     if pi:
-        q = v = 0.0
+        q_off = v_off = q_non = v_non = 0.0
         for r in pi:
             mad = _to_mad(r.rate_try, "TRY", r.dt, cache)
-            q += flt(r.qty); v += mad * flt(r.qty)
+            non = "non-official" in (r.cc or "").lower()
+            if non:
+                q_non += flt(r.qty); v_non += mad * flt(r.qty)
+            else:
+                q_off += flt(r.qty); v_off += mad * flt(r.qty)
+        q, v = q_off + q_non, v_off + v_non
         # require a POSITIVE converted value — q>0 with v==0 means every line failed
         # to convert (no FX rate for its currency); don't report that as a 0 cost.
         if q > 0 and v > 0:
+            if q_off > 0 and q_non > 0:          # half-invoice: sum both halves
+                phys = max(q_off, q_non)
+                return {"item_code": item_code, "cost_mad": round(v / phys, 2),
+                        "source": "maslak_pi", "basis_qty": round(phys),
+                        "half_invoice": 1,
+                        "note": (f"HALF-INVOICE: official {round(v_off / q_off, 2)} "
+                                 f"({round(q_off)}u) + non-official {round(v_non / q_non, 2)} "
+                                 f"({round(q_non)}u) = full unit cost over {round(phys)} physical units")}
             return {"item_code": item_code, "cost_mad": round(v / q, 2),
                     "source": "maslak_pi", "basis_qty": round(q),
                     "note": "Maslak supplier invoice (TRY) @ correct FX — product cost only"}
@@ -278,12 +297,36 @@ def _true_cost_bulk(item_codes, fx):
             if q > 0 and v > 0:
                 out[item] = {"cost_mad": round(v / q, 2), "source": source, "basis_qty": round(q)}
 
+    # Maslak PIs — half-invoice aware: an item billed under BOTH the official
+    # (01*) and non-official (02*/04*) cost centers was double-invoiced at
+    # half price each → true cost = total value of both ÷ physical qty
+    # (the larger side; raw qty double-counts every unit).
     pi = frappe.db.sql(
-        """SELECT pii.item_code, pii.base_rate rate, pi.posting_date dt, pii.qty
+        """SELECT pii.item_code, pii.base_rate rate, pi.posting_date dt, pii.qty,
+                  IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
            FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
            WHERE pi.company=%s AND pi.docstatus=1 AND pii.item_code IN %s AND pii.qty>0
            ORDER BY pi.posting_date DESC""", (SOURCING, codes), as_dict=True)
-    _agg(pi, True, "maslak_pi")
+    by_pi = {}
+    for r in pi:
+        by_pi.setdefault(r.item_code, []).append(r)
+    for item, lines in by_pi.items():
+        q_off = v_off = q_non = v_non = 0.0
+        for r in lines:
+            m = _to_mad_fast(r.rate, "TRY", r.dt, fx)
+            if "non-official" in (r.cc or "").lower():
+                q_non += flt(r.qty); v_non += m * flt(r.qty)
+            else:
+                q_off += flt(r.qty); v_off += m * flt(r.qty)
+        q, v = q_off + q_non, v_off + v_non
+        if q > 0 and v > 0:
+            if q_off > 0 and q_non > 0:
+                phys = max(q_off, q_non)
+                out[item] = {"cost_mad": round(v / phys, 2), "source": "maslak_pi",
+                             "basis_qty": round(phys), "half_invoice": 1}
+            else:
+                out[item] = {"cost_mad": round(v / q, 2), "source": "maslak_pi",
+                             "basis_qty": round(q)}
 
     # THIRD-PARTY invoices billed to Morocco (base MAD): locals AND foreign
     # vendors invoicing Morocco directly (Garbalia/Vienev pattern since ~April).
