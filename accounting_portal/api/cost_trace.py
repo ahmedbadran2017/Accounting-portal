@@ -26,8 +26,11 @@ SOURCING = "Maslak LTD"          # Turkey — the true-cost anchor (buys TRY)
 SALES = "Justyol Morocco"        # the entity whose COGS we are fixing
 TRANSFER_CUSTOMER = "Justyol Morocco"   # intercompany customer name in Maslak
 
-# How much recent invoiced qty forms the cost basis per item (most-recent first).
-_BASIS_QTY = 60
+# CFO policy: the benchmark is the QTY-WEIGHTED AVERAGE over ALL invoice lines
+# (invoices only — receipts never count). No recency cap: a 10-pc top-up at a
+# new price moves the average by its weight, not by its date. _BASIS_QTY kept
+# only for any external import that still references it.
+_BASIS_QTY = 10 ** 9
 
 
 def _usd_rate(to_cur, date):
@@ -104,8 +107,6 @@ def true_cost(item_code=None):
     if pi:
         q = v = 0.0
         for r in pi:
-            if q >= _BASIS_QTY:
-                break
             mad = _to_mad(r.rate_try, "TRY", r.dt, cache)
             q += flt(r.qty); v += mad * flt(r.qty)
         # require a POSITIVE converted value — q>0 with v==0 means every line failed
@@ -128,8 +129,6 @@ def true_cost(item_code=None):
     if lpi:
         q = v = 0.0
         for r in lpi:
-            if q >= _BASIS_QTY:
-                break
             q += flt(r.qty); v += flt(r.rate_mad) * flt(r.qty)
         if q > 0 and v > 0:
             return {"item_code": item_code, "cost_mad": round(v / q, 2),
@@ -166,8 +165,6 @@ def true_cost(item_code=None):
             q = v = 0.0
             ev_item = rows[0].ic
             for r in rows:
-                if q >= _BASIS_QTY:
-                    break
                 cur = "TRY" if is_try else r.cur
                 mad = _to_mad(r.rate, cur, r.dt, cache)
                 q += flt(r.qty); v += mad * flt(r.qty)
@@ -275,8 +272,6 @@ def _true_cost_bulk(item_codes, fx):
                 continue
             q = v = 0.0
             for r in lines:              # already ordered newest-first
-                if q >= _BASIS_QTY:
-                    break
                 cur = "TRY" if is_try else r.cur
                 m = _to_mad_fast(r.rate, cur, r.dt, fx)
                 q += flt(r.qty); v += m * flt(r.qty)
@@ -339,8 +334,6 @@ def _true_cost_bulk(item_codes, fx):
                     q = v = 0.0
                     ev_item = lines[0].item_code
                     for r in lines:
-                        if q >= _BASIS_QTY:
-                            break
                         cur = "TRY" if is_try else r.cur
                         m = _to_mad_fast(r.rate, cur, r.dt, fx)
                         q += flt(r.qty); v += m * flt(r.qty)
@@ -413,8 +406,6 @@ def _true_cost_bulk(item_codes, fx):
                         q = v = 0.0
                         ev_item = lines[0].item_code
                         for r in lines:
-                            if q >= _BASIS_QTY:
-                                break
                             cur = "TRY" if is_try else r.cur
                             m = _to_mad_fast(r.rate, cur, r.dt, fx)
                             q += flt(r.qty); v += m * flt(r.qty)

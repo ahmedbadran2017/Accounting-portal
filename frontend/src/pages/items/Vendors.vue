@@ -295,9 +295,10 @@
                             <tr v-for="m in cd.moves" :key="m.doc + m.kind + m.date" class="border-t border-line-hair"
                                 :style="m.internal ? 'opacity:.45' : ''">
                               <td class="px-2 py-1 tnum" dir="ltr">{{ m.date }}</td>
-                              <td class="px-2 py-1 tnum" dir="ltr">{{ m.kind }} {{ m.doc.slice(-9) }}
+                              <td class="px-2 py-1 tnum" dir="ltr">{{ m.doc.slice(-9) }}
                                 <span v-if="m.internal" class="text-[8.5px]">{{ L("(transfer)","(تحويل)","(transf.)") }}</span>
-                                <span v-else-if="m.zero_priced" class="text-[8.5px]" style="color:#b45309">{{ L("(0-priced)","(بدون سعر)","(0)") }}</span>
+                                <span v-else-if="m.linked_pr" class="text-[8.5px]" style="color:#0369a1" :title="m.linked_pr">↔ {{ m.linked_pr.slice(-9) }}</span>
+                                <span v-else class="text-[8.5px]" style="color:#9a8f86">{{ L("(manual)","(يدوي)","(manuel)") }}</span>
                               </td>
                               <td class="px-2 py-1">{{ (m.supplier || '').slice(0, 20) }}</td>
                               <td class="px-2 py-1 text-end tnum" dir="ltr">{{ n(m.qty) }}</td>

@@ -661,11 +661,14 @@ def item_cost_detail(item_code=None):
         frappe.throw("item_code required")
     from accounting_portal.api.cost_trace import _fx_series, _to_mad_fast, true_cost
     fx = _fx_series()
+    # INVOICES ONLY in the story (CFO policy — receipts are noise, not evidence);
+    # internal transfer invoices shown dimmed for context.
     moves = []
     for co, lbl in ((SOURCING, "maslak"), (SALES, "morocco")):
         for r in frappe.db.sql(
                 """SELECT pi.name doc, pi.supplier sup, pi.posting_date d, pi.currency ccy,
-                          pii.qty, pii.rate, pii.base_rate
+                          pii.qty, pii.rate, pii.base_rate,
+                          IFNULL(pii.purchase_receipt,'') linked_pr
                    FROM `tabPurchase Invoice Item` pii
                    JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
                    WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code=%s AND pii.qty>0
@@ -677,26 +680,18 @@ def item_cost_detail(item_code=None):
                           "date": str(r.d), "qty": round(flt(r.qty)),
                           "rate": flt(r.rate), "ccy": r.ccy,
                           "mad": round(mad, 2) if mad else None,
+                          "linked_pr": r.linked_pr or None,
                           "internal": 1 if internal else 0})
-        for r in frappe.db.sql(
-                """SELECT pr.name doc, pr.supplier sup, pr.posting_date d, pr.currency ccy,
-                          pri.qty, pri.rate
-                   FROM `tabPurchase Receipt Item` pri
-                   JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
-                   WHERE pr.docstatus=1 AND pr.company=%s AND pri.item_code=%s AND pri.qty>0
-                   ORDER BY pr.posting_date DESC""", (co, item_code), as_dict=True):
-            internal = r.sup in _INTERNAL_SUPPLIERS
-            mad = _to_mad_fast(flt(r.rate), r.ccy, r.d, fx) if flt(r.rate) else 0
-            moves.append({"kind": "PR", "company": lbl, "doc": r.doc, "supplier": r.sup,
-                          "date": str(r.d), "qty": round(flt(r.qty)),
-                          "rate": flt(r.rate), "ccy": r.ccy,
-                          "mad": round(mad, 2) if mad else None,
-                          "internal": 1 if internal else 0,
-                          "zero_priced": 1 if flt(r.rate) <= 0 else 0})
     moves.sort(key=lambda m: m["date"], reverse=True)
-    # invoice coverage vs origin receipts — the 'half-invoice' detector.
-    inv_q = sum(m["qty"] for m in moves if m["kind"] == "PI" and not m["internal"])
-    rec_q = sum(m["qty"] for m in moves if m["kind"] == "PR" and not m["internal"])
+    # invoice coverage vs origin receipts — the 'half-invoice' detector
+    # (receipt QTY only feeds this counter; receipt RATES never touch anything).
+    inv_q = sum(m["qty"] for m in moves if not m["internal"])
+    rec_q = flt(frappe.db.sql(
+        """SELECT SUM(pri.qty) FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           WHERE pr.docstatus=1 AND pri.item_code=%s
+             AND pr.supplier NOT IN %s""",
+        (item_code, _INTERNAL_SUPPLIERS))[0][0] or 0)
     cov = round(100.0 * inv_q / rec_q, 1) if rec_q else None
     tc = true_cost(item_code=item_code)
     ov = _cost_overrides().get(item_code)
@@ -704,6 +699,66 @@ def item_cost_detail(item_code=None):
             "invoiced_qty": inv_q, "received_qty": rec_q, "coverage_pct": cov,
             "partial_invoice": bool(rec_q and inv_q < rec_q * 0.95),
             "bench": tc, "override": ov}
+
+
+def _invoice_sched(supplier, items):
+    """Per item: the TIME-PHASED rate schedule from its own invoices.
+
+    Bought 100 in March at price A, 200 in August at price B → March-July
+    deliveries cost the March average, August-on cost the running average
+    including B (each invoice date opens a new era at the moving qty-weighted
+    invoice average AS OF that date, at that date's FX). The constant freight
+    layer (channel-rate × weight) rides on every era. Feeds fix_item_cost's
+    retro_sched so the retro heals each month at ITS OWN price."""
+    if not items:
+        return {}
+    from accounting_portal.api.cost_trace import _fx_series, _to_mad_fast
+    fx = _fx_series()
+    rate_kg, _ch = _rate_for(supplier)
+    w = {}
+    for i in range(0, len(items), 700):
+        for r in frappe.db.sql(
+                "SELECT name, IFNULL(weight_per_unit,0) x FROM `tabItem` WHERE name IN %s",
+                (items[i:i + 700],), as_dict=True):
+            w[r.name] = flt(r.x)
+    lines = {}
+    for i in range(0, len(items), 700):
+        chunk = tuple(items[i:i + 700])
+        for r in frappe.db.sql(
+                """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d
+                   , pii.qty FROM `tabPurchase Invoice Item` pii
+                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s
+                     AND pii.qty>0 ORDER BY pi.posting_date""", (SOURCING, chunk), as_dict=True):
+            mad = _to_mad_fast(flt(r.rate), "TRY", r.d, fx)
+            if mad > 0:
+                lines.setdefault(r.ic, []).append((str(r.d), flt(r.qty), mad))
+        for r in frappe.db.sql(
+                """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d
+                   , pii.qty FROM `tabPurchase Invoice Item` pii
+                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s
+                     AND pii.qty>0 AND pi.supplier NOT IN %s
+                   ORDER BY pi.posting_date""",
+                (SALES, chunk, _INTERNAL_SUPPLIERS), as_dict=True):
+            if flt(r.rate) > 0:
+                lines.setdefault(r.ic, []).append((str(r.d), flt(r.qty), flt(r.rate)))
+    out = {}
+    for ic, ls in lines.items():
+        ls.sort(key=lambda x: x[0])
+        fr = round(rate_kg * w.get(ic, 0.0), 2)
+        q = v = 0.0
+        pts = []
+        for d, qty, mad in ls:
+            q += qty; v += mad * qty
+            era = round(v / q + fr, 2)
+            if pts and pts[-1]["date"] == d:
+                pts[-1]["rate"] = era
+            else:
+                pts.append({"date": d, "rate": era})
+        if pts:
+            out[ic] = pts
+    return out
 
 
 def _full_rates(supplier, items):
@@ -747,10 +802,12 @@ def submit_preview(supplier=None, items=None):
     items = frappe.parse_json(items or "[]")
     from accounting_portal.api.valuation import _retro_anchor
     rates = _full_rates(supplier, items)
+    scheds = _invoice_sched(supplier, items)
     rate_kg, chan = _rate_for(supplier)
     out = []
     for ic in items:
         rr = rates.get(ic) or {}
+        eras = len(scheds.get(ic) or [])
         anchor = None
         try:
             anchor = _retro_anchor(SALES, ic)
@@ -758,7 +815,7 @@ def submit_preview(supplier=None, items=None):
             anchor = None
         out.append({"item_code": ic, "rate": rr.get("rate"),
                     "product": rr.get("product"), "freight": rr.get("freight"),
-                    "weight_kg": rr.get("weight_kg"),
+                    "weight_kg": rr.get("weight_kg"), "eras": eras,
                     "anchor": str(anchor) if anchor else None,
                     "retro_ok": bool(anchor and str(anchor) < frappe.utils.nowdate()),
                     "no_cost": not rr.get("rate"),
@@ -785,6 +842,8 @@ def submit_batch(supplier=None, items=None, note=None):
         frappe.throw("batch too large — send at most 25 items per submit")
     from accounting_portal.api.valuation import fix_item_cost
     rates = _full_rates(supplier, items)
+    scheds = _invoice_sched(supplier, items)
+    cost_ovs = _cost_overrides()
     rate_kg, chan = _rate_for(supplier)
     st = _state()
     v = st.setdefault(supplier, {})
@@ -801,9 +860,15 @@ def submit_batch(supplier=None, items=None, note=None):
         split = (f"vendor workbench — {supplier} [{chan}]: "
                  f"product {rr['product']} + freight {rr['freight']} "
                  f"({rate_kg}/kg × {rr['weight_kg']}kg)")
+        # invoice-era schedule: each month heals at ITS era's invoice average.
+        # A manual cost override is a single verified truth → uniform retro.
+        sched = None if ic in cost_ovs else (scheds.get(ic) or None)
+        if sched:
+            split += f" — {len(sched)} invoice era(s)"
         try:
             r = fix_item_cost(company=SALES, item_code=ic, rate=rr["rate"], full_rate=1,
                               retro=1, retro_product=rr["product"],
+                              retro_sched=json.dumps(sched) if sched else None,
                               note=(note + " — " if note else "") + split)
             results.append({"item_code": ic, "result": (r or {}).get("result") or "ok"})
             if ic not in done:

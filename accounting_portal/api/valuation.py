@@ -813,7 +813,7 @@ def _retro_anchor(target, item_code):
 
 @frappe.whitelist()
 def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=0,
-                  retro=0, retro_product=None, retro_year=None):
+                  retro=0, retro_product=None, retro_year=None, retro_sched=None):
     """The reviewer's Fix button: revalue EVERY bin of this product in ONE
     today-dated Stock Reconciliation at the FULL rate = verified PRODUCT cost
     (`rate`, defaults to the evidence-based figure; overriding requires a note)
@@ -859,10 +859,20 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         landed = landed_unit(item_code)
         r = round(product + landed, 2)   # the FULL applied rate
     retro = str(retro) in ("1", "true", "True")
-    # time-phased schedule (each shipment prices its own era) — available when
-    # the caller supplies the PRODUCT split; empty for locals/no-import items
+    # time-phased schedule — each era priced at ITS OWN rate. Two sources:
+    #   1) caller-supplied invoice-era schedule (vendor workbench: the moving
+    #      invoice average as of each invoice date, + freight) — precedence;
+    #   2) shipment schedule (each shipment prices its own era) — fallback.
     sched = []
-    if retro and flt(retro_product) > 0:
+    if retro and retro_sched:
+        try:
+            sched = sorted(
+                [{"date": str(p.get("date"))[:10], "rate": flt(p.get("rate"))}
+                 for p in frappe.parse_json(retro_sched) if flt(p.get("rate")) > 0],
+                key=lambda p: p["date"])
+        except Exception:
+            sched = []
+    if retro and not sched and flt(retro_product) > 0:
         from accounting_portal.api.shipment_costing import retro_schedule
         try:
             sched = retro_schedule(item_code, flt(retro_product), year=retro_year)
