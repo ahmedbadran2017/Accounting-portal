@@ -746,6 +746,19 @@ def _retro_pins(target, item_code, anchor, rate, tolerance=0.02, sched=None):
            WHERE sle.company=%s AND sle.item_code=%s AND sle.is_cancelled=0
              AND sle.actual_qty>0 AND sle.posting_date > %s
              AND IFNULL(w.disabled,0)=0""", (target, item_code, anchor), as_dict=True)
+    # RECO-poison too: an OLD Stock Reconciliation that REVALUES (qty-less, so
+    # the incoming scan above never sees it) resets the moving average to its
+    # own wrong rate mid-year — the June-13 lesson: a pre-correction reco put
+    # the FX-garbage 362.92 back and August deliveries burned at it. Judge
+    # every reco row's VALUATION rate against its era and pin those days too.
+    rows += frappe.db.sql(
+        """SELECT sle.posting_date d, sle.warehouse wh, sle.valuation_rate r
+           FROM `tabStock Ledger Entry` sle
+           JOIN `tabWarehouse` w ON w.name=sle.warehouse
+           WHERE sle.company=%s AND sle.item_code=%s AND sle.is_cancelled=0
+             AND sle.voucher_type='Stock Reconciliation'
+             AND sle.actual_qty<=0 AND sle.posting_date > %s
+             AND IFNULL(w.disabled,0)=0""", (target, item_code, anchor), as_dict=True)
     def rate_at(d):
         # era rate: the last schedule point at/before this date (time-phased
         # retro) — falls back to the single final rate (uniform retro)
