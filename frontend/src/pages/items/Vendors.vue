@@ -140,9 +140,18 @@
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ n(it.sold) }}</td>
                   <td class="px-3 py-1.5 text-end tnum text-ink-muted" dir="ltr">{{ n(it.oh) }}</td>
                   <td class="px-3 py-1.5 text-end">
-                    <input type="number" step="0.001" min="0" class="w-[84px] h-[26px] px-2 rounded-[7px] border text-end tnum text-[11.5px]"
-                           :class="wDirty[it.item_code] !== undefined ? 'border-accent bg-blue-50/40' : 'border-line'"
-                           :value="wval(it)" @input="e => setW(it, e.target.value)" dir="ltr" />
+                    <span class="inline-flex items-center gap-1.5">
+                      <input type="number" step="0.001" min="0" class="w-[84px] h-[26px] px-2 rounded-[7px] border text-end tnum text-[11.5px]"
+                             :class="wDirty[it.item_code] !== undefined ? 'border-accent bg-blue-50/40' : 'border-line'"
+                             :value="wval(it)" @input="e => setW(it, e.target.value)"
+                             @keyup.enter="saveOne(it)" dir="ltr" />
+                      <button v-if="wDirty[it.item_code] !== undefined && parseFloat(wDirty[it.item_code]) > 0"
+                              class="h-[26px] px-2 rounded-[7px] text-[10.5px] font-bold text-white bg-accent disabled:opacity-50"
+                              :disabled="savingOne === it.item_code" @click="saveOne(it)">
+                        {{ savingOne === it.item_code ? "…" : L("Save","حفظ","OK") }}
+                      </button>
+                      <span v-else-if="justSaved === it.item_code" class="text-[11px] font-bold" style="color:#047857">✓</span>
+                    </span>
                   </td>
                 </tr>
               </tbody>
@@ -337,6 +346,23 @@ async function saveWeights() {
     await open(sel.value);
   } catch (e) { alert((e && e.message) || e); }
   finally { saving.value = false; }
+}
+const savingOne = ref(null); const justSaved = ref(null);
+async function saveOne(it) {
+  const w = parseFloat(wDirty.value[it.item_code]);
+  if (!(w > 0)) return;
+  savingOne.value = it.item_code;
+  try {
+    await api.call("accounting_portal.api.vendor_workbench.save_weights",
+      { supplier: sel.value, rows: JSON.stringify([{ item_code: it.item_code, weight_kg: w }]) });
+    it.weight_kg = w;                                  // reflect in-place, no full reload
+    const d2 = { ...wDirty.value }; delete d2[it.item_code]; wDirty.value = d2;
+    det.value.summary.weights_ok = det.value.items.filter(x => x.weight_kg > 0).length;
+    det.value.summary.weights_missing = det.value.items.length - det.value.summary.weights_ok;
+    justSaved.value = it.item_code;
+    setTimeout(() => { if (justSaved.value === it.item_code) justSaved.value = null; }, 2000);
+  } catch (e) { alert((e && e.message) || e); }
+  finally { savingOne.value = null; }
 }
 async function markStep(s) {
   const cur = det.value.state[s] ? 0 : 1;
