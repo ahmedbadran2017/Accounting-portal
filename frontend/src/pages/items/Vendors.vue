@@ -295,9 +295,16 @@
                               :style="cd.partial_invoice ? 'color:#b45309;font-weight:700' : 'color:#047857'">
                           {{ L("invoiced","مفوتر","facturé") }} {{ n(cd.invoiced_qty) }} / {{ n(cd.received_qty) }} {{ L("received","مستلم","reçu") }} ({{ cd.coverage_pct }}%)
                         </span>
-                        <span v-if="cd.bench" class="text-[10.5px] text-ink-muted tnum" dir="ltr">
-                          bench {{ cd.bench.cost_mad ?? "—" }} · {{ cd.bench.source }} · {{ L("basis","أساس","base") }} {{ cd.bench.basis_qty }}
+                      </div>
+                      <!-- era timeline — each invoice's OWN price for its period (no averages) -->
+                      <div v-if="cd.eras && cd.eras.length" class="flex items-center gap-1.5 flex-wrap mb-2">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Eras","الحقب","Ères") }}:</span>
+                        <span v-for="(e,i) in cd.eras" :key="e.date" class="text-[10px] font-bold px-2 py-1 rounded-[8px] tnum" dir="ltr"
+                              :style="i===cd.eras.length-1 ? 'background:#065f46;color:#fff' : 'background:#f1f5f9;color:#475569'"
+                              :title="`product ${e.product} + freight ${e.freight}`">
+                          {{ e.date }} → {{ e.rate }}
                         </span>
+                        <span class="text-[9.5px] text-ink-muted">{{ L("(latest applies forward; retro prices each period at ITS era)","(الأخيرة سارية؛ الرترو بيسعّر كل فترة بحقبتها)","(chaque période à son ère)") }}</span>
                       </div>
                       <!-- half-invoice roll-up: official + non-official = full cost -->
                       <div v-if="cd.half_invoice" class="rounded-[10px] border px-3 py-2 mb-2 text-[11px]"

@@ -315,8 +315,10 @@ def vendor_detail(supplier=None):
            WHERE w.company=%s AND b.item_code IN %s GROUP BY b.item_code""",
         (SALES, tuple(mine))))
     # evidence-based product cost (supplier invoice anchored)
-    from accounting_portal.api.valuation import _benchmarks
-    bench = _benchmarks(SALES, mine)
+    # CFO doctrine — no averages: evidence shown per item is the LATEST invoice
+    # era's product price (the last invoice governs until the next one)
+    _pr = _pricing(supplier, mine)
+    bench = {ic: p["latest"] for ic, p in _pr.items()}
     cost_ovs = _cost_overrides()
     # half-invoice detector: invoiced vs received qty (non-internal docs only)
     inv_q, rec_q = {}, {}
@@ -773,6 +775,14 @@ def item_cost_detail(item_code=None):
     cov = round(100.0 * inv_q / rec_q, 1) if rec_q else None
     tc = true_cost(item_code=item_code)
     ov = _cost_overrides().get(item_code)
+    # era timeline (no-averages doctrine): each invoice's own price + its
+    # era freight — what the retro will actually apply, period by period
+    sup = (_item_vendor_map([item_code]).get(item_code) or {}).get("supplier")
+    eras = []
+    if sup:
+        p = _pricing(sup, [item_code]).get(item_code)
+        if p:
+            eras = p["eras"]
     # half-invoice roll-up for the banner (official + non-official halves)
     q_o = sum(m["qty"] for m in moves if m.get("cc") == "off" and not m["internal"])
     v_o = sum(m["qty"] * (m["mad"] or 0) for m in moves if m.get("cc") == "off" and not m["internal"])
@@ -787,70 +797,40 @@ def item_cost_detail(item_code=None):
     return {"item_code": item_code, "moves": moves[:60],
             "invoiced_qty": inv_q, "received_qty": rec_q, "coverage_pct": cov,
             "partial_invoice": bool(rec_q and inv_q < rec_q * 0.95),
-            "half_invoice": half,
+            "half_invoice": half, "eras": eras,
             "bench": tc, "override": ov}
 
 
-def _invoice_sched(supplier, items):
-    """Per item: the TIME-PHASED rate schedule from its own invoices.
+def _pricing(supplier, items):
+    """CFO pricing doctrine — NO averages. Each invoice OPENS AN ERA at ITS
+    OWN unit price for its own period (until the next invoice):
 
-    Bought 100 in March at price A, 200 in August at price B → March-July
-    deliveries cost the March average, August-on cost the running average
-    including B (each invoice date opens a new era at the moving qty-weighted
-    invoice average AS OF that date, at that date's FX). The constant freight
-    layer (channel-rate × weight) rides on every era. Feeds fix_item_cost's
-    retro_sched so the retro heals each month at ITS OWN price."""
+      bought 100 in March @A, 200 in August @B → March-July deliveries cost A,
+      August-on cost B. Nothing is blended across eras.
+
+    Half-invoice handling is PAIRED, not averaged: an official invoice's full
+    price = its own rate + the qty-weighted rate of the NON-OFFICIAL tranches
+    within ±90 days (the two halves of the same physical purchase); with no
+    nearby tranche, the overall non-official rate of the timeline fills in.
+
+    One price per MODEL: when the item belongs to a family (template or
+    sku-base), the timeline is the FAMILY's pooled invoices, so every variant
+    shares the same eras. Freight rides on each era at ITS date's channel
+    rate × weight (the 110→126 air bands).
+
+    Returns {item: {"eras":[{date, product, freight, rate}], "latest": product,
+                     "rate": full, "half": 0/1}}"""
     if not items:
         return {}
     from accounting_portal.api.cost_trace import _fx_series, _to_mad_fast
     fx = _fx_series()
-    rate_kg, _ch = _rate_for(supplier)
-    w = {}
-    for i in range(0, len(items), 700):
-        for r in frappe.db.sql(
-                "SELECT name, IFNULL(weight_per_unit,0) x FROM `tabItem` WHERE name IN %s",
-                (items[i:i + 700],), as_dict=True):
-            w[r.name] = flt(r.x)
-    lines = {}
-    half = set()      # half-invoice items: official+non-official halves are
-                      # time-shifted, so era pricing would mislead → uniform
-    seen_cc = {}
-    for i in range(0, len(items), 700):
-        chunk = tuple(items[i:i + 700])
-        for r in frappe.db.sql(
-                """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d
-                   , pii.qty, IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
-                   FROM `tabPurchase Invoice Item` pii
-                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
-                   WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s
-                     AND pii.qty>0 ORDER BY pi.posting_date""", (SOURCING, chunk), as_dict=True):
-            mad = _to_mad_fast(flt(r.rate), "TRY", r.d, fx)
-            if mad > 0:
-                lines.setdefault(r.ic, []).append((str(r.d), flt(r.qty), mad))
-                kinds = seen_cc.setdefault(r.ic, set())
-                kinds.add("non" if "non-official" in (r.cc or "").lower() else "off")
-                if len(kinds) > 1:
-                    half.add(r.ic)
-        for r in frappe.db.sql(
-                """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d
-                   , pii.qty FROM `tabPurchase Invoice Item` pii
-                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
-                   WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s
-                     AND pii.qty>0 AND pi.supplier NOT IN %s
-                   ORDER BY pi.posting_date""",
-                (SALES, chunk, _INTERNAL_SUPPLIERS), as_dict=True):
-            if flt(r.rate) > 0:
-                lines.setdefault(r.ic, []).append((str(r.d), flt(r.qty), flt(r.rate)))
-    # freight is era-priced too (the air 100/110/120 pattern): a dated channel
-    # schedule opens freight eras BETWEEN invoices as well — each breakpoint
-    # (invoice date OR rate-change date) gets product-avg-as-of + that era's
-    # freight × weight. A vendor scalar override keeps freight constant.
+    rate_kg_today, _ch = _rate_for(supplier)
     vendor_scalar = flt(_rates().get(f"vendor::{supplier}")) > 0
     fr_sched = [] if vendor_scalar else (_rate_scheds().get(_ch) or [])
 
     def fr_rate_at(d):
         if not fr_sched:
-            return rate_kg
+            return rate_kg_today
         r = fr_sched[0]["rate"]
         for p in fr_sched:
             if p["date"] <= d:
@@ -859,42 +839,165 @@ def _invoice_sched(supplier, items):
                 break
         return flt(r)
 
-    out = {}
-    for ic, ls in lines.items():
-        if ic in half:
-            continue          # uniform retro at the combined benchmark
-        ls.sort(key=lambda x: x[0])
-        wkg = w.get(ic, 0.0)
-        first = ls[0][0]
-        bps = sorted({d for d, _q, _m in ls}
-                     | {p["date"] for p in fr_sched if p["date"] > first})
-        pts, q, v, i = [], 0.0, 0.0, 0
-        for d in bps:
-            while i < len(ls) and ls[i][0] <= d:
-                q += ls[i][1]; v += ls[i][2] * ls[i][1]; i += 1
-            if q <= 0:
-                continue
-            era = round(v / q + fr_rate_at(d) * wkg, 2)
-            if pts and pts[-1]["date"] == d:
-                pts[-1]["rate"] = era
+    w = {}
+    for i in range(0, len(items), 700):
+        for r in frappe.db.sql(
+                "SELECT name, IFNULL(weight_per_unit,0) x FROM `tabItem` WHERE name IN %s",
+                (items[i:i + 700],), as_dict=True):
+            w[r.name] = flt(r.x)
+
+    # ---- family grouping: every variant shares the model's timeline ----
+    meta = {}
+    for i in range(0, len(items), 700):
+        for r in frappe.db.sql(
+                "SELECT name, variant_of, custom_sku FROM `tabItem` WHERE name IN %s",
+                (items[i:i + 700],), as_dict=True):
+            meta[r.name] = r
+    fam_of = {}
+    bases = set()
+    for ic in items:
+        m = meta.get(ic)
+        if m and m.variant_of:
+            fam_of[ic] = "tpl::" + m.variant_of
+        else:
+            sku = ((m.custom_sku if m else "") or "").strip()
+            b = sku.split("-")[0].strip() if "-" in sku else ""
+            if len(b) >= 4 and b != sku:
+                fam_of[ic] = "base::" + b
+                bases.add(b)
             else:
-                pts.append({"date": d, "rate": era})
-        if pts:
-            out[ic] = pts
+                fam_of[ic] = "solo::" + ic
+    members = {}
+    tpls = {k[5:] for k in fam_of.values() if k.startswith("tpl::")}
+    if tpls:
+        for r in frappe.db.sql(
+                "SELECT name, variant_of FROM `tabItem` WHERE variant_of IN %s",
+                (tuple(tpls),), as_dict=True):
+            members.setdefault("tpl::" + r.variant_of, set()).add(r.name)
+    for b in bases:
+        kin = frappe.db.sql(
+            "SELECT name FROM `tabItem` WHERE custom_sku=%s OR custom_sku LIKE %s LIMIT 200",
+            (b, b + "-%"), pluck=True)
+        members["base::" + b] = set(kin or [])
+    for ic in items:
+        members.setdefault(fam_of[ic], set()).add(ic)
+
+    all_codes = tuple({m for s in members.values() for m in s})
+    fam_by_code = {}
+    for f, ms in members.items():
+        for m in ms:
+            fam_by_code.setdefault(m, f)
+
+    # ---- pooled invoice lines per family (Maslak w/ cc + Morocco full) ----
+    lines = {}   # fam -> [(date, qty, mad, kind)]
+    for i in range(0, len(all_codes), 700):
+        chunk = tuple(all_codes[i:i + 700])
+        for r in frappe.db.sql(
+                """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d, pii.qty,
+                          IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
+                   FROM `tabPurchase Invoice Item` pii
+                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s AND pii.qty>0
+                """, (SOURCING, chunk), as_dict=True):
+            f = fam_by_code.get(r.ic)
+            if not f:
+                continue
+            mad = _to_mad_fast(flt(r.rate), "TRY", r.d, fx)
+            if mad > 0:
+                kind = "non" if "non-official" in (r.cc or "").lower() else "off"
+                lines.setdefault(f, []).append((str(r.d), flt(r.qty), mad, kind))
+        for r in frappe.db.sql(
+                """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d, pii.qty
+                   FROM `tabPurchase Invoice Item` pii
+                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s AND pii.qty>0
+                     AND pi.supplier NOT IN %s""",
+                (SALES, chunk, _INTERNAL_SUPPLIERS), as_dict=True):
+            f = fam_by_code.get(r.ic)
+            if f and flt(r.rate) > 0:
+                lines.setdefault(f, []).append((str(r.d), flt(r.qty), flt(r.rate), "full"))
+
+    # ---- eras per family: each opener priced at ITS OWN rate ----
+    def _fam_eras(ls):
+        ls.sort(key=lambda x: x[0])
+        nons = [(d, q, m) for d, q, m, k in ls if k == "non"]
+        half = bool(nons) and any(k == "off" for _d, _q, _m, k in ls)
+        non_all = (sum(q * m for d, q, m in nons) / sum(q for d, q, m in nons)) if nons else 0.0
+
+        def paired_non(d):
+            near = [(q, m) for dn, q, m in nons
+                    if abs(frappe.utils.date_diff(d, dn)) <= 90]
+            if near:
+                tq = sum(q for q, m in near)
+                return sum(q * m for q, m in near) / tq
+            return non_all
+        # same-day openers merge qty-weighted (one price per day)
+        by_day = {}
+        for d, q, m, k in ls:
+            if k == "non":
+                continue                      # completes pricing, never opens
+            e = by_day.setdefault(d, [0.0, 0.0, k])
+            e[0] += q; e[1] += m * q
+            if k == "full":
+                e[2] = "full"                 # a full invoice wins the day
+        eras = []
+        for d in sorted(by_day):
+            q, v, k = by_day[d]
+            own = v / q
+            product = own if (k == "full" or not half) else own + paired_non(d)
+            eras.append({"date": d, "product": round(product, 2)})
+        return eras, (1 if half else 0)
+
+    fam_eras = {}
+    for f, ls in lines.items():
+        fam_eras[f] = _fam_eras(ls)
+
+    out = {}
+    for ic in items:
+        f = fam_of.get(ic)
+        eras, half = fam_eras.get(f, ([], 0))
+        if not eras:
+            continue
+        wkg = w.get(ic, 0.0)
+        first = eras[0]["date"]
+        bps = sorted({e["date"] for e in eras}
+                     | {p["date"] for p in fr_sched if p["date"] > first})
+        full_eras = []
+        cur = eras[0]["product"]
+        ei = 0
+        for d in bps:
+            while ei < len(eras) and eras[ei]["date"] <= d:
+                cur = eras[ei]["product"]; ei += 1
+            fr = round(fr_rate_at(d) * wkg, 2)
+            full_eras.append({"date": d, "product": cur, "freight": fr,
+                              "rate": round(cur + fr, 2)})
+        out[ic] = {"eras": full_eras, "latest": full_eras[-1]["product"],
+                   "rate": full_eras[-1]["rate"], "half": half,
+                   "weight_kg": wkg}
     return out
 
 
+def _invoice_sched(supplier, items):
+    """Submit schedule = the era timeline from _pricing (CFO doctrine: each
+    invoice opens an era at ITS OWN price; freight era-priced too). Items with
+    a manual cost override get NO schedule (uniform verified truth)."""
+    pr = _pricing(supplier, items)
+    ovs = _cost_overrides()
+    out = {}
+    for ic, p in pr.items():
+        if ic in ovs:
+            continue
+        out[ic] = [{"date": e["date"], "rate": e["rate"]} for e in p["eras"]]
+    return out
+
 def _full_rates(supplier, items):
-    """{item: {product, freight, rate, weight_kg}} — product benchmark plus the
-    channel freight layer (rate/kg × unit weight). Local vendors: freight 0.
-    Every imported unit carries freight in its COST whatever year it shipped —
-    separate from the 2026 pool-clearing view."""
-    from accounting_portal.api.valuation import _benchmarks
+    """{item: {product, freight, rate, weight_kg, eras}} — the LATEST invoice
+    era's price (CFO doctrine: no averages — the last invoice governs until the
+    next one), plus that era's freight. A manual override wins as a single
+    uniform truth. Local vendors: freight 0."""
     rate_kg, _ch = _rate_for(supplier)
-    bench = _benchmarks(SALES, items) if items else {}
-    for ic, ov in _cost_overrides().items():        # reviewer's verified cost wins
-        if ic in (items or []):
-            bench[ic] = flt(ov.get("rate"))
+    pr = _pricing(supplier, items) if items else {}
+    ovs = _cost_overrides()
     w = {}
     if items:
         for i in range(0, len(items), 700):
@@ -904,13 +1007,19 @@ def _full_rates(supplier, items):
                 w[r.name] = flt(r.x)
     out = {}
     for ic in items:
-        b = flt(bench.get(ic))
-        if b <= 0:
-            out[ic] = {"product": None, "freight": 0, "rate": None, "weight_kg": w.get(ic, 0)}
-            continue
-        fr = round(rate_kg * w.get(ic, 0.0), 2)
-        out[ic] = {"product": b, "freight": fr, "rate": round(b + fr, 2),
-                   "weight_kg": w.get(ic, 0)}
+        ov = flt((ovs.get(ic) or {}).get("rate"))
+        p = pr.get(ic)
+        if ov > 0:
+            fr = round(rate_kg * w.get(ic, 0.0), 2)
+            out[ic] = {"product": ov, "freight": fr, "rate": round(ov + fr, 2),
+                       "weight_kg": w.get(ic, 0), "eras": 0}
+        elif p:
+            out[ic] = {"product": p["latest"], "freight": p["eras"][-1]["freight"],
+                       "rate": p["rate"], "weight_kg": p["weight_kg"],
+                       "eras": len(p["eras"])}
+        else:
+            out[ic] = {"product": None, "freight": 0, "rate": None,
+                       "weight_kg": w.get(ic, 0), "eras": 0}
     return out
 
 
