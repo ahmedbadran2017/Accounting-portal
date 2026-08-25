@@ -317,6 +317,28 @@ def vendor_detail(supplier=None):
     # evidence-based product cost (supplier invoice anchored)
     from accounting_portal.api.valuation import _benchmarks
     bench = _benchmarks(SALES, mine)
+    cost_ovs = _cost_overrides()
+    # half-invoice detector: invoiced vs received qty (non-internal docs only)
+    inv_q, rec_q = {}, {}
+    for i in range(0, len(mine), 700):
+        for r in frappe.db.sql(
+                """SELECT pii.item_code ic, SUM(pii.qty) q
+                   FROM `tabPurchase Invoice Item` pii
+                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.docstatus=1 AND pi.company IN %s AND pii.item_code IN %s
+                     AND pi.supplier NOT IN %s
+                   GROUP BY pii.item_code""",
+                ((SALES, SOURCING), mine[i:i + 700], _INTERNAL_SUPPLIERS), as_dict=True):
+            inv_q[r.ic] = flt(r.q)
+        for r in frappe.db.sql(
+                """SELECT pri.item_code ic, SUM(pri.qty) q
+                   FROM `tabPurchase Receipt Item` pri
+                   JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+                   WHERE pr.docstatus=1 AND pri.item_code IN %s
+                     AND pr.supplier NOT IN %s
+                   GROUP BY pri.item_code""",
+                (mine[i:i + 700], _INTERNAL_SUPPLIERS), as_dict=True):
+            rec_q[r.ic] = flt(r.q)
 
     ovs = _overrides()
     items = []
@@ -337,6 +359,9 @@ def vendor_detail(supplier=None):
             "oh": round(uni[ic]["oh"]),
             "book_rate": round(flt(book.get(ic)), 2) if book.get(ic) else None,
             "bench": bench.get(ic),
+            "cost_override": (cost_ovs.get(ic) or {}).get("rate"),
+            "partial_invoice": 1 if (rec_q.get(ic) and inv_q.get(ic, 0) < rec_q[ic] * 0.95) else 0,
+            "inv_cov": round(100.0 * inv_q.get(ic, 0) / rec_q[ic], 0) if rec_q.get(ic) else None,
             "multi": cands if len(cands) > 1 else [],
             "pinned": 1 if ic in ovs else 0,
         })
@@ -596,6 +621,91 @@ def set_step(supplier=None, step=None, done=1):
     return {"ok": 1, "state": v}
 
 
+_COST_OV_KEY = "ap_cost_overrides"     # {item: {"rate": MAD, "note": str}}
+
+
+def _cost_overrides():
+    try:
+        return json.loads(frappe.db.get_default(_COST_OV_KEY) or "{}") or {}
+    except Exception:
+        return {}
+
+
+@frappe.whitelist()
+def set_cost_override(item_code=None, rate=None, note=None):
+    """Reviewer's verified PRODUCT cost for an item (MAD) — wins over the
+    invoice benchmark in submit. rate<=0 clears it. A note is mandatory:
+    an override without its why is unauditable."""
+    assert_can_write()
+    if not item_code:
+        frappe.throw("item_code required")
+    ov = _cost_overrides()
+    r = flt(rate)
+    if r > 0:
+        if not (note or "").strip():
+            frappe.throw("a note explaining the override is required")
+        ov[item_code] = {"rate": round(r, 2), "note": note.strip()}
+    else:
+        ov.pop(item_code, None)
+    frappe.db.set_default(_COST_OV_KEY, json.dumps(ov))
+    return {"ok": 1, "item_code": item_code, "override": ov.get(item_code)}
+
+
+@frappe.whitelist()
+def item_cost_detail(item_code=None):
+    """The full purchase story of one product — every invoice and receipt
+    across both companies, MAD-converted at document-date FX, with invoice
+    coverage (the 'half-invoice' detector) and the benchmark's basis."""
+    assert_portal_access()
+    if not item_code:
+        frappe.throw("item_code required")
+    from accounting_portal.api.cost_trace import _fx_series, _to_mad_fast, true_cost
+    fx = _fx_series()
+    moves = []
+    for co, lbl in ((SOURCING, "maslak"), (SALES, "morocco")):
+        for r in frappe.db.sql(
+                """SELECT pi.name doc, pi.supplier sup, pi.posting_date d, pi.currency ccy,
+                          pii.qty, pii.rate, pii.base_rate
+                   FROM `tabPurchase Invoice Item` pii
+                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code=%s AND pii.qty>0
+                   ORDER BY pi.posting_date DESC""", (co, item_code), as_dict=True):
+            internal = r.sup in _INTERNAL_SUPPLIERS
+            mad = (flt(r.base_rate) if co == SALES
+                   else _to_mad_fast(flt(r.base_rate), "TRY", r.d, fx))
+            moves.append({"kind": "PI", "company": lbl, "doc": r.doc, "supplier": r.sup,
+                          "date": str(r.d), "qty": round(flt(r.qty)),
+                          "rate": flt(r.rate), "ccy": r.ccy,
+                          "mad": round(mad, 2) if mad else None,
+                          "internal": 1 if internal else 0})
+        for r in frappe.db.sql(
+                """SELECT pr.name doc, pr.supplier sup, pr.posting_date d, pr.currency ccy,
+                          pri.qty, pri.rate
+                   FROM `tabPurchase Receipt Item` pri
+                   JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+                   WHERE pr.docstatus=1 AND pr.company=%s AND pri.item_code=%s AND pri.qty>0
+                   ORDER BY pr.posting_date DESC""", (co, item_code), as_dict=True):
+            internal = r.sup in _INTERNAL_SUPPLIERS
+            mad = _to_mad_fast(flt(r.rate), r.ccy, r.d, fx) if flt(r.rate) else 0
+            moves.append({"kind": "PR", "company": lbl, "doc": r.doc, "supplier": r.sup,
+                          "date": str(r.d), "qty": round(flt(r.qty)),
+                          "rate": flt(r.rate), "ccy": r.ccy,
+                          "mad": round(mad, 2) if mad else None,
+                          "internal": 1 if internal else 0,
+                          "zero_priced": 1 if flt(r.rate) <= 0 else 0})
+    moves.sort(key=lambda m: m["date"], reverse=True)
+    # invoice coverage vs origin receipts — the 'half-invoice' detector.
+    inv_q = sum(m["qty"] for m in moves if m["kind"] == "PI" and not m["internal"])
+    rec_q = sum(m["qty"] for m in moves if m["kind"] == "PR" and not m["internal"])
+    cov = round(100.0 * inv_q / rec_q, 1) if rec_q else None
+    tc = true_cost(item_code=item_code)
+    ov = _cost_overrides().get(item_code)
+    return {"item_code": item_code, "moves": moves[:60],
+            "invoiced_qty": inv_q, "received_qty": rec_q, "coverage_pct": cov,
+            "partial_invoice": bool(rec_q and inv_q < rec_q * 0.95),
+            "bench": tc, "override": ov}
+
+
 def _full_rates(supplier, items):
     """{item: {product, freight, rate, weight_kg}} — product benchmark plus the
     channel freight layer (rate/kg × unit weight). Local vendors: freight 0.
@@ -604,6 +714,9 @@ def _full_rates(supplier, items):
     from accounting_portal.api.valuation import _benchmarks
     rate_kg, _ch = _rate_for(supplier)
     bench = _benchmarks(SALES, items) if items else {}
+    for ic, ov in _cost_overrides().items():        # reviewer's verified cost wins
+        if ic in (items or []):
+            bench[ic] = flt(ov.get("rate"))
     w = {}
     if items:
         for i in range(0, len(items), 700):

@@ -241,20 +241,84 @@
                 <th class="px-3 py-2 text-end th">{{ L("Distortion","التشوّه","Écart") }}</th>
               </tr></thead>
               <tbody>
-                <tr v-for="it in det.items" :key="it.item_code" class="border-t border-line-hair" :class="!it.bench ? 'bg-amber-50/40' : ''">
+                <template v-for="it in det.items" :key="it.item_code">
+                <tr class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40"
+                    :class="!effBench(it) ? 'bg-amber-50/40' : ''" @click="toggleCost(it)">
                   <td class="px-3 py-1.5 tnum text-[10.5px]" dir="ltr">
+                    <span class="text-ink-muted">{{ costOpen === it.item_code ? "▾" : "▸" }}</span>
                     {{ it.sku || it.item_code }}
                     <MultiVendorBadge :item="it" :current="det.supplier" @moved="open(sel)" />
+                    <span v-if="it.partial_invoice" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full ms-1" style="background:#fef3c7;color:#b45309"
+                          :title="L('invoiced only '+it.inv_cov+'% of received qty','مفوتر '+it.inv_cov+'% بس من المستلم','facturé '+it.inv_cov+'%')">
+                      {{ L("½ invoice","نص فاتورة","½ fact.") }} {{ it.inv_cov }}%
+                    </span>
                   </td>
                   <td class="px-3 py-1.5">{{ (it.item_name || '').slice(0, 40) }}</td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ n(it.bought) }} <span class="text-[9px] text-ink-muted">{{ it.last_doc }}</span></td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ it.book_rate ?? "—" }}</td>
-                  <td class="px-3 py-1.5 text-end tnum font-bold" dir="ltr">{{ it.bench ?? "—" }}</td>
+                  <td class="px-3 py-1.5 text-end tnum font-bold" dir="ltr">
+                    <span v-if="it.cost_override" :title="L('reviewer override','تصحيح يدوي موثّق','corrigé')" style="color:#6d28d9">✎ {{ it.cost_override }}</span>
+                    <span v-else>{{ it.bench ?? "—" }}</span>
+                  </td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr"
                       :style="dist(it) > 30 ? 'color:#b91c1c;font-weight:700' : dist(it) > 10 ? 'color:#b45309' : 'color:#047857'">
-                    {{ it.bench && it.book_rate ? dist(it) + "%" : "—" }}
+                    {{ effBench(it) && it.book_rate ? dist(it) + "%" : "—" }}
                   </td>
                 </tr>
+                <tr v-if="costOpen === it.item_code" class="border-t border-line-hair">
+                  <td colspan="6" class="px-4 py-3" style="background:#fafaf9">
+                    <div v-if="cdLoading" class="text-[11px] text-ink-muted py-3 text-center">{{ L("Loading movements…","جاري تحميل الحركة…","Chargement…") }}</div>
+                    <template v-else-if="cd">
+                      <!-- coverage line -->
+                      <div class="flex items-center gap-3 flex-wrap mb-2">
+                        <span class="text-[11px] font-bold">{{ L("Purchase movements","حركة الشراء","Mouvements") }}</span>
+                        <span v-if="cd.received_qty" class="text-[10.5px] tnum" dir="ltr"
+                              :style="cd.partial_invoice ? 'color:#b45309;font-weight:700' : 'color:#047857'">
+                          {{ L("invoiced","مفوتر","facturé") }} {{ n(cd.invoiced_qty) }} / {{ n(cd.received_qty) }} {{ L("received","مستلم","reçu") }} ({{ cd.coverage_pct }}%)
+                        </span>
+                        <span v-if="cd.bench" class="text-[10.5px] text-ink-muted tnum" dir="ltr">
+                          bench {{ cd.bench.cost_mad ?? "—" }} · {{ cd.bench.source }} · {{ L("basis","أساس","base") }} {{ cd.bench.basis_qty }}
+                        </span>
+                      </div>
+                      <!-- movements -->
+                      <div class="rounded-[10px] border border-line overflow-hidden bg-white mb-2" style="max-height:220px;overflow-y:auto">
+                        <table class="w-full text-[10.5px]">
+                          <thead><tr style="background:#f1f5f9;position:sticky;top:0">
+                            <th class="px-2 py-1 text-start th">{{ L("Date","التاريخ","Date") }}</th>
+                            <th class="px-2 py-1 text-start th">{{ L("Doc","المستند","Doc") }}</th>
+                            <th class="px-2 py-1 text-start th">{{ L("Supplier","المورّد","Fourn.") }}</th>
+                            <th class="px-2 py-1 text-end th">{{ L("Qty","كمية","Qté") }}</th>
+                            <th class="px-2 py-1 text-end th">{{ L("Rate","السعر","Taux") }}</th>
+                            <th class="px-2 py-1 text-end th">MAD</th>
+                          </tr></thead>
+                          <tbody>
+                            <tr v-for="m in cd.moves" :key="m.doc + m.kind + m.date" class="border-t border-line-hair"
+                                :style="m.internal ? 'opacity:.45' : ''">
+                              <td class="px-2 py-1 tnum" dir="ltr">{{ m.date }}</td>
+                              <td class="px-2 py-1 tnum" dir="ltr">{{ m.kind }} {{ m.doc.slice(-9) }}
+                                <span v-if="m.internal" class="text-[8.5px]">{{ L("(transfer)","(تحويل)","(transf.)") }}</span>
+                                <span v-else-if="m.zero_priced" class="text-[8.5px]" style="color:#b45309">{{ L("(0-priced)","(بدون سعر)","(0)") }}</span>
+                              </td>
+                              <td class="px-2 py-1">{{ (m.supplier || '').slice(0, 20) }}</td>
+                              <td class="px-2 py-1 text-end tnum" dir="ltr">{{ n(m.qty) }}</td>
+                              <td class="px-2 py-1 text-end tnum" dir="ltr">{{ m.rate }} {{ m.ccy }}</td>
+                              <td class="px-2 py-1 text-end tnum font-bold" dir="ltr">{{ m.mad ?? "—" }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <!-- override -->
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[10.5px] font-bold">{{ L("Verified cost (MAD)","التكلفة المعتمدة (درهم)","Coût vérifié") }}:</span>
+                        <input type="number" step="0.01" min="0" v-model="ovRate" class="w-[90px] h-[26px] px-2 rounded-[7px] border border-line text-end tnum text-[11px]" dir="ltr" />
+                        <input type="text" v-model="ovNote" :placeholder="L('why? (required)','السبب؟ (إجباري)','pourquoi ?')" class="flex-1 min-w-[180px] h-[26px] px-2 rounded-[7px] border border-line text-[11px]" />
+                        <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-accent disabled:opacity-50" :disabled="ovSaving" @click="saveOverride(it)">{{ ovSaving ? "…" : L("Save","حفظ","OK") }}</button>
+                        <button v-if="it.cost_override" class="h-[26px] px-2 rounded-[7px] text-[10.5px] border border-line bg-white text-ink-muted" @click="clearOverride(it)">{{ L("clear","امسح","×") }}</button>
+                      </div>
+                    </template>
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -346,9 +410,46 @@ const dirtyW = computed(() =>
   Object.entries(wDirty.value)
     .filter(([, v]) => parseFloat(v) > 0)
     .map(([item_code, weight_kg]) => ({ item_code, weight_kg: parseFloat(weight_kg) })));
+function effBench(it) { return it.cost_override || it.bench; }
 function dist(it) {
-  if (!it.bench || !it.book_rate) return 0;
-  return Math.round(100 * Math.abs(it.book_rate - it.bench) / it.bench);
+  const b = effBench(it);
+  if (!b || !it.book_rate) return 0;
+  return Math.round(100 * Math.abs(it.book_rate - b) / b);
+}
+// ---- cost detail expansion + override ----
+const costOpen = ref(null); const cd = ref(null); const cdLoading = ref(false);
+const ovRate = ref(""); const ovNote = ref(""); const ovSaving = ref(false);
+async function toggleCost(it) {
+  if (costOpen.value === it.item_code) { costOpen.value = null; cd.value = null; return; }
+  costOpen.value = it.item_code; cd.value = null; cdLoading.value = true;
+  ovRate.value = it.cost_override || ""; ovNote.value = "";
+  try {
+    cd.value = await api.call("accounting_portal.api.vendor_workbench.item_cost_detail",
+      { item_code: it.item_code }, { fresh: true });
+    if (cd.value?.override) { ovRate.value = cd.value.override.rate; ovNote.value = cd.value.override.note || ""; }
+  } catch (e) { alert((e && e.message) || e); }
+  finally { cdLoading.value = false; }
+}
+async function saveOverride(it) {
+  const r = parseFloat(ovRate.value);
+  if (!(r > 0)) return alert(L("Enter a positive cost", "أدخل تكلفة موجبة", "Coût positif requis"));
+  if (!ovNote.value.trim()) return alert(L("A note is required", "السبب إجباري", "Note requise"));
+  ovSaving.value = true;
+  try {
+    await api.call("accounting_portal.api.vendor_workbench.set_cost_override",
+      { item_code: it.item_code, rate: r, note: ovNote.value.trim() });
+    it.cost_override = r;
+    pv.value = null;                       // stale preview must be re-run
+  } catch (e) { alert((e && e.message) || e); }
+  finally { ovSaving.value = false; }
+}
+async function clearOverride(it) {
+  try {
+    await api.call("accounting_portal.api.vendor_workbench.set_cost_override",
+      { item_code: it.item_code, rate: 0 });
+    it.cost_override = null; ovRate.value = ""; ovNote.value = "";
+    pv.value = null;
+  } catch (e) { alert((e && e.message) || e); }
 }
 // family inheritance: the base segment of the SKU shares one weight
 function skuBase(s) { return (s || "").split("-")[0].trim().toLowerCase(); }
