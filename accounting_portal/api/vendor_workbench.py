@@ -422,8 +422,11 @@ _RATE_SCHED_KEY = "ap_freight_rate_scheds"   # {"air":[{"date","rate"},...], ...
 
 
 def _rate_scheds():
-    """Dated channel rates (era pricing — the air 100/110/120 pattern):
-    each point opens an era at its MAD/kg from that date on."""
+    """Dated channel rates (era pricing): each point opens an era at its
+    MAD/kg from that date on. The AIR schedule falls back to the official
+    tariff bands already maintained in the Landed Cockpit
+    (landed_prep.get_air_rates — 110 from 2026-01-01, 126 from 2026-04-23)
+    so there is ONE source of truth; an explicit workbench entry overrides."""
     try:
         cfg = json.loads(frappe.db.get_default(_RATE_SCHED_KEY) or "{}") or {}
     except Exception:
@@ -436,6 +439,15 @@ def _rate_scheds():
             key=lambda p: p["date"])
         if clean:
             out[ch] = clean
+    if "air" not in out:
+        try:
+            from accounting_portal.api.landed_prep import get_air_rates
+            bands = [{"date": str(b.get("from"))[:10], "rate": flt(b.get("rate"))}
+                     for b in (get_air_rates(2026) or []) if flt(b.get("rate")) > 0]
+            if bands:
+                out["air"] = sorted(bands, key=lambda p: p["date"])
+        except Exception:
+            pass
     return out
 
 
