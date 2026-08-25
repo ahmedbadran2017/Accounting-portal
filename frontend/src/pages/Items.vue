@@ -52,6 +52,7 @@
     <ShipmentPipeline v-else-if="activeSub === 'landed'" />
     <ItemCostCard v-else-if="activeSub === 'costing' && route.query.item" />
     <LandedWorkbench v-else-if="activeSub === 'costing'" />
+    <Vendors v-else-if="activeSub === 'vendors'" />
     <CostTrace v-else-if="activeSub === 'costtrace'" />
     <WeightsWorklist v-else-if="activeSub === 'weights'" />
     <ZeroCostReceipts v-else-if="activeSub === 'zerocost'" />
@@ -82,6 +83,7 @@ import ValuationDoctor from "@/pages/items/ValuationDoctor.vue";
 import ZeroCostReceipts from "@/pages/items/ZeroCostReceipts.vue";
 import Cutover from "@/pages/items/Cutover.vue";
 import CostTrace from "@/pages/items/CostTrace.vue";
+import Vendors from "@/pages/items/Vendors.vue";
 import ShipmentPipeline from "@/pages/items/ShipmentPipeline.vue";
 import LandedCockpit from "@/pages/items/LandedCockpit.vue";
 import InventoryCorrectionModal from "@/components/InventoryCorrectionModal.vue";
