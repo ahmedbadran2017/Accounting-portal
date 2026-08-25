@@ -65,7 +65,13 @@ def _channels():
 
 
 def _moved_universe():
-    """{item_code: {"sold": qty, "oh": qty}} — delivered 2026 or on-hand now."""
+    """{item_code: {"sold": qty, "oh": qty}} — items DELIVERED in 2026 only.
+
+    Deliberately excludes never-sold stock (new selections still in transit /
+    at the Istanbul hub, 10-per-variant): they have zero COGS impact, and the
+    new receiving process prices them correctly on arrival — correcting them
+    here would only inflate the team's workload. On-hand qty is kept as an
+    info column for the items that DID sell."""
     out = {}
     for r in frappe.db.sql(
             """SELECT dni.item_code ic, SUM(dni.qty) q FROM `tabDelivery Note Item` dni
@@ -73,12 +79,17 @@ def _moved_universe():
                WHERE dn.docstatus=1 AND dn.company=%s AND dn.posting_date>='2026-01-01'
                GROUP BY dni.item_code""", (SALES,), as_dict=True):
         out.setdefault(r.ic, {"sold": 0.0, "oh": 0.0})["sold"] = flt(r.q)
-    for r in frappe.db.sql(
-            """SELECT b.item_code ic, SUM(b.actual_qty) q FROM `tabBin` b
-               JOIN `tabWarehouse` w ON w.name=b.warehouse
-               WHERE w.company=%s AND b.actual_qty>0 GROUP BY b.item_code""",
-            (SALES,), as_dict=True):
-        out.setdefault(r.ic, {"sold": 0.0, "oh": 0.0})["oh"] = flt(r.q)
+    if not out:
+        return out
+    codes = list(out)
+    for i in range(0, len(codes), 700):
+        for r in frappe.db.sql(
+                """SELECT b.item_code ic, SUM(b.actual_qty) q FROM `tabBin` b
+                   JOIN `tabWarehouse` w ON w.name=b.warehouse
+                   WHERE w.company=%s AND b.actual_qty>0 AND b.item_code IN %s
+                   GROUP BY b.item_code""",
+                (SALES, codes[i:i + 700]), as_dict=True):
+            out[r.ic]["oh"] = flt(r.q)
     return out
 
 
