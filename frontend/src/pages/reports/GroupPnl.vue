@@ -6,9 +6,9 @@
         {{ L("Group P&L on the corrected cost basis","قائمة دخل المجموعة على أساس التكلفة المصحّحة","P&L groupe — coût corrigé") }}
       </div>
       <div class="text-[11px] mt-0.5" style="color:#1d4ed8">
-        {{ L("The Holding is a reading lens (no GL rows of its own). Cost of goods is the modelled landed cost, so every month reads true — the booked figure folds in stock-adjustment repost noise and swings wildly. The books converge to this as the cost correction lands.",
-             "الهولدينج عدسة قراءة (مالوش قيود). تكلفة البضاعة محسوبة، فكل شهر يقرأ صح — الرقم المرحّل بيخلط ضوضاء تسويات المخزون ويتأرجح. الدفاتر بتتقارب مع اكتمال التصحيح.",
-             "Le Holding est une lentille de lecture ; coût modélisé.") }}
+        {{ L("The Holding is a reading lens (no GL rows of its own). Cost of goods is the modelled landed cost. Revenue is GROSS (incl. TVA — what the customer actually paid); only the TVA genuinely settled with the state is charged as a cost, since the input-credit absorbs nearly all of it.",
+             "الهولدينج عدسة قراءة (مالوش قيود). تكلفة البضاعة محسوبة. الإيراد إجمالي شامل TVA (اللي العميل دفعه فعلًا)؛ المسدّد للدولة فقط بيتحمّل كمصروف — لأن رصيد ضريبة المدخلات بيمتص معظمها.",
+             "Revenu TTC ; seule la TVA réellement réglée est une charge.") }}
       </div>
     </div>
 
@@ -30,8 +30,11 @@
       <!-- totals -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
-          <div class="lab">{{ L("Revenue","الإيراد","Revenu") }}</div>
+          <div class="lab">{{ L("Revenue (incl. TVA)","الإيراد (شامل TVA)","Revenu (TTC)") }}</div>
           <div class="big tnum" dir="ltr">{{ money(t.revenue) }}</div>
+          <div v-if="t.vat_kept" class="text-[10.5px] tnum" style="color:#047857" dir="ltr">
+            {{ L("TVA kept","TVA محتفظ بها","TVA conservée") }}: {{ money(t.vat_kept) }} · {{ L("settled","مسدّد","réglée") }}: {{ money(t.vat_settled) }}
+          </div>
         </div>
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
           <div class="lab">{{ L("Gross margin","مجمل الربح","Marge brute") }}</div>
@@ -58,7 +61,7 @@
           <table class="w-full text-[11.5px]">
             <thead><tr style="background:#fafaf9">
               <th class="px-3 py-2 text-start th">{{ L("Month","الشهر","Mois") }}</th>
-              <th class="px-3 py-2 text-end th">{{ L("Revenue","إيراد","Revenu") }}</th>
+              <th class="px-3 py-2 text-end th">{{ L("Revenue (TTC)","إيراد شامل TVA","Revenu TTC") }}</th>
               <th class="px-3 py-2 text-end th">{{ L("COGS","التكلفة","CMV") }}</th>
               <th class="px-3 py-2 text-end th">{{ L("GM %","هامش%","MB%") }}</th>
               <th class="px-3 py-2 text-end th">{{ L("Opex","مصاريف","Charges") }}</th>

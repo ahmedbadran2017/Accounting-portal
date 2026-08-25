@@ -299,6 +299,25 @@ def group_pnl_corrected(year=None, ccy="USD"):
             if c and flt(c["cost"]) > 0:
                 out_m[int(r.m)]["cogs"] += flt(r.q) * flt(c["cost"]) * flt(sfx.get(int(r.m)))
 
+    # GROSS revenue (incl. TVA): GL income is booked net, but the customer pays
+    # the tax on top — and almost all of it is KEPT (input-credit absorbs the
+    # filing). Management view agreed with the CFO: revenue shows what the
+    # customer actually paid; only the TVA genuinely SETTLED with the state in
+    # cash is charged back as a cost line right underneath.
+    vat_added = vat_settled_total = 0.0
+    if sales_co:
+        from accounting_portal.api.pnl_estimated import _vat
+        idx = {f"{y}-{m:02d}": m - 1 for m in months}
+        v = _vat(sales_co, idx, 12, f"{y}-01-01", f"{y}-12-31")
+        sccy = ccys[sales_co]; sfx = rates.get(sccy, {})
+        for m in months:
+            fxm = flt(sfx.get(m))
+            out_m[m]["revenue"] += flt(v["output"][m - 1]) * fxm
+            out_m[m]["opex"] += flt(v["settled"][m - 1]) * fxm
+            vat_added += flt(v["output"][m - 1]) * fxm
+            vat_settled_total += flt(v["settled"][m - 1]) * fxm
+        opex_by_co["TVA settled (state)"] = vat_settled_total
+
     rows_out = []
     for m in months:
         d = out_m[m]
@@ -311,7 +330,11 @@ def group_pnl_corrected(year=None, ccy="USD"):
                          "opex": round(d["opex"]), "net": round(d["revenue"] - d["cogs"] - d["opex"])})
     tot = {k: sum(r[k] for r in rows_out) for k in ("revenue", "cogs", "cogs_booked", "gross", "opex", "net")}
     tot["gm_pct"] = round(100 * tot["gross"] / tot["revenue"], 1) if tot["revenue"] else 0
+    tot["vat_included"] = round(vat_added)
+    tot["vat_settled"] = round(vat_settled_total)
+    tot["vat_kept"] = round(vat_added - vat_settled_total)
     return {"year": y, "ccy": ccy, "basis": "corrected", "roles": roles, "rows": rows_out, "total": tot,
+            "vat_included": True,
             "opex_by_company": {k: round(v) for k, v in opex_by_co.items()},
             "eliminated": {k: {kk: round(vv) for kk, vv in v.items()}
                            for k, v in eliminated.items() if any(v.values())},
