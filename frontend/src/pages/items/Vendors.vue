@@ -350,6 +350,7 @@
                                   <div v-for="m in row.docs" :key="m.doc" class="tnum" dir="ltr"
                                        :style="m.excluded ? 'opacity:.4;text-decoration:line-through' : ''">
                                     {{ m.doc.slice(-9) }} · {{ (m.supplier || '').slice(0,16) }}
+                                    <span class="text-[9.5px]" style="color:#0d9488">· {{ Math.round(m.rate*100)/100 }} {{ m.ccy }}</span>
                                     <span v-if="m.cc==='non'" class="text-[8px] font-bold px-1 rounded" style="background:#ede9fe;color:#6d28d9">{{ L("non-off","غير رسمي","non") }}</span>
                                     <span v-if="m.linked_pr" class="text-[8.5px]" style="color:#0369a1">↔</span>
                                     <span v-else class="text-[8.5px]" style="color:#9a8f86">({{ L("manual","يدوي","man.") }})</span>
