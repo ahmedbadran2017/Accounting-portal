@@ -429,16 +429,25 @@ def _revalue_poster(action):
         # Failed action retried later must pin pollution that arrived since
         # the plan was captured, not replay the stale list. Schedule mode
         # (retro_sched) rebuilds the whole time-phased plan.
-        if p.get("retro_pins") or p.get("retro_sched"):
-            rs = p.get("retro_sched") or {}
+        if p.get("retro_pins") or p.get("retro_sched") or p.get("era_sched"):
             sched = []
-            if flt(rs.get("product")) > 0:
-                from accounting_portal.api.shipment_costing import retro_schedule
-                try:
-                    sched = retro_schedule(base_ic, flt(rs["product"]),
-                                           year=rs.get("year"))
-                except Exception:
-                    sched = []
+            if p.get("era_sched"):
+                # caller-supplied invoice-era timeline (no-averages doctrine):
+                # the pin plan is rebuilt from THESE eras — never from the
+                # shipment schedule, which knows nothing about invoice pricing
+                sched = sorted(
+                    [{"date": str(x.get("date"))[:10], "rate": flt(x.get("rate"))}
+                     for x in p["era_sched"] if flt(x.get("rate")) > 0],
+                    key=lambda x: x["date"])
+            else:
+                rs = p.get("retro_sched") or {}
+                if flt(rs.get("product")) > 0:
+                    from accounting_portal.api.shipment_costing import retro_schedule
+                    try:
+                        sched = retro_schedule(base_ic, flt(rs["product"]),
+                                               year=rs.get("year"))
+                    except Exception:
+                        sched = []
             final_rate = flt(sched[-1]["rate"]) if sched else base_rate
             p["retro_pins"] = _pins_from_sched(
                 company, base_ic, date, final_rate, sched)
@@ -990,8 +999,12 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         payload={"date": date, "rows": rows, "release_whs": release_whs,
                  "basis_on": None if full_rate else (basis or {}).get("on"),
                  "retro_pins": retro_pins if retro else [],
+                 # era_sched = the caller's INVOICE-era timeline (no-averages
+                 # doctrine) — the poster re-resolves the pin plan from THIS,
+                 # never from the legacy shipment schedule, when present
+                 "era_sched": (sched if (retro and sched and retro_sched) else None),
                  "retro_sched": ({"product": flt(retro_product), "year": retro_year}
-                                 if (retro and sched) else None)},
+                                 if (retro and sched and not retro_sched) else None)},
         amount=round(impact, 2),
         reference_doctype="Item", reference_name=item_code,
         notes=((note or f"Verified cost fix — {item_code}")
