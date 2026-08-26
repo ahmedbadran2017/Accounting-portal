@@ -761,6 +761,7 @@ def item_cost_detail(item_code=None):
                           "linked_pr": r.linked_pr or None,
                           "cc": ("non" if "non-official" in (r.cc or "").lower()
                                  else ("off" if r.cc else None)),
+                          "excluded": 1 if f"{r.doc}::{item_code}" in _price_exclusions() else 0,
                           "internal": 1 if internal else 0})
     moves.sort(key=lambda m: m["date"], reverse=True)
     # invoice coverage vs origin receipts — the 'half-invoice' detector
@@ -799,6 +800,35 @@ def item_cost_detail(item_code=None):
             "partial_invoice": bool(rec_q and inv_q < rec_q * 0.95),
             "half_invoice": half, "eras": eras,
             "bench": tc, "override": ov}
+
+
+_PRICE_EXCL_KEY = "ap_price_exclusions"     # ["<PI_NAME>::<item_code>", ...]
+
+
+def _price_exclusions():
+    try:
+        return set(json.loads(frappe.db.get_default(_PRICE_EXCL_KEY) or "[]"))
+    except Exception:
+        return set()
+
+
+@frappe.whitelist()
+def set_price_exclusion(item_code=None, doc=None, excluded=1):
+    """Per-period control: knock a WRONG invoice line out of the pricing
+    timeline (a qty-1 manual entry must not hijack the model's era). The
+    invoice itself is untouched accounting-wise — it just stops feeding the
+    price. excluded=0 restores it."""
+    assert_can_write()
+    if not (item_code and doc):
+        frappe.throw("item_code and doc required")
+    key = f"{doc}::{item_code}"
+    ex = _price_exclusions()
+    if str(excluded) in ("1", "true", "True"):
+        ex.add(key)
+    else:
+        ex.discard(key)
+    frappe.db.set_default(_PRICE_EXCL_KEY, json.dumps(sorted(ex)))
+    return {"ok": 1, "key": key, "excluded": key in ex}
 
 
 def _pricing(supplier, items):
@@ -889,32 +919,36 @@ def _pricing(supplier, items):
             fam_by_code.setdefault(m, f)
 
     # ---- pooled invoice lines per family (Maslak w/ cc + Morocco full) ----
+    # per-period control: lines the reviewer EXCLUDED (ap_price_exclusions,
+    # key "<PI>::<item>") never feed the timeline — a qty-1 manual entry must
+    # not hijack the model's current era
+    excl = _price_exclusions()
     lines = {}   # fam -> [(date, qty, mad, kind)]
     for i in range(0, len(all_codes), 700):
         chunk = tuple(all_codes[i:i + 700])
         for r in frappe.db.sql(
-                """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d, pii.qty,
+                """SELECT pii.item_code ic, pi.name doc, pii.base_rate rate, pi.posting_date d, pii.qty,
                           IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
                    FROM `tabPurchase Invoice Item` pii
                    JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
                    WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s AND pii.qty>0
                 """, (SOURCING, chunk), as_dict=True):
             f = fam_by_code.get(r.ic)
-            if not f:
+            if not f or f"{r.doc}::{r.ic}" in excl:
                 continue
             mad = _to_mad_fast(flt(r.rate), "TRY", r.d, fx)
             if mad > 0:
                 kind = "non" if "non-official" in (r.cc or "").lower() else "off"
                 lines.setdefault(f, []).append((str(r.d), flt(r.qty), mad, kind))
         for r in frappe.db.sql(
-                """SELECT pii.item_code ic, pii.base_rate rate, pi.posting_date d, pii.qty
+                """SELECT pii.item_code ic, pi.name doc, pii.base_rate rate, pi.posting_date d, pii.qty
                    FROM `tabPurchase Invoice Item` pii
                    JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
                    WHERE pi.docstatus=1 AND pi.company=%s AND pii.item_code IN %s AND pii.qty>0
                      AND pi.supplier NOT IN %s""",
                 (SALES, chunk, _INTERNAL_SUPPLIERS), as_dict=True):
             f = fam_by_code.get(r.ic)
-            if f and flt(r.rate) > 0:
+            if f and flt(r.rate) > 0 and f"{r.doc}::{r.ic}" not in excl:
                 lines.setdefault(f, []).append((str(r.d), flt(r.qty), flt(r.rate), "full"))
 
     # ---- eras per family: each opener priced at ITS OWN rate ----

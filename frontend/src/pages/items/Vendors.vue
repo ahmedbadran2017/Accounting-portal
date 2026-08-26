@@ -330,7 +330,7 @@
                           </tr></thead>
                           <tbody>
                             <tr v-for="m in cd.moves" :key="m.doc + m.kind + m.date" class="border-t border-line-hair"
-                                :style="m.internal ? 'opacity:.45' : ''">
+                                :style="m.internal ? 'opacity:.45' : (m.excluded ? 'opacity:.4;text-decoration:line-through' : '')">
                               <td class="px-2 py-1 tnum" dir="ltr">{{ m.date }}</td>
                               <td class="px-2 py-1 tnum" dir="ltr">{{ m.doc.slice(-9) }}
                                 <span v-if="m.cc==='non'" class="text-[8px] font-bold px-1 py-0.5 rounded" style="background:#ede9fe;color:#6d28d9">{{ L("non-off","غير رسمي","non") }}</span>
@@ -343,6 +343,14 @@
                               <td class="px-2 py-1 text-end tnum" dir="ltr">{{ n(m.qty) }}</td>
                               <td class="px-2 py-1 text-end tnum" dir="ltr">{{ m.rate }} {{ m.ccy }}</td>
                               <td class="px-2 py-1 text-end tnum font-bold" dir="ltr">{{ m.mad ?? "—" }}</td>
+                              <td class="px-2 py-1 text-end">
+                                <button v-if="!m.internal" class="text-[9px] font-bold px-1.5 py-0.5 rounded border"
+                                        :style="m.excluded ? 'border-color:#a7f3d0;color:#047857;background:#ecfdf5' : 'border-color:#fecaca;color:#b91c1c;background:#fef2f2'"
+                                        :title="m.excluded ? L('restore into pricing','رجّعها للتسعير','réintégrer') : L('exclude from pricing (wrong entry)','استبعد من التسعير (قيد غلط)','exclure du prix')"
+                                        @click.stop="toggleExclude(it, m)">
+                                  {{ m.excluded ? L("↩ restore","↩ رجّع","↩") : L("✕ excl.","✕ استبعد","✕") }}
+                                </button>
+                              </td>
                             </tr>
                           </tbody>
                         </table>
@@ -482,6 +490,17 @@ async function saveOverride(it) {
     pv.value = null;                       // stale preview must be re-run
   } catch (e) { alert((e && e.message) || e); }
   finally { ovSaving.value = false; }
+}
+async function toggleExclude(it, m) {
+  try {
+    await api.call("accounting_portal.api.vendor_workbench.set_price_exclusion",
+      { item_code: it.item_code, doc: m.doc, excluded: m.excluded ? 0 : 1 });
+    m.excluded = m.excluded ? 0 : 1;
+    // eras + evidence changed → refresh the expanded detail and the row
+    cd.value = await api.call("accounting_portal.api.vendor_workbench.item_cost_detail",
+      { item_code: it.item_code }, { fresh: true });
+    pv.value = null;                       // stale submit preview must re-run
+  } catch (e) { alert((e && e.message) || e); }
 }
 async function clearOverride(it) {
   try {
