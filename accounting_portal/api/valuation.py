@@ -409,12 +409,22 @@ def _revalue_poster(action):
             whs += [w for w in pin_whs if w in release_whs and w not in whs]
             if whs:
                 released_sos += _release_reservations(ic, whs)
+        # SAME-DAY RACE GUARD (the 9135229141246 incident): a reco dated TODAY
+        # carries qty captured NOW but used to post at 23:59 — any real
+        # movement later the same day (a 14:46 bin transfer, two minutes after
+        # a 14:44 capture) got overwritten at end of day, resurrecting phantom
+        # stock that pickers then shipped against. Today-dated recos now post
+        # at the CURRENT time so later movements sort after them and survive.
+        # Back-dated days are closed — 23:59 remains correct there.
+        def _ptime(d):
+            return (frappe.utils.nowtime().split(".")[0]
+                    if str(d) == nowdate() else "23:59:00")
         doc = None
         if any_change:
             doc = frappe.get_doc({
                 "doctype": "Stock Reconciliation", "company": company,
                 "purpose": "Stock Reconciliation",
-                "posting_date": date, "posting_time": "23:59:00", "set_posting_time": 1,
+                "posting_date": date, "posting_time": _ptime(date), "set_posting_time": 1,
                 "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
                 "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
                 "items": items,
@@ -467,7 +477,7 @@ def _revalue_poster(action):
             pd_doc = frappe.get_doc({
                 "doctype": "Stock Reconciliation", "company": company,
                 "purpose": "Stock Reconciliation",
-                "posting_date": pin["date"], "posting_time": "23:59:00", "set_posting_time": 1,
+                "posting_date": pin["date"], "posting_time": _ptime(pin["date"]), "set_posting_time": 1,
                 "expense_account": frappe.get_cached_value("Company", company, "stock_adjustment_account"),
                 "cost_center": frappe.get_cached_value("Company", company, "cost_center"),
                 "items": pin_items,
