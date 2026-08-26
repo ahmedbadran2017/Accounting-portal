@@ -296,15 +296,23 @@
                           {{ L("invoiced","مفوتر","facturé") }} {{ n(cd.invoiced_qty) }} / {{ n(cd.received_qty) }} {{ L("received","مستلم","reçu") }} ({{ cd.coverage_pct }}%)
                         </span>
                       </div>
-                      <!-- era timeline — each invoice's OWN price for its period (no averages) -->
-                      <div v-if="cd.eras && cd.eras.length" class="flex items-center gap-1.5 flex-wrap mb-2">
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Eras","الحقب","Ères") }}:</span>
-                        <span v-for="(e,i) in cd.eras" :key="e.date" class="text-[10px] font-bold px-2 py-1 rounded-[8px] tnum" dir="ltr"
-                              :style="i===cd.eras.length-1 ? 'background:#065f46;color:#fff' : 'background:#f1f5f9;color:#475569'"
-                              :title="`product ${e.product} + freight ${e.freight}`">
-                          {{ e.date }} → {{ e.rate }}
-                        </span>
-                        <span class="text-[9.5px] text-ink-muted">{{ L("(latest applies forward; retro prices each period at ITS era)","(الأخيرة سارية؛ الرترو بيسعّر كل فترة بحقبتها)","(chaque période à son ère)") }}</span>
+                      <!-- price timeline: step chart + unified era/invoice ledger -->
+                      <div v-if="cd.eras && cd.eras.length" class="mb-2">
+                        <svg :viewBox="`0 0 ${chartW} 96`" class="w-full" style="max-height:96px" preserveAspectRatio="none">
+                          <line v-for="g in chart.grid" :key="'g'+g.y" x1="0" :y1="g.y" :x2="chartW" :y2="g.y" stroke="#eef1f4" stroke-width="1"/>
+                          <text v-for="g in chart.grid" :key="'t'+g.y" x="2" :y="g.y-2" font-size="8" fill="#9a8f86">{{ g.v }}</text>
+                          <path :d="chart.path" fill="none" stroke="#0d9488" stroke-width="2" stroke-linejoin="round"/>
+                          <path :d="chart.lastSeg" fill="none" stroke="#065f46" stroke-width="3"/>
+                          <circle v-for="p in chart.pts" :key="p.x" :cx="p.x" :cy="p.y" r="2.6"
+                                  :fill="p.last ? '#065f46' : '#0d9488'"/>
+                          <line v-for="f in chart.frMarks" :key="'f'+f.x" :x1="f.x" y1="8" :x2="f.x" y2="92"
+                                stroke="#f59e0b" stroke-width="1" stroke-dasharray="3,3"/>
+                        </svg>
+                        <div class="flex justify-between text-[9px] text-ink-muted tnum px-1" dir="ltr">
+                          <span>{{ cd.eras[0].date }}</span>
+                          <span class="font-bold" style="color:#065f46">{{ L("current","الساري","actuel") }}: {{ cd.eras[cd.eras.length-1].rate }}</span>
+                          <span>{{ cd.eras[cd.eras.length-1].date }}</span>
+                        </div>
                       </div>
                       <!-- half-invoice roll-up: official + non-official = full cost -->
                       <div v-if="cd.half_invoice" class="rounded-[10px] border px-3 py-2 mb-2 text-[11px]"
@@ -317,43 +325,61 @@
                         </span>
                         <span class="block mt-0.5" style="color:#7c3aed">{{ L("The benchmark already sums both halves — the invoiced qty above double-counts each unit.","الدليل بيجمع النصين تلقائيًا — الكمية المفوترة فوق بتعدّ كل وحدة مرتين.","Le benchmark somme les deux moitiés.") }}</span>
                       </div>
-                      <!-- movements -->
-                      <div class="rounded-[10px] border border-line overflow-hidden bg-white mb-2" style="max-height:220px;overflow-y:auto">
+                      <!-- unified ledger: each row IS an era (its opening invoices), newest first -->
+                      <div class="rounded-[10px] border border-line overflow-hidden bg-white mb-2" style="max-height:260px;overflow-y:auto">
                         <table class="w-full text-[10.5px]">
-                          <thead><tr style="background:#f1f5f9;position:sticky;top:0">
-                            <th class="px-2 py-1 text-start th">{{ L("Date","التاريخ","Date") }}</th>
-                            <th class="px-2 py-1 text-start th">{{ L("Doc","المستند","Doc") }}</th>
-                            <th class="px-2 py-1 text-start th">{{ L("Supplier","المورّد","Fourn.") }}</th>
+                          <thead><tr style="background:#f1f5f9;position:sticky;top:0;z-index:1">
+                            <th class="px-2 py-1 text-start th">{{ L("Period","الفترة","Période") }}</th>
+                            <th class="px-2 py-1 text-start th">{{ L("Opened by","فتحتها","Ouvert par") }}</th>
                             <th class="px-2 py-1 text-end th">{{ L("Qty","كمية","Qté") }}</th>
-                            <th class="px-2 py-1 text-end th">{{ L("Rate","السعر","Taux") }}</th>
-                            <th class="px-2 py-1 text-end th">MAD</th>
+                            <th class="px-2 py-1 text-end th">{{ L("Unit","الوحدة","Unité") }}</th>
+                            <th class="px-2 py-1 text-end th">{{ L("Era rate","سعر الحقبة","Taux ère") }}</th>
+                            <th class="px-2 py-1"></th>
                           </tr></thead>
                           <tbody>
-                            <tr v-for="m in cd.moves" :key="m.doc + m.kind + m.date" class="border-t border-line-hair"
-                                :style="m.internal ? 'opacity:.45' : (m.excluded ? 'opacity:.4;text-decoration:line-through' : '')">
-                              <td class="px-2 py-1 tnum" dir="ltr">{{ m.date }}</td>
-                              <td class="px-2 py-1 tnum" dir="ltr">{{ m.doc.slice(-9) }}
-                                <span v-if="m.cc==='non'" class="text-[8px] font-bold px-1 py-0.5 rounded" style="background:#ede9fe;color:#6d28d9">{{ L("non-off","غير رسمي","non") }}</span>
-                                <span v-else-if="m.cc==='off'" class="text-[8px] font-bold px-1 py-0.5 rounded" style="background:#ecfdf5;color:#047857">{{ L("official","رسمي","off.") }}</span>
-                                <span v-if="m.internal" class="text-[8.5px]">{{ L("(transfer)","(تحويل)","(transf.)") }}</span>
-                                <span v-else-if="m.linked_pr" class="text-[8.5px]" style="color:#0369a1" :title="m.linked_pr">↔ {{ m.linked_pr.slice(-9) }}</span>
-                                <span v-else class="text-[8.5px]" style="color:#9a8f86">{{ L("(manual)","(يدوي)","(manuel)") }}</span>
+                            <tr v-for="row in eraLedger" :key="row.key" class="border-t border-line-hair"
+                                :style="row.kind==='freight' ? 'background:#fffbeb' : (row.last ? 'background:#ecfdf5' : '')">
+                              <td class="px-2 py-1.5 tnum whitespace-nowrap" dir="ltr">
+                                <b>{{ row.from }}</b><span class="text-ink-muted"> → {{ row.to || L("now","الآن","auj.") }}</span>
                               </td>
-                              <td class="px-2 py-1">{{ (m.supplier || '').slice(0, 20) }}</td>
-                              <td class="px-2 py-1 text-end tnum" dir="ltr">{{ n(m.qty) }}</td>
-                              <td class="px-2 py-1 text-end tnum" dir="ltr">{{ m.rate }} {{ m.ccy }}</td>
-                              <td class="px-2 py-1 text-end tnum font-bold" dir="ltr">{{ m.mad ?? "—" }}</td>
-                              <td class="px-2 py-1 text-end">
-                                <button v-if="!m.internal" class="text-[9px] font-bold px-1.5 py-0.5 rounded border"
-                                        :style="m.excluded ? 'border-color:#a7f3d0;color:#047857;background:#ecfdf5' : 'border-color:#fecaca;color:#b91c1c;background:#fef2f2'"
-                                        :title="m.excluded ? L('restore into pricing','رجّعها للتسعير','réintégrer') : L('exclude from pricing (wrong entry)','استبعد من التسعير (قيد غلط)','exclure du prix')"
-                                        @click.stop="toggleExclude(it, m)">
-                                  {{ m.excluded ? L("↩ restore","↩ رجّع","↩") : L("✕ excl.","✕ استبعد","✕") }}
-                                </button>
+                              <td class="px-2 py-1.5">
+                                <template v-if="row.kind==='freight'">
+                                  <span class="text-[10px] font-bold" style="color:#b45309">⚖ {{ L("freight tariff change","تغيير تعرفة الشحن","changement tarif fret") }}</span>
+                                </template>
+                                <template v-else>
+                                  <div v-for="m in row.docs" :key="m.doc" class="tnum" dir="ltr"
+                                       :style="m.excluded ? 'opacity:.4;text-decoration:line-through' : ''">
+                                    {{ m.doc.slice(-9) }} · {{ (m.supplier || '').slice(0,16) }}
+                                    <span v-if="m.cc==='non'" class="text-[8px] font-bold px-1 rounded" style="background:#ede9fe;color:#6d28d9">{{ L("non-off","غير رسمي","non") }}</span>
+                                    <span v-if="m.linked_pr" class="text-[8.5px]" style="color:#0369a1">↔</span>
+                                    <span v-else class="text-[8.5px]" style="color:#9a8f86">({{ L("manual","يدوي","man.") }})</span>
+                                    <button class="text-[9px] font-bold px-1 rounded border ms-1"
+                                            :style="m.excluded ? 'border-color:#a7f3d0;color:#047857' : 'border-color:#fecaca;color:#b91c1c'"
+                                            @click.stop="toggleExclude(it, m)">{{ m.excluded ? "↩" : "✕" }}</button>
+                                  </div>
+                                </template>
                               </td>
+                              <td class="px-2 py-1.5 text-end tnum" dir="ltr">{{ row.qty ? n(row.qty) : "" }}</td>
+                              <td class="px-2 py-1.5 text-end tnum" dir="ltr">{{ row.unit ?? "" }}</td>
+                              <td class="px-2 py-1.5 text-end tnum font-bold" dir="ltr" :style="row.last ? 'color:#065f46' : ''">
+                                {{ row.rate }}
+                                <div class="text-[8.5px] font-normal text-ink-muted">{{ row.product }}+{{ row.freight }}</div>
+                              </td>
+                              <td></td>
                             </tr>
                           </tbody>
                         </table>
+                      </div>
+                      <!-- internal transfers, folded -->
+                      <div v-if="transferMoves.length" class="mb-2">
+                        <button class="text-[10px] font-bold text-ink-muted" @click="showTransfers=!showTransfers">
+                          {{ showTransfers ? "▾" : "▸" }} {{ L("Internal transfers","التحويلات الداخلية","Transferts") }} ({{ transferMoves.length }}) — {{ L("paper prices, never used in pricing","أسعار ورقية، لا تدخل التسعير أبدًا","jamais utilisés") }}
+                        </button>
+                        <div v-if="showTransfers" class="mt-1 rounded-[8px] border border-line-hair bg-white px-2 py-1">
+                          <div v-for="m in transferMoves" :key="m.doc" class="text-[10px] text-ink-muted tnum py-0.5" dir="ltr">
+                            {{ m.date }} · {{ m.doc.slice(-9) }} · qty {{ n(m.qty) }} · {{ m.rate }} {{ m.ccy }} = {{ m.mad }}
+                          </div>
+                        </div>
                       </div>
                       <!-- override -->
                       <div class="flex items-center gap-2 flex-wrap">
@@ -491,6 +517,49 @@ async function saveOverride(it) {
   } catch (e) { alert((e && e.message) || e); }
   finally { ovSaving.value = false; }
 }
+// ---- unified era timeline (chart + ledger) ----
+const showTransfers = ref(false);
+const chartW = 600;
+const chart = computed(() => {
+  const eras = cd.value?.eras || [];
+  if (eras.length < 1) return { path: "", lastSeg: "", pts: [], grid: [], frMarks: [] };
+  const rates = eras.map(e => e.rate);
+  const lo = Math.min(...rates), hi = Math.max(...rates);
+  const pad = Math.max((hi - lo) * 0.15, 1);
+  const y = (v) => 90 - ((v - lo + pad) / (hi - lo + 2 * pad)) * 80;
+  const x = (i) => eras.length === 1 ? chartW / 2 : 14 + (i / (eras.length - 1)) * (chartW - 28);
+  let path = "", pts = [], frMarks = [];
+  eras.forEach((e, i) => {
+    const px = x(i), py = y(e.rate);
+    path += (i === 0 ? `M ${px} ${py}` : ` H ${px} V ${py}`);
+    pts.push({ x: px, y: py, last: i === eras.length - 1 });
+    if (i > 0 && e.product === eras[i - 1].product && e.freight !== eras[i - 1].freight)
+      frMarks.push({ x: px });
+  });
+  path += ` H ${chartW - 6}`;
+  const li = eras.length - 1;
+  const lastSeg = li > 0 ? `M ${x(li)} ${y(eras[li].rate)} H ${chartW - 6}` : "";
+  const grid = [lo, (lo + hi) / 2, hi].map(v => ({ y: y(v), v: Math.round(v) }));
+  return { path, lastSeg, pts, grid, frMarks };
+});
+const eraLedger = computed(() => {
+  const eras = cd.value?.eras || [];
+  const moves = (cd.value?.moves || []).filter(m => !m.internal);
+  const rows = eras.map((e, i) => {
+    const docs = moves.filter(m => m.date === e.date);
+    const qty = docs.reduce((s, m) => s + (m.excluded ? 0 : m.qty), 0);
+    const unit = docs.length ? (docs.find(m => !m.excluded)?.mad ?? docs[0].mad) : null;
+    return {
+      key: e.date, from: e.date, to: eras[i + 1] ? eras[i + 1].date : null,
+      kind: docs.length ? "invoice" : "freight",
+      docs, qty, unit, rate: e.rate, product: e.product, freight: e.freight,
+      last: i === eras.length - 1,
+    };
+  });
+  return rows.reverse();          // newest first
+});
+const transferMoves = computed(() => (cd.value?.moves || []).filter(m => m.internal));
+
 async function toggleExclude(it, m) {
   try {
     await api.call("accounting_portal.api.vendor_workbench.set_price_exclusion",
