@@ -357,6 +357,38 @@ def revalue_bins(company=None, bins=None, effective_date=None, dry_run=1, notes=
         notes=notes or f"Bulk revaluation — {len(rows)} bins, impact {impact:,.0f} ({date})")
 
 
+def _collapse_reposts(item_code):
+    """Merge this item's pending repost jobs down to the earliest one per
+    (item, warehouse).
+
+    A repost with based_on='Item and Warehouse' REBUILDS that pair from its
+    date FORWARD, so the earliest queued job already covers every later one.
+    A retro run posts one reco per deviant date (161 for a fast-moving Kitchen
+    Life item), each spawning its own full-year rebuild of ~27K ledger rows —
+    281 jobs where 34 do the identical work, i.e. months of queue instead of
+    hours. The superseded ones are marked Skipped, which is ERPNext's own term
+    for a job a broader repost already covers. Valuation results are unchanged;
+    only duplicated work is dropped.
+    """
+    try:
+        rows = frappe.db.sql(
+            """SELECT name, warehouse FROM `tabRepost Item Valuation`
+               WHERE item_code=%s AND status IN ('Queued','In Progress')
+                 AND based_on='Item and Warehouse'
+               ORDER BY warehouse, posting_date, posting_time, creation""",
+            (item_code,), as_dict=True)
+        keep = {}
+        for r in rows:
+            if r.warehouse not in keep:
+                keep[r.warehouse] = r.name
+        for r in rows:
+            if r.name != keep.get(r.warehouse):
+                frappe.db.set_value("Repost Item Valuation", r.name, "status",
+                                    "Skipped", update_modified=False)
+    except Exception:
+        frappe.log_error(title="collapse reposts failed", message=frappe.get_traceback())
+
+
 def _revalue_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     company = action.company
@@ -488,6 +520,7 @@ def _revalue_poster(action):
         if posted_pins:
             p["posted_pins"] = posted_pins
             action.db_set("payload", json.dumps(p), update_modified=False)
+        _collapse_reposts(base_ic)
         _restore_reservations(sorted(set(released_sos)))
     except Exception:
         frappe.db.rollback(save_point="reval_atomic")
