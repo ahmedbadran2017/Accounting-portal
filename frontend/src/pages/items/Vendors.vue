@@ -396,16 +396,16 @@
                           <span>{{ cd.eras[cd.eras.length-1].date }}</span>
                         </div>
                       </div>
-                      <!-- half-invoice roll-up: official + non-official = full cost -->
+                      <!-- payment-channel split: same full price, two pots -->
                       <div v-if="cd.half_invoice" class="rounded-[10px] border px-3 py-2 mb-2 text-[11px]"
                            style="background:#faf5ff;border-color:#e9d5ff;color:#6d28d9">
-                        <b>{{ L("Half-invoice detected","نص فاتورة مكتشفة","Demi-facture") }}:</b>
+                        <b>{{ L("Bought through both channels","اتشرى من القناتين","Deux canaux") }}:</b>
                         <span class="tnum" dir="ltr">
                           {{ L("official","رسمي","off.") }} {{ cd.half_invoice.off_rate }} ({{ n(cd.half_invoice.off_qty) }}u)
-                          + {{ L("non-official","غير رسمي","non-off.") }} {{ cd.half_invoice.non_rate }} ({{ n(cd.half_invoice.non_qty) }}u)
-                          = <b>{{ cd.half_invoice.combined }} MAD</b> / {{ n(cd.half_invoice.physical_qty) }} {{ L("physical units","وحدة فعلية","unités") }}
+                          · {{ L("non-official","غير رسمي","non-off.") }} {{ cd.half_invoice.non_rate }} ({{ n(cd.half_invoice.non_qty) }}u)
+                          → <b>{{ cd.half_invoice.combined }} MAD</b> / {{ n(cd.half_invoice.physical_qty) }} {{ L("units","وحدة","unités") }}
                         </span>
-                        <span class="block mt-0.5" style="color:#7c3aed">{{ L("The benchmark already sums both halves — the invoiced qty above double-counts each unit.","الدليل بيجمع النصين تلقائيًا — الكمية المفوترة فوق بتعدّ كل وحدة مرتين.","Le benchmark somme les deux moitiés.") }}</span>
+                        <span class="block mt-0.5" style="color:#7c3aed">{{ L("Two payment channels at the same unit price — the cost is qty-weighted, never summed.","قناتين دفع بنفس سعر الوحدة — التكلفة بتتحسب بمتوسط مرجّح بالكمية، مش بجمع السعرين.","Deux canaux au même prix unitaire — coût pondéré, jamais additionné.") }}</span>
                       </div>
                       <!-- unified ledger: each row IS an era (its opening invoices), newest first -->
                       <div class="rounded-[10px] border border-line overflow-hidden bg-white mb-2" style="max-height:260px;overflow-y:auto">

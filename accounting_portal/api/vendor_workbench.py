@@ -785,7 +785,9 @@ def item_cost_detail(item_code=None):
         p = _pricing(sup, [item_code]).get(item_code)
         if p:
             eras = p["eras"]
-    # half-invoice roll-up for the banner (official + non-official halves)
+    # channel split roll-up (informational): the two cost centres are two
+    # PAYMENT CHANNELS at the same full unit price — never halves of one
+    # price, so the combined cost is plain qty-weighted, nothing is summed.
     q_o = sum(m["qty"] for m in moves if m.get("cc") == "off" and not m["internal"])
     v_o = sum(m["qty"] * (m["mad"] or 0) for m in moves if m.get("cc") == "off" and not m["internal"])
     q_n = sum(m["qty"] for m in moves if m.get("cc") == "non")
@@ -794,8 +796,8 @@ def item_cost_detail(item_code=None):
     if q_o > 0 and q_n > 0:
         half = {"off_qty": round(q_o), "off_rate": round(v_o / q_o, 2),
                 "non_qty": round(q_n), "non_rate": round(v_n / q_n, 2),
-                "combined": round((v_o + v_n) / max(q_o, q_n), 2),
-                "physical_qty": round(max(q_o, q_n))}
+                "combined": round((v_o + v_n) / (q_o + q_n), 2),
+                "physical_qty": round(q_o + q_n)}
     return {"item_code": item_code, "moves": moves[:60],
             "invoiced_qty": inv_q, "received_qty": rec_q, "coverage_pct": cov,
             "partial_invoice": bool(rec_q and inv_q < rec_q * 0.95),
@@ -954,46 +956,31 @@ def _pricing(supplier, items):
 
     # ---- eras per family: each opener priced at ITS OWN rate ----
     def _fam_eras(ls):
-        ls.sort(key=lambda x: x[0])
-        nons = [(d, q, m) for d, q, m, k in ls if k == "non"]
-        # Half-invoice = the SAME goods billed in two mirrored tranches, so the
-        # two sides' quantities must be comparable. A vendor like TOMMYLIFE
-        # (27 full-price official units + 3 stray non-official retail buys)
-        # is NOT half-invoiced — pairing there DOUBLED the price. Guard: the
-        # non side must carry ≥30% of the official quantity.
-        off_q = sum(q for _d, q, _m, k in ls if k == "off")
-        non_q = sum(q for _d, q, _m in nons)
-        half = bool(nons) and off_q > 0 and non_q >= 0.3 * off_q
-        if nons and not half:
-            # stray non-official lines are real full-price purchases —
-            # let them open eras like any other invoice
-            ls = [(d, q, m, ("off" if k == "non" else k)) for d, q, m, k in ls]
-            nons = []
-        non_all = (sum(q * m for d, q, m in nons) / sum(q for d, q, m in nons)) if nons else 0.0
+        """Every purchase line opens an era at ITS OWN price — official or
+        non-official alike.
 
-        def paired_non(d):
-            near = [(q, m) for dn, q, m in nons
-                    if abs(frappe.utils.date_diff(d, dn)) <= 90]
-            if near:
-                tq = sum(q for q, m in near)
-                return sum(q * m for q, m in near) / tq
-            return non_all
-        # same-day openers merge qty-weighted (one price per day)
+        There is NO price-splitting between the two cost centres. Verified on
+        PROD (2026-08-28): only 0.11% of item+day combos are billed in both
+        centres, the median non/official RATE ratio is 1.00 (85% within ±15%),
+        and quantities do not mirror. The two centres are two PAYMENT
+        CHANNELS for separate purchases at the same full unit price — what is
+        under-declared is quantity, never the rate. The earlier pairing model
+        (own + paired_non) therefore DOUBLED the cost wherever it fired
+        (TOMMYLIFE tracksuit: 471 MAD vs a true 229, against a 274 MAD selling
+        price). Same-day lines merge qty-weighted; that is the only averaging
+        allowed, and it is within one invoice day."""
+        ls.sort(key=lambda x: x[0])
         by_day = {}
         for d, q, m, k in ls:
-            if k == "non":
-                continue                      # completes pricing, never opens
-            e = by_day.setdefault(d, [0.0, 0.0, k])
-            e[0] += q; e[1] += m * q
-            if k == "full":
-                e[2] = "full"                 # a full invoice wins the day
+            e = by_day.setdefault(d, [0.0, 0.0])
+            e[0] += q
+            e[1] += m * q
         eras = []
         for d in sorted(by_day):
-            q, v, k = by_day[d]
-            own = v / q
-            product = own if (k == "full" or not half) else own + paired_non(d)
-            eras.append({"date": d, "product": round(product, 2)})
-        return eras, (1 if half else 0)
+            q, v = by_day[d]
+            if q > 0 and v > 0:
+                eras.append({"date": d, "product": round(v / q, 2)})
+        return eras, 0
 
     fam_eras = {}
     for f, ls in lines.items():

@@ -97,23 +97,23 @@ def true_cost(item_code=None):
     assert_portal_access()
     if not item_code:
         frappe.throw("item_code required")
-    # family half-invoice pooling wins over every individual path (same model,
-    # ONE price — the bulk engine carries the pooled logic; stay consistent)
+    # family pooling wins over every individual path (same model, ONE price —
+    # the bulk engine carries the pooled logic; stay consistent)
     _bulk = _true_cost_bulk([item_code], _fx_series())
     _b = _bulk.get(item_code)
-    if _b and _b.get("half_invoice"):
+    if _b and _b.get("source") == "family_pi":
         _b = dict(_b)
         _b["item_code"] = item_code
-        _b["note"] = ("HALF-INVOICE (family-pooled): official + non-official halves "
-                      "summed across ALL variants of the model — one price per model")
+        _b["note"] = ("Family-pooled: every variant's invoice lines across both "
+                      "payment channels, qty-weighted — one price per model")
         return _b
     cache = {}
     # 1) preferred anchor — Maslak purchase INVOICES (actual bill).
-    # HALF-INVOICE pattern: the same physical purchase used to be billed as
-    # TWO invoices — an OFFICIAL one (cost center 01*) and a NON-OFFICIAL one
-    # (02*/04*), each at roughly HALF the real unit price. When an item shows
-    # BOTH kinds, the true unit cost = total value of BOTH ÷ the PHYSICAL qty
-    # (= the larger side; the raw sum double-counts every unit).
+    # The OFFICIAL (cost center 01*/03*) and NON-OFFICIAL (02*/04*) centres
+    # are two PAYMENT CHANNELS for separate purchases at the SAME full unit
+    # price — not two halves of one price. Verified on PROD 2026-08-28: only
+    # 0.11% of item+day combos appear in both, median non/official rate ratio
+    # 1.00, quantities don't mirror. So both sides are simply qty-weighted.
     pi = frappe.db.sql(
         """SELECT pii.base_rate rate_try, pi.posting_date dt, pii.qty,
                   IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
@@ -133,19 +133,17 @@ def true_cost(item_code=None):
         # require a POSITIVE converted value — q>0 with v==0 means every line failed
         # to convert (no FX rate for its currency); don't report that as a 0 cost.
         if q > 0 and v > 0:
-            # true halves have MIRRORED tranches; a few stray non-official
-            # full-price buys (TOMMYLIFE pattern) must not double the cost
-            if q_off > 0 and q_non >= 0.3 * q_off:   # half-invoice: sum both halves
-                phys = max(q_off, q_non)
-                return {"item_code": item_code, "cost_mad": round(v / phys, 2),
-                        "source": "maslak_pi", "basis_qty": round(phys),
-                        "half_invoice": 1,
-                        "note": (f"HALF-INVOICE: official {round(v_off / q_off, 2)} "
-                                 f"({round(q_off)}u) + non-official {round(v_non / q_non, 2)} "
-                                 f"({round(q_non)}u) = full unit cost over {round(phys)} physical units")}
+            # The official / non-official cost centres are two PAYMENT
+            # CHANNELS at the same full unit price — NOT two halves of one
+            # price (verified on PROD: 0.11% same-day overlap, median
+            # non/off rate ratio 1.00). What gets under-declared is
+            # quantity, never the rate, so every line is just qty-weighted.
+            note = "Maslak supplier invoice (TRY) @ correct FX — product cost only"
+            if q_off > 0 and q_non > 0:
+                note += (f" · official {round(v_off / q_off, 2)} ({round(q_off)}u)"
+                         f" + non-official {round(v_non / q_non, 2)} ({round(q_non)}u)")
             return {"item_code": item_code, "cost_mad": round(v / q, 2),
-                    "source": "maslak_pi", "basis_qty": round(q),
-                    "note": "Maslak supplier invoice (TRY) @ correct FX — product cost only"}
+                    "source": "maslak_pi", "basis_qty": round(q), "note": note}
     # 1b) THIRD-PARTY invoices billed to Morocco (base MAD) — domestic products
     # AND foreign vendors invoicing Morocco directly (Garbalia/Vienev pattern
     # since ~April). The only exclusion that matters is group companies: their
@@ -309,10 +307,9 @@ def _true_cost_bulk(item_codes, fx):
             if q > 0 and v > 0:
                 out[item] = {"cost_mad": round(v / q, 2), "source": source, "basis_qty": round(q)}
 
-    # Maslak PIs — half-invoice aware: an item billed under BOTH the official
-    # (01*) and non-official (02*/04*) cost centers was double-invoiced at
-    # half price each → true cost = total value of both ÷ physical qty
-    # (the larger side; raw qty double-counts every unit).
+    # Maslak PIs — official (01*/03*) and non-official (02*/04*) centres are
+    # two payment channels at the SAME full unit price, so both sides are
+    # pooled and qty-weighted (no summing of "halves" — that doubled costs).
     pi = frappe.db.sql(
         """SELECT pii.item_code, pii.base_rate rate, pi.posting_date dt, pii.qty,
                   IFNULL(pii.cost_center, IFNULL(pi.cost_center,'')) cc
@@ -332,13 +329,9 @@ def _true_cost_bulk(item_codes, fx):
                 q_off += flt(r.qty); v_off += m * flt(r.qty)
         q, v = q_off + q_non, v_off + v_non
         if q > 0 and v > 0:
-            if q_off > 0 and q_non >= 0.3 * q_off:
-                phys = max(q_off, q_non)
-                out[item] = {"cost_mad": round(v / phys, 2), "source": "maslak_pi",
-                             "basis_qty": round(phys), "half_invoice": 1}
-            else:
-                out[item] = {"cost_mad": round(v / q, 2), "source": "maslak_pi",
-                             "basis_qty": round(q)}
+            # two payment channels, one full price — plain qty-weighted
+            out[item] = {"cost_mad": round(v / q, 2), "source": "maslak_pi",
+                         "basis_qty": round(q)}
 
     # THIRD-PARTY invoices billed to Morocco (base MAD): locals AND foreign
     # vendors invoicing Morocco directly (Garbalia/Vienev pattern since ~April).
@@ -356,7 +349,7 @@ def _true_cost_bulk(item_codes, fx):
 
     # CFO policy: PURCHASE INVOICES ONLY — receipts are never evidence (their
     # rates are 0 when the invoice carries the value, or FX garbage). The
-    # half-invoice pattern is priced by the official PI unit rate for the
+    # under-declared quantity is priced by the invoiced unit rate for the
     # whole quantity; coverage is flagged in the workbench UI, not here.
 
     # ── FAMILY INHERITANCE — variants whose own code never hit a purchase
@@ -487,14 +480,12 @@ def _true_cost_bulk(item_codes, fx):
                     if f and c not in out:
                         out[c] = dict(f)
 
-    # ── FAMILY HALF-INVOICE POOLING — same model, ONE price. The official and
-    # non-official halves of one purchase were often booked on DIFFERENT
-    # variant codes (official on Red, non-official on Black), so per-variant
-    # detection sees only one side and prices that variant at HALF. Pool the
-    # WHOLE family's invoice lines (Maslak with cost centers + third-party
-    # full invoices); when the pooled family shows BOTH kinds, the combined
-    # rate = (v_off + v_non + v_full) ÷ (max(q_off, q_non) + q_full) and it
-    # OVERRIDES every member's individual result.
+    # ── FAMILY POOLING — same model, ONE price. A model's purchases are
+    # spread across its variant codes and across both payment channels, so a
+    # per-variant read sees only a slice. Pool the WHOLE family's invoice
+    # lines (Maslak with cost centers + third-party full invoices) and price
+    # the model at the pooled qty-weighted rate — the channels are NOT halves
+    # of one price, so values and quantities are both simply summed.
     fam_key = {}
     vmap_all = dict(frappe.db.sql(
         "SELECT name, variant_of FROM `tabItem` WHERE name IN %s", (codes,)))
@@ -564,12 +555,12 @@ def _true_cost_bulk(item_codes, fx):
                 if not p:
                     continue
                 q_off, v_off, q_non, v_non, q_full, v_full = p
-                if q_off > 0 and q_non >= 0.3 * q_off:   # the family IS half-invoiced
-                    phys = max(q_off, q_non) + q_full
+                if q_off > 0 and q_non > 0:      # both channels bought this model
+                    phys = q_off + q_non + q_full
                     val = v_off + v_non + v_full
                     if phys > 0 and val > 0:
                         out[c] = {"cost_mad": round(val / phys, 2), "source": "family_pi",
-                                  "basis_qty": round(phys), "half_invoice": 1}
+                                  "basis_qty": round(phys)}
     return out
 
 
