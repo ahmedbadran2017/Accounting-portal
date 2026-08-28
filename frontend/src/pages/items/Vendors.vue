@@ -241,6 +241,88 @@
         </div>
 
         <!-- STEP 3: costs -->
+        <!-- ======================= STEP: PRICE LIST (agreed prices) ======================= -->
+        <div v-else-if="step==='prices'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
+          <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
+            <span class="text-[12.5px] font-bold">{{ L("Agreed price list","قايمة الأسعار المتفق عليها","Tarifs convenus") }}</span>
+            <span v-if="pd" class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#eff6ff;color:#1d4ed8">{{ pd.currency }}</span>
+            <span v-if="pd" class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ pd.summary?.priced || 0 }}/{{ pd.summary?.items || 0 }} {{ L("priced","مسعّر","tarifés") }}</span>
+            <label class="ms-auto inline-flex items-center gap-1.5 text-[11px] cursor-pointer">
+              <input type="checkbox" v-model="pOnlyUnpriced" /> {{ L("unpriced only","الغير مسعّر بس","non tarifés") }}
+            </label>
+            <button class="h-[28px] px-3 rounded-[8px] border border-line text-[11px] bg-white" @click="exportPrices">⬇ Excel</button>
+            <label class="h-[28px] px-3 rounded-[8px] border border-line text-[11px] bg-white inline-flex items-center cursor-pointer">
+              {{ pImporting ? "…" : "⬆ " + L("Import","استيراد","Importer") }}
+              <input type="file" accept=".csv,.txt" class="hidden" @change="importPricesFile" />
+            </label>
+            <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border" :class="det.state.prices ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-line bg-white'" @click="markStep('prices')">
+              {{ det.state.prices ? "✓ " + L("Done","تمت","Fait") : L("Mark done","علّم كمنتهي","Marquer fait") }}
+            </button>
+          </div>
+          <div v-if="pdLoading" class="py-10 text-center text-[12px] text-ink-muted">{{ L("Loading…","جاري التحميل…","Chargement…") }}</div>
+          <div v-else-if="pd" class="overflow-x-auto">
+            <table class="w-full text-[11.5px]">
+              <thead><tr class="text-ink-3 bg-app-warm/60">
+                <th class="text-start px-3 py-2 font-semibold">{{ L("Item","الصنف","Article") }}</th>
+                <th class="text-end px-2 py-2 font-semibold">{{ L("Sold","مبيع","Vendu") }}</th>
+                <th class="text-end px-2 py-2 font-semibold">{{ L("Last invoice (MAD)","آخر فاتورة (MAD)","Dern. facture") }}</th>
+                <th class="text-end px-2 py-2 font-semibold">{{ L("Agreed","المتفق","Convenu") }} ({{ pd.currency }})</th>
+                <th class="text-end px-2 py-2 font-semibold">{{ L("New price","سعر جديد","Nouveau") }}</th>
+                <th class="text-start px-2 py-2 font-semibold">{{ L("From","من","Dès") }}</th>
+                <th class="px-2 py-2"></th>
+              </tr></thead>
+              <tbody>
+                <template v-for="it in priceRows" :key="it.item_code">
+                  <tr class="border-t border-line-hair hover:bg-app-warm/40">
+                    <td class="px-3 py-1.5">
+                      <div class="font-semibold truncate max-w-[260px]">{{ it.item_name || it.item_code }}</div>
+                      <div class="text-[10px] text-ink-muted tnum" dir="ltr">{{ it.sku || it.item_code }}</div>
+                    </td>
+                    <td class="text-end px-2 tnum" dir="ltr">{{ it.sold }}</td>
+                    <td class="text-end px-2 tnum" dir="ltr">{{ it.bench ? it.bench.toFixed(2) : "—" }}</td>
+                    <td class="text-end px-2 tnum" dir="ltr">
+                      <template v-if="it.agreed !== null && it.agreed !== undefined">
+                        <b>{{ it.agreed }}</b>
+                        <span v-if="it.dev_pct !== null && Math.abs(it.dev_pct) > 50" class="ms-1 text-[9.5px] font-bold px-1 py-0.5 rounded" style="background:#fef2f2;color:#be123c">{{ it.dev_pct > 0 ? "+" : "" }}{{ it.dev_pct }}%</span>
+                        <div class="text-[9.5px] text-ink-muted">{{ L("since","منذ","dès") }} {{ it.agreed_since }}</div>
+                      </template>
+                      <span v-else class="text-ink-muted">—</span>
+                    </td>
+                    <td class="text-end px-2">
+                      <input type="number" step="0.01" min="0" class="w-[84px] h-[26px] px-2 rounded-[7px] border text-end tnum text-[11.5px]"
+                             :class="pJustSaved===it.item_code ? 'border-emerald-400 bg-emerald-50' : 'border-line'"
+                             :value="pDirty[it.item_code] ?? ''" dir="ltr"
+                             @input="pDirty = { ...pDirty, [it.item_code]: $event.target.value }"
+                             @keyup.enter="savePrice(it)" />
+                    </td>
+                    <td class="px-2">
+                      <input type="date" class="h-[26px] px-1 rounded-[7px] border border-line text-[10.5px]"
+                             :value="pDate[it.item_code] ?? today"
+                             @input="pDate = { ...pDate, [it.item_code]: $event.target.value }" />
+                    </td>
+                    <td class="px-2 text-end whitespace-nowrap">
+                      <button class="h-[24px] px-2 rounded-[7px] text-[10.5px] font-bold border border-line bg-white" :disabled="pSaving===it.item_code" @click="savePrice(it)">
+                        {{ pSaving===it.item_code ? "…" : (pJustSaved===it.item_code ? "✓" : L("Save","حفظ","OK")) }}
+                      </button>
+                      <button v-if="(it.history||[]).length" class="h-[24px] px-1.5 rounded-[7px] text-[10.5px] border border-line bg-white ms-1" @click="pHistOpen = pHistOpen===it.item_code ? null : it.item_code">🕘</button>
+                    </td>
+                  </tr>
+                  <tr v-if="pHistOpen===it.item_code" class="border-t border-line-hair" style="background:#fafaf9">
+                    <td colspan="7" class="px-4 py-2">
+                      <div class="text-[10.5px] text-ink-muted mb-1">{{ L("Price history","تاريخ الأسعار","Historique") }}</div>
+                      <div class="flex flex-wrap gap-2">
+                        <span v-for="(h,i) in it.history" :key="i" class="text-[10.5px] px-2 py-1 rounded-[7px] border border-line bg-white tnum" dir="ltr">
+                          {{ h.rate }} · {{ h.from }}{{ h.upto ? " → " + h.upto : " → now" }}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div v-else-if="step==='costs'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
             <div class="text-[12.5px] font-bold">{{ L("Purchase-cost evidence","دليل تكلفة الشراء","Coûts d'achat") }}</div>
@@ -476,6 +558,7 @@ function stepsFor(dv) {
     s.push({ id: "weights", n: 1, label: L("Weights","الأوزان","Poids"), done: !!dv.state.weights });
     s.push({ id: "freight", n: 2, label: L("Freight","الشحن","Fret"), done: !!dv.state.freight });
   }
+  s.push({ id: "prices", n: s.length + 1, label: L("Price list","قايمة الأسعار","Tarifs"), done: !!dv.state.prices });
   s.push({ id: "costs", n: s.length + 1, label: L("Costs","التكاليف","Coûts"), done: !!dv.state.costs });
   s.push({ id: "submit", n: s.length + 1, label: "Submit", done: dv.state.submitted.length >= dv.summary.items && dv.summary.items > 0 });
   return s;
@@ -633,11 +716,13 @@ async function open(sup) {
     router.push({ query: { ...route.query, vendor: sup, step: undefined } });
   sel.value = sup; det.value = null; dloading.value = true;
   wDirty.value = {}; fr.value = null; pv.value = null; lastResults.value = [];
+  pd.value = null; pDirty.value = {}; pDate.value = {}; pHistOpen.value = null;
   try {
     det.value = await api.call("accounting_portal.api.vendor_workbench.vendor_detail", { supplier: sup }, { fresh: true });
     const wanted = route.query.vendor === sup ? route.query.step : null;
-    const def = det.value.local ? "costs" : "weights";
-    step.value = ["weights","freight","costs","submit"].includes(wanted) ? wanted : def;
+    const def = det.value.local ? "prices" : "weights";
+    step.value = ["weights","freight","prices","costs","submit"].includes(wanted) ? wanted : def;
+    if (step.value === "prices") loadPrices();   // watch won't fire if step didn't change
     if (!det.value.local) {
       fr.value = await api.call("accounting_portal.api.vendor_workbench.freight_summary", { supplier: sup }, { fresh: true });
       rateEdit.value = fr.value?.rate_kg || "";
@@ -760,6 +845,80 @@ function exportMissing() {
   a.download = `weights_${(det.value.supplier || "vendor").replace(/[^\w-]+/g, "_")}.csv`;
   a.click(); URL.revokeObjectURL(a.href);
 }
+// ---- price-list step (agreed prices — append-only eras) ----
+const pd = ref(null); const pdLoading = ref(false);
+const pDirty = ref({}); const pDate = ref({});
+const pSaving = ref(null); const pJustSaved = ref(null);
+const pHistOpen = ref(null); const pImporting = ref(false);
+const pOnlyUnpriced = ref(false);
+const today = new Date().toISOString().slice(0, 10);
+const priceRows = computed(() => {
+  const rows = pd.value?.items || [];
+  if (!pOnlyUnpriced.value) return rows;
+  return rows.filter(it => it.agreed === null || it.agreed === undefined || pDirty.value[it.item_code] !== undefined);
+});
+async function loadPrices() {
+  if (!sel.value) return;
+  pdLoading.value = true;
+  try { pd.value = await api.call("accounting_portal.api.vendor_workbench.vendor_prices", { supplier: sel.value }, { fresh: true }); }
+  catch (e) { alert((e && e.message) || e); }
+  finally { pdLoading.value = false; }
+}
+watch(step, (s) => { if (s === "prices" && !pd.value) loadPrices(); });
+async function savePrice(it, force) {
+  const r = parseFloat(pDirty.value[it.item_code]);
+  if (!(r > 0)) return;
+  pSaving.value = it.item_code;
+  try {
+    const res = await api.call("accounting_portal.api.vendor_workbench.save_vendor_prices",
+      { supplier: sel.value, rows: JSON.stringify([{ item_code: it.item_code, rate: r, valid_from: pDate.value[it.item_code] || null }]), confirm: force ? 1 : 0 });
+    if (res.flagged_n) {
+      const f = res.flagged[0];
+      const ok = window.confirm(L(
+        `Big jump vs last invoice: agreed ≈ ${f.agreed_mad} MAD vs billed ${f.era_mad} MAD (${f.dev_pct > 0 ? "+" : ""}${f.dev_pct}%). Save anyway?`,
+        `قفزة كبيرة عن آخر فاتورة: المتفق ≈ ${f.agreed_mad} درهم مقابل ${f.era_mad} في الفاتورة (${f.dev_pct > 0 ? "+" : ""}${f.dev_pct}%). أكمل الحفظ؟`,
+        `Écart important vs facture (${f.dev_pct}%). Confirmer ?`));
+      if (ok) { pSaving.value = null; return savePrice(it, true); }
+      return;
+    }
+    if (res.invalid_n) { alert(L("Rejected: ", "مرفوض: ", "Rejeté: ") + JSON.stringify(res.invalid[0])); return; }
+    const d2 = { ...pDirty.value }; delete d2[it.item_code]; pDirty.value = d2;
+    pJustSaved.value = it.item_code;
+    setTimeout(() => { if (pJustSaved.value === it.item_code) pJustSaved.value = null; }, 2000);
+    await loadPrices();
+  } catch (e) { alert((e && e.message) || e); }
+  finally { pSaving.value = null; }
+}
+function exportPrices() {
+  const rows = pd.value?.items || [];
+  const head = "item_code;sku;item_name;old;price;valid_from";
+  const body = rows.map(it =>
+    [it.item_code, it.sku || "", (it.item_name || "").replace(/;/g, ","), it.agreed ?? "", "", ""].join(";")).join("\n");
+  const blob = new Blob(["﻿" + head + "\n" + body], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `prices_${(sel.value || "vendor").replace(/[^\w]+/g, "_")}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+async function importPricesFile(e) {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  pImporting.value = true;
+  try {
+    const text = await f.text();
+    const r = await api.call("accounting_portal.api.vendor_workbench.import_vendor_prices",
+      { supplier: sel.value, csv_text: text });
+    let msg = L(`Saved ${r.saved} prices.`, `تم حفظ ${r.saved} سعر.`, `${r.saved} enregistrés.`);
+    if (r.flagged_n) msg += "\n" + L(`Held by the ±50% firewall: ${r.flagged_n} (save them one by one from the grid).`, `اتوقفوا على جدار ±50%: ${r.flagged_n} (احفظهم واحد واحد من الشاشة).`, `Bloqués par le garde-fou: ${r.flagged_n}.`);
+    if (r.unmatched_n) msg += "\n" + L(`Unmatched ${r.unmatched_n}: `, `غير متطابق ${r.unmatched_n}: `, `Non trouvés: `) + r.unmatched.slice(0, 8).join(", ");
+    if (r.invalid_n) msg += "\n" + L(`Invalid: ${r.invalid_n}.`, `غير صالح: ${r.invalid_n}.`, `Invalides: ${r.invalid_n}.`);
+    alert(msg);
+    await loadPrices();
+  } catch (err2) { alert((err2 && err2.message) || err2); }
+  finally { pImporting.value = false; }
+}
+
 async function importFile(e) {
   const f = e.target.files && e.target.files[0];
   e.target.value = "";

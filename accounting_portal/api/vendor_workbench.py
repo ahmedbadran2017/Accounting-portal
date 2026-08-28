@@ -26,7 +26,7 @@ State per vendor is stored in the `ap_vendor_state` default:
 import json
 
 import frappe
-from frappe.utils import flt
+from frappe.utils import flt, cint
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write
 
@@ -381,6 +381,7 @@ def vendor_detail(supplier=None):
                         "cost_ok": n_c, "cost_missing": len(items) - n_c},
             "state": {"weights": 1 if (st.get("weights") or local) else 0,
                       "freight": 1 if (st.get("freight") or local) else 0,
+                      "prices": 1 if st.get("prices") else 0,
                       "costs": 1 if st.get("costs") else 0,
                       "submitted": st.get("submitted") or []}}
 
@@ -1144,3 +1145,224 @@ def submit_batch(supplier=None, items=None, note=None):
     _save_state(st)
     return {"supplier": supplier, "results": results,
             "submitted_total": len(done)}
+
+
+# ============================== PRICE CHAIN (P1) ==============================
+# The agreed-price layer: one fresh append-only buying price list per supplier
+# ("VP - <name>"), never the old polluted lists. Every update is a NEW Item
+# Price row with valid_from (previous row gets closed) — supplier price
+# history builds up exactly like invoice eras. Creating the list also sets it
+# as the supplier's default buying list, so every PO (portal or ERPNext)
+# auto-fetches the latest valid price.
+
+_VP_PREFIX = "VP - "
+_PRICE_BOUNDS = (0.05, 100000)          # sanity per unit in list currency
+_PRICE_DEV_GUARD = 0.50                 # vs latest invoice era → needs confirm
+
+
+def _vp_name(supplier):
+    return (_VP_PREFIX + supplier)[:140]
+
+
+def _vp_list(supplier, create=False):
+    name = _vp_name(supplier)
+    if frappe.db.exists("Price List", name):
+        return name
+    if not create:
+        return None
+    ccy = (frappe.db.get_value("Supplier", supplier, "default_currency")
+           or frappe.db.get_value("Company", SALES, "default_currency") or "MAD")
+    frappe.get_doc({"doctype": "Price List", "price_list_name": name,
+                    "currency": ccy, "buying": 1, "enabled": 1}).insert(ignore_permissions=True)
+    frappe.db.set_value("Supplier", supplier, "default_price_list", name)
+    return name
+
+
+def _vp_ccy(supplier):
+    pl = _vp_list(supplier)
+    if pl:
+        return frappe.db.get_value("Price List", pl, "currency") or "MAD"
+    return (frappe.db.get_value("Supplier", supplier, "default_currency")
+            or frappe.db.get_value("Company", SALES, "default_currency") or "MAD")
+
+
+@frappe.whitelist()
+def vendor_prices(supplier=None):
+    """Price-list step data: per item — the current agreed price (+ since),
+    the full price history, and the latest invoice era in MAD so the grid can
+    show 'agreed vs actually billed' side by side."""
+    assert_portal_access()
+    if not supplier:
+        frappe.throw("supplier required")
+    uni = _moved_universe()
+    vmap = _item_vendor_map(list(uni))
+    mine = [ic for ic in uni if vmap.get(ic, {}).get("supplier") == supplier]
+    if not mine:
+        return {"supplier": supplier, "items": [], "currency": _vp_ccy(supplier)}
+    meta = {}
+    for i in range(0, len(mine), 700):
+        for r in frappe.db.sql(
+                """SELECT name, item_name, custom_sku sku FROM `tabItem`
+                   WHERE name IN %s""", (mine[i:i + 700],), as_dict=True):
+            meta[r.name] = r
+    pl = _vp_list(supplier)
+    hist = {}
+    if pl:
+        for r in frappe.db.sql(
+                """SELECT item_code, price_list_rate rate, valid_from, valid_upto
+                   FROM `tabItem Price` WHERE price_list=%s
+                   ORDER BY valid_from DESC, creation DESC""", (pl,), as_dict=True):
+            hist.setdefault(r.item_code, []).append(
+                {"rate": flt(r.rate), "from": str(r.valid_from or "")[:10],
+                 "upto": str(r.valid_upto or "")[:10] or None})
+    _pr = _pricing(supplier, mine)
+    ccy = _vp_ccy(supplier)
+    from accounting_portal.api.cost_trace import _fx_series, _to_mad_fast
+    fx = _fx_series()
+    today = frappe.utils.nowdate()
+    items = []
+    for ic in mine:
+        m = meta.get(ic) or {}
+        h = hist.get(ic) or []
+        cur = h[0] if h else None
+        bench = (_pr.get(ic) or {}).get("latest")
+        agreed_mad = _to_mad_fast(cur["rate"], ccy, today, fx) if cur else None
+        items.append({
+            "item_code": ic, "item_name": m.get("item_name"), "sku": m.get("sku"),
+            "sold": round(uni[ic]["sold"]),
+            "bench": bench,                                   # latest invoice era, MAD
+            "agreed": cur["rate"] if cur else None,           # list currency
+            "agreed_since": cur["from"] if cur else None,
+            "agreed_mad": round(agreed_mad, 2) if agreed_mad else None,
+            "dev_pct": (round(100.0 * (agreed_mad - flt(bench)) / flt(bench), 0)
+                        if (agreed_mad and flt(bench) > 0) else None),
+            "history": h[:12],
+        })
+    items.sort(key=lambda x: -x["sold"])
+    n = sum(1 for x in items if x["agreed"] is not None)
+    return {"supplier": supplier, "currency": ccy, "price_list": pl,
+            "items": items,
+            "summary": {"items": len(items), "priced": n, "unpriced": len(items) - n}}
+
+
+def _write_prices(supplier, rows, confirm):
+    """Shared writer for grid + import. Guards first, then append-only rows:
+    close the open row (valid_upto = day before) and insert the new era."""
+    from accounting_portal.api.cost_trace import _fx_series, _to_mad_fast
+    fx = _fx_series()
+    ccy = _vp_ccy(supplier)
+    today = frappe.utils.nowdate()
+    _pr = _pricing(supplier, [r.get("item_code") for r in rows if r.get("item_code")])
+    saved, flagged, invalid = [], [], []
+    pl = None
+    for r in rows:
+        ic = r.get("item_code")
+        rate = flt(r.get("rate"))
+        vfrom = str(r.get("valid_from") or today)[:10]
+        if not ic or not frappe.db.exists("Item", ic):
+            invalid.append({"row": ic, "why": "unknown item"})
+            continue
+        if not (_PRICE_BOUNDS[0] <= rate <= _PRICE_BOUNDS[1]):
+            invalid.append({"row": ic, "why": f"rate {rate} out of bounds"})
+            continue
+        bench = flt((_pr.get(ic) or {}).get("latest") or 0)
+        if bench > 0 and not cint(confirm):
+            mad = _to_mad_fast(rate, ccy, today, fx)
+            if mad > 0 and abs(mad - bench) / bench > _PRICE_DEV_GUARD:
+                flagged.append({"item_code": ic, "rate": rate,
+                                "agreed_mad": round(mad, 2), "era_mad": round(bench, 2),
+                                "dev_pct": round(100.0 * (mad - bench) / bench)})
+                continue
+        pl = pl or _vp_list(supplier, create=True)
+        latest = frappe.db.sql(
+            """SELECT name, valid_from FROM `tabItem Price`
+               WHERE price_list=%s AND item_code=%s
+               ORDER BY valid_from DESC, creation DESC LIMIT 1""", (pl, ic))
+        if latest:
+            prev_name, prev_from = latest[0][0], str(latest[0][1] or "")[:10]
+            if prev_from and vfrom < prev_from:
+                invalid.append({"row": ic, "why": f"backdated ({vfrom} < {prev_from})"})
+                continue
+            if prev_from == vfrom:
+                # same-day correction: replace, don't stack
+                frappe.db.set_value("Item Price", prev_name, "price_list_rate", rate)
+                saved.append(ic)
+                continue
+            frappe.db.set_value("Item Price", prev_name, "valid_upto",
+                                frappe.utils.add_days(vfrom, -1))
+        frappe.get_doc({"doctype": "Item Price", "price_list": pl, "item_code": ic,
+                        "price_list_rate": rate, "buying": 1,
+                        "valid_from": vfrom}).insert(ignore_permissions=True)
+        saved.append(ic)
+    frappe.db.commit()
+    return {"saved": len(saved), "flagged": flagged[:50], "flagged_n": len(flagged),
+            "invalid": invalid[:20], "invalid_n": len(invalid), "currency": ccy}
+
+
+@frappe.whitelist()
+def save_vendor_prices(supplier=None, rows=None, confirm=0):
+    """Grid write: rows=[{item_code, rate, valid_from?}]. A >±50% jump vs the
+    latest invoice era comes back as `flagged` (nothing written) until the
+    caller re-sends with confirm=1 — the anti-pollution firewall."""
+    assert_can_write()
+    if not supplier:
+        frappe.throw("supplier required")
+    rows = json.loads(rows) if isinstance(rows, str) else (rows or [])
+    if not rows:
+        frappe.throw("no rows")
+    return _write_prices(supplier, rows, confirm)
+
+
+@frappe.whitelist()
+def import_vendor_prices(supplier=None, csv_text=None):
+    """Excel round-trip like weights: columns item_code/sku + price/rate
+    (+ optional valid_from). Flagged rows are skipped and reported — an
+    import never overrides the firewall."""
+    assert_can_write()
+    text = (csv_text or "").strip()
+    if not text:
+        frappe.throw("empty file")
+    lines = [l for l in text.replace("\r\n", "\n").replace("\r", "\n").split("\n") if l.strip()]
+    sep = ";" if lines[0].count(";") >= lines[0].count(",") else ","
+    if "\t" in lines[0] and lines[0].count("\t") > lines[0].count(sep):
+        sep = "\t"
+    hdr = [c.strip().strip('"').lower() for c in lines[0].split(sep)]
+
+    def _col(*names):
+        for nm in names:
+            for i, h in enumerate(hdr):
+                if nm in h:
+                    return i
+        return None
+    ci = _col("item_code", "item code", "code")
+    cs = _col("sku")
+    cp = _col("price", "rate", "سعر", "prix")
+    cd = _col("valid_from", "date", "تاريخ")
+    if cp is None:
+        frappe.throw("no price column found (expect a header containing 'price'/'rate')")
+    rows, unmatched = [], []
+    for ln in lines[1:]:
+        parts = [c.strip().strip('"') for c in ln.split(sep)]
+        if len(parts) <= cp:
+            continue
+        raw = parts[cp].replace(",", ".").replace(" ", "")
+        try:
+            rate = float(raw) if raw else 0.0
+        except Exception:
+            rate = 0.0
+        if rate <= 0:
+            continue
+        code = parts[ci].strip() if ci is not None and len(parts) > ci else ""
+        sku = parts[cs].strip() if cs is not None and len(parts) > cs else ""
+        ic = code if (code and frappe.db.exists("Item", code)) else \
+            (frappe.db.get_value("Item", {"custom_sku": sku}, "name") if sku else None)
+        if not ic:
+            unmatched.append(code or sku or ln[:30])
+            continue
+        vfrom = parts[cd].strip()[:10] if (cd is not None and len(parts) > cd and parts[cd].strip()) else None
+        rows.append({"item_code": ic, "rate": rate, "valid_from": vfrom})
+    rep = _write_prices(supplier, rows, confirm=0) if rows else \
+        {"saved": 0, "flagged": [], "flagged_n": 0, "invalid": [], "invalid_n": 0}
+    rep["unmatched"] = unmatched[:50]
+    rep["unmatched_n"] = len(unmatched)
+    return rep
