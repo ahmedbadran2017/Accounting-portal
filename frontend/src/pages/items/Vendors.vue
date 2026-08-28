@@ -508,6 +508,24 @@
               </button>
               <span class="text-[10.5px] text-ink-muted">{{ L("Light batches (≤15 items) — gated, audited, reversible; oldest anchors heal the full year.","دفعات خفيفة (≤15 صنف) — gated ومسجّلة وقابلة للعكس.","Lots légers, audités, réversibles.") }}</span>
             </div>
+            <div v-if="prog && prog.state !== 'idle'" class="mt-3 rounded-[10px] border px-3 py-2.5"
+                 :style="prog.state === 'running' ? 'border-color:#fde68a;background:#fffbeb' : 'border-color:#a7f3d0;background:#ecfdf5'">
+              <div class="flex items-center gap-2 text-[11.5px] font-bold"
+                   :style="prog.state === 'running' ? 'color:#b45309' : 'color:#047857'">
+                <span>{{ prog.state === "running"
+                  ? L("Running in the background — you can leave this page","شغّال في الخلفية — تقدر تسيب الصفحة","En cours en arrière-plan")
+                  : L("Batch finished","الدفعة خلصت","Lot terminé") }}</span>
+                <span class="ms-auto tnum" dir="ltr">{{ prog.done }}/{{ prog.total }}</span>
+              </div>
+              <div class="h-[6px] rounded-full mt-2 overflow-hidden" style="background:#00000012">
+                <div class="h-full rounded-full transition-all"
+                     :style="{ width: (prog.total ? Math.round(100*prog.done/prog.total) : 0) + '%', background: prog.state === 'running' ? '#f59e0b' : '#059669' }"></div>
+              </div>
+              <div class="text-[10px] mt-1.5 text-ink-muted tnum" dir="ltr">
+                {{ prog.submitted_total }} {{ L("items submitted in total","صنف مُرحّل إجمالًا","articles au total") }}
+                <template v-if="prog.reposts"> · {{ prog.reposts }} {{ L("reposts queued","إعادة تقييم في الطابور","revalorisations en file") }}</template>
+              </div>
+            </div>
             <div v-if="lastResults.length" class="mt-3 rounded-[10px] border border-line overflow-hidden">
               <div class="px-3 py-2 text-[11px] font-bold" style="background:#fafaf9">{{ L("Last batch results","نتيجة آخر دفعة","Derniers résultats") }}</div>
               <div class="max-h-[180px] overflow-y-auto">
@@ -525,7 +543,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import api from "@/services/api";
@@ -723,6 +741,7 @@ async function open(sup) {
     const def = det.value.local ? "prices" : "weights";
     step.value = ["weights","freight","prices","costs","submit"].includes(wanted) ? wanted : def;
     if (step.value === "prices") loadPrices();   // watch won't fire if step didn't change
+    pollProgress(true);                          // a background run may already be going
     if (!det.value.local) {
       fr.value = await api.call("accounting_portal.api.vendor_workbench.freight_summary", { supplier: sup }, { fresh: true });
       rateEdit.value = fr.value?.rate_kg || "";
@@ -780,18 +799,37 @@ async function loadPreview() {
   } catch (e) { alert((e && e.message) || e); }
   finally { pvLoading.value = false; }
 }
+// One item can post 160+ retro pins and run for minutes, so the batch runs as
+// a background job on the server; here we just start it and follow progress.
+const prog = ref(null);
+let progTimer = null;
 async function runBatch() {
   const batch = readyQueue.value.slice(0, 15);
   if (!batch.length) return;
   submitting.value = true;
   try {
-    const r = await api.call("accounting_portal.api.vendor_workbench.submit_batch",
+    await api.call("accounting_portal.api.vendor_workbench.submit_batch",
       { supplier: sel.value, items: JSON.stringify(batch) });
-    lastResults.value = r.results || [];
-    det.value.state.submitted = [...new Set([...(det.value.state.submitted || []), ...batch])];
-  } catch (e) { alert((e && e.message) || e); }
-  finally { submitting.value = false; }
+    pollProgress();
+  } catch (e) { alert((e && e.message) || e); submitting.value = false; }
 }
+async function pollProgress(once) {
+  if (!sel.value) return;
+  try {
+    const p = await api.call("accounting_portal.api.vendor_workbench.submit_progress",
+      { supplier: sel.value }, { fresh: true });
+    prog.value = p;
+    lastResults.value = p.results || [];
+    if (p.state === "running") {
+      submitting.value = true;
+      if (!once) { clearTimeout(progTimer); progTimer = setTimeout(() => pollProgress(), 4000); }
+    } else {
+      submitting.value = false;
+      if (p.state === "done" && det.value) await open(sel.value);   // refresh counters
+    }
+  } catch (e) { submitting.value = false; }
+}
+onBeforeUnmount(() => clearTimeout(progTimer));
 // ---- freight channel + rate controls ----
 const rateEdit = ref("");
 const schedOpen = ref(false);

@@ -1095,9 +1095,14 @@ def submit_preview(supplier=None, items=None):
 
 @frappe.whitelist()
 def submit_batch(supplier=None, items=None, note=None):
-    """Step 4 write: run fix_item_cost(retro) for a SMALL batch of the vendor's
-    items (the UI sends chunks so each action stays light). Existing machinery:
-    gating, audit stamps, retro pins, repost — all inherited."""
+    """Step 4 write: run fix_item_cost(retro) for a batch of the vendor's items.
+
+    ONE item can post 160+ retro pins and take minutes, so a synchronous batch
+    blew past the HTTP timeout (Kitchen Life canary died on item 2 of 15, its
+    action left hanging in Proposed with the work half done and no progress
+    recorded). The batch therefore runs as a BACKGROUND JOB that saves state
+    after EVERY item — a timeout, a reload or a closed tab can no longer lose
+    or repeat work — and the UI polls submit_progress()."""
     assert_can_write()
     if not supplier:
         frappe.throw("supplier required")
@@ -1106,22 +1111,57 @@ def submit_batch(supplier=None, items=None, note=None):
         frappe.throw("no items in batch")
     if len(items) > 25:
         frappe.throw("batch too large — send at most 25 items per submit")
+    st = _state()
+    v = st.setdefault(supplier, {})
+    run = v.get("run") or {}
+    if run.get("state") == "running":
+        return {"supplier": supplier, "queued": 0, "already_running": 1,
+                "done": run.get("done"), "total": run.get("total")}
+    done = v.setdefault("submitted", [])
+    todo = [ic for ic in items if ic not in done]
+    v["run"] = {"state": "running", "total": len(todo), "done": 0,
+                "started": frappe.utils.now(), "results": []}
+    _save_state(st)
+    frappe.enqueue("accounting_portal.api.vendor_workbench._run_submit",
+                   queue="long", timeout=7200, supplier=supplier,
+                   items=todo, note=note, user=frappe.session.user)
+    return {"supplier": supplier, "queued": len(todo), "total": len(todo)}
+
+
+def _run_submit(supplier=None, items=None, note=None, user=None):
+    """Background worker for submit_batch. Commits and records progress after
+    each item so the UI can follow it and nothing is lost mid-run."""
+    if user:
+        frappe.set_user(user)
     from accounting_portal.api.valuation import fix_item_cost
+    items = items or []
     rates = _full_rates(supplier, items)
     scheds = _invoice_sched(supplier, items)
     cost_ovs = _cost_overrides()
     rate_kg, chan = _rate_for(supplier)
-    st = _state()
-    v = st.setdefault(supplier, {})
-    done = v.setdefault("submitted", [])
-    results = []
+
+    def _record(ic, msg, ok):
+        """Re-read state each time — other tabs/jobs may have touched it."""
+        st = _state()
+        v = st.setdefault(supplier, {})
+        d = v.setdefault("submitted", [])
+        if ok and ic not in d:
+            d.append(ic)
+        r = v.setdefault("run", {"state": "running", "total": len(items),
+                                 "done": 0, "results": []})
+        r["done"] = flt(r.get("done")) + 1
+        r.setdefault("results", []).append({"item_code": ic, "result": msg})
+        r["results"] = r["results"][-40:]
+        _save_state(st)
+        frappe.db.commit()
+
     for ic in items:
         rr = rates.get(ic) or {}
         if not rr.get("rate"):
-            results.append({"item_code": ic, "result": "skipped — no cost evidence"})
+            _record(ic, "skipped — no cost evidence", False)
             continue
         if rate_kg > 0 and flt(rr.get("weight_kg")) <= 0:
-            results.append({"item_code": ic, "result": "skipped — no weight (freight layer unknown)"})
+            _record(ic, "skipped — no weight (freight layer unknown)", False)
             continue
         split = (f"vendor workbench — {supplier} [{chan}]: "
                  f"product {rr['product']} + freight {rr['freight']} "
@@ -1136,14 +1176,32 @@ def submit_batch(supplier=None, items=None, note=None):
                               retro=1, retro_product=rr["product"],
                               retro_sched=json.dumps(sched) if sched else None,
                               note=(note + " — " if note else "") + split)
-            results.append({"item_code": ic, "result": (r or {}).get("result") or "ok"})
-            if ic not in done:
-                done.append(ic)
+            _record(ic, (r or {}).get("result") or "ok", True)
         except Exception as e:
-            results.append({"item_code": ic, "result": f"error: {e}"})
+            frappe.db.rollback()
+            _record(ic, f"error: {e}", False)
+    st = _state()
+    r = (st.setdefault(supplier, {}).setdefault("run", {}))
+    r["state"] = "done"
+    r["finished"] = frappe.utils.now()
     _save_state(st)
-    return {"supplier": supplier, "results": results,
-            "submitted_total": len(done)}
+    frappe.db.commit()
+
+
+@frappe.whitelist()
+def submit_progress(supplier=None):
+    """Poll target for the running batch: how far the worker got, what each
+    item returned, and how deep the repost queue is."""
+    assert_portal_access()
+    v = (_state().get(supplier) or {})
+    run = v.get("run") or {}
+    return {"supplier": supplier,
+            "state": run.get("state") or "idle",
+            "done": int(flt(run.get("done"))), "total": int(flt(run.get("total"))),
+            "results": run.get("results") or [],
+            "submitted_total": len(v.get("submitted") or []),
+            "reposts": frappe.db.count("Repost Item Valuation",
+                                       {"status": ["in", ["Queued", "In Progress", "Failed"]]})}
 
 
 # ============================== PRICE CHAIN (P1) ==============================
