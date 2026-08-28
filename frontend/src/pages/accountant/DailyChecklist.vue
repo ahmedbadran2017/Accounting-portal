@@ -55,6 +55,7 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -77,7 +78,7 @@ async function load() {
   loading.value = true; err.value = "";
   try {
     data.value = await api.call("accounting_portal.api.reports.daily_entry_checklist",
-      { date: day.value }, { fresh: true });
+      { company: currentCompany(), date: day.value }, { fresh: true });
   } catch (e) { err.value = (e && e.message) || String(e); }
   finally { loading.value = false; }
 }
