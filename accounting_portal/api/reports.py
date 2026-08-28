@@ -539,6 +539,122 @@ def period_close_status(company=None, month=None):
 
 
 @frappe.whitelist()
+def daily_entry_checklist(company=None, date=None):
+    """Daily bookkeeping checklist — did today's entries actually make it into
+    the system? Each item is computed live so the accountants see, before they
+    leave, what is still missing for the day (collections, bank, bills) and
+    what slipped in through a side door (manual receipts, failed actions)."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    from frappe.utils import nowdate, date_diff, add_days
+    d = (date or nowdate())[:10]
+
+    def one(v):
+        return flt((v or [[None]])[0][0])
+
+    # 1) collections recorded for the day (COD / bank receipts)
+    pe_in = frappe.db.sql(
+        "SELECT COUNT(*), SUM(paid_amount) FROM `tabPayment Entry` WHERE company=%s "
+        "AND docstatus=1 AND payment_type='Receive' AND posting_date=%s", (target, d))[0]
+    pe_n, pe_amt = int(pe_in[0] or 0), flt(pe_in[1])
+
+    # 2) bank ledger freshness — days since the last posting on any Bank account
+    last_bank = frappe.db.sql(
+        "SELECT MAX(g.posting_date) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
+        "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Bank' AND g.posting_date<=%s",
+        (target, d))[0][0]
+    bank_lag = date_diff(d, str(last_bank)) if last_bank else 99
+
+    # 3) vendor bills entered today + bill drafts older than 48h
+    pi_today = int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tabPurchase Invoice` WHERE company=%s AND docstatus=1 "
+        "AND posting_date=%s", (target, d))))
+    # recent window only — the historical draft mountain belongs to period-close,
+    # this list must be actionable before the accountant leaves today
+    old_bill_drafts = int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tabPurchase Invoice` WHERE company=%s AND docstatus=0 "
+        "AND creation BETWEEN %s AND %s", (target, add_days(d, -14), add_days(d, -2)))))
+
+    # 4) stock that entered WITHOUT a purchase document today (bypass!)
+    manual_rcpt = int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tabStock Entry` WHERE company=%s AND docstatus=1 "
+        "AND purpose='Material Receipt' AND posting_date=%s", (target, d))))
+
+    # 5) draft backlog older than 48h across the entry doctypes
+    drafts_old = sum(int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tab%s` WHERE company=%%s AND docstatus=0 "
+        "AND creation BETWEEN %%s AND %%s" % dt,
+        (target, add_days(d, -14), add_days(d, -2))))) for dt in
+        ("Sales Invoice", "Purchase Invoice", "Journal Entry", "Payment Entry"))
+
+    # 6) portal actions that FAILED today — someone tried, the system said no
+    failed_actions = int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tabAccounting Portal Action` WHERE status='Failed' "
+        "AND DATE(creation)=%s", (d,))))
+
+    # 7) valuation repost queue must be drained daily or GL drifts from stock
+    reposts = int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tabRepost Item Valuation` WHERE status IN ('Queued','In Progress','Failed')")))
+
+    # 8) expense policy: vendor spend must be a Purchase Invoice, not a bare JE
+    je_expense = int(one(frappe.db.sql(
+        "SELECT COUNT(DISTINCT g.voucher_no) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
+        "WHERE g.company=%s AND g.is_cancelled=0 AND g.voucher_type='Journal Entry' "
+        "AND g.posting_date=%s AND a.root_type='Expense' AND g.debit>0", (target, d))))
+
+    # 9) items created this week still missing a weight (freight math starves)
+    new_no_weight = int(one(frappe.db.sql(
+        "SELECT COUNT(*) FROM `tabItem` WHERE IFNULL(weight_per_unit,0)=0 AND disabled=0 "
+        "AND has_variants=0 AND creation>=%s", (add_days(d, -7),))))
+
+    items = [
+        {"key": "collections", "en": "Collections recorded today", "ar": "تحصيلات اليوم متسجلة",
+         "fr": "Encaissements du jour saisis",
+         "state": "done" if pe_n > 0 else "pending", "value": pe_n, "unit": "entries",
+         "hint_amount": round(pe_amt), "link": "/accounting/banking/codclose"},
+        {"key": "bank", "en": "Bank ledger up to date", "ar": "قيود البنك محدثة",
+         "fr": "Banque à jour",
+         "state": "done" if bank_lag <= 1 else ("pending" if bank_lag <= 3 else "blocked"),
+         "value": bank_lag, "unit": "days behind", "link": "/accounting/banking"},
+        {"key": "bills", "en": "Vendor bills posted (no stale drafts)", "ar": "فواتير الموردين مرحّلة (بدون مسودات قديمة)",
+         "fr": "Factures fournisseurs postées",
+         "state": "done" if old_bill_drafts == 0 else "pending", "value": old_bill_drafts or pi_today,
+         "unit": "old drafts" if old_bill_drafts else "posted today", "link": "/accounting/expenses"},
+        {"key": "manual_receipts", "en": "No stock entered without documents", "ar": "لا بضاعة دخلت بدون مستند شراء",
+         "fr": "Aucune entrée de stock sans document",
+         "state": "done" if manual_rcpt == 0 else "blocked", "value": manual_rcpt,
+         "unit": "manual receipts", "link": "/accounting/items/zerocost"},
+        {"key": "drafts", "en": "Draft backlog cleared (48h)", "ar": "المسودات الأقدم من يومين مصفّاة",
+         "fr": "Brouillons +48h traités",
+         "state": "done" if drafts_old == 0 else "pending", "value": drafts_old,
+         "unit": "drafts", "link": "/accounting/accountant/journals"},
+        {"key": "failed", "en": "Failed portal actions reviewed", "ar": "الأكشنات الفاشلة اتراجعت",
+         "fr": "Actions échouées revues",
+         "state": "done" if failed_actions == 0 else "blocked", "value": failed_actions,
+         "unit": "failed", "link": "/accounting/settings/activity"},
+        {"key": "reposts", "en": "Valuation repost queue drained", "ar": "طابور إعادة التقييم فاضي",
+         "fr": "File de revalorisation vidée",
+         "state": "done" if reposts == 0 else "blocked", "value": reposts,
+         "unit": "queued", "link": "/accounting/items/valuation"},
+        {"key": "je_policy", "en": "No vendor spend booked as bare JE", "ar": "لا مصروف مورد اتسجل قيد يومية",
+         "fr": "Aucune dépense fournisseur en OD",
+         "state": "done" if je_expense == 0 else "pending", "value": je_expense,
+         "unit": "JEs to review", "link": "/accounting/accountant/journals"},
+        {"key": "weights", "en": "New items carry weights", "ar": "الأصناف الجديدة ليها أوزان",
+         "fr": "Nouveaux articles pesés",
+         "state": "done" if new_no_weight == 0 else "pending", "value": new_no_weight,
+         "unit": "items", "link": "/accounting/items/vendors"},
+    ]
+    return {"company": target, "date": d,
+            "ready": all(i["state"] == "done" for i in items),
+            "blocked": sum(1 for i in items if i["state"] == "blocked"),
+            "pending": sum(1 for i in items if i["state"] == "pending"),
+            "items": items}
+
+
+@frappe.whitelist()
 def party_statement(party_type=None, party=None, company=None, from_date=None, to_date=None):
     """Full account statement (ledger) for one Customer/Supplier: opening balance,
     every GL movement in the date range with a running balance, and the closing

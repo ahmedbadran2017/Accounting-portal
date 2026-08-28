@@ -30,7 +30,7 @@ export const SUBTABS = {
     ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["codclose", "sub.codclose"], ["settlements", "sub.settlements"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"], ["cleanup", "sub.cleanup"],
   ],
   accountant: [
-    ["journals", "sub.journals"], ["triage", "sub.triage"], ["coa", "sub.coa"], ["coaaudit", "sub.coaaudit"], ["gl", "sub.gl"], ["trial", "sub.trial"],
+    ["daily", "sub.daily"], ["journals", "sub.journals"], ["triage", "sub.triage"], ["coa", "sub.coa"], ["coaaudit", "sub.coaaudit"], ["gl", "sub.gl"], ["trial", "sub.trial"],
     ["assets", "sub.assets"], ["fx", "sub.fx"], ["opening", "sub.opening"], ["close", "sub.close"], ["team", "sub.team"],
   ],
   // Expenses & Payroll are now top-level modules. Each is a self-tabbed page
