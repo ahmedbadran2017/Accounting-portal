@@ -133,7 +133,9 @@ def true_cost(item_code=None):
         # require a POSITIVE converted value — q>0 with v==0 means every line failed
         # to convert (no FX rate for its currency); don't report that as a 0 cost.
         if q > 0 and v > 0:
-            if q_off > 0 and q_non > 0:          # half-invoice: sum both halves
+            # true halves have MIRRORED tranches; a few stray non-official
+            # full-price buys (TOMMYLIFE pattern) must not double the cost
+            if q_off > 0 and q_non >= 0.3 * q_off:   # half-invoice: sum both halves
                 phys = max(q_off, q_non)
                 return {"item_code": item_code, "cost_mad": round(v / phys, 2),
                         "source": "maslak_pi", "basis_qty": round(phys),
@@ -330,7 +332,7 @@ def _true_cost_bulk(item_codes, fx):
                 q_off += flt(r.qty); v_off += m * flt(r.qty)
         q, v = q_off + q_non, v_off + v_non
         if q > 0 and v > 0:
-            if q_off > 0 and q_non > 0:
+            if q_off > 0 and q_non >= 0.3 * q_off:
                 phys = max(q_off, q_non)
                 out[item] = {"cost_mad": round(v / phys, 2), "source": "maslak_pi",
                              "basis_qty": round(phys), "half_invoice": 1}
@@ -562,7 +564,7 @@ def _true_cost_bulk(item_codes, fx):
                 if not p:
                     continue
                 q_off, v_off, q_non, v_non, q_full, v_full = p
-                if q_off > 0 and q_non > 0:          # the family IS half-invoiced
+                if q_off > 0 and q_non >= 0.3 * q_off:   # the family IS half-invoiced
                     phys = max(q_off, q_non) + q_full
                     val = v_off + v_non + v_full
                     if phys > 0 and val > 0:

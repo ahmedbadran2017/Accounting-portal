@@ -956,7 +956,19 @@ def _pricing(supplier, items):
     def _fam_eras(ls):
         ls.sort(key=lambda x: x[0])
         nons = [(d, q, m) for d, q, m, k in ls if k == "non"]
-        half = bool(nons) and any(k == "off" for _d, _q, _m, k in ls)
+        # Half-invoice = the SAME goods billed in two mirrored tranches, so the
+        # two sides' quantities must be comparable. A vendor like TOMMYLIFE
+        # (27 full-price official units + 3 stray non-official retail buys)
+        # is NOT half-invoiced — pairing there DOUBLED the price. Guard: the
+        # non side must carry ≥30% of the official quantity.
+        off_q = sum(q for _d, q, _m, k in ls if k == "off")
+        non_q = sum(q for _d, q, _m in nons)
+        half = bool(nons) and off_q > 0 and non_q >= 0.3 * off_q
+        if nons and not half:
+            # stray non-official lines are real full-price purchases —
+            # let them open eras like any other invoice
+            ls = [(d, q, m, ("off" if k == "non" else k)) for d, q, m, k in ls]
+            nons = []
         non_all = (sum(q * m for d, q, m in nons) / sum(q for d, q, m in nons)) if nons else 0.0
 
         def paired_non(d):
