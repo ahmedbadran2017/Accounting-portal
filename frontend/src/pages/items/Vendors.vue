@@ -89,7 +89,7 @@
     <!-- ======================= VENDOR DETAIL ======================= -->
     <template v-else>
       <div class="flex items-center gap-2 flex-wrap">
-        <button class="h-[30px] px-3 rounded-[8px] border border-line text-[12px] bg-white" @click="sel=null; det=null">← {{ L("All vendors","كل الموردين","Tous") }}</button>
+        <button class="h-[30px] px-3 rounded-[8px] border border-line text-[12px] bg-white" @click="closeVendor()">← {{ L("All vendors","كل الموردين","Tous") }}</button>
         <div class="text-[15px] font-extrabold">{{ det?.supplier }}</div>
         <span v-if="det?.local" class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ L("local — no weights/freight needed","محلي — بدون وزن/شحن","local") }}</span>
         <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="chanStyle(det?.channel)">{{ det?.channel || "?" }}</span>
@@ -445,9 +445,12 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import api from "@/services/api";
 import { useUi } from "@/composables/useUi";
 
+const route = useRoute();
+const router = useRouter();
 const { locale } = useI18n();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -610,12 +613,31 @@ async function load() {
   catch (e) { err.value = (e && e.message) || String(e); }
   finally { loading.value = false; }
 }
+function closeVendor() {
+  const q = { ...route.query }; delete q.vendor; delete q.step;
+  router.push({ query: q });
+}
+// browser back/forward drives the session state
+watch(() => route.query.vendor, (qv) => {
+  if (!qv) { sel.value = null; det.value = null; }
+  else if (qv !== sel.value) open(qv);
+});
+// step changes are recorded in place (no history spam)
+watch(step, (s) => {
+  if (sel.value && route.query.vendor === sel.value && route.query.step !== s)
+    router.replace({ query: { ...route.query, step: s } });
+});
 async function open(sup) {
+  // keep the session in the URL so refresh / back don't reset the workbench
+  if (route.query.vendor !== sup)
+    router.push({ query: { ...route.query, vendor: sup, step: undefined } });
   sel.value = sup; det.value = null; dloading.value = true;
   wDirty.value = {}; fr.value = null; pv.value = null; lastResults.value = [];
   try {
     det.value = await api.call("accounting_portal.api.vendor_workbench.vendor_detail", { supplier: sup }, { fresh: true });
-    step.value = det.value.local ? "costs" : "weights";
+    const wanted = route.query.vendor === sup ? route.query.step : null;
+    const def = det.value.local ? "costs" : "weights";
+    step.value = ["weights","freight","costs","submit"].includes(wanted) ? wanted : def;
     if (!det.value.local) {
       fr.value = await api.call("accounting_portal.api.vendor_workbench.freight_summary", { supplier: sup }, { fresh: true });
       rateEdit.value = fr.value?.rate_kg || "";
@@ -755,7 +777,10 @@ async function importFile(e) {
   } catch (err2) { alert((err2 && err2.message) || err2); }
   finally { importing.value = false; }
 }
-onMounted(load);
+onMounted(async () => {
+  await load();
+  if (route.query.vendor) open(route.query.vendor);   // restore session after refresh
+});
 watch(entityId, load);
 </script>
 
