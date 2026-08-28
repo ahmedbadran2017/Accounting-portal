@@ -318,6 +318,27 @@ def group_pnl_corrected(year=None, ccy="USD"):
             vat_settled_total += flt(v["settled"][m - 1]) * fxm
         opex_by_co["TVA settled (state)"] = vat_settled_total
 
+    # TVA paid to SUPPLIERS (input tax on third-party purchase invoices): real
+    # cash out that the "settled" line does not carry — the filing deduction is
+    # already inside settled, so without this line locally-purchased goods look
+    # 20% cheaper than the cash they actually consumed. Item valuation stays
+    # net of tax (the CFO rule: cost is HT, tax is its own line up here).
+    vat_input_total = 0.0
+    if sales_co:
+        sccy = ccys[sales_co]; sfx = rates.get(sccy, {})
+        for r in frappe.db.sql(
+                """SELECT MONTH(pi.posting_date) m, SUM(pi.base_total_taxes_and_charges) v
+                   FROM `tabPurchase Invoice` pi
+                   WHERE pi.company=%s AND pi.docstatus=1 AND YEAR(pi.posting_date)=%s
+                     AND pi.supplier NOT IN ('Maslak LTD','Justyol China','Justyol Morocco','Justyol Holding')
+                     AND IFNULL(pi.base_total_taxes_and_charges,0) > 0
+                   GROUP BY MONTH(pi.posting_date)""", (sales_co, y), as_dict=True):
+            amt = flt(r.v) * flt(sfx.get(int(r.m)))
+            out_m[int(r.m)]["opex"] += amt
+            vat_input_total += amt
+        if vat_input_total:
+            opex_by_co["TVA paid to suppliers (input)"] = vat_input_total
+
     rows_out = []
     for m in months:
         d = out_m[m]
@@ -333,6 +354,7 @@ def group_pnl_corrected(year=None, ccy="USD"):
     tot["vat_included"] = round(vat_added)
     tot["vat_settled"] = round(vat_settled_total)
     tot["vat_kept"] = round(vat_added - vat_settled_total)
+    tot["vat_input_paid"] = round(vat_input_total)
     return {"year": y, "ccy": ccy, "basis": "corrected", "roles": roles, "rows": rows_out, "total": tot,
             "vat_included": True,
             "opex_by_company": {k: round(v) for k, v in opex_by_co.items()},
