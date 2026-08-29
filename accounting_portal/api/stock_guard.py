@@ -28,25 +28,56 @@ def _enabled():
 
 
 def validate_stock_entry(doc, method=None):
-    """doc_events validate for Stock Entry."""
+    """doc_events validate for Stock Entry — two floors, not one.
+
+    FLOOR 1 (everyone): a zero-rate Material Receipt is rejected. It poisons
+    the moving average and every later sale books a wrong COGS.
+
+    FLOOR 2 (added 2026-08-29): a PRICED Material Receipt is still goods
+    entering the books with no purchase document — its counter-entry credits
+    Stock Adjustment, i.e. NEGATIVE cost. Measured on 2026 Morocco:
+    1,205 such receipts kept **2,062,010 MAD of real cost out of the P&L**
+    (Jan alone −986K), which is why margins read too good. So a priced manual
+    receipt now needs BOTH a manager and a written reason; everyone else is
+    routed to the Purchase Receipt flow. Genuine corrections stay possible —
+    they just become documented and rare instead of routine.
+    """
     if not _enabled():
         return
     if (doc.stock_entry_type or doc.purpose) != "Material Receipt":
         return
-    bad = [d for d in (doc.items or [])
-           if d.t_warehouse and not d.s_warehouse and flt(d.basic_rate) <= 0]
-    if not bad:
+    incoming = [d for d in (doc.items or []) if d.t_warehouse and not d.s_warehouse]
+    if not incoming:
         return
-    lines = ", ".join(f"{d.item_code} (row {d.idx})" for d in bad[:5])
+
+    zero = [d for d in incoming if flt(d.basic_rate) <= 0]
+    if zero:
+        lines = ", ".join(f"{d.item_code} (row {d.idx})" for d in zero[:5])
+        frappe.throw(
+            f"Material Receipt with a ZERO rate is blocked: {lines}. "
+            "A zero-rate receipt poisons the moving average — every later sale books "
+            "wrong COGS.<br>Supplier goods (including fulfillment stock paid when sold) "
+            "must come in as a <b>Purchase Receipt at the agreed price</b>; the supplier "
+            "then invoices the sold portion against it. If this receipt is genuinely "
+            "free goods, enter the fair unit value instead of zero (a Super Admin can "
+            "temporarily disable this guard from the portal if truly needed).",
+            title="Stock guard: zero-rate Material Receipt")
+
+    # priced, but still no purchase document behind it
+    if can_manage_users() and (doc.remarks or "").strip():
+        return                      # documented manager correction — allowed
+    value = sum(flt(d.basic_rate) * flt(d.qty) for d in incoming)
     frappe.throw(
-        f"Material Receipt with a ZERO rate is blocked: {lines}. "
-        "A zero-rate receipt poisons the moving average — every later sale books "
-        "wrong COGS.<br>Supplier goods (including fulfillment stock paid when sold) "
-        "must come in as a <b>Purchase Receipt at the agreed price</b>; the supplier "
-        "then invoices the sold portion against it. If this receipt is genuinely "
-        "free goods, enter the fair unit value instead of zero (a Super Admin can "
-        "temporarily disable this guard from the portal if truly needed).",
-        title="Stock guard: zero-rate Material Receipt")
+        f"Stock cannot enter the books without a purchase document "
+        f"({len(incoming)} line(s), {value:,.0f}).<br>"
+        "A Material Receipt books the goods in and credits <b>Stock Adjustment</b> — "
+        "it lands as NEGATIVE cost, so the P&L shows a margin you did not earn. "
+        "2026 lost 2,062,010 MAD of real cost this way.<br><br>"
+        "Use a <b>Purchase Receipt</b> against the supplier and price it from the "
+        "agreed price list; the invoice then matches it. For a genuine internal "
+        "correction (found stock, cycle count), a manager must enter the reason in "
+        "<b>Remarks</b> before saving.",
+        title="Stock guard: receipt without a purchase document")
 
 
 @frappe.whitelist()
