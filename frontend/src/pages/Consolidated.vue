@@ -86,7 +86,7 @@
         <div class="flex-1"></div>
         <button v-for="c in ['MAD','USD']" :key="c" class="h-[24px] px-2.5 rounded-[7px] text-[10.5px] font-bold border"
                 :class="gCcy === c ? 'text-white bg-brand border-brand' : 'text-ink-3 border-line'"
-                @click="gCcy = c; loadGroup()">{{ c }}</button>
+                @click="gCcy = c; loadGroup(); loadInventory()">{{ c }}</button>
       </div>
       <div v-if="gLoading" class="py-8 text-center text-[12px] text-ink-muted">{{ L("Computing…","بيحسب…","Calcul…") }}</div>
       <div v-else-if="g" class="overflow-x-auto">
@@ -129,6 +129,51 @@
         <div v-if="g.anomalies && g.anomalies.length" class="px-4 pb-2.5 text-[10.5px] text-amber-700">
           ⚠ {{ L("Policy anomalies:","شذوذ عن السياسة:","Anomalies :") }}
           <span v-for="a in g.anomalies" :key="a.account + a.month" class="me-3" dir="ltr">{{ a.company }} · {{ a.account.slice(0, 30) }} · {{ gm(a.amount) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ GROUP INVENTORY — counted at what the warehouses hold ══ -->
+    <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
+        <span class="text-[13px] font-bold">📦 {{ L("Group inventory — at what the warehouses hold","مخزون المجموعة — بقيمة اللي في المخازن فعلاً","Stock du groupe") }}</span>
+        <span class="text-[10.5px] text-ink-muted">{{ L("the ledger column is what the balance sheet claims; the gap is value no warehouse holds","عمود الأستاذ العام هو اللي الميزانية بتدّعيه، والفرق قيمة مفيش مخزن شايلها","l'écart est une valeur qu'aucun entrepôt ne détient") }}</span>
+      </div>
+      <div v-if="invLoading" class="py-8 text-center text-[12px] text-ink-muted">{{ L("Counting…","بيعدّ…","Comptage…") }}</div>
+      <div v-else-if="inv" class="overflow-x-auto">
+        <table class="w-full text-[11.5px]">
+          <thead><tr style="background:#fafaf9">
+            <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Entity","الكيان","Entité") }}</th>
+            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Units","قطعة","Unités") }}</th>
+            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("In the warehouses","في المخازن","En entrepôt") }}</th>
+            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("In the ledger","في الأستاذ العام","Au grand livre") }}</th>
+            <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Gap","الفرق","Écart") }}</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="r in inv.rows" :key="r.company" class="border-t border-line-hair">
+              <td class="px-4 py-2">
+                <span class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded-[7px] grid place-items-center text-white text-[9px] font-bold" :style="{ background: badge(r.company) }">{{ r.company.slice(0,2) }}</span>
+                  <span><span class="block font-semibold">{{ r.company }}</span><span class="block text-[9.5px] text-ink-muted">{{ r.role }} · {{ r.currency }}</span></span>
+                </span>
+              </td>
+              <td class="px-3 py-2 text-end tnum text-ink-3">{{ gm(r.qty) }}</td>
+              <td class="px-3 py-2 text-end tnum font-semibold">{{ gm(r.real) }}</td>
+              <td class="px-3 py-2 text-end tnum text-ink-3">{{ gm(r.ledger) }}</td>
+              <td class="px-4 py-2 text-end tnum font-bold" :style="{ color: Math.abs(r.gap) > 1000 ? '#b91c1c' : '#047857' }" dir="ltr">{{ r.gap ? gm(r.gap) : "—" }}</td>
+            </tr>
+            <tr style="background:#fafaf9" class="border-t-2 border-line font-bold">
+              <td class="px-4 py-2">{{ L("Group","المجموعة","Groupe") }}</td>
+              <td class="px-3 py-2"></td>
+              <td class="px-3 py-2 text-end tnum">{{ gm(inv.total_real) }}</td>
+              <td class="px-3 py-2 text-end tnum">{{ gm(inv.total_ledger) }}</td>
+              <td class="px-4 py-2 text-end tnum" dir="ltr" :style="{ color: inv.total_gap ? '#b91c1c' : '#047857' }">{{ gm(inv.total_gap) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-for="f in inv.flags" :key="f.company" class="px-4 py-2.5 border-t border-line-hair flex items-start gap-2" style="background:#fffbeb">
+          <Icon name="alert" :size="14" color="#b45309" class="mt-0.5 flex-shrink-0" />
+          <span class="text-[11px] text-ink-2">{{ locale === "ar" ? f.ar : f.en }}</span>
         </div>
       </div>
     </div>
@@ -203,11 +248,20 @@ async function loadGroup() {
   } catch (e) { g.value = null; }
   finally { gLoading.value = false; }
 }
+const inv = ref(null);
+const invLoading = ref(false);
+async function loadInventory() {
+  invLoading.value = true;
+  try { inv.value = await api.call("accounting_portal.api.group_pnl.group_inventory", { ccy: gCcy.value }, { fresh: true }); }
+  catch (e) { inv.value = null; }
+  finally { invLoading.value = false; }
+}
 async function loadMatrix() {
   try { m.value = await api.call("accounting_portal.api.group_pnl.ic_matrix", {}, { fresh: true }); }
   catch (e) { m.value = null; }
 }
 loadGroup();
+loadInventory();
 loadMatrix();
 const isLive = ref(null);
 async function load() {

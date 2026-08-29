@@ -361,3 +361,63 @@ def group_pnl_corrected(year=None, ccy="USD"):
             "eliminated": {k: {kk: round(vv) for kk, vv in v.items()}
                            for k, v in eliminated.items() if any(v.values())},
             "model": model}
+
+
+@frappe.whitelist()
+def group_inventory(ccy="MAD"):
+    """The group's stock, counted once per entity — at what the warehouses actually
+    hold, not at what the ledger claims.
+
+    The two numbers diverge whenever a manual journal has been posted straight into
+    a stock account: the subledger cannot see it, so the balance sheet carries value
+    no warehouse holds. That gap is the whole point of this call — it is what would
+    silently inflate consolidated assets."""
+    assert_portal_access()
+    roles = _roles()
+    y = int(nowdate()[:4])
+    rates = _month_rates({_ccy_of(co) for co in roles}, ccy, y)
+    m = int(nowdate()[5:7])
+
+    rows, tot_real, tot_ledger = [], 0.0, 0.0
+    for co in roles:
+        cur = _ccy_of(co)
+        fx = flt((rates.get(cur) or {}).get(m)) or 1.0
+        real, qty = frappe.db.sql(
+            """SELECT IFNULL(SUM(b.stock_value),0), IFNULL(SUM(b.actual_qty),0) FROM `tabBin` b
+               JOIN `tabWarehouse` w ON w.name=b.warehouse WHERE w.company=%s""", (co,))[0]
+        ledger = flt(frappe.db.sql(
+            """SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g
+               JOIN `tabAccount` a ON a.name=g.account
+               WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Stock'
+                 AND a.root_type='Asset'""", (co,))[0][0] or 0)
+        # the manual journals sitting in stock accounts — the usual cause of a gap
+        manual = flt(frappe.db.sql(
+            """SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g
+               JOIN `tabAccount` a ON a.name=g.account
+               WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Stock'
+                 AND a.root_type='Asset' AND g.voucher_type='Journal Entry'""", (co,))[0][0] or 0)
+        rows.append({
+            "company": co, "role": roles.get(co, "dormant"), "currency": cur, "rate": round(fx, 6),
+            "qty": round(flt(qty)),
+            "real": round(flt(real) * fx), "ledger": round(ledger * fx),
+            "gap": round((ledger - flt(real)) * fx),
+            "manual_journals": round(manual * fx),
+            "real_own": round(flt(real)), "ledger_own": round(ledger),
+        })
+        tot_real += flt(real) * fx
+        tot_ledger += ledger * fx
+
+    rows.sort(key=lambda r: -abs(r["gap"]))
+    flags = [{
+        "company": r["company"], "amount": r["gap"], "manual": r["manual_journals"],
+        "en": (f"{r['company']}: the ledger shows {r['ledger']:,} of stock, the warehouses hold "
+               f"{r['real']:,}. {r['gap']:,} of group assets is not real"
+               + (f" — {r['manual_journals']:,} of it was put there by manual journals." if r["manual_journals"] else ".")),
+        "ar": (f"{r['company']}: الأستاذ العام بيقول {r['ledger']:,} مخزون والمخازن فيها {r['real']:,}. "
+               f"{r['gap']:,} من أصول المجموعة مش حقيقية"
+               + (f" — منها {r['manual_journals']:,} اتحطت بقيود يدوية." if r["manual_journals"] else ".")),
+    } for r in rows if abs(r["gap"]) > 50000 * (1 if ccy == "MAD" else 0.1)]
+
+    return {"ccy": ccy, "as_of": nowdate(), "rows": rows,
+            "total_real": round(tot_real), "total_ledger": round(tot_ledger),
+            "total_gap": round(tot_ledger - tot_real), "flags": flags}
