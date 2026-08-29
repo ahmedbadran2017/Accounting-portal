@@ -277,7 +277,20 @@ def vendor_detail(supplier=None):
     vmap = _item_vendor_map(codes)
     mine = [ic for ic in codes if vmap.get(ic, {}).get("supplier") == supplier]
     if not mine:
-        return {"supplier": supplier, "items": [], "summary": {}}
+        # Empty is a legitimate state (every item re-pinned to another vendor,
+        # or the vendor left the 2026-delivered universe). Return the SAME
+        # shape as a full payload — a partial one made the UI crash mid-render
+        # and freeze on "Loading…" with no error.
+        st0 = (_state().get(supplier)) or {}
+        grp0 = frappe.db.get_value("Supplier", supplier, "supplier_group") or ""
+        return {"supplier": supplier, "group": grp0,
+                "local": grp0 in _LOCAL_GROUPS,
+                "channel": _channels().get(supplier) or "",
+                "items": [],
+                "summary": {"items": 0, "sold": 0, "oh": 0, "weights_ok": 0,
+                            "weights_missing": 0, "cost_ok": 0, "cost_missing": 0},
+                "state": {"weights": 0, "freight": 0, "prices": 0, "costs": 0,
+                          "submitted": st0.get("submitted") or []}}
 
     grp = frappe.db.get_value("Supplier", supplier, "supplier_group") or ""
     local = grp in _LOCAL_GROUPS

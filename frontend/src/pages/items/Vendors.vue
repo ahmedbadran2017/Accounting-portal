@@ -96,8 +96,19 @@
         <span class="text-[11px] text-ink-muted tnum" dir="ltr">{{ n(det?.summary?.items) }} {{ L("items","صنف","art.") }} · {{ n(det?.summary?.sold) }} {{ L("sold","مبيعة","vendues") }}</span>
       </div>
 
-      <div v-if="dloading" class="py-14 text-center text-[12px] text-ink-muted">{{ L("Loading…","جاري التحميل…","Chargement…") }}</div>
+      <div v-if="dloading" class="py-14 text-center text-[12px] text-ink-muted">
+        <div>{{ L("Loading…","جاري التحميل…","Chargement…") }}</div>
+        <div v-if="slowLoad" class="mt-2 text-[11px]" style="color:#b45309">
+          {{ L("Still waiting — a background correction may be locking the stock tables.","لسه بيحمّل — غالبًا في تصحيح شغّال في الخلفية ماسك جداول المخزون.","Toujours en attente — un traitement de fond bloque le stock.") }}
+          <button class="ms-2 h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px]" @click="open(sel)">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+          <button class="ms-1 h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px]" @click="closeVendor()">{{ L("Back to vendors","رجوع للموردين","Retour") }}</button>
+        </div>
+      </div>
       <template v-else-if="det">
+        <div v-if="det.summary && det.summary.items === 0" class="rounded-[12px] border px-3 py-2.5 text-[11.5px]"
+             style="background:#fffbeb;border-color:#fde68a;color:#b45309">
+          {{ L("This vendor has no moved items left — every product was re-assigned to another vendor, or none was delivered in 2026.","المورد ده مالوش أصناف متحركة — كل منتجاته اتنقلت لمورد تاني، أو مفيش حاجة اتسلّمت في 2026.","Ce fournisseur n'a plus d'articles en mouvement.") }}
+        </div>
         <!-- step chips -->
         <div class="flex gap-2 flex-wrap">
           <button v-for="s in stepsFor(det)" :key="s.id" class="px-3 h-[34px] rounded-[10px] text-[12px] font-bold border inline-flex items-center gap-2"
@@ -572,13 +583,14 @@ function chanStyle(c) {
 }
 function stepsFor(dv) {
   const s = [];
+  dv = dv || {}; dv.state = dv.state || {}; dv.summary = dv.summary || {};
   if (!dv.local) {
     s.push({ id: "weights", n: 1, label: L("Weights","الأوزان","Poids"), done: !!dv.state.weights });
     s.push({ id: "freight", n: 2, label: L("Freight","الشحن","Fret"), done: !!dv.state.freight });
   }
   s.push({ id: "prices", n: s.length + 1, label: L("Price list","قايمة الأسعار","Tarifs"), done: !!dv.state.prices });
   s.push({ id: "costs", n: s.length + 1, label: L("Costs","التكاليف","Coûts"), done: !!dv.state.costs });
-  s.push({ id: "submit", n: s.length + 1, label: "Submit", done: dv.state.submitted.length >= dv.summary.items && dv.summary.items > 0 });
+  s.push({ id: "submit", n: s.length + 1, label: "Submit", done: (dv.state.submitted || []).length >= dv.summary.items && dv.summary.items > 0 });
   return s;
 }
 function wval(it) {
@@ -728,11 +740,18 @@ watch(step, (s) => {
   if (sel.value && route.query.vendor === sel.value && route.query.step !== s)
     router.replace({ query: { ...route.query, step: s } });
 });
+const slowLoad = ref(false);
+let slowTimer = null;
 async function open(sup) {
   // keep the session in the URL so refresh / back don't reset the workbench
   if (route.query.vendor !== sup)
     router.push({ query: { ...route.query, vendor: sup, step: undefined } });
   sel.value = sup; det.value = null; dloading.value = true;
+  // heavy background jobs (retro submits, repost drains) can lock the stock
+  // tables for minutes; say so instead of spinning on a silent "Loading…"
+  slowLoad.value = false;
+  clearTimeout(slowTimer);
+  slowTimer = setTimeout(() => { if (dloading.value) slowLoad.value = true; }, 12000);
   wDirty.value = {}; fr.value = null; pv.value = null; lastResults.value = [];
   pd.value = null; pDirty.value = {}; pDate.value = {}; pHistOpen.value = null;
   try {
@@ -748,7 +767,7 @@ async function open(sup) {
       schedEdit.value = (fr.value?.rate_sched || []).map(p2 => ({ ...p2 }));
     }
   } catch (e) { err.value = (e && e.message) || String(e); }
-  finally { dloading.value = false; }
+  finally { dloading.value = false; clearTimeout(slowTimer); slowLoad.value = false; }
 }
 async function saveWeights() {
   saving.value = true;
