@@ -972,10 +972,13 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
         # account — 1.9M of 2026 DN cost lives there); Stock Adjustment (71.004,
         # the correction bucket) presents adjacent to COGS, not in OPEX
         if at == "__PRIOR__":
-            # a manual JE into a cost-of-sales account — a correction of an
-            # earlier period (e.g. the 2.43M of 2025 delivery-note cost moved
-            # into July 2026), shown under gross profit so this period's
-            # margin reads on this period's trading only
+            # a manual JE into a cost-of-sales account is a CORRECTION, not
+            # this period's product cost, so it sits under gross profit.
+            # (The July 2026 case that motivated this — ACC-JV-2026-05112,
+            # 2.43M — was cancelled once traced: it cleared a legacy account's
+            # cumulative balance, and since both legs were 2026 expense
+            # accounts its net profit effect was zero while it overstated
+            # cost of sales and pushed 71.999 deeply negative.)
             return "Prior-period corrections"
         if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.", "71.999")):
             return "Cost of goods sold"
