@@ -1106,6 +1106,101 @@ def submit_preview(supplier=None, items=None):
             "anchor_today": sum(1 for r in out if r["rate"] and not r["retro_ok"])}
 
 
+def _record_run(supplier, ic, msg, ok, total=None):
+    """Persist one item's outcome immediately: re-read state (other tabs/jobs may
+    have touched it), append the result, bump the counter, commit. Progress is
+    therefore never lost to a timeout, a reload or a dead worker."""
+    st = _state()
+    v = st.setdefault(supplier, {})
+    d = v.setdefault("submitted", [])
+    if ok and ic not in d:
+        d.append(ic)
+    r = v.setdefault("run", {"state": "running", "total": total or 0,
+                             "done": 0, "results": []})
+    if total:
+        r["total"] = total
+    r["state"] = "running"
+    r["done"] = flt(r.get("done")) + 1
+    r.setdefault("results", []).append({"item_code": ic, "result": msg})
+    r["results"] = r["results"][-40:]
+    _save_state(st)
+    frappe.db.commit()
+    return r
+
+
+def _submit_one_item(supplier, ic, note=None, total=None):
+    """The unit of work: price the item, apply the retro fix, record the result.
+    Used by both the background batch and the per-item endpoint."""
+    from accounting_portal.api.valuation import fix_item_cost
+    rates = _full_rates(supplier, [ic])
+    scheds = _invoice_sched(supplier, [ic])
+    cost_ovs = _cost_overrides()
+    rate_kg, chan = _rate_for(supplier)
+    rr = rates.get(ic) or {}
+    if not rr.get("rate"):
+        _record_run(supplier, ic, "skipped — no cost evidence", False, total)
+        return {"item_code": ic, "ok": 0, "result": "skipped — no cost evidence"}
+    if rate_kg > 0 and flt(rr.get("weight_kg")) <= 0:
+        _record_run(supplier, ic, "skipped — no weight (freight layer unknown)", False, total)
+        return {"item_code": ic, "ok": 0, "result": "skipped — no weight"}
+    split = (f"vendor workbench — {supplier} [{chan}]: "
+             f"product {rr['product']} + freight {rr['freight']} "
+             f"({rate_kg}/kg × {rr['weight_kg']}kg)")
+    sched = None if ic in cost_ovs else (scheds.get(ic) or None)
+    if sched:
+        split += f" — {len(sched)} invoice era(s)"
+    try:
+        r = fix_item_cost(company=SALES, item_code=ic, rate=rr["rate"], full_rate=1,
+                          retro=1, retro_product=rr["product"],
+                          retro_sched=json.dumps(sched) if sched else None,
+                          note=(note + " — " if note else "") + split)
+        msg = (r or {}).get("result") or "ok"
+        _record_run(supplier, ic, msg, True, total)
+        return {"item_code": ic, "ok": 1, "result": msg}
+    except Exception as e:
+        frappe.db.rollback()
+        msg = f"error: {e}"
+        _record_run(supplier, ic, msg, False, total)
+        return {"item_code": ic, "ok": 0, "result": msg}
+
+
+@frappe.whitelist()
+def submit_one(supplier=None, item_code=None, note=None, total=None):
+    """Post ONE item's retro fix inside this request — no background worker
+    involved. The UI walks the batch item by item: each request is short, a
+    timeout costs at most one item (the fix is atomic and rolls back), and the
+    progress is already committed. This is the path that keeps working when the
+    long-queue worker is down."""
+    assert_can_write()
+    if not supplier or not item_code:
+        frappe.throw("supplier and item_code required")
+    return _submit_one_item(supplier, item_code, note, cint(total) or None)
+
+
+@frappe.whitelist()
+def start_run(supplier=None, total=0):
+    """Reset the progress counter before a UI-driven item-by-item run."""
+    assert_can_write()
+    st = _state()
+    v = st.setdefault(supplier, {})
+    v["run"] = {"state": "running", "total": cint(total), "done": 0,
+                "started": frappe.utils.now(), "results": []}
+    _save_state(st)
+    return {"ok": 1}
+
+
+@frappe.whitelist()
+def finish_run(supplier=None):
+    """Close the progress counter when the UI-driven run ends."""
+    assert_can_write()
+    st = _state()
+    r = (st.setdefault(supplier, {}).setdefault("run", {}))
+    r["state"] = "done"
+    r["finished"] = frappe.utils.now()
+    _save_state(st)
+    return {"ok": 1}
+
+
 @frappe.whitelist()
 def submit_batch(supplier=None, items=None, note=None):
     """Step 4 write: run fix_item_cost(retro) for a batch of the vendor's items.
@@ -1142,57 +1237,13 @@ def submit_batch(supplier=None, items=None, note=None):
 
 
 def _run_submit(supplier=None, items=None, note=None, user=None):
-    """Background worker for submit_batch. Commits and records progress after
-    each item so the UI can follow it and nothing is lost mid-run."""
+    """Background worker for submit_batch — the same per-item unit of work the
+    UI can also drive directly, so both paths record progress identically."""
     if user:
         frappe.set_user(user)
-    from accounting_portal.api.valuation import fix_item_cost
     items = items or []
-    rates = _full_rates(supplier, items)
-    scheds = _invoice_sched(supplier, items)
-    cost_ovs = _cost_overrides()
-    rate_kg, chan = _rate_for(supplier)
-
-    def _record(ic, msg, ok):
-        """Re-read state each time — other tabs/jobs may have touched it."""
-        st = _state()
-        v = st.setdefault(supplier, {})
-        d = v.setdefault("submitted", [])
-        if ok and ic not in d:
-            d.append(ic)
-        r = v.setdefault("run", {"state": "running", "total": len(items),
-                                 "done": 0, "results": []})
-        r["done"] = flt(r.get("done")) + 1
-        r.setdefault("results", []).append({"item_code": ic, "result": msg})
-        r["results"] = r["results"][-40:]
-        _save_state(st)
-        frappe.db.commit()
-
     for ic in items:
-        rr = rates.get(ic) or {}
-        if not rr.get("rate"):
-            _record(ic, "skipped — no cost evidence", False)
-            continue
-        if rate_kg > 0 and flt(rr.get("weight_kg")) <= 0:
-            _record(ic, "skipped — no weight (freight layer unknown)", False)
-            continue
-        split = (f"vendor workbench — {supplier} [{chan}]: "
-                 f"product {rr['product']} + freight {rr['freight']} "
-                 f"({rate_kg}/kg × {rr['weight_kg']}kg)")
-        # invoice-era schedule: each month heals at ITS era's invoice average.
-        # A manual cost override is a single verified truth → uniform retro.
-        sched = None if ic in cost_ovs else (scheds.get(ic) or None)
-        if sched:
-            split += f" — {len(sched)} invoice era(s)"
-        try:
-            r = fix_item_cost(company=SALES, item_code=ic, rate=rr["rate"], full_rate=1,
-                              retro=1, retro_product=rr["product"],
-                              retro_sched=json.dumps(sched) if sched else None,
-                              note=(note + " — " if note else "") + split)
-            _record(ic, (r or {}).get("result") or "ok", True)
-        except Exception as e:
-            frappe.db.rollback()
-            _record(ic, f"error: {e}", False)
+        _submit_one_item(supplier, ic, note, len(items))
     st = _state()
     r = (st.setdefault(supplier, {}).setdefault("run", {}))
     r["state"] = "done"

@@ -524,9 +524,13 @@
               <div class="flex items-center gap-2 text-[11.5px] font-bold"
                    :style="prog.state === 'running' ? 'color:#b45309' : 'color:#047857'">
                 <span>{{ prog.state === "running"
-                  ? L("Running in the background — you can leave this page","شغّال في الخلفية — تقدر تسيب الصفحة","En cours en arrière-plan")
-                  : L("Batch finished","الدفعة خلصت","Lot terminé") }}</span>
+                  ? L("Running item by item — keep this tab open","شغّال صنف بصنف — سيب التاب مفتوح","Article par article — gardez cet onglet ouvert")
+                  : prog.state === "stopped"
+                    ? L("Stopped — finished items are saved","اتوقف — اللي خلص محفوظ","Arrêté — le travail fait est enregistré")
+                    : L("Batch finished","الدفعة خلصت","Lot terminé") }}</span>
                 <span class="ms-auto tnum" dir="ltr">{{ prog.done }}/{{ prog.total }}</span>
+                <button v-if="prog.state === 'running' && submitting" class="h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px] font-bold"
+                        @click="stopRun = true">{{ L("Stop after this item","وقّف بعد الصنف ده","Arrêter") }}</button>
               </div>
               <div class="h-[6px] rounded-full mt-2 overflow-hidden" style="background:#00000012">
                 <div class="h-full rounded-full transition-all"
@@ -822,15 +826,38 @@ async function loadPreview() {
 // a background job on the server; here we just start it and follow progress.
 const prog = ref(null);
 let progTimer = null;
+// ITEM BY ITEM, driven from here. Each item is its own short request, so the
+// run needs no background worker, a timeout costs at most one item (the fix is
+// atomic), and every result is already committed server-side before the next
+// one starts. Progress is live and the run can be stopped between items.
+const stopRun = ref(false);
 async function runBatch() {
   const batch = readyQueue.value.slice(0, 15);
   if (!batch.length) return;
-  submitting.value = true;
-  try {
-    await api.call("accounting_portal.api.vendor_workbench.submit_batch",
-      { supplier: sel.value, items: JSON.stringify(batch) });
-    pollProgress();
-  } catch (e) { alert((e && e.message) || e); submitting.value = false; }
+  submitting.value = true; stopRun.value = false;
+  prog.value = { state: "running", done: 0, total: batch.length,
+                 results: [], submitted_total: (det.value?.state?.submitted || []).length, reposts: 0 };
+  try { await api.call("accounting_portal.api.vendor_workbench.start_run",
+                       { supplier: sel.value, total: batch.length }); } catch (e) { /* counter only */ }
+  for (const ic of batch) {
+    if (stopRun.value) break;
+    let row;
+    try {
+      const r = await api.call("accounting_portal.api.vendor_workbench.submit_one",
+        { supplier: sel.value, item_code: ic, total: batch.length, note: "vendor workbench" });
+      row = { item_code: ic, result: r.result };
+      if (r.ok) prog.value.submitted_total++;
+    } catch (e) {
+      row = { item_code: ic, result: "error: " + ((e && e.message) || e) };
+    }
+    prog.value = { ...prog.value, done: prog.value.done + 1,
+                   results: [...prog.value.results, row] };
+    lastResults.value = prog.value.results;
+  }
+  try { await api.call("accounting_portal.api.vendor_workbench.finish_run", { supplier: sel.value }); } catch (e) { /* counter only */ }
+  prog.value = { ...prog.value, state: stopRun.value ? "stopped" : "done" };
+  submitting.value = false;
+  await open(sel.value);
 }
 async function pollProgress(once) {
   if (!sel.value) return;
