@@ -254,7 +254,17 @@ const pnlSections = computed(() => {
   (p.revenue || []).forEach((s) => secs.push({ key: "rev", title: L("Revenue", "الإيرادات", "Produits"), accounts: s.accounts }));
   secs.push({ key: "revtot", title: "", accounts: [], subtotal: p.revenue_total, subtotalPrior: p.revenue_prior, subtotalLabel: L("Total revenue", "إجمالي الإيراد", "Total produits") });
   if (p.cogs && p.cogs.accounts) { secs.push({ key: "cogs", title: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), accounts: p.cogs.accounts, groups: p.cogs.groups }); secs.push({ key: "gp", title: "", accounts: [], subtotal: p.gross_profit, subtotalPrior: p.gross_prior, subtotalLabel: L("Gross profit", "الربح الإجمالي", "Marge brute") }); }
-  (p.opex || []).forEach((s) => secs.push({ key: "opex" + s.section, title: s.section, accounts: s.accounts, groups: s.groups }));
+  // sections below gross profit, ordered so corrections read as corrections:
+  // inventory adjustments and prior-period fixes first, then true operating cost
+  const order = { "Inventory corrections": 1, "Prior-period corrections": 2, "Operating expenses": 3 };
+  const label = (k) => ({
+    "Inventory corrections": L("Inventory corrections", "تسويات المخزون", "Corrections de stock"),
+    "Prior-period corrections": L("Prior-period corrections (not this period's trading)",
+      "تصحيحات فترات سابقة (لا تخص تشغيل الفترة)", "Corrections d'exercices antérieurs"),
+    "Operating expenses": L("Operating expenses", "المصروفات التشغيلية", "Charges"),
+  }[k] || k);
+  [...(p.opex || [])].sort((a, b) => (order[a.section] || 9) - (order[b.section] || 9))
+    .forEach((s) => secs.push({ key: "opex" + s.section, title: label(s.section), accounts: s.accounts, groups: s.groups }));
   secs.push({ key: "opextot", title: "", accounts: [], subtotal: p.opex_total, subtotalPrior: p.opex_prior, subtotalLabel: L("Total operating expenses", "إجمالي المصروفات", "Total charges") });
   return secs;
 });

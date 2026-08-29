@@ -795,9 +795,16 @@ def _bs_rows(company, as_on):
 
 
 def _pnl_rows(company, fr, to):
+    """Account totals for the period, plus `je` — the share that came from
+    manual Journal Entries rather than from a stock/sales document. Product
+    cost flows from delivery notes and invoices; a JE into a cost account is
+    a CORRECTION (usually of an earlier period) and must not sit inside the
+    period's gross margin."""
     return frappe.db.sql(
         """SELECT a.name, a.account_name, a.root_type, IFNULL(a.account_type,'') AS at,
-                  ROUND(SUM(g.credit-g.debit)) AS net
+                  ROUND(SUM(g.credit-g.debit)) AS net,
+                  ROUND(SUM(CASE WHEN g.voucher_type='Journal Entry'
+                                 THEN g.credit-g.debit ELSE 0 END)) AS je
            FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
            WHERE g.company=%s AND g.is_cancelled=0
              AND a.root_type IN ('Income','Expense') AND g.posting_date BETWEEN %s AND %s
@@ -914,7 +921,19 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
     cur = _pnl_rows(target, from_date, to_date)
     pri = {r["name"]: r for r in _pnl_rows(target, p_from, p_to)} if compare else {}
     inc = [r for r in cur if r["root_type"] == "Income"]
-    exp = [r for r in cur if r["root_type"] == "Expense"]
+    exp = []
+    for r in (x for x in cur if x["root_type"] == "Expense"):
+        je = flt(r.get("je"))
+        n = str(r.get("name") or "")
+        # only cost-of-sales accounts split: opex is legitimately booked by JE
+        if je and n.startswith(("71.801", "71.002.", "71.999", "71.004")):
+            op = dict(r); op["net"] = flt(r["net"]) - je
+            pp = dict(r); pp["net"] = je; pp["at"] = "__PRIOR__"
+            if op["net"]:
+                exp.append(op)
+            exp.append(pp)
+        else:
+            exp.append(r)
     inc_p = {k: v for k, v in pri.items() if v["root_type"] == "Income"}
     exp_p = {k: v for k, v in pri.items() if v["root_type"] == "Expense"}
 
@@ -952,6 +971,12 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
         # 71.002.5 (delivery cost booked on the mistyped internal-invoicing
         # account — 1.9M of 2026 DN cost lives there); Stock Adjustment (71.004,
         # the correction bucket) presents adjacent to COGS, not in OPEX
+        if at == "__PRIOR__":
+            # a manual JE into a cost-of-sales account — a correction of an
+            # earlier period (e.g. the 2.43M of 2025 delivery-note cost moved
+            # into July 2026), shown under gross profit so this period's
+            # margin reads on this period's trading only
+            return "Prior-period corrections"
         if at == "Cost of Goods Sold" or str(name).startswith(("71.801", "71.002.", "71.999")):
             return "Cost of goods sold"
         if at == "Stock Adjustment" or _inbound_freight(name):
