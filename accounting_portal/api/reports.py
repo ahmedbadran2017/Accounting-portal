@@ -478,6 +478,12 @@ def period_close_status(company=None, month=None):
     def one(v):
         return flt((v or [[None]])[0][0])
 
+    try:
+        from accounting_portal.api import pricing
+        cyc = pricing.cycle_health()
+    except Exception:
+        cyc = {}
+
     drafts = sum(frappe.db.count(dt, {"company": target, "docstatus": 0})
                  for dt in ("Sales Invoice", "Purchase Invoice", "Journal Entry", "Payment Entry"))
     debtors = one(frappe.db.sql(
@@ -646,6 +652,23 @@ def daily_entry_checklist(company=None, date=None):
          "fr": "Nouveaux articles pesés",
          "state": "done" if new_no_weight == 0 else "pending", "value": new_no_weight,
          "unit": "items", "link": "/accounting/items/vendors"},
+        # the pricing cycle only stays alive if somebody is nudged daily; left to
+        # memory, a supplier's price ages quietly and the cost drifts with it
+        {"key": "price_queue", "en": "Supplier price submissions reviewed",
+         "ar": "أسعار الموردين المقدَّمة اتراجعت", "fr": "Prix fournisseurs examinés",
+         "state": "done" if not cyc.get("pending_submissions") else "pending",
+         "value": cyc.get("pending_submissions", 0),
+         "unit": "waiting", "link": "/accounting/items/agreed"},
+        {"key": "unpriced_live", "en": "Nothing on sale without an agreed price",
+         "ar": "مفيش حاجة بتتباع بدون سعر متفق", "fr": "Rien en vente sans prix convenu",
+         "state": "done" if not cyc.get("unpriced_live") else "blocked",
+         "value": cyc.get("unpriced_live", 0),
+         "unit": "items", "link": "/accounting/items/agreed"},
+        {"key": "billed_above", "en": "No vendor billed above the agreed price",
+         "ar": "مفيش مورد فوتر أعلى من المتفق", "fr": "Aucune facture au-dessus du prix convenu",
+         "state": "done" if not cyc.get("billed_above_agreed") else "pending",
+         "value": cyc.get("billed_above_agreed", 0),
+         "unit": "invoices", "link": "/accounting/items/agreed"},
     ]
     return {"company": target, "date": d,
             "ready": all(i["state"] == "done" for i in items),

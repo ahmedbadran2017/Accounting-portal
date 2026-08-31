@@ -114,7 +114,8 @@
     "payroll": "Payroll",
     "valuation": "Valuation fix",
     "shipments": "Shipments",
-    "investors": "Investors"
+    "investors": "Investors",
+    "agreed": "Agreed prices"
   },
   "jonly": {
     "cod": "COD remittance",

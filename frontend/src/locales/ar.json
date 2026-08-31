@@ -113,7 +113,8 @@
     "payroll": "الرواتب",
     "valuation": "تصحيح التقييم",
     "shipments": "الشحنات",
-    "investors": "المستثمرون"
+    "investors": "المستثمرون",
+    "agreed": "الأسعار المتفق عليها"
   },
   "jonly": {
     "cod": "تحصيل COD",

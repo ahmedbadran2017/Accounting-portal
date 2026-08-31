@@ -80,6 +80,27 @@ def agreed_price(supplier, item_code, on_date=None):
     return flt(r[0][0]) if r else 0.0
 
 
+def agreed_map(on_date=None):
+    """Every approved price in one query, keyed (supplier, item).
+
+    The single-row read is fine on a document; the review lists and the daily
+    checklist walk thousands of rows, and one query each turns a checklist into
+    a page load nobody waits for."""
+    on_date = on_date or nowdate()
+    rows = frappe.db.sql(
+        """SELECT ip.price_list, ip.item_code, ip.price_list_rate, ip.valid_from
+           FROM `tabItem Price` ip
+           WHERE ip.price_list LIKE %s
+             AND (ip.valid_from IS NULL OR ip.valid_from<=%s)
+           ORDER BY ip.price_list, ip.item_code,
+                    IFNULL(ip.valid_from,'1900-01-01'), ip.creation""",
+        (VP_PREFIX + "%", on_date), as_dict=True)
+    out = {}
+    for r in rows:                      # ordered ascending, so the last row wins
+        out[(r.price_list[len(VP_PREFIX):], r.item_code)] = flt(r.price_list_rate)
+    return out
+
+
 def _last_invoice_rate(supplier, item_code):
     """What the vendor actually billed — the benchmark a submission is judged on."""
     r = frappe.db.sql(
@@ -261,7 +282,9 @@ def queue():
             """SELECT item_code, price_list_rate FROM `tabItem Price` WHERE price_list=%s""",
             (pend,), as_dict=True)
         worst, flagged = 0.0, 0
-        for r in rows:
+        # the queue only needs to rank suppliers; the full line-by-line check is
+        # review()'s job, so a large submission is sampled rather than walked
+        for r in rows[:400]:
             b, _ = benchmark(sup, r.item_code)
             if b > 0:
                 dev = abs(flt(r.price_list_rate) - b) / b
@@ -456,9 +479,10 @@ def unpriced_live_items(limit=200):
            GROUP BY b.item_code, i.item_name, i.default_supplier
            ORDER BY SUM(b.actual_qty) DESC LIMIT %s""",
         (SALES, int(limit)), as_dict=True)
+    amap = agreed_map()
     out = []
     for r in rows:
-        if r.sup and agreed_price(r.sup, r.item_code) > 0:
+        if r.sup and amap.get((r.sup, r.item_code), 0) > 0:
             continue
         out.append({"item_code": r.item_code, "item_name": r.item_name,
                     "supplier": r.sup or "", "qty": flt(r.qty),
@@ -508,9 +532,10 @@ def billed_above_agreed(since=None, limit=100):
              AND pi.posting_date>=%s AND pii.qty>0
            ORDER BY pi.posting_date DESC LIMIT 2000""",
         (SALES, since), as_dict=True)
+    amap = agreed_map()
     out = []
     for r in rows:
-        agreed = agreed_price(r.supplier, r.item_code, r.posting_date)
+        agreed = amap.get((r.supplier, r.item_code), 0.0)
         if agreed > 0 and flt(r.rate) > agreed * 1.001:
             out.append({"supplier": r.supplier, "invoice": r.inv,
                         "date": str(r.posting_date), "item_code": r.item_code,

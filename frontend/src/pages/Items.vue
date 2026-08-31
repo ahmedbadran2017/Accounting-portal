@@ -57,6 +57,7 @@
     <WeightsWorklist v-else-if="activeSub === 'weights'" />
     <ZeroCostReceipts v-else-if="activeSub === 'zerocost'" />
     <Cutover v-else-if="activeSub === 'cutover'" />
+    <AgreedPrices v-else-if="activeSub === 'agreed'" />
     <ValuationDoctor v-else-if="activeSub === 'valuation'" />
     <LandedCockpit v-else-if="activeSub === 'cockpit'" />
     <ScaffoldTable v-else />
@@ -77,6 +78,7 @@ import WeightsWorklist from "@/pages/items/WeightsWorklist.vue";
 import ItemCostCard from "@/pages/items/ItemCostCard.vue";
 import ItemsList from "@/pages/items/ItemsList.vue";
 import ItemDetail from "@/pages/items/ItemDetail.vue";
+import AgreedPrices from "@/pages/items/AgreedPrices.vue";
 import PriceListsList from "@/pages/items/PriceListsList.vue";
 import PriceListDetail from "@/pages/items/PriceListDetail.vue";
 import ValuationDoctor from "@/pages/items/ValuationDoctor.vue";
