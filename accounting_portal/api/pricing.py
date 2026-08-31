@@ -567,3 +567,160 @@ def cycle_health():
         "suppliers_wired": frappe.db.count("Supplier",
                                            {"default_price_list": ["like", VP_PREFIX + "%"]}),
     }
+
+
+# --------------------------------------------------------------------------
+# the audit — "is every product priced, and priced consistently?"
+# --------------------------------------------------------------------------
+
+AUDIT_TOL = 0.10        # 10% — below this, price movement, not disagreement
+
+
+@frappe.whitelist()
+def price_audit(supplier=None, limit=5000):
+    """Check every sellable product against the three places a cost can live.
+
+    The doctrine is that one agreed price is read by everything. This is how you
+    prove it: for each item, put the price we agreed, the rate its stock is
+    actually valued at (this is what COGS uses), and what the vendor last billed
+    side by side. They should be the same number. Where they are not, the item
+    is named with all three figures so somebody can decide which is right —
+    the check never guesses.
+
+    Verdicts, worst first:
+      zero_cost      stock valued at nil — it will sell at zero COGS
+      book_vs_agreed the books disagree with the price we agreed
+      book_vs_billed the books disagree with what he invoiced
+      no_price       nothing agreed for it anywhere
+      no_evidence    nothing to check against — no invoice, no agreed price
+      ok             all available sources agree
+    """
+    assert_portal_access()
+
+    items = frappe.db.sql(
+        """SELECT b.item_code ic, i.item_name nm, i.default_supplier sup,
+                  SUM(b.actual_qty) qty,
+                  SUM(b.stock_value)/NULLIF(SUM(b.actual_qty),0) book
+           FROM `tabBin` b
+           JOIN `tabWarehouse` w ON w.name=b.warehouse
+           JOIN `tabItem` i ON i.name=b.item_code
+           WHERE w.company=%s AND b.actual_qty>0 AND IFNULL(i.disabled,0)=0
+             AND LOWER(b.warehouse) NOT LIKE %s AND LOWER(b.warehouse) NOT LIKE %s
+           GROUP BY b.item_code, i.item_name, i.default_supplier
+           LIMIT %s""",
+        (SALES, "%defect%", "%reject%", int(limit)), as_dict=True)
+    if supplier:
+        items = [r for r in items if r.sup == supplier]
+    if not items:
+        return {"rows": [], "summary": {}, "by_supplier": []}
+
+    codes = [r.ic for r in items]
+    agreed = agreed_map()
+
+    # During the transition no VP list exists yet, so fall back to whatever
+    # buying list the supplier is actually wired to — but ONLY when that list is
+    # in the company's own currency. Comparing a MAD stock value against a price
+    # on the TRY list flags every item in the book as a disagreement, which is a
+    # property of the comparison, not of the data.
+    home = frappe.db.get_value("Company", SALES, "default_currency") or "MAD"
+    wired = {}
+    for r in frappe.db.sql(
+            """SELECT s.name sup, s.default_price_list pl FROM `tabSupplier` s
+               JOIN `tabPrice List` pl ON pl.name=s.default_price_list
+               WHERE IFNULL(s.default_price_list,'')<>'' AND pl.currency=%s""",
+            (home,), as_dict=True):
+        wired[r.sup] = r.pl
+    if wired:
+        lists = sorted(set(wired.values()))
+        ph = ",".join(["%s"] * len(lists))
+        fallback = {}
+        for i in range(0, len(codes), 900):
+            for r in frappe.db.sql(
+                    f"""SELECT ip.price_list pl, ip.item_code ic, ip.price_list_rate rate
+                        FROM `tabItem Price` ip
+                        WHERE ip.buying=1 AND ip.price_list IN ({ph})
+                          AND ip.item_code IN %s
+                        ORDER BY IFNULL(ip.valid_from,'1900-01-01'), ip.creation""",
+                    tuple(lists) + (codes[i:i + 900],), as_dict=True):
+                fallback[(r.pl, r.ic)] = flt(r.rate)
+        for r in items:
+            k = (r.sup or "", r.ic)
+            if k not in agreed and r.sup in wired:
+                v = fallback.get((wired[r.sup], r.ic))
+                if v:
+                    agreed[k] = v
+
+    # one query per source rather than one per item — this walks thousands of rows
+    def _bulk(sql):
+        out = {}
+        for i in range(0, len(codes), 900):
+            for r in frappe.db.sql(sql, (codes[i:i + 900],), as_dict=True):
+                out[(r.sup, r.ic)] = flt(r.rate)
+        return out
+
+    inv = _bulk("""SELECT pi.supplier sup, pii.item_code ic, pii.base_net_rate rate
+                   FROM `tabPurchase Invoice Item` pii
+                   JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+                   WHERE pii.item_code IN %s AND pi.docstatus=1
+                     AND IFNULL(pi.is_return,0)=0 AND pii.qty>0
+                   ORDER BY pi.posting_date""")
+    rcp = _bulk("""SELECT pr.supplier sup, pri.item_code ic, pri.base_net_rate rate
+                   FROM `tabPurchase Receipt Item` pri
+                   JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+                   WHERE pri.item_code IN %s AND pr.docstatus=1
+                     AND IFNULL(pr.is_return,0)=0 AND pri.qty>0
+                   ORDER BY pr.posting_date""")
+
+    rows, tally, per_sup = [], {}, {}
+    for r in items:
+        sup, book = r.sup or "", flt(r.book)
+        a = flt(agreed.get((sup, r.ic), 0)) if sup else 0.0
+        v = flt(inv.get((sup, r.ic), 0)) if sup else 0.0
+        c = flt(rcp.get((sup, r.ic), 0)) if sup else 0.0
+
+        if book <= 0:
+            verdict, gap = "zero_cost", None
+        elif a > 0 and abs(book - a) / a > AUDIT_TOL:
+            verdict, gap = "book_vs_agreed", round((book - a) / a * 100, 1)
+        elif v > 0 and abs(book - v) / v > AUDIT_TOL:
+            verdict, gap = "book_vs_billed", round((book - v) / v * 100, 1)
+        elif a <= 0 and (v > 0 or c > 0):
+            verdict, gap = "no_price", None
+        elif a <= 0 and v <= 0 and c <= 0:
+            verdict, gap = "no_evidence", None
+        else:
+            verdict, gap = "ok", None
+
+        tally[verdict] = tally.get(verdict, 0) + 1
+        d = per_sup.setdefault(sup or "(unattributed)",
+                               {"supplier": sup or "(unattributed)", "items": 0,
+                                "units": 0.0, "bad": 0, "value": 0.0})
+        d["items"] += 1
+        d["units"] += flt(r.qty)
+        d["value"] += flt(r.qty) * book
+        if verdict != "ok":
+            d["bad"] += 1
+        if verdict != "ok":
+            rows.append({"item_code": r.ic, "item_name": r.nm, "supplier": sup,
+                         "qty": flt(r.qty), "book": round(book, 2),
+                         "agreed": round(a, 2), "billed": round(v, 2),
+                         "received": round(c, 2), "verdict": verdict, "gap_pct": gap,
+                         "at_risk": round(abs(book - (a or v or book)) * flt(r.qty), 2)})
+
+    order = {"zero_cost": 0, "book_vs_agreed": 1, "book_vs_billed": 2,
+             "no_price": 3, "no_evidence": 4}
+    rows.sort(key=lambda x: (order.get(x["verdict"], 9), -x["at_risk"]))
+    sup_rows = sorted(per_sup.values(), key=lambda x: -x["bad"])
+    for s in sup_rows:
+        s["units"] = round(s["units"])
+        s["value"] = round(s["value"])
+        s["clean_pct"] = round((s["items"] - s["bad"]) / s["items"] * 100, 1) if s["items"] else 0
+
+    checked = len(items)
+    return {
+        "rows": rows[:500], "flagged": len(rows), "checked": checked,
+        "clean_pct": round((checked - len(rows)) / checked * 100, 1) if checked else 0,
+        "summary": tally, "by_supplier": sup_rows[:60],
+        "at_risk": round(sum(x["at_risk"] for x in rows), 2),
+        "tolerance_pct": int(AUDIT_TOL * 100),
+    }

@@ -141,6 +141,72 @@
         </div>
       </div>
 
+      <!-- ── the audit: is every product priced, and priced consistently? ── -->
+      <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
+          <span class="text-[12.5px] font-bold">🔍 {{ L("Price audit","تدقيق الأسعار","Audit des prix") }}</span>
+          <span class="text-[10.5px] text-ink-muted">{{ L("every sellable product against the price agreed, the rate its stock is valued at, and what he billed","كل منتج قابل للبيع مقابل السعر المتفق وقيمة المخزون واللي فوتره","chaque produit vs prix convenu, valorisation et facture") }}</span>
+          <div class="flex-1"></div>
+          <button class="h-[28px] px-3 rounded-[8px] border border-line text-[11.5px] bg-white font-semibold"
+                  :disabled="auditing" @click="runAudit">
+            {{ auditing ? L("Checking…","بيفحص…","Analyse…") : (au ? L("Re-run","أعد الفحص","Relancer") : L("Run audit","افحص","Lancer")) }}
+          </button>
+        </div>
+        <div v-if="!au" class="py-8 text-center text-[11.5px] text-ink-muted">
+          {{ L("Not run yet.","ماتعملش لسه.","Pas encore lancé.") }}
+        </div>
+        <template v-else>
+          <div class="px-4 py-3 grid grid-cols-2 lg:grid-cols-6 gap-3">
+            <div v-for="v in verdicts" :key="v.key" class="text-center">
+              <div class="text-[18px] font-bold tnum" :style="{ color: v.color }">{{ n(au.summary[v.key] || 0) }}</div>
+              <div class="text-[10px] text-ink-3 leading-tight mt-0.5">{{ v.label }}</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2.5 text-[11px] text-ink-3">
+            {{ n(au.checked) }} {{ L("checked","صنف اتفحص","vérifiés") }} ·
+            <span class="font-bold" :style="{ color: au.clean_pct > 80 ? '#047857' : '#b45309' }">{{ au.clean_pct }}%</span>
+            {{ L("clean","سليم","propres") }} ·
+            {{ L("value at risk","قيمة في الخطر","valeur à risque") }}
+            <span class="font-bold" style="color:#be123c">{{ money(au.at_risk) }}</span>
+            <span class="text-ink-muted">· {{ L("tolerance","السماحية","tolérance") }} ±{{ au.tolerance_pct }}%</span>
+          </div>
+          <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
+            <table class="w-full text-[11px]">
+              <thead class="sticky top-0"><tr style="background:#fafaf9">
+                <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+                <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورد","Fournisseur") }}</th>
+                <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Books","الدفاتر","Livres") }}</th>
+                <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Agreed","المتفق","Convenu") }}</th>
+                <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("He billed","فوتره","Facturé") }}</th>
+                <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Verdict","الحكم","Verdict") }}</th>
+              </tr></thead>
+              <tbody>
+                <tr v-for="r in au.rows" :key="r.item_code" class="border-t border-line-hair">
+                  <td class="px-3 py-1.5">
+                    <span class="block font-mono text-[10px]" dir="ltr">{{ r.item_code }}</span>
+                    <span class="block text-[9.5px] text-ink-muted">{{ (r.item_name || "").slice(0, 40) }}</span>
+                  </td>
+                  <td class="px-3 py-1.5 text-ink-3">{{ (r.supplier || "—").slice(0, 22) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ n(r.qty) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum font-semibold">{{ money(r.book) }}</td>
+                  <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ r.agreed ? money(r.agreed) : "—" }}</td>
+                  <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ r.billed ? money(r.billed) : "—" }}</td>
+                  <td class="px-4 py-1.5">
+                    <span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                          :style="vStyle(r.verdict)">{{ vLabel(r.verdict) }}</span>
+                    <span v-if="r.gap_pct !== null" class="ms-1 text-[9.5px] tnum" dir="ltr">{{ r.gap_pct > 0 ? "+" : "" }}{{ r.gap_pct }}%</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="au.flagged > au.rows.length" class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted">
+            {{ L("Showing the worst","بيعرض الأسوأ","Les pires") }} {{ au.rows.length }} {{ L("of","من","sur") }} {{ n(au.flagged) }}.
+          </div>
+        </template>
+      </div>
+
       <!-- ── what the cycle wants attention on ── -->
       <div class="grid lg:grid-cols-2 gap-3.5">
         <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
@@ -206,6 +272,28 @@ const seedFor = ref("");
 const rv = ref(null);
 const sel = ref({});
 const confirmFlagged = ref(false);
+
+const au = ref(null);
+const auditing = ref(false);
+const V = {
+  zero_cost: ["ZERO cost", "تكلفة صفر", "Coût nul", "#be123c"],
+  book_vs_agreed: ["books ≠ agreed", "الدفاتر ≠ المتفق", "livres ≠ convenu", "#b45309"],
+  book_vs_billed: ["books ≠ billed", "الدفاتر ≠ الفاتورة", "livres ≠ facturé", "#b45309"],
+  no_price: ["no agreed price", "بدون سعر متفق", "sans prix convenu", "#0369a1"],
+  no_evidence: ["nothing to check", "مفيش مرجع", "aucune référence", "#78716c"],
+  ok: ["OK", "سليم", "OK", "#047857"],
+};
+const vLabel = (k) => { const v = V[k] || [k, k, k]; return L(v[0], v[1], v[2]); };
+const vStyle = (k) => ({ background: (V[k] || [])[3] + "18", color: (V[k] || [])[3] || "#57534e" });
+const verdicts = computed(() => ["ok", "zero_cost", "book_vs_agreed", "book_vs_billed", "no_price", "no_evidence"]
+  .map((k) => ({ key: k, label: vLabel(k), color: (V[k] || [])[3] })));
+
+async function runAudit() {
+  auditing.value = true;
+  try { au.value = await api.call("accounting_portal.api.pricing.price_audit", {}, { fresh: true }); }
+  catch (e) { alert((e && e.message) || String(e)); }
+  finally { auditing.value = false; }
+}
 
 const chosen = computed(() => Object.keys(sel.value).filter((k) => sel.value[k]));
 const allOn = computed(() => !!rv.value && rv.value.items.length > 0
