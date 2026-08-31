@@ -466,8 +466,13 @@ def publish_check(item_code=None, supplier=None):
 
 @frappe.whitelist()
 def unpriced_live_items(limit=200):
-    """Everything already on sale that never passed the gate — the backlog the
-    rule stops growing but does not clear."""
+    """Everything already on sale that never passed the gate.
+
+    The count and the unit total are computed over ALL of them; only the row
+    list is truncated. Counting the rows that survived the limit reports the
+    limit back as if it were the finding — "500 unpriced" when 500 was simply
+    what was asked for.
+    """
     assert_portal_access()
     rows = frappe.db.sql(
         """SELECT b.item_code, i.item_name, i.default_supplier sup,
@@ -476,20 +481,31 @@ def unpriced_live_items(limit=200):
            JOIN `tabWarehouse` w ON w.name=b.warehouse
            JOIN `tabItem` i ON i.name=b.item_code
            WHERE w.company=%s AND b.actual_qty>0 AND IFNULL(i.disabled,0)=0
-           GROUP BY b.item_code, i.item_name, i.default_supplier
-           ORDER BY SUM(b.actual_qty) DESC LIMIT %s""",
-        (SALES, int(limit)), as_dict=True)
+           GROUP BY b.item_code, i.item_name, i.default_supplier""",
+        (SALES,), as_dict=True)
     amap = agreed_map()
-    out = []
+    out, by_sup = [], {}
     for r in rows:
         if r.sup and amap.get((r.sup, r.item_code), 0) > 0:
             continue
+        sup = r.sup or ""
+        d = by_sup.setdefault(sup, {"supplier": sup or "(unattributed)",
+                                    "items": 0, "units": 0.0, "zero_rate": 0})
+        d["items"] += 1
+        d["units"] += flt(r.qty)
+        if flt(r.val) <= 0:
+            d["zero_rate"] += 1
         out.append({"item_code": r.item_code, "item_name": r.item_name,
-                    "supplier": r.sup or "", "qty": flt(r.qty),
-                    "stock_value": flt(r.val),
-                    "zero_rate": flt(r.val) <= 0})
-    return {"items": out, "count": len(out),
-            "units": sum(x["qty"] for x in out)}
+                    "supplier": sup, "qty": flt(r.qty),
+                    "stock_value": flt(r.val), "zero_rate": flt(r.val) <= 0})
+    out.sort(key=lambda x: -x["qty"])
+    sup_rows = sorted(by_sup.values(), key=lambda x: -x["units"])
+    for d in sup_rows:
+        d["units"] = round(d["units"])
+    return {"items": out[:int(limit)], "count": len(out),
+            "units": round(sum(x["qty"] for x in out)),
+            "zero_rate": sum(1 for x in out if x["zero_rate"]),
+            "by_supplier": sup_rows[:40], "shown": min(len(out), int(limit))}
 
 
 # --------------------------------------------------------------------------
@@ -554,13 +570,14 @@ def cycle_health():
     """One call for the daily checklist: what the cycle is waiting on today."""
     assert_portal_access()
     q = queue()
-    up = unpriced_live_items(limit=500)
+    up = unpriced_live_items(limit=1)
     st = stale_prices()
     ba = billed_above_agreed()
     return {
         "pending_submissions": q["count"],
         "flagged_rows": sum(x["flagged"] for x in q["pending"]),
         "unpriced_live": up["count"], "unpriced_units": up["units"],
+        "unpriced_zero_rate": up["zero_rate"],
         "stale_suppliers": st["count"],
         "billed_above_agreed": ba["count"], "overcharge": ba["total_overcharge"],
         "lists_wired": frappe.db.count("Price List", {"name": ["like", VP_PREFIX + "%"]}),

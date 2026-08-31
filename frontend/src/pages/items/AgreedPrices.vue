@@ -18,8 +18,54 @@
     <div v-else-if="err" class="py-16 text-center text-[12px]" style="color:#b91c1c">{{ err }}</div>
 
     <template v-else>
-      <!-- what the cycle is waiting on today -->
-      <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <!-- Day one shows an empty cycle, which reads as a broken screen unless
+           it says what to do. Lead with the actual problem and the next action;
+           swap to the running-cycle counters once anything is wired. -->
+      <div v-if="!started" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+        <div class="px-5 py-4 border-b border-line-hair">
+          <div class="text-[14px] font-bold">{{ L("Nothing is priced yet — start here","لسه مفيش أسعار متفق عليها — ابدأ من هنا","Rien n'est encore tarifé") }}</div>
+          <div class="text-[11.5px] text-ink-3 mt-1 leading-relaxed max-w-3xl">
+            {{ L("Right now no product has a price anybody agreed to, so its cost is whatever someone happened to type on a receipt. Pick a supplier below and press Propose: we read what he actually invoiced (or what his receipts were paid at) and fill a grid for you to check — you review and approve, and from then on the PO, the receipt and the stock value all take that one number.",
+                 "دلوقتي مفيش منتج ليه سعر حد اتفق عليه، فتكلفته هي أي رقم حد كتبه في إيصال. اختار مورد من تحت واضغط اقترح: بنقرا اللي فوتره فعلاً (أو اللي إيصالاته اتدفعت بيه) ونملّي لك جدول تراجعه — تعتمد، ومن ساعتها أمر الشراء والاستلام وقيمة المخزون كلهم بياخدوا الرقم ده.",
+                 "Aucun produit n'a de prix convenu. Choisissez un fournisseur et lancez Proposer.") }}
+          </div>
+        </div>
+        <div class="px-5 py-3 flex flex-wrap gap-x-8 gap-y-2 border-b border-line-hair" style="background:#fffbeb">
+          <div><span class="text-[17px] font-bold tnum" style="color:#b45309">{{ n(unp.count) }}</span>
+            <span class="text-[11.5px] text-ink-3 ms-1.5">{{ L("products on sale with no agreed price","منتج بيتباع بدون سعر متفق","produits sans prix convenu") }}</span></div>
+          <div><span class="text-[17px] font-bold tnum" style="color:#b45309">{{ n(unp.units) }}</span>
+            <span class="text-[11.5px] text-ink-3 ms-1.5">{{ L("units","قطعة","unités") }}</span></div>
+          <div><span class="text-[17px] font-bold tnum" style="color:#be123c">{{ n(unp.zero_rate) }}</span>
+            <span class="text-[11.5px] text-ink-3 ms-1.5">{{ L("of them cost nothing — they will sell at zero","منهم تكلفتهم صفر — هيتباعوا بتكلفة صفر","à coût nul") }}</span></div>
+        </div>
+        <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
+          <table class="w-full text-[12px]">
+            <thead class="sticky top-0"><tr style="background:#fafaf9">
+              <th class="px-5 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورد","Fournisseur") }}</th>
+              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Products","منتجات","Produits") }}</th>
+              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Units on the shelf","قطع على الرف","Unités") }}</th>
+              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Cost nothing","تكلفتهم صفر","Coût nul") }}</th>
+              <th class="px-5 py-2"></th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="r in unp.by_supplier" :key="r.supplier" class="border-t border-line-hair hover:bg-app-warm/50">
+                <td class="px-5 py-2 font-semibold">{{ r.supplier }}</td>
+                <td class="px-3 py-2 text-end tnum text-ink-3">{{ n(r.items) }}</td>
+                <td class="px-3 py-2 text-end tnum font-semibold">{{ n(r.units) }}</td>
+                <td class="px-3 py-2 text-end tnum" :style="r.zero_rate ? 'color:#be123c;font-weight:700' : 'color:#a8a29e'">{{ r.zero_rate || "—" }}</td>
+                <td class="px-5 py-2 text-end">
+                  <button class="h-[26px] px-3 rounded-[8px] text-[11px] font-bold text-white bg-brand disabled:opacity-40"
+                          :disabled="busy || r.supplier.startsWith('(')"
+                          @click="seedFor = r.supplier; seed()">{{ L("Propose","اقترح","Proposer") }}</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- the running cycle: only meaningful once something is wired -->
+      <div v-else class="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <div v-for="k in kpis" :key="k.label" class="bg-white border border-line rounded-card p-3.5">
           <div class="text-[20px] font-bold tnum" :style="{ color: k.color }">{{ n(k.value) }}</div>
           <div class="text-[11px] text-ink-3 mt-0.5">{{ k.label }}</div>
@@ -27,19 +73,8 @@
         </div>
       </div>
 
-      <!-- the gate cannot go on before prices exist, so say so plainly -->
-      <div v-if="h.lists_wired === 0" class="rounded-[12px] border px-4 py-2.5 flex items-start gap-2.5"
-           style="background:#fffbeb;border-color:#fde68a">
-        <Icon name="alert" :size="15" color="#b45309" class="mt-0.5 flex-shrink-0" />
-        <span class="text-[11.5px] text-ink-2">
-          {{ L("No supplier has an approved list yet, so every live product would fail the publish gate. Seed and approve first; switch the gate on after.",
-               "مفيش مورد عنده قائمة معتمدة لسه، يعني كل منتج شغال هيتوقف على بوابة النشر. ازرع واعتمد الأول، وشغّل البوابة بعدين.",
-               "Aucune liste approuvée : amorcez et approuvez avant d'activer le contrôle.") }}
-        </span>
-      </div>
-
       <!-- ── the queue ── -->
-      <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div v-if="started || q.pending.length" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
           <span class="text-[12.5px] font-bold">{{ L("Waiting for review","مستني مراجعة","À examiner") }}</span>
           <span class="text-[10.5px] text-ink-muted">{{ L("worst deviation first","الأبعد عن الفاتورة الأول","écart le plus fort en premier") }}</span>
@@ -208,24 +243,7 @@
       </div>
 
       <!-- ── what the cycle wants attention on ── -->
-      <div class="grid lg:grid-cols-2 gap-3.5">
-        <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
-            <span class="text-[12px] font-bold">{{ L("Live with no agreed price","شغال بدون سعر متفق","En vente sans prix convenu") }}</span>
-            <span class="text-[10.5px] text-ink-muted">{{ n(unp.count) }} · {{ n(unp.units) }} {{ L("units","قطعة","unités") }}</span>
-          </div>
-          <div class="max-h-[280px] overflow-y-auto">
-            <div v-if="!unp.items.length" class="py-8 text-center text-[11.5px] text-ink-muted">—</div>
-            <div v-for="i in unp.items.slice(0, 60)" :key="i.item_code"
-                 class="px-4 py-1.5 border-t border-line-hair flex items-center gap-2 text-[11px]">
-              <span class="font-mono text-[10px] flex-shrink-0" dir="ltr">{{ i.item_code }}</span>
-              <span class="text-ink-muted truncate flex-1">{{ i.supplier || L("no supplier","بدون مورد","—") }}</span>
-              <span v-if="i.zero_rate" class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:#fef2f2;color:#be123c">{{ L("zero cost","تكلفة صفر","coût nul") }}</span>
-              <span class="tnum text-ink-3">{{ n(i.qty) }}</span>
-            </div>
-          </div>
-        </div>
-
+      <div class="grid gap-3.5">
         <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
             <span class="text-[12px] font-bold">{{ L("Billed above the agreed price","فوتر أعلى من المتفق","Facturé au-dessus") }}</span>
@@ -294,6 +312,8 @@ async function runAudit() {
   catch (e) { alert((e && e.message) || String(e)); }
   finally { auditing.value = false; }
 }
+
+const started = computed(() => (h.value.lists_wired || 0) > 0);
 
 const chosen = computed(() => Object.keys(sel.value).filter((k) => sel.value[k]));
 const allOn = computed(() => !!rv.value && rv.value.items.length > 0
