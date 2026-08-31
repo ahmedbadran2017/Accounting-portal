@@ -36,7 +36,11 @@ override_whitelisted_methods = {}
 # (ap_fx_guard / ap_fx_guard_tolerance defaults) — see api/fx_guard.py.
 doc_events = {
     "Purchase Receipt": {
-        "validate": "accounting_portal.api.fx_guard.validate_fx",
+        "validate": [
+            "accounting_portal.api.fx_guard.validate_fx",
+            # stock may not arrive at no cost — OFF by default, see stock_guard
+            "accounting_portal.api.stock_guard.validate_purchase_receipt",
+        ],
     },
     "Purchase Invoice": {
         "validate": [

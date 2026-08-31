@@ -15,9 +15,11 @@ Runtime-togglable without redeploy (mirrors fx_guard):
     ap_stock_guard        "0" disables (default on)
 """
 import frappe
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from accounting_portal.api.permissions import assert_portal_access, can_manage_users
+
+SALES = "Justyol Morocco"
 
 
 def _enabled():
@@ -94,3 +96,92 @@ def set_stock_guard(on=None):
         frappe.db.set_default("ap_stock_guard", "1" if str(on) in ("1", "true", "True", "yes", "on") else "0")
     frappe.db.commit()
     return stock_guard_settings()
+
+
+# ---------------------------------------------------------------------------
+# FLOOR 3 — a Purchase Receipt may not bring stock in at no cost
+#
+# Stock Entry has been guarded since August and it worked: manual receipts at a
+# zero rate fell from 366 in January to a handful. The receipts kept coming in
+# through the other door. Measured on PROD: 218 of 541 receipt lines in the last
+# 30 days carry a zero rate — 40% — and 41 of the 114 brand-new products
+# received in that window arrived costing nothing.
+#
+# DEFAULT OFF, deliberately. Switching it on today would refuse four receipts in
+# ten and stop the warehouse, because the agreed prices that would fill the rate
+# do not exist yet. The order is: get prices onto suppliers (Items → Agreed
+# prices), watch "live with no agreed price" fall, then turn this on. The same
+# sequencing the publish gate needs.
+#     ap_pr_zero_rate_guard   "1" enables (default off)
+# ---------------------------------------------------------------------------
+
+PR_GUARD_KEY = "ap_pr_zero_rate_guard"
+
+
+def _pr_guard_on():
+    return str(frappe.db.get_default(PR_GUARD_KEY) or "0") == "1"
+
+
+@frappe.whitelist()
+def pr_zero_guard_settings():
+    assert_portal_access()
+    zero = frappe.db.sql(
+        """SELECT COUNT(*) FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           WHERE pr.company=%s AND pr.docstatus=1 AND pri.qty>0
+             AND IFNULL(pri.base_rate,0)<=0
+             AND pr.posting_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)""", (SALES,))[0][0]
+    total = frappe.db.sql(
+        """SELECT COUNT(*) FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           WHERE pr.company=%s AND pr.docstatus=1 AND pri.qty>0
+             AND pr.posting_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)""", (SALES,))[0][0]
+    return {"enabled": _pr_guard_on(),
+            "would_block_30d": zero, "lines_30d": total,
+            "would_block_pct": round(zero / total * 100, 1) if total else 0,
+            "can_toggle": can_manage_users()}
+
+
+@frappe.whitelist()
+def set_pr_zero_guard(on=None):
+    """Super Admin only — this one can stop receiving, so it is not a casual switch."""
+    assert_portal_access()
+    if not can_manage_users():
+        frappe.throw("Only a Super Admin can change this guard", frappe.PermissionError)
+    frappe.db.set_default(PR_GUARD_KEY, "1" if cint(on) else "0")
+    frappe.db.commit()
+    return pr_zero_guard_settings()
+
+
+def validate_purchase_receipt(doc, method=None):
+    """Refuse stock arriving at no cost.
+
+    A receipt at zero does not merely lose one product's cost: it drags the
+    moving average down for every unit of that item, so later sales book a
+    margin that was never earned. The rate exists — the vendor invoiced it —
+    it just was not carried onto the document.
+    """
+    if not _pr_guard_on() or doc.company != SALES or getattr(doc, "is_return", 0):
+        return
+    zero = [d for d in (doc.items or []) if flt(d.qty) > 0 and flt(d.base_rate) <= 0]
+    if not zero:
+        return
+    from accounting_portal.api import pricing
+    lines, fixable = [], []
+    for d in zero[:6]:
+        agreed = pricing.agreed_price(doc.supplier, d.item_code) if doc.supplier else 0
+        if agreed:
+            fixable.append(f"{d.item_code} → {agreed}")
+        lines.append(f"{d.item_code} (row {d.idx})")
+    msg = ("Stock cannot be received at a zero rate: " + ", ".join(lines) +
+           ". A zero receipt drags the item's moving average down, so every later "
+           "sale from it books a margin that was never earned.<br><br>")
+    if fixable:
+        msg += ("An agreed price already exists for: <b>" + ", ".join(fixable) +
+                "</b> — put it on the line, or raise the receipt from its Purchase "
+                "Order so the rate is fetched for you.")
+    else:
+        msg += ("No agreed price exists for these yet. Enter one in "
+                "<b>Items → Agreed prices</b> first — a product should not enter "
+                "stock before somebody has decided what it cost.")
+    frappe.throw(msg, title="Receipt has no cost")
