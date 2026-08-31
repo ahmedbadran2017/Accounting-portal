@@ -107,11 +107,20 @@ def set_stock_guard(on=None):
 # 30 days carry a zero rate — 40% — and 41 of the 114 brand-new products
 # received in that window arrived costing nothing.
 #
-# DEFAULT OFF, deliberately. Switching it on today would refuse four receipts in
-# ten and stop the warehouse, because the agreed prices that would fill the rate
-# do not exist yet. The order is: get prices onto suppliers (Items → Agreed
-# prices), watch "live with no agreed price" fall, then turn this on. The same
-# sequencing the publish gate needs.
+# It does NOT touch a dropship line. The local model sells first: the customer
+# orders, the PO is raised 0.4 days later and the goods land 4.3 days after that.
+# 185 of the 222 zero-rate receipt lines last month were for goods a customer had
+# already bought, so refusing them would not prevent a mistake — it would hold up
+# an order that is already paid for. By then the only honest fix is to price the
+# line, not to reject it. The control that belongs in a sell-first model is the
+# publish gate (pricing.publish_check): a product with no agreed cost never
+# reaches the storefront, which is four days earlier and costs nothing
+# operationally. This guard covers the other half — buying INTO stock, where
+# there is still time to ask the vendor what it costs.
+#
+# DEFAULT OFF. Even on the stock half, the agreed prices that would fill the rate
+# barely exist yet. The order is: put prices on suppliers (Items → Agreed
+# prices), watch "live with no agreed price" fall, then turn this on.
 #     ap_pr_zero_rate_guard   "1" enables (default off)
 # ---------------------------------------------------------------------------
 
@@ -153,6 +162,16 @@ def set_pr_zero_guard(on=None):
     return pr_zero_guard_settings()
 
 
+def _sold_already(row):
+    """True when this receipt line exists because a customer already ordered it."""
+    po = getattr(row, "purchase_order", None)
+    if not po:
+        return False
+    return bool(frappe.db.exists("Purchase Order Item",
+                                 {"parent": po, "item_code": row.item_code,
+                                  "sales_order": ["!=", ""]}))
+
+
 def validate_purchase_receipt(doc, method=None):
     """Refuse stock arriving at no cost.
 
@@ -160,10 +179,15 @@ def validate_purchase_receipt(doc, method=None):
     moving average down for every unit of that item, so later sales book a
     margin that was never earned. The rate exists — the vendor invoiced it —
     it just was not carried onto the document.
+
+    Dropship lines are exempt: the sale is already made, so blocking delays a
+    customer rather than preventing anything. Those are the publish gate's job.
     """
     if not _pr_guard_on() or doc.company != SALES or getattr(doc, "is_return", 0):
         return
-    zero = [d for d in (doc.items or []) if flt(d.qty) > 0 and flt(d.base_rate) <= 0]
+    zero = [d for d in (doc.items or [])
+            if flt(d.qty) > 0 and flt(d.base_rate) <= 0
+            and not _sold_already(d)]
     if not zero:
         return
     from accounting_portal.api import pricing
