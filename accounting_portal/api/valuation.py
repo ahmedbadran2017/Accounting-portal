@@ -549,6 +549,105 @@ _actions.register_reverter(REVAL_ACTION, _valfix_reverter)
 # no heavy back-dated repost (the failure mode of the first canary), and all
 # bins move together so no old-rate stock re-contaminates the average.
 
+SOURCE_ACTION = "Correct cost at the source receipt"
+
+
+_SOURCE_DEV = 0.50          # a receipt this far from the target was keyed wrong
+
+
+def _source_rows(item_code, target_rate):
+    """Receipt lines that are WRONG — not merely different from the target.
+
+    A receipt at 179.25 against an invoice of 175.27 is a real price that moved
+    2%, and flattening every line onto one rate would erase genuine history.
+    Only a zero rate (nobody decided a cost) or one more than half away from the
+    target (a typo — the x100 kind) is treated as an error worth overwriting.
+    """
+    t = flt(target_rate)
+    if t <= 0:
+        return []
+    return frappe.db.sql(
+        """SELECT pri.name row_name, pri.parent pr, pri.qty, pri.warehouse,
+                  IFNULL(pri.base_rate,0) rate, pr.posting_date pd, pr.supplier
+           FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           WHERE pri.item_code=%s AND pr.docstatus=1 AND IFNULL(pr.is_return,0)=0
+             AND pri.qty>0
+             AND (IFNULL(pri.base_rate,0)<=0
+                  OR ABS(IFNULL(pri.base_rate,0)-%s)/%s > %s)
+           ORDER BY pr.posting_date""",
+        (item_code, t, t, _SOURCE_DEV), as_dict=True)
+
+
+def _source_poster(action):
+    """Correct the rate on the receipt itself, then let a repost rebuild history.
+
+    The reconciliation path cannot touch an item that has no stock left: a
+    back-dated reco pins a rate onto quantity, and a receipt that shipped the
+    same day leaves nothing at 23:59 to pin onto. Those items are not rare —
+    2,722 of them moved in and out within a day — and they are the ones that
+    were received at a zero rate and sold with zero COGS, so skipping them
+    leaves exactly the cost that matters missing.
+
+    Correcting the source line is the honest instrument for that case: the
+    receipt was simply keyed wrong, the invoice says what the price was, and the
+    repost recomputes every delivery that drew from it. Cancelling instead is not
+    available — the stock has already gone out on delivery notes that customers
+    were invoiced from.
+    """
+    p = action.get("payload") or {}
+    if isinstance(p, str):
+        p = json.loads(p)
+    item_code, rate = p["item_code"], flt(p["rate"])
+    rows = _source_rows(item_code, rate)
+    if not rows:
+        return {"changed": 0, "note": "receipts already at the target rate"}
+
+    RATE_F = ("rate", "base_rate", "net_rate", "base_net_rate",
+              "valuation_rate", "stock_uom_rate")
+    AMT_F = ("amount", "base_amount", "net_amount", "base_net_amount")
+    TOTALS = ("total", "base_total", "net_total", "base_net_total", "grand_total",
+              "base_grand_total", "rounded_total", "base_rounded_total")
+    earliest, changed = {}, 0
+    for r in rows:
+        doc = frappe.get_doc("Purchase Receipt", r.pr)
+        delta = 0.0
+        for it in doc.items:
+            if it.name != r.row_name:
+                continue
+            new_amt = flt(it.qty) * rate
+            delta += new_amt - flt(it.amount)
+            for f in RATE_F:
+                it.db_set(f, rate, update_modified=False)
+            for f in AMT_F:
+                it.db_set(f, new_amt, update_modified=False)
+            k = (item_code, it.warehouse)
+            if k not in earliest or str(doc.posting_date) < earliest[k]:
+                earliest[k] = str(doc.posting_date)
+            changed += 1
+        for f in TOTALS:                      # a receipt can carry other lines
+            cur = flt(doc.get(f))
+            if cur:
+                doc.db_set(f, cur + delta, update_modified=False)
+
+    for (ic, wh), d in earliest.items():
+        rv = frappe.get_doc({"doctype": "Repost Item Valuation",
+                             "based_on": "Item and Warehouse", "item_code": ic,
+                             "warehouse": wh, "posting_date": d, "posting_time": "00:00:01",
+                             "company": p.get("company") or _target(None),
+                             "allow_negative_stock": 1, "status": "Queued"})
+        rv.flags.ignore_permissions = True
+        rv.insert(ignore_permissions=True)
+        rv.submit()
+    frappe.db.commit()
+    return {"changed": changed, "receipts": sorted({r.pr for r in rows}),
+            "reposts": len(earliest), "rate": rate}
+
+
+_actions.register_poster(SOURCE_ACTION, _source_poster)
+
+
+
 def _fix_bins(target, item_code):
     return frappe.db.sql(
         """SELECT b.warehouse, b.actual_qty qty, b.valuation_rate vr,
@@ -1022,8 +1121,25 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
             # so the item earns its ✓ instead of a red error
             rows = correct
     if not rows:
-        frappe.throw("Nothing fixable now — every bin is already correct or blocked by reservations: "
-                     + ("; ".join(skipped) or "none"))
+        # No bin to pin a rate onto. Usually that means the item is sold out —
+        # and the sold-out ones are exactly the items that were received at a
+        # zero rate and shipped the same day, so leaving them alone leaves the
+        # missing COGS missing. Correct the receipt that was keyed wrong instead
+        # and let a repost rebuild every delivery that drew from it.
+        src = _source_rows(item_code, r)
+        if src:
+            return _actions.execute(
+                SOURCE_ACTION, target,
+                f"srcfix:{item_code}:{r}:" + frappe.generate_hash(
+                    ",".join(sorted(x.row_name for x in src)), 8),
+                payload={"item_code": item_code, "rate": r, "company": target},
+                amount=sum(abs((r - flt(x.rate)) * flt(x.qty)) for x in src),
+                notes=(f"{item_code}: no stock left to reconcile; correcting "
+                       f"{len(src)} receipt line(s) to {r} and reposting"))
+        frappe.throw(
+            "Nothing to correct: this item has no stock left and no receipt "
+            "disagrees with the target rate"
+            + (" (skipped: " + "; ".join(skipped) + ")" if skipped else ""))
     # content-aware dedupe key: if the postable row-set changes (a reservation
     # cleared, a warehouse toggled), the retry gets a FRESH action instead of
     # replaying a stale Failed payload under the same key.
