@@ -871,7 +871,11 @@ async function pollProgress(once) {
       if (!once) { clearTimeout(progTimer); progTimer = setTimeout(() => pollProgress(), 4000); }
     } else {
       submitting.value = false;
-      if (p.state === "done" && det.value) await open(sel.value);   // refresh counters
+      // Only a POLL that watched a run finish should refresh; the probe fired by
+      // open() must not re-enter it — open() ends by calling pollProgress(true),
+      // so re-opening here loops forever once a vendor has a completed run
+      // (screen flickers: det is nulled, reloaded, nulled again).
+      if (p.state === "done" && det.value && !once) await open(sel.value);
     }
   } catch (e) { submitting.value = false; }
 }
