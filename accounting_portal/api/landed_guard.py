@@ -10,6 +10,8 @@ Runtime-togglable (mirrors fx_guard / stock_guard):
     ap_freight_153_guard      "0" disables (default on)
     ap_freight_redirect       JSON list of blocked account prefixes
                               (default ["770.07"])
+    ap_freight_outbound       JSON list of prefixes INSIDE those that are
+                              outbound delivery, not inbound freight
 """
 import frappe
 
@@ -23,6 +25,27 @@ def _enabled():
     if v in (None, ""):
         return True
     return str(v) == "1"
+
+
+# Delivery TO the customer lives inside the same 770.07 parent as inbound
+# freight, and it is not a landed cost: you cannot capitalise the cost of
+# shipping goods you no longer hold into the value of stock. Cathedis last-mile
+# alone is 972,950 in 2026, and the guard was pushing it at 153.03, where it
+# would have inflated inventory and never cleared. These stay in the P&L, below
+# gross margin, as the selling expense they are.
+_OUTBOUND = ["770.07.0001",   # Trendyol fees
+             "770.07.001",    # Trendyol cargo / penalty / subscription
+             "770.07.004",    # Cathedis last-mile (+ .001 extra charges)
+             "770.07.005",    # Aramex courier
+             "770.07.008"]    # local delivery to the customer
+
+
+def _outbound():
+    try:
+        p = frappe.parse_json(frappe.db.get_default("ap_freight_outbound") or "[]") or []
+        return [str(x) for x in p] or list(_OUTBOUND)
+    except Exception:
+        return list(_OUTBOUND)
 
 
 def _patterns():
@@ -41,13 +64,17 @@ def validate_landed_account(doc, method=None):
     if not _enabled() or doc.company != SALES:
         return
     pats = tuple(_patterns())
+    out = tuple(_outbound())
+
+    def _blocked(acc):
+        acc = acc or ""
+        return acc.startswith(pats) and not acc.startswith(out)
+
     # freight arrives BOTH ways: as an item line (expense_account) and as a
     # charge row (account_head) — guarding only the items let charge-row
     # freight through untouched
-    bad = [(d.expense_account or "") for d in (doc.items or [])
-           if (d.expense_account or "").startswith(pats)]
-    bad += [(t.account_head or "") for t in (doc.taxes or [])
-            if (t.account_head or "").startswith(pats)]
+    bad = [(d.expense_account or "") for d in (doc.items or []) if _blocked(d.expense_account)]
+    bad += [(t.account_head or "") for t in (doc.taxes or []) if _blocked(t.account_head)]
     if not bad:
         return
     clearing = frappe.db.get_value("Company", SALES, "expenses_included_in_valuation") \
@@ -57,7 +84,9 @@ def validate_landed_account(doc, method=None):
         f"New freight/import bills must NOT hit the P&L family ({accs}). "
         f"Book them to <b>{clearing}</b> — in the portal's New-expense screen tick "
         "<b>Freight bill (landed)</b> and the account is set automatically; the bill "
-        "then appears in Purchases → Shipments for allocation to its shipment. "
+        "then appears in Purchases → Shipments for allocation to its shipment.<br><br>"
+        "<i>Delivery to the customer — Cathedis, Aramex, local last-mile — is NOT "
+        "affected by this rule: it is a selling expense and belongs in the P&L.</i> "
         "(A Super Admin can temporarily disable this guard if truly needed.)",
         title="Freight goes to 153.03")
 
