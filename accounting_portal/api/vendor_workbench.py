@@ -29,6 +29,7 @@ import json
 import frappe
 from frappe.utils import flt, cint
 
+from accounting_portal.api import pricing
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write
 
 SALES = "Justyol Morocco"
@@ -1296,35 +1297,28 @@ def submit_progress(supplier=None):
 # as the supplier's default buying list, so every PO (portal or ERPNext)
 # auto-fetches the latest valid price.
 
-_VP_PREFIX = "VP - "
-_PRICE_BOUNDS = (0.05, 100000)          # sanity per unit in list currency
-_PRICE_DEV_GUARD = 0.50                 # vs latest invoice era → needs confirm
+# The agreed price is owned by api/pricing.py (procurement's operating cycle).
+# The workbench only READS it — a correction tool must never be a second place
+# where a price can be defined, or the two drift apart.
+_VP_PREFIX = pricing.VP_PREFIX
 
 
 def _vp_name(supplier):
-    return (_VP_PREFIX + supplier)[:140]
+    return pricing.list_name(supplier)
 
 
 def _vp_list(supplier, create=False):
-    name = _vp_name(supplier)
-    if frappe.db.exists("Price List", name):
-        return name
-    if not create:
-        return None
-    ccy = (frappe.db.get_value("Supplier", supplier, "default_currency")
-           or frappe.db.get_value("Company", SALES, "default_currency") or "MAD")
-    frappe.get_doc({"doctype": "Price List", "price_list_name": name,
-                    "currency": ccy, "buying": 1, "enabled": 1}).insert(ignore_permissions=True)
-    frappe.db.set_value("Supplier", supplier, "default_price_list", name)
-    return name
+    if create:
+        return pricing.ensure_list(supplier)
+    name = pricing.list_name(supplier)
+    return name if frappe.db.exists("Price List", name) else None
 
 
 def _vp_ccy(supplier):
     pl = _vp_list(supplier)
     if pl:
         return frappe.db.get_value("Price List", pl, "currency") or "MAD"
-    return (frappe.db.get_value("Supplier", supplier, "default_currency")
-            or frappe.db.get_value("Company", SALES, "default_currency") or "MAD")
+    return pricing.supplier_currency(supplier)
 
 
 @frappe.whitelist()
@@ -1387,56 +1381,32 @@ def vendor_prices(supplier=None):
 
 
 def _write_prices(supplier, rows, confirm):
-    """Shared writer for grid + import. Guards first, then append-only rows:
-    close the open row (valid_upto = day before) and insert the new era."""
+    """The team door of the pricing cycle.
+
+    The write itself lives in api/pricing.write_agreed — the one place an
+    approved price is ever created. All this does is supply the workbench's own
+    benchmark (the invoice-era rate, converted into the supplier's list currency
+    so the guard compares like with like) and shape the reply for the grid.
+    """
     from accounting_portal.api.cost_trace import _fx_series, _to_mad_fast
     fx = _fx_series()
     ccy = _vp_ccy(supplier)
     today = frappe.utils.nowdate()
-    _pr = _pricing(supplier, [r.get("item_code") for r in rows if r.get("item_code")])
-    saved, flagged, invalid = [], [], []
-    pl = None
-    for r in rows:
-        ic = r.get("item_code")
-        rate = flt(r.get("rate"))
-        vfrom = str(r.get("valid_from") or today)[:10]
-        if not ic or not frappe.db.exists("Item", ic):
-            invalid.append({"row": ic, "why": "unknown item"})
-            continue
-        if not (_PRICE_BOUNDS[0] <= rate <= _PRICE_BOUNDS[1]):
-            invalid.append({"row": ic, "why": f"rate {rate} out of bounds"})
-            continue
-        bench = flt((_pr.get(ic) or {}).get("latest") or 0)
-        if bench > 0 and not cint(confirm):
-            mad = _to_mad_fast(rate, ccy, today, fx)
-            if mad > 0 and abs(mad - bench) / bench > _PRICE_DEV_GUARD:
-                flagged.append({"item_code": ic, "rate": rate,
-                                "agreed_mad": round(mad, 2), "era_mad": round(bench, 2),
-                                "dev_pct": round(100.0 * (mad - bench) / bench)})
-                continue
-        pl = pl or _vp_list(supplier, create=True)
-        latest = frappe.db.sql(
-            """SELECT name, valid_from FROM `tabItem Price`
-               WHERE price_list=%s AND item_code=%s
-               ORDER BY valid_from DESC, creation DESC LIMIT 1""", (pl, ic))
-        if latest:
-            prev_name, prev_from = latest[0][0], str(latest[0][1] or "")[:10]
-            if prev_from and vfrom < prev_from:
-                invalid.append({"row": ic, "why": f"backdated ({vfrom} < {prev_from})"})
-                continue
-            if prev_from == vfrom:
-                # same-day correction: replace, don't stack
-                frappe.db.set_value("Item Price", prev_name, "price_list_rate", rate)
-                saved.append(ic)
-                continue
-            frappe.db.set_value("Item Price", prev_name, "valid_upto",
-                                frappe.utils.add_days(vfrom, -1))
-        frappe.get_doc({"doctype": "Item Price", "price_list": pl, "item_code": ic,
-                        "price_list_rate": rate, "buying": 1,
-                        "valid_from": vfrom}).insert(ignore_permissions=True)
-        saved.append(ic)
-    frappe.db.commit()
-    return {"saved": len(saved), "flagged": flagged[:50], "flagged_n": len(flagged),
+    codes = [r.get("item_code") for r in rows if r.get("item_code")]
+    _pr = _pricing(supplier, codes)
+    per_unit_mad = _to_mad_fast(1.0, ccy, today, fx) or 1.0
+
+    def _bench(ic):
+        era_mad = flt((_pr.get(ic) or {}).get("latest") or 0)
+        return era_mad / per_unit_mad if era_mad else 0.0
+
+    res = pricing.write_agreed(supplier, rows, confirm=bool(cint(confirm)), bench_fn=_bench)
+    flagged = [{"item_code": f["item_code"], "rate": f["rate"],
+                "agreed_mad": round(flt(f["rate"]) * per_unit_mad, 2),
+                "era_mad": round(flt((_pr.get(f["item_code"]) or {}).get("latest") or 0), 2),
+                "dev_pct": f["dev_pct"]} for f in res["flagged"]]
+    invalid = res["invalid"]
+    return {"saved": len(res["saved"]), "flagged": flagged[:50], "flagged_n": len(flagged),
             "invalid": invalid[:20], "invalid_n": len(invalid), "currency": ccy}
 
 
