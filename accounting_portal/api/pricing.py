@@ -12,12 +12,17 @@ Storage is two ERPNext price lists per supplier, no invented store:
     VP  - <supplier>   approved. buying=1, wired as Supplier.default_price_list,
                        so ERPNext itself fetches the price onto a PO. This is
                        THE agreed price; nothing else may hold one.
-    VPP - <supplier>   pending. Created DISABLED and wired to nothing, so a
-                       submitted price is out of the selector and no document
-                       reaches it before somebody approves it. (It is flagged
-                       buying=1 because ERPNext refuses a Price List that is
-                       neither buying nor selling; `enabled=0` is what keeps it
-                       out of use, not the flag.)
+    VPP - <supplier>   pending. What keeps a submitted price out of documents is
+                       that NOTHING IS EVER POINTED AT THIS LIST: only the
+                       approved list is written to Supplier.default_price_list,
+                       and a purchase document takes its rate from the list it
+                       names. Approval is what moves a row onto the list that is
+                       actually wired.
+                       (Two stronger-looking options do not work and were tried:
+                       buying=0/selling=0 is refused outright — a Price List must
+                       be applicable to one of them — and a DISABLED list cannot
+                       hold Item Price rows at all, so the pending rows had
+                       nowhere to live.)
 
 Approval copies a row from pending to approved with a `valid_from` date and
 never edits an existing row — the price history stays readable, the same
@@ -58,20 +63,22 @@ def supplier_currency(supplier):
 
 
 def ensure_list(supplier, pending=False):
-    """The approved list is wired to the supplier so POs fetch from it.
+    """Both lists are ordinary enabled buying lists. Only the approved one is
+    written to Supplier.default_price_list — and that wiring is the whole
+    mechanism: a purchase document reads the price list it names, so a pending
+    row is unreachable because no document is ever pointed at the pending list.
 
-    The pending list is created DISABLED: a submitted price must not be
-    reachable by any document until somebody approves it. It still carries
-    buying=1 — ERPNext validates that a Price List is applicable to buying or
-    selling and refuses one that is neither — so `enabled` is what holds it
-    back, together with the fact that nothing ever points a document at it.
+    Do not try to harden this by disabling the pending list. ERPNext refuses to
+    attach an Item Price to a disabled list, so the pending rows would have
+    nowhere to live, and a list that is neither buying nor selling is refused at
+    creation. Both were tried.
     """
     name = list_name(supplier, pending)
     if not frappe.db.exists("Price List", name):
         frappe.get_doc({"doctype": "Price List", "price_list_name": name,
                         "currency": supplier_currency(supplier),
                         "buying": 1, "selling": 0,
-                        "enabled": 0 if pending else 1}).insert(ignore_permissions=True)
+                        "enabled": 1}).insert(ignore_permissions=True)
     if not pending:
         frappe.db.set_value("Supplier", supplier, "default_price_list", name)
     return name
