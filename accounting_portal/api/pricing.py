@@ -202,6 +202,7 @@ def write_agreed(supplier, rows, confirm=False, bench_fn=None):
                 continue
             if prev_from == vfrom:
                 frappe.db.set_value("Item Price", prev_name, "price_list_rate", rate)
+                _apply_commission(supplier, ic, rate)
                 saved.append(ic)
                 continue
             frappe.db.set_value("Item Price", prev_name, "valid_upto", add_days(vfrom, -1))
@@ -209,6 +210,9 @@ def write_agreed(supplier, rows, confirm=False, bench_fn=None):
                         "price_list_rate": rate, "currency": ccy, "buying": 1,
                         "supplier": supplier, "valid_from": vfrom}
                        ).insert(ignore_permissions=True)
+        # our listed base follows the agreed price in the same act, so the two
+        # can never drift into being two different answers for one product
+        _apply_commission(supplier, ic, rate)
         saved.append(ic)
     frappe.db.commit()
     return {"saved": saved, "flagged": flagged, "invalid": invalid,
@@ -341,9 +345,11 @@ def review(supplier=None):
             "dev_pct": round(dev, 1) if dev is not None else None,
             "flagged": bool(dev is not None and dev > DEV_GUARD * 100),
             "valid_from": str(r.valid_from) if r.valid_from else nowdate(),
+            "listed_base": derived_base(supplier, flt(r.rate)),
         })
     hdr = _headers().get(supplier) or {}
     return {"supplier": supplier, "currency": supplier_currency(supplier),
+            "commission_pct": commission_rate(supplier),
             "items": out, "header": hdr,
             "flagged": sum(1 for x in out if x["flagged"])}
 
@@ -758,3 +764,109 @@ def price_audit(supplier=None, limit=5000):
         "at_risk": round(sum(x["at_risk"] for x in rows), 2),
         "tolerance_pct": int(AUDIT_TOL * 100),
     }
+
+
+# --------------------------------------------------------------------------
+# our commission — derived from the agreed price, never typed
+# --------------------------------------------------------------------------
+
+_COMM_KEY = "ap_supplier_commission"      # {supplier: percent}
+BASE_FIELD = "custom_dropship_base_price"
+
+
+def commission_rates():
+    try:
+        return {str(k): flt(v) for k, v in
+                (json.loads(frappe.db.get_default(_COMM_KEY) or "{}") or {}).items()}
+    except Exception:
+        return {}
+
+
+def commission_rate(supplier):
+    return flt(commission_rates().get(supplier))
+
+
+def derived_base(supplier, agreed, rate=None):
+    """What we list the product at: the supplier's agreed price plus our cut.
+
+    A third hand-typed number for the same product is how one item comes to be
+    costed at 8.09 on a receipt, 169.06 on an invoice and 277 in the storefront
+    feed. So this is computed, not entered — change the agreed price and the
+    listed base moves with it in the same instant.
+    """
+    pct = commission_rate(supplier) if rate is None else flt(rate)
+    return round(flt(agreed) * (1 + pct / 100.0), 2) if pct else 0.0
+
+
+def _apply_commission(supplier, item_code, agreed):
+    """Push the derived base onto the item. Silent when the supplier has no rate
+    configured — an absent agreement must not overwrite a value someone set by
+    hand with a zero."""
+    pct = commission_rate(supplier)
+    if not pct or flt(agreed) <= 0:
+        return None
+    base = derived_base(supplier, agreed, pct)
+    try:
+        if frappe.get_meta("Item").has_field(BASE_FIELD):
+            frappe.db.set_value("Item", item_code, BASE_FIELD, base, update_modified=False)
+            return base
+    except Exception:
+        frappe.log_error(title="commission base", message=frappe.get_traceback())
+    return None
+
+
+@frappe.whitelist()
+def commission_settings():
+    """Every supplier that has an approved list, with its rate and coverage."""
+    assert_portal_access()
+    rates = commission_rates()
+    out = []
+    for pl in frappe.get_all("Price List", filters={"name": ["like", VP_PREFIX + "%"]},
+                             fields=["name"]):
+        sup = pl.name[len(VP_PREFIX):]
+        n = frappe.db.count("Item Price", {"price_list": pl.name})
+        out.append({"supplier": sup, "rate": rates.get(sup, 0), "priced_items": n,
+                    "has_rate": sup in rates})
+    out.sort(key=lambda x: (x["has_rate"], -x["priced_items"]))
+    return {"suppliers": out, "rates": rates,
+            "missing": [x["supplier"] for x in out if not x["has_rate"]]}
+
+
+@frappe.whitelist()
+def set_commission_rate(supplier=None, percent=None, apply_now=1):
+    """Set our commission on a supplier and re-derive every listed base price."""
+    assert_can_write()
+    if not supplier:
+        frappe.throw("supplier required")
+    pct = flt(percent)
+    if pct < 0 or pct > 300:
+        frappe.throw("Commission must be between 0 and 300%")
+    rates = commission_rates()
+    rates[supplier] = pct
+    frappe.db.set_default(_COMM_KEY, json.dumps(rates))
+    frappe.db.commit()
+    updated = 0
+    if int(apply_now or 0):
+        updated = recompute_commission(supplier=supplier).get("updated", 0)
+    return {"supplier": supplier, "percent": pct, "updated": updated}
+
+
+@frappe.whitelist()
+def recompute_commission(supplier=None):
+    """Re-derive the listed base from the current agreed price. Run after a rate
+    changes, or after a batch of prices is approved."""
+    assert_can_write()
+    if not supplier:
+        frappe.throw("supplier required")
+    pct = commission_rate(supplier)
+    if not pct:
+        return {"supplier": supplier, "updated": 0, "note": "no commission rate set"}
+    rows = frappe.db.sql(
+        """SELECT item_code, price_list_rate FROM `tabItem Price`
+           WHERE price_list=%s""", (list_name(supplier),), as_dict=True)
+    updated = 0
+    for r in rows:
+        if _apply_commission(supplier, r.item_code, flt(r.price_list_rate)) is not None:
+            updated += 1
+    frappe.db.commit()
+    return {"supplier": supplier, "percent": pct, "items": len(rows), "updated": updated}
