@@ -17,8 +17,9 @@ vendor's MOVED products at once:
                 dry-run preview of anchors first so silent retro-degradation
                 (anchor day closed at zero) is visible BEFORE posting.
 
-Scope filter everywhere: items with REAL movement only (delivered in 2026 or
-on-hand now, sales company) — integration-only ghosts are excluded.
+Scope filter everywhere: items that can still cost us money — delivered in 2026
+or SELLABLE on hand now (sales company). Integration-only ghosts, disabled items
+and defective/rejected/scrap stock are excluded.
 
 State per vendor is stored in the `ap_vendor_state` default:
   {supplier: {"weights": 1, "freight": 1, "costs": 1, "submitted": [item_codes]}}
@@ -65,13 +66,20 @@ def _channels():
 
 
 def _moved_universe():
-    """{item_code: {"sold": qty, "oh": qty}} — items DELIVERED in 2026 only.
+    """{item_code: {"sold": qty, "oh": qty}} — items DELIVERED in 2026 OR sellable
+    on the shelf today.
 
-    Deliberately excludes never-sold stock (new selections still in transit /
-    at the Istanbul hub, 10-per-variant): they have zero COGS impact, and the
-    new receiving process prices them correctly on arrival — correcting them
-    here would only inflate the team's workload. On-hand qty is kept as an
-    info column for the items that DID sell."""
+    On-hand stock used to be excluded ("never sold, so zero COGS impact"). That
+    held while the goal was correcting history; it inverts the moment the goal is
+    that NEXT month's COGS is right, because unsold stock is exactly what next
+    month sells. Measured on PROD before this change: closing every vendor under
+    the old scope still left 8,319 on-hand units (1.25M MAD, 1,808 of them at a
+    zero rate) that no vendor run could ever reach — Kitchen Life was finished
+    and still had 1,571 unpriced units on the shelf.
+
+    Stock that cannot be sold stays out — disabled items and the
+    defective/rejected/scrap warehouses — since pricing goods that will never
+    reach a customer is pure workload."""
     out = {}
     for r in frappe.db.sql(
             """SELECT dni.item_code ic, SUM(dni.qty) q FROM `tabDelivery Note Item` dni
@@ -79,8 +87,20 @@ def _moved_universe():
                WHERE dn.docstatus=1 AND dn.company=%s AND dn.posting_date>='2026-01-01'
                GROUP BY dni.item_code""", (SALES,), as_dict=True):
         out.setdefault(r.ic, {"sold": 0.0, "oh": 0.0})["sold"] = flt(r.q)
-    if not out:
-        return out
+    for r in frappe.db.sql(
+            """SELECT b.item_code ic, SUM(b.actual_qty) q FROM `tabBin` b
+               JOIN `tabWarehouse` w ON w.name=b.warehouse
+               JOIN `tabItem` i ON i.name=b.item_code
+               WHERE w.company=%s AND b.actual_qty>0 AND IFNULL(i.disabled,0)=0
+                 AND LOWER(b.warehouse) NOT LIKE %s
+                 AND LOWER(b.warehouse) NOT LIKE %s
+                 AND LOWER(b.warehouse) NOT LIKE %s
+               GROUP BY b.item_code""",
+            (SALES, "%defect%", "%reject%", "%scrap%"), as_dict=True):
+        out.setdefault(r.ic, {"sold": 0.0, "oh": 0.0})["oh"] = flt(r.q)
+    out.pop(None, None)
+    out.pop("", None)
+    return out
     codes = list(out)
     for i in range(0, len(codes), 700):
         for r in frappe.db.sql(
