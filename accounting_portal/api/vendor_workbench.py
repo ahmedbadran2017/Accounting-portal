@@ -1285,9 +1285,9 @@ def submit_all(supplier=None, items=None, note=None):
     Items are the frontend's ready queue (rate + retro OK + weight + not yet
     submitted); already-submitted codes are filtered again here anyway.
 
-    Trade-off: the job occupies the long worker for the whole run, so the
-    reposts it enqueues only start draining after the last item — same total
-    work, deferred. Stop via stop_run(); progress via submit_progress()."""
+    The worker chunks itself (_SUBMIT_CHUNK per queue turn), so the reposts
+    each chunk creates drain between chunks instead of piling up until the
+    end. Stop via stop_run(); progress via submit_progress()."""
     assert_can_write()
     if not supplier:
         frappe.throw("supplier required")
@@ -1310,7 +1310,7 @@ def submit_all(supplier=None, items=None, note=None):
     _save_state(st)
     frappe.db.commit()
     frappe.enqueue("accounting_portal.api.vendor_workbench._run_submit",
-                   queue="long", timeout=21600, supplier=supplier,
+                   queue="long", timeout=7200, supplier=supplier,
                    items=todo, note=note or "vendor workbench — run all",
                    user=frappe.session.user)
     return {"supplier": supplier, "queued": len(todo), "total": len(todo)}
@@ -1375,20 +1375,43 @@ def _notify_run_finished(supplier, run):
                          message=frappe.get_traceback())
 
 
-def _run_submit(supplier=None, items=None, note=None, user=None):
+_SUBMIT_CHUNK = 10
+
+
+def _run_submit(supplier=None, items=None, note=None, user=None, total=None):
     """Background worker for submit_batch/submit_all — the same per-item unit
     of work the UI can also drive directly, so all paths record progress
     identically. _record_run commits per item, so the stop flag written by
-    stop_run() is visible between items."""
+    stop_run() is visible between items.
+
+    Cooperative chunking: process _SUBMIT_CHUNK items, then RE-ENQUEUE the
+    remainder and exit. The re-enqueued job lands BEHIND the reposts this
+    chunk just created (FIFO), so the single long worker alternates between
+    posting corrections and draining their reposts — a multi-hour run never
+    starves the repost queue, and neither starves the other."""
     if user:
         frappe.set_user(user)
     items = items or []
+    total = total or len(items)
     stopped = False
-    for ic in items:
+    done_now = 0
+    for ic in items[:_SUBMIT_CHUNK]:
         if _stop_requested(supplier):
             stopped = True
             break
-        _submit_one_item(supplier, ic, note, len(items))
+        _submit_one_item(supplier, ic, note, total)
+        done_now += 1
+    remaining = [] if stopped else items[done_now:]
+    if remaining:
+        st = _state()
+        r = st.setdefault(supplier, {}).setdefault("run", {})
+        r["updated"] = frappe.utils.now()
+        _save_state(st)
+        frappe.db.commit()
+        frappe.enqueue("accounting_portal.api.vendor_workbench._run_submit",
+                       queue="long", timeout=7200, supplier=supplier,
+                       items=remaining, note=note, user=user, total=total)
+        return
     st = _state()
     r = (st.setdefault(supplier, {}).setdefault("run", {}))
     r["state"] = "stopped" if stopped else "done"
