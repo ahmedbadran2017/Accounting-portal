@@ -1333,6 +1333,48 @@ def _stop_requested(supplier):
     return bool(((_state().get(supplier) or {}).get("run") or {}).get("stop"))
 
 
+_NOTIFY_KEY = "ap_submit_notify"
+_NOTIFY_DEFAULT = ["ahmed@justyol.com", "eman@justyol.com"]
+
+
+def _notify_recipients():
+    try:
+        r = json.loads(frappe.db.get_default(_NOTIFY_KEY) or "[]") or []
+        return r if isinstance(r, list) and r else _NOTIFY_DEFAULT
+    except Exception:
+        return _NOTIFY_DEFAULT
+
+
+def _notify_run_finished(supplier, run):
+    """Email the team when a Run-all background job ends. Best-effort: a mail
+    hiccup must never mark hours of posted corrections as failed."""
+    try:
+        state = run.get("state") or "done"
+        done = int(flt(run.get("done")))
+        total = int(flt(run.get("total")))
+        errors = [r for r in (run.get("results") or [])
+                  if str(r.get("result", "")).startswith("error")]
+        subject = "Vendor workbench — %s: %s (%d/%d)" % (
+            supplier, "stopped" if state == "stopped" else "finished", done, total)
+        lines = [
+            "Run-all submit for <b>%s</b> %s." % (
+                supplier, "was stopped on request" if state == "stopped" else "finished"),
+            "Items processed this run: <b>%d / %d</b>" % (done, total),
+            "Started: %s — finished: %s" % (run.get("started"), run.get("finished")),
+            "Reposts still queued: %s" % frappe.db.count(
+                "Repost Item Valuation", {"status": ["in", ["Queued", "In Progress"]]}),
+        ]
+        if errors:
+            lines.append("<b>%d item(s) errored</b> — reopen the vendor to see them:" % len(errors))
+            lines += ["&nbsp;&nbsp;%s: %s" % (e.get("item_code"), e.get("result"))
+                      for e in errors[:10]]
+        frappe.sendmail(recipients=_notify_recipients(), subject=subject,
+                        message="<br>".join(lines))
+    except Exception:
+        frappe.log_error(title="workbench run notification",
+                         message=frappe.get_traceback())
+
+
 def _run_submit(supplier=None, items=None, note=None, user=None):
     """Background worker for submit_batch/submit_all — the same per-item unit
     of work the UI can also drive directly, so all paths record progress
@@ -1354,6 +1396,8 @@ def _run_submit(supplier=None, items=None, note=None, user=None):
     r["finished"] = frappe.utils.now()
     _save_state(st)
     frappe.db.commit()
+    if (r.get("mode") or "batch") == "all":
+        _notify_run_finished(supplier, r)
 
 
 @frappe.whitelist()
