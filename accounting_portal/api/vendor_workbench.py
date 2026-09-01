@@ -43,14 +43,32 @@ _COMPONENT_RE = r"-(box|holder|spoon|tape|bag|label|sticker|carton|cover|packag)
 
 
 def _state():
+    """Merged view: the legacy monolithic blob (if any survives) overlaid with
+    the per-supplier rows that replaced it."""
     try:
-        return json.loads(frappe.db.get_default(_STATE_KEY) or "{}") or {}
+        st = json.loads(frappe.db.get_default(_STATE_KEY) or "{}") or {}
     except Exception:
-        return {}
+        st = {}
+    for k, v in frappe.db.sql("""SELECT defkey, defvalue FROM tabDefaultValue
+        WHERE parent='__default' AND defkey LIKE %s""", (_STATE_KEY + "::%",)):
+        try:
+            st[k[len(_STATE_KEY) + 2:]] = json.loads(v) or {}
+        except Exception:
+            pass
+    return st
 
 
 def _save_state(st):
-    frappe.db.set_default(_STATE_KEY, json.dumps(st))
+    """One DefaultValue row PER SUPPLIER. The single-blob version overflowed
+    defvalue (TEXT, 64KB) on 2026-09-01: submitted-item lists across all
+    vendors passed 64KB mid-run and every state save started failing with
+    DataError 1406, killing the running background job. Per-supplier rows keep
+    each blob ~20KB at worst. The legacy blob is emptied on first save so the
+    merged read never resurrects stale copies of a supplier."""
+    for sup, v in st.items():
+        frappe.db.set_default(_STATE_KEY + "::" + sup, json.dumps(v))
+    if frappe.db.get_default(_STATE_KEY):
+        frappe.db.set_default(_STATE_KEY, "{}")
 
 
 def _channels():
