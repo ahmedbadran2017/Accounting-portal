@@ -513,23 +513,31 @@
             </p>
             <div v-if="pv" class="mt-3 flex items-center gap-2 flex-wrap">
               <button class="h-[34px] px-4 rounded-[9px] text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-                      :disabled="submitting || !readyQueue.length" @click="runBatch">
-                {{ submitting ? L("Posting batch…","جاري ترحيل الدفعة…","Envoi…")
-                  : L("Submit next batch ("+Math.min(15, readyQueue.length)+" of "+readyQueue.length+")","رحّل الدفعة الجاية ("+Math.min(15, readyQueue.length)+" من "+readyQueue.length+")","Soumettre le lot") }}
+                      :disabled="submitting || !readyQueue.length" @click="runAll">
+                {{ submitting ? L("Running…","شغّال…","En cours…")
+                  : L("Run all in background ("+readyQueue.length+")","شغّل الكل في الخلفية ("+readyQueue.length+")","Tout exécuter en arrière-plan ("+readyQueue.length+")") }}
               </button>
-              <span class="text-[10.5px] text-ink-muted">{{ L("Light batches (≤15 items) — gated, audited, reversible; oldest anchors heal the full year.","دفعات خفيفة (≤15 صنف) — gated ومسجّلة وقابلة للعكس.","Lots légers, audités, réversibles.") }}</span>
+              <button class="h-[34px] px-3 rounded-[9px] text-[11.5px] font-bold border border-line bg-white disabled:opacity-50"
+                      :disabled="submitting || !readyQueue.length" @click="runBatch">
+                {{ L("Next "+Math.min(15, readyQueue.length)+" from this tab","الـ"+Math.min(15, readyQueue.length)+" الجايين من التاب ده","Prochains "+Math.min(15, readyQueue.length)+" depuis cet onglet") }}
+              </button>
+              <span class="text-[10.5px] text-ink-muted">{{ L("Background = server job, tab can close. Gated, audited, reversible either way.","في الخلفية = شغل على السيرفر والتاب يتقفل عادي. الطريقتين gated ومسجّلين وقابلين للعكس.","Arrière-plan = tâche serveur, onglet fermable.") }}</span>
             </div>
             <div v-if="prog && prog.state !== 'idle'" class="mt-3 rounded-[10px] border px-3 py-2.5"
                  :style="prog.state === 'running' ? 'border-color:#fde68a;background:#fffbeb' : 'border-color:#a7f3d0;background:#ecfdf5'">
               <div class="flex items-center gap-2 text-[11.5px] font-bold"
                    :style="prog.state === 'running' ? 'color:#b45309' : 'color:#047857'">
                 <span>{{ prog.state === "running"
-                  ? L("Running item by item — keep this tab open","شغّال صنف بصنف — سيب التاب مفتوح","Article par article — gardez cet onglet ouvert")
+                  ? (prog.mode === "all"
+                      ? L("Running on the server — you can close this tab","شغّال على السيرفر — ممكن تقفل التاب","Sur le serveur — vous pouvez fermer l'onglet")
+                      : L("Running item by item — keep this tab open","شغّال صنف بصنف — سيب التاب مفتوح","Article par article — gardez cet onglet ouvert"))
                   : prog.state === "stopped"
                     ? L("Stopped — finished items are saved","اتوقف — اللي خلص محفوظ","Arrêté — le travail fait est enregistré")
                     : L("Batch finished","الدفعة خلصت","Lot terminé") }}</span>
                 <span class="ms-auto tnum" dir="ltr">{{ prog.done }}/{{ prog.total }}</span>
-                <button v-if="prog.state === 'running' && submitting" class="h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px] font-bold"
+                <button v-if="prog.state === 'running' && prog.mode === 'all'" class="h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px] font-bold"
+                        @click="stopAll">{{ L("Stop after this item","وقّف بعد الصنف ده","Arrêter") }}</button>
+                <button v-else-if="prog.state === 'running' && submitting" class="h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px] font-bold"
                         @click="stopRun = true">{{ L("Stop after this item","وقّف بعد الصنف ده","Arrêter") }}</button>
               </div>
               <div class="h-[6px] rounded-full mt-2 overflow-hidden" style="background:#00000012">
@@ -858,6 +866,25 @@ async function runBatch() {
   prog.value = { ...prog.value, state: stopRun.value ? "stopped" : "done" };
   submitting.value = false;
   await open(sel.value);
+}
+// The whole remaining queue as ONE server job: the browser only starts it and
+// polls. Survives tab close, reload, sleep — stop_run() is the only off switch.
+async function runAll() {
+  const items = readyQueue.value;
+  if (!items.length) return;
+  submitting.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.vendor_workbench.submit_all",
+      { supplier: sel.value, items: JSON.stringify(items) });
+    if (!r.already_running)
+      prog.value = { state: "running", mode: "all", done: 0, total: r.total, results: [],
+                     submitted_total: (det.value?.state?.submitted || []).length, reposts: 0 };
+    pollProgress();
+  } catch (e) { alert((e && e.message) || e); submitting.value = false; }
+}
+async function stopAll() {
+  try { await api.call("accounting_portal.api.vendor_workbench.stop_run", { supplier: sel.value }); }
+  catch (e) { alert((e && e.message) || e); }
 }
 async function pollProgress(once) {
   if (!sel.value) return;

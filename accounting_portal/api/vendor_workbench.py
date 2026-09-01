@@ -1127,7 +1127,7 @@ def submit_preview(supplier=None, items=None):
             "anchor_today": sum(1 for r in out if r["rate"] and not r["retro_ok"])}
 
 
-_RUN_STALE_SECONDS = 600
+_RUN_STALE_SECONDS = 1200  # one item can legitimately take minutes (160+ retro pins)
 
 
 def _run_is_stale(run):
@@ -1268,8 +1268,9 @@ def submit_batch(supplier=None, items=None, note=None):
                 "done": run.get("done"), "total": run.get("total")}
     done = v.setdefault("submitted", [])
     todo = [ic for ic in items if ic not in done]
-    v["run"] = {"state": "running", "total": len(todo), "done": 0,
-                "started": frappe.utils.now(), "results": []}
+    v["run"] = {"state": "running", "total": len(todo), "done": 0, "mode": "batch",
+                "started": frappe.utils.now(), "updated": frappe.utils.now(),
+                "results": []}
     _save_state(st)
     frappe.enqueue("accounting_portal.api.vendor_workbench._run_submit",
                    queue="long", timeout=7200, supplier=supplier,
@@ -1277,17 +1278,79 @@ def submit_batch(supplier=None, items=None, note=None):
     return {"supplier": supplier, "queued": len(todo), "total": len(todo)}
 
 
+@frappe.whitelist()
+def submit_all(supplier=None, items=None, note=None):
+    """One click: queue EVERY remaining ready item as a single background job.
+    The browser is a spectator from then on — the tab can be closed freely.
+    Items are the frontend's ready queue (rate + retro OK + weight + not yet
+    submitted); already-submitted codes are filtered again here anyway.
+
+    Trade-off: the job occupies the long worker for the whole run, so the
+    reposts it enqueues only start draining after the last item — same total
+    work, deferred. Stop via stop_run(); progress via submit_progress()."""
+    assert_can_write()
+    if not supplier:
+        frappe.throw("supplier required")
+    items = frappe.parse_json(items or "[]")
+    if not items:
+        frappe.throw("no items to submit")
+    st = _state()
+    v = st.setdefault(supplier, {})
+    run = v.get("run") or {}
+    if run.get("state") == "running" and not _run_is_stale(run):
+        return {"supplier": supplier, "queued": 0, "already_running": 1,
+                "done": run.get("done"), "total": run.get("total")}
+    done = v.setdefault("submitted", [])
+    todo = [ic for ic in items if ic not in done]
+    if not todo:
+        return {"supplier": supplier, "queued": 0, "total": 0}
+    v["run"] = {"state": "running", "total": len(todo), "done": 0, "mode": "all",
+                "started": frappe.utils.now(), "updated": frappe.utils.now(),
+                "results": []}
+    _save_state(st)
+    frappe.db.commit()
+    frappe.enqueue("accounting_portal.api.vendor_workbench._run_submit",
+                   queue="long", timeout=21600, supplier=supplier,
+                   items=todo, note=note or "vendor workbench — run all",
+                   user=frappe.session.user)
+    return {"supplier": supplier, "queued": len(todo), "total": len(todo)}
+
+
+@frappe.whitelist()
+def stop_run(supplier=None):
+    """Ask the background run to stop after the item it is on. The worker
+    checks this flag between items; finished work stays submitted."""
+    assert_can_write()
+    st = _state()
+    r = st.setdefault(supplier or "", {}).setdefault("run", {})
+    r["stop"] = 1
+    _save_state(st)
+    frappe.db.commit()
+    return {"ok": 1}
+
+
+def _stop_requested(supplier):
+    return bool(((_state().get(supplier) or {}).get("run") or {}).get("stop"))
+
+
 def _run_submit(supplier=None, items=None, note=None, user=None):
-    """Background worker for submit_batch — the same per-item unit of work the
-    UI can also drive directly, so both paths record progress identically."""
+    """Background worker for submit_batch/submit_all — the same per-item unit
+    of work the UI can also drive directly, so all paths record progress
+    identically. _record_run commits per item, so the stop flag written by
+    stop_run() is visible between items."""
     if user:
         frappe.set_user(user)
     items = items or []
+    stopped = False
     for ic in items:
+        if _stop_requested(supplier):
+            stopped = True
+            break
         _submit_one_item(supplier, ic, note, len(items))
     st = _state()
     r = (st.setdefault(supplier, {}).setdefault("run", {}))
-    r["state"] = "done"
+    r["state"] = "stopped" if stopped else "done"
+    r.pop("stop", None)
     r["finished"] = frappe.utils.now()
     _save_state(st)
     frappe.db.commit()
@@ -1313,6 +1376,7 @@ def submit_progress(supplier=None):
         run = r
     return {"supplier": supplier,
             "state": run.get("state") or "idle",
+            "mode": run.get("mode") or "batch",
             "done": int(flt(run.get("done"))), "total": int(flt(run.get("total"))),
             "results": run.get("results") or [],
             "submitted_total": len(v.get("submitted") or []),
