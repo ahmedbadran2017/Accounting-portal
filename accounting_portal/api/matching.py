@@ -240,6 +240,7 @@ def drill(company=None, year=None, month=None, bucket=None, limit=100):
     return {"rows": rows[:lim], "total": len(rows), "shown": min(len(rows), lim)}
 
 
+
 # ═══════════════════════ CYCLE VIEW — order-level contract ═══════════════════
 # The month view answers the finance question; this answers the operational
 # one: does every order tell its COMPLETE story in documents, regardless of
@@ -251,160 +252,170 @@ def drill(company=None, year=None, month=None, bucket=None, limit=100):
 #   returned post-invoice-> DN + SI + return DN + CN + refund PE
 #   cancelled            -> no goods movement at all
 #   in transit           -> DN only, and only while young
+#
+# Performance: one JOIN query per document kind over the whole year (never
+# per-order chunks — 95K orders made 140 chunked queries and a 20s+ load),
+# and the classified EXCEPTIONS ride inside the cached summary so a drill
+# click reads memory, not the database.
 
 CY_TRANSIT_DAYS = 15
+CY_DRILL_CAP = 300
 
 CY_BUCKETS = {
-    "delivered_no_si":   {"action": "bill",        "side": "cost"},
-    "collected_no_si":   {"action": "bill",        "side": "cost"},
-    "returned_no_cn":    {"action": "credit_note", "side": "revenue"},
-    "cn_no_refund":      {"action": "review",      "side": "revenue"},
-    "goods_out_cancelled": {"action": "review",    "side": "cost"},
-    "rev_no_dn":         {"action": "review",      "side": "revenue"},
-    "in_transit":        {"action": "none",        "side": "cost"},
+    "delivered_no_si":   "bill",
+    "collected_no_si":   "bill",
+    "returned_no_cn":    "credit_note",
+    "cn_no_refund":      "review",
+    "goods_out_cancelled": "review",
+    "rev_no_dn":         "review",
+    "in_transit":        "none",
 }
 
 
-def _cycle_orders(company, year):
-    """Every 2026 order classified against the contract. Returns
-    (orders, per-order doc maps) — orders carry .bucket ('complete' or a
-    CY_BUCKETS key) plus the doc that carries the bucket's action."""
+def _cycle_payload(company, year):
+    """Classify every order of the year against the contract, one JOIN query
+    per document kind. Returns the full summary with per-bucket exception
+    rows (value = revenue for revenue-side buckets, DN cost for cost-side)."""
+    base_join = """FROM `tab{dt} Item` it
+        JOIN `tab{dt}` doc ON doc.name=it.parent
+        JOIN `tabSales Order` so ON so.name=it.{lnk}
+        WHERE doc.docstatus=1 AND so.company=%s AND YEAR(so.transaction_date)=%s"""
+
+    def one(dt, lnk, extra, sel):
+        q = ("SELECT it.{lnk}, {sel} ".format(lnk=lnk, sel=sel)
+             + base_join.format(dt=dt, lnk=lnk) + extra + " GROUP BY 1")
+        return dict(frappe.db.sql(q, (company, year)))
+
+    dn = one("Delivery Note", "against_sales_order", " AND doc.is_return=0", "MIN(doc.name)")
+    dn_date = one("Delivery Note", "against_sales_order", " AND doc.is_return=0", "MAX(doc.posting_date)")
+    rdn = one("Delivery Note", "against_sales_order", " AND doc.is_return=1", "MIN(doc.name)")
+    si = one("Sales Invoice", "sales_order", " AND doc.is_return=0", "MIN(doc.name)")
+    si_val = one("Sales Invoice", "sales_order", " AND doc.is_return=0", "SUM(it.base_net_amount)")
+    cn = one("Sales Invoice", "sales_order", " AND doc.is_return=1", "MIN(doc.name)")
+    paid = dict(frappe.db.sql(
+        """SELECT per.reference_name, MIN(pe.name)
+           FROM `tabPayment Entry Reference` per
+           JOIN `tabPayment Entry` pe ON pe.name=per.parent
+           JOIN `tabSales Order` so ON so.name=per.reference_name
+           WHERE pe.docstatus=1 AND per.reference_doctype='Sales Order'
+             AND so.company=%s AND YEAR(so.transaction_date)=%s
+           GROUP BY 1""", (company, year)))
+    refunded = {r[0] for r in frappe.db.sql(
+        """SELECT DISTINCT per.reference_name
+           FROM `tabPayment Entry Reference` per
+           JOIN `tabPayment Entry` pe ON pe.name=per.parent
+           JOIN `tabSales Invoice` cnd ON cnd.name=per.reference_name
+           WHERE pe.docstatus=1 AND pe.payment_type='Pay'
+             AND per.reference_doctype='Sales Invoice'
+             AND cnd.is_return=1 AND cnd.company=%s
+             AND YEAR(cnd.posting_date) IN (%s, %s)""",
+        (company, year, int(year) + 1))}
+
     sos = frappe.db.sql(
-        """SELECT name, status, docstatus, transaction_date
-           FROM `tabSales Order`
+        """SELECT name, status, docstatus FROM `tabSales Order`
            WHERE company=%s AND YEAR(transaction_date)=%s AND docstatus IN (1,2)""",
         (company, year), as_dict=True)
-    names = [s.name for s in sos]
-
-    def grouped(q, vals=1):
-        out = {}
-        for i in range(0, len(names), 5000):
-            for r in frappe.db.sql(q, (names[i:i + 5000],)):
-                out[r[0]] = r[1] if vals == 1 else r[1:]
-        return out
-
-    dn = grouped("""SELECT di.against_sales_order, MIN(dn.name)
-        FROM `tabDelivery Note Item` di JOIN `tabDelivery Note` dn ON dn.name=di.parent
-        WHERE dn.docstatus=1 AND dn.is_return=0 AND di.against_sales_order IN %s
-        GROUP BY 1""")
-    dn_date = grouped("""SELECT di.against_sales_order, MAX(dn.posting_date)
-        FROM `tabDelivery Note Item` di JOIN `tabDelivery Note` dn ON dn.name=di.parent
-        WHERE dn.docstatus=1 AND dn.is_return=0 AND di.against_sales_order IN %s
-        GROUP BY 1""")
-    rdn = grouped("""SELECT di.against_sales_order, MIN(dn.name)
-        FROM `tabDelivery Note Item` di JOIN `tabDelivery Note` dn ON dn.name=di.parent
-        WHERE dn.docstatus=1 AND dn.is_return=1 AND di.against_sales_order IN %s
-        GROUP BY 1""")
-    si = grouped("""SELECT sii.sales_order, MIN(s.name)
-        FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` s ON s.name=sii.parent
-        WHERE s.docstatus=1 AND s.is_return=0 AND sii.sales_order IN %s
-        GROUP BY 1""")
-    si_val = grouped("""SELECT sii.sales_order, SUM(sii.base_net_amount)
-        FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` s ON s.name=sii.parent
-        WHERE s.docstatus=1 AND s.is_return=0 AND sii.sales_order IN %s
-        GROUP BY 1""")
-    cn = grouped("""SELECT sii.sales_order, MIN(s.name)
-        FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` s ON s.name=sii.parent
-        WHERE s.docstatus=1 AND s.is_return=1 AND sii.sales_order IN %s
-        GROUP BY 1""")
-    paid = grouped("""SELECT per.reference_name, MIN(pe.name)
-        FROM `tabPayment Entry Reference` per JOIN `tabPayment Entry` pe ON pe.name=per.parent
-        WHERE pe.docstatus=1 AND per.reference_doctype='Sales Order'
-          AND per.reference_name IN %s GROUP BY 1""")
-    # refund PE: a Pay-type payment referencing the order's credit note
-    cn_names = [v for v in cn.values() if v]
-    refunded = set()
-    for i in range(0, len(cn_names), 5000):
-        for r in frappe.db.sql(
-            """SELECT DISTINCT per.reference_name
-               FROM `tabPayment Entry Reference` per
-               JOIN `tabPayment Entry` pe ON pe.name=per.parent
-               WHERE pe.docstatus=1 AND pe.payment_type='Pay'
-                 AND per.reference_doctype='Sales Invoice'
-                 AND per.reference_name IN %s""", (cn_names[i:i + 5000],)):
-            refunded.add(r[0])
     today = nowdate()
+    complete = 0
+    exceptions = []           # (bucket, action_doc, so, revenue)
     for s in sos:
-        has_dn, has_rdn, has_si, has_cn = s.name in dn, s.name in rdn, s.name in si, s.name in cn
-        s.doc, s.rev = None, flt(si_val.get(s.name))
+        nm = s.name
+        has_dn, has_rdn, has_si, has_cn = nm in dn, nm in rdn, nm in si, nm in cn
+        rev = flt(si_val.get(nm))
         cancelled = s.docstatus == 2 or s.status == "Cancelled"
+        b, doc = None, None
         if cancelled:
             if has_dn and not has_rdn:
-                s.bucket, s.doc = "goods_out_cancelled", dn.get(s.name)
-            else:
-                s.bucket = "complete"
+                b, doc = "goods_out_cancelled", dn.get(nm)
         elif has_rdn:
-            if not has_si:
-                s.bucket = "complete"                       # clean pre-invoice return
-            elif not has_cn:
-                s.bucket, s.doc = "returned_no_cn", si.get(s.name)
-            elif cn.get(s.name) not in refunded:
-                s.bucket, s.doc = "cn_no_refund", cn.get(s.name)
-            else:
-                s.bucket = "complete"
+            if has_si and not has_cn:
+                b, doc = "returned_no_cn", si.get(nm)
+            elif has_si and cn.get(nm) not in refunded:
+                b, doc = "cn_no_refund", cn.get(nm)
         elif has_dn and has_si:
-            s.bucket = "complete"
+            pass
         elif has_dn:
-            age = frappe.utils.date_diff(today, dn_date.get(s.name))
-            if s.name in paid:
-                s.bucket, s.doc = "collected_no_si", dn.get(s.name)
-            elif age is not None and age <= CY_TRANSIT_DAYS:
-                s.bucket, s.doc = "in_transit", dn.get(s.name)
+            if nm in paid:
+                b, doc = "collected_no_si", dn.get(nm)
+            elif flt(frappe.utils.date_diff(today, dn_date.get(nm))) <= CY_TRANSIT_DAYS:
+                b, doc = "in_transit", dn.get(nm)
             else:
-                s.bucket, s.doc = "delivered_no_si", dn.get(s.name)
+                b, doc = "delivered_no_si", dn.get(nm)
         elif has_si:
-            s.bucket, s.doc = "rev_no_dn", si.get(s.name)
+            b, doc = "rev_no_dn", si.get(nm)
+        if b is None:
+            complete += 1
         else:
-            s.bucket = "complete"                           # never shipped — nothing owed
-    return sos
+            exceptions.append([b, doc, nm, rev])
+
+    # cost-side buckets show DN cost, not (absent) revenue — one query over
+    # just the exception DNs
+    cost_docs = [e[1] for e in exceptions
+                 if e[0] in ("delivered_no_si", "collected_no_si",
+                             "goods_out_cancelled", "in_transit") and e[1]]
+    cogs = {}
+    for i in range(0, len(cost_docs), 5000):
+        for r in frappe.db.sql(
+            """SELECT voucher_no, SUM(-stock_value_difference)
+               FROM `tabStock Ledger Entry`
+               WHERE is_cancelled=0 AND voucher_type='Delivery Note'
+                 AND actual_qty<0 AND voucher_no IN %s
+               GROUP BY 1""", (cost_docs[i:i + 5000],)):
+            cogs[r[0]] = flt(r[1])
+
+    buckets = {}
+    for b, doc, so_name, rev in exceptions:
+        amt = flt(cogs.get(doc)) if doc in cogs else rev
+        bb = buckets.setdefault(b, {"n": 0, "value": 0.0, "rows": [],
+                                    "action": CY_BUCKETS.get(b, "review")})
+        bb["n"] += 1
+        bb["value"] += amt
+        bb["rows"].append({"doc": doc or so_name, "so": so_name,
+                           "amount": round(amt),
+                           "action": bb["action"] if doc else "review"})
+    for bb in buckets.values():
+        bb["rows"].sort(key=lambda r: -r["amount"])
+        bb["rows"] = bb["rows"][:CY_DRILL_CAP]
+        bb["value"] = round(bb["value"])
+    return {"company": company, "year": int(year),
+            "orders": len(sos), "complete": complete,
+            "incomplete": len(sos) - complete, "buckets": buckets}
+
+
+def _cycle_cached(company, year):
+    ck = f"ap_cycle:{company}:{year}"
+    hit = frappe.cache().get_value(ck)
+    if hit is None:
+        hit = _cycle_payload(company, year)
+        frappe.cache().set_value(ck, hit, expires_in_sec=CACHE_SEC)
+    return hit
 
 
 @frappe.whitelist()
 def cycle(company=None, year=None):
-    """The order-lifecycle audit: complete stories vs exceptions, no months."""
+    """The order-lifecycle audit: complete stories vs exceptions, no months.
+    Buckets come back without their row lists (the UI drills separately)."""
     assert_portal_access()
     companies = resolve_companies(company)
     target = company if (company and company in companies) else (companies[0] if companies else None)
     if not target:
         return {}
-    y = int(year or nowdate()[:4])
-    ck = f"ap_cycle:{target}:{y}"
-    hit = frappe.cache().get_value(ck)
-    if hit is not None:
-        return hit
-    sos = _cycle_orders(target, y)
-    buckets = {}
-    complete = 0
-    for s in sos:
-        if s.bucket == "complete":
-            complete += 1
-            continue
-        b = buckets.setdefault(s.bucket, {"n": 0, "value": 0.0})
-        b["n"] += 1
-        b["value"] += flt(s.rev)
-    out = {"company": target, "year": y,
-           "orders": len(sos), "complete": complete,
-           "incomplete": len(sos) - complete,
-           "buckets": {k: {"n": v["n"], "value": round(v["value"]),
-                           "action": CY_BUCKETS.get(k, {}).get("action", "review")}
-                       for k, v in buckets.items()}}
-    frappe.cache().set_value(ck, out, expires_in_sec=CACHE_SEC)
-    return out
+    p = _cycle_cached(target, int(year or nowdate()[:4]))
+    return {**p, "buckets": {k: {"n": v["n"], "value": v["value"], "action": v["action"]}
+                             for k, v in p["buckets"].items()}}
 
 
 @frappe.whitelist()
 def cycle_drill(company=None, year=None, bucket=None, limit=100):
+    """Instant: reads the exception rows already sitting in the cycle cache."""
     assert_portal_access()
     companies = resolve_companies(company)
     target = company if (company and company in companies) else (companies[0] if companies else None)
     if not target or not bucket:
         return {"rows": []}
-    y = int(year or nowdate()[:4])
-    sos = [s for s in _cycle_orders(target, y) if s.bucket == bucket]
-    act = CY_BUCKETS.get(bucket, {}).get("action", "review")
-    rows = [{"doc": s.doc or s.name, "so": s.name, "customer": "",
-             "amount": round(flt(s.rev)), "action": act if s.doc else "review"}
-            for s in sos]
-    rows.sort(key=lambda r: -r["amount"])
-    lim = min(int(limit or 100), 300)
-    return {"rows": rows[:lim], "total": len(rows), "shown": min(len(rows), lim)}
+    p = _cycle_cached(target, int(year or nowdate()[:4]))
+    b = (p.get("buckets") or {}).get(bucket) or {}
+    rows = b.get("rows") or []
+    lim = min(int(limit or 100), CY_DRILL_CAP)
+    return {"rows": rows[:lim], "total": b.get("n", len(rows)),
+            "shown": min(len(rows), lim)}
