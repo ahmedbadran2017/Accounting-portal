@@ -260,7 +260,8 @@ async function creditNote(d) {
   finally { busy.value = ""; }
 }
 const CY_LABELS = {
-  delivered_no_si: () => L("Delivered, awaiting invoice", "متسلّم مستني فاتورة", "Livré, à facturer"),
+  delivered_no_si: () => L("Carrier-confirmed delivered, awaiting invoice", "تسليم مؤكد من الكاريير — مستني فاتورة", "Livraison confirmée, à facturer"),
+  stuck_at_carrier: () => L("Shipped, carrier does NOT confirm delivery", "متشحن والكاريير مش مأكد التسليم", "Expédié, non confirmé par transporteur"),
   collected_no_si: () => L("Collected, never invoiced", "متحصّل بلا فاتورة", "Encaissé sans facture"),
   returned_no_cn: () => L("Returned after invoicing — no credit note", "راجع بعد الفوترة — بلا إشعار دائن", "Retour facturé sans avoir"),
   cn_no_refund: () => L("Credit note without formal refund", "إشعار دائن بلا استرداد رسمي", "Avoir sans remboursement"),

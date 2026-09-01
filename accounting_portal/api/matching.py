@@ -262,7 +262,11 @@ CY_TRANSIT_DAYS = 15
 CY_DRILL_CAP = 300
 
 CY_BUCKETS = {
-    "delivered_no_si":   "bill",
+    "delivered_no_si":   "bill",       # carrier CONFIRMS delivery — safe to bill
+    "stuck_at_carrier":  "review",     # shipped long ago, carrier does NOT say
+                                       # delivered (Pending / Exception / Failed)
+                                       # -> Cathedis reconciliation, never an
+                                       # invoice to someone who got nothing
     "collected_no_si":   "bill",
     "returned_no_cn":    "credit_note",
     "cn_no_refund":      "review",
@@ -340,6 +344,11 @@ def _cycle_payload(company, year):
             elif flt(frappe.utils.date_diff(today, dn_date.get(nm))) <= CY_TRANSIT_DAYS:
                 b, doc = "in_transit", dn.get(nm)
             else:
+                # provisional — the carrier check below has the final word:
+                # "no return + old" is an inference, not proof of delivery
+                # (caught 2026-09-01: MAT-DN-2026-00249, Cathedis 'Pending'
+                # since Jan 1, would have been billed to a customer who never
+                # received the goods; only 341 of 1,018 were truly delivered)
                 b, doc = "delivered_no_si", dn.get(nm)
         elif has_si:
             b, doc = "rev_no_dn", si.get(nm)
@@ -350,8 +359,24 @@ def _cycle_payload(company, year):
 
     # cost-side buckets show DN cost, not (absent) revenue — one query over
     # just the exception DNs
+    # the carrier has the final word on "delivered": only a DN whose Cathedis
+    # status says Delivered/Received may be billed; the rest are reconciliation
+    # cases with the carrier (lost, refused, return never recorded)
+    cand = [e[1] for e in exceptions if e[0] == "delivered_no_si" and e[1]]
+    truly = set()
+    for i in range(0, len(cand), 5000):
+        for r in frappe.db.sql(
+            """SELECT name FROM `tabDelivery Note`
+               WHERE name IN %s AND IFNULL(NULLIF(custom_track_shipment_status,''),
+                     IFNULL(custom_logistics_status,'')) IN ('Delivered','Received')""",
+            (cand[i:i + 5000],)):
+            truly.add(r[0])
+    for e in exceptions:
+        if e[0] == "delivered_no_si" and e[1] not in truly:
+            e[0] = "stuck_at_carrier"
+
     cost_docs = [e[1] for e in exceptions
-                 if e[0] in ("delivered_no_si", "collected_no_si",
+                 if e[0] in ("delivered_no_si", "stuck_at_carrier", "collected_no_si",
                              "goods_out_cancelled", "in_transit") and e[1]]
     cogs = {}
     for i in range(0, len(cost_docs), 5000):
