@@ -168,6 +168,16 @@ def monthly(company=None, year=None):
     dns, sis = _base_sets(target, y)
     months = sorted({d.ym for d in dns} | {s.ym for s in sis})
     rows = []
+    # return DNs give cost BACK — net them per month so the table's cost and
+    # GM agree with the P&L (gross outbound alone overstated COGS by ~2.2M)
+    ret_in = dict(frappe.db.sql(
+        """SELECT DATE_FORMAT(sle.posting_date,'%%Y-%%m'), SUM(sle.stock_value_difference)
+           FROM `tabStock Ledger Entry` sle
+           JOIN `tabWarehouse` w ON w.name=sle.warehouse
+           JOIN `tabDelivery Note` dn ON dn.name=sle.voucher_no
+           WHERE w.company=%s AND sle.is_cancelled=0 AND sle.voucher_type='Delivery Note'
+             AND dn.is_return=1 AND YEAR(sle.posting_date)=%s
+           GROUP BY 1""", (target, y)))
     for m in months:
         md = [d for d in dns if d.ym == m]
         ms = [s for s in sis if s.ym == m]
@@ -176,7 +186,7 @@ def monthly(company=None, year=None):
         def ssum(b): return round(sum(flt(s.value) for s in ms if s.bucket == b))
         def scnt(b): return sum(1 for s in ms if s.bucket == b)
         revenue = round(sum(flt(s.value) for s in ms))
-        dn_cogs = round(sum(flt(d.cogs) for d in md))
+        dn_cogs = round(sum(flt(d.cogs) for d in md) - flt(ret_in.get(m)))
         cost_no_rev = dsum(B_COLLECTED) + dsum(B_DELIVERED) + dsum(B_CLOSED) + dsum(B_NO_SO)
         rev_no_cost = ssum(B_REV_NO_COST) + ssum(B_REV_RETURNED)
         rows.append({

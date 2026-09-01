@@ -108,12 +108,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, watch, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -148,7 +149,7 @@ async function load() {
   loading.value = true; open.value = ""; bucket.value = ""; drillRows.value = [];
   try {
     d0.value = await api.call("accounting_portal.api.matching.monthly",
-      { company: currentCompany.value, year: year.value }, { fresh: true });
+      { company: currentCompany(), year: year.value }, { fresh: true });
     rows.value = d0.value?.rows || [];
   } catch (e) { alert((e && e.message) || e); }
   finally { loading.value = false; }
@@ -161,7 +162,7 @@ async function pick(m, b) {
   bucket.value = b; drillLoading.value = true;
   try {
     const r = await api.call("accounting_portal.api.matching.drill",
-      { company: currentCompany.value, year: year.value, month: m, bucket: b }, { fresh: true });
+      { company: currentCompany(), year: year.value, month: m, bucket: b }, { fresh: true });
     drillRows.value = r.rows || []; drillTotal.value = r.total || 0;
   } catch (e) { alert((e && e.message) || e); }
   finally { drillLoading.value = false; }
@@ -171,7 +172,7 @@ async function bill(d) {
   busy.value = d.doc;
   try {
     await api.call("accounting_portal.api.sales.bill_delivery_note",
-      { company: currentCompany.value, delivery_note: d.doc, submit: 1 });
+      { company: currentCompany(), delivery_note: d.doc, submit: 1 });
     drillRows.value = drillRows.value.filter((x) => x.doc !== d.doc);
   } catch (e) { alert((e && e.message) || e); }
   finally { busy.value = ""; }
@@ -181,11 +182,13 @@ async function creditNote(d) {
   busy.value = d.doc;
   try {
     await api.call("accounting_portal.api.sales.create_sales_return",
-      { company: currentCompany.value, invoice: d.doc, reason: "matching screen — goods returned, invoice stood" });
+      { company: currentCompany(), invoice: d.doc, reason: "matching screen — goods returned, invoice stood" });
     drillRows.value = drillRows.value.filter((x) => x.doc !== d.doc);
   } catch (e) { alert((e && e.message) || e); }
   finally { busy.value = ""; }
 }
+const { entityId } = useUi();
+watch(entityId, load);
 onMounted(load);
 </script>
 
