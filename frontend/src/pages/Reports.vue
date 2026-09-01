@@ -17,6 +17,7 @@
     </div>
 
     <GroupPnl v-if="activeSub === 'grouppnl'" />
+    <Matching v-else-if="activeSub === 'matching'" />
     <SalesCollections v-else-if="activeSub === 'salescol'" />
     <ReceivablesPayables v-else-if="activeSub === 'arap'" />
     <CashForecast v-else-if="activeSub === 'forecast'" />
@@ -41,6 +42,7 @@ import SalesCollections from "@/pages/reports/SalesCollections.vue";
 import ReceivablesPayables from "@/pages/reports/ReceivablesPayables.vue";
 import CashForecast from "@/pages/reports/CashForecast.vue";
 import MissingDocs from "@/pages/reports/MissingDocs.vue";
+import Matching from "@/pages/reports/Matching.vue";
 import Statements from "@/pages/reports/Statements.vue";
 import Investors from "@/pages/reports/Investors.vue";
 import TaxReports from "@/pages/reports/TaxReports.vue";
