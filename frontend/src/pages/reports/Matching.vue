@@ -4,12 +4,80 @@
       <span class="text-[13px] font-bold">{{ L("Revenue ↔ Cost matching","مطابقة الإيراد والتكلفة","Rapprochement CA ↔ coût") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("every month: does each dirham of revenue have its cost, and each cost its revenue?","كل شهر: هل كل إيراد قصاده تكلفته وكل تكلفة قصادها إيرادها؟","chaque mois : chaque dirham a-t-il sa contrepartie ?") }}</span>
       <div class="ms-auto flex items-center gap-1.5">
-        <button v-for="yy in years" :key="yy" @click="year = yy; load()" class="text-[11.5px] font-semibold px-3 py-1.5 rounded-full border transition"
+        <button @click="view = 'month'" class="text-[11.5px] font-semibold px-3 py-1.5 rounded-full border transition"
+                :class="view === 'month' ? 'bg-accent text-white border-accent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ L("By month","بالشهور","Par mois") }}</button>
+        <button @click="view = 'cycle'; if (!cy) loadCycle();" class="text-[11.5px] font-semibold px-3 py-1.5 rounded-full border transition"
+                :class="view === 'cycle' ? 'bg-accent text-white border-accent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ L("By cycle","بالدورة","Par cycle") }}</button>
+        <span class="w-2"></span>
+        <button v-for="yy in years" :key="yy" @click="year = yy; reload()" class="text-[11.5px] font-semibold px-3 py-1.5 rounded-full border transition"
                 :class="year === yy ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ yy }}</button>
       </div>
     </div>
 
-    <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
+    <!-- ═══════════ CYCLE VIEW: every order must tell its full story ═══════════ -->
+    <template v-if="view === 'cycle'">
+      <TableLoading v-if="cyLoading" :rows="6" />
+      <template v-else-if="cy">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Orders","أوردرات","Commandes") }}</div>
+            <div class="text-[19px] font-extrabold tnum" dir="ltr">{{ n(cy.orders) }}</div>
+          </div>
+          <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider" style="color:#047857">{{ L("Complete story","قصة كاملة","Histoire complète") }}</div>
+            <div class="text-[19px] font-extrabold tnum" style="color:#047857" dir="ltr">{{ n(cy.complete) }} <span class="text-[12px]">({{ cy.orders ? Math.round(100*cy.complete/cy.orders) : 0 }}%)</span></div>
+          </div>
+          <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider" style="color:#b91c1c">{{ L("Incomplete","قصة ناقصة","Incomplète") }}</div>
+            <div class="text-[19px] font-extrabold tnum" style="color:#b91c1c" dir="ltr">{{ n(cy.incomplete) }}</div>
+          </div>
+          <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("The contract","العقد","Le contrat") }}</div>
+            <div class="text-[10.5px] text-ink-3 leading-snug mt-0.5">{{ L("delivered→DN+SI · returned pre-invoice→no SI · post-invoice→CN+refund","متسلم→إذن+فاتورة · راجع قبل الفوترة→بلا فاتورة · بعدها→CN+استرداد","livré→BL+facture · retour→avoir+remb.") }}</div>
+          </div>
+        </div>
+        <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+          <table class="w-full text-[12px]">
+            <thead><tr style="background:#fafaf9">
+              <th class="px-4 py-2.5 text-start hcell">{{ L("Exception","الاستثناء","Exception") }}</th>
+              <th class="px-4 py-2.5 text-end hcell">{{ L("Orders","أوردرات","Cmd") }}</th>
+              <th class="px-4 py-2.5 text-end hcell">{{ L("Revenue at stake","إيراد متأثر","CA en jeu") }}</th>
+              <th class="px-4 py-2.5 text-end hcell">{{ L("Fix","التصليح","Action") }}</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="(b, k) in cy.buckets" :key="k" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer"
+                  :class="cyBucket === k ? 'bg-app-warm/60' : ''" @click="pickCycle(k)">
+                <td class="px-4 py-2.5 font-semibold">{{ cyLabel(k) }}</td>
+                <td class="px-4 py-2.5 text-end tnum">{{ n(b.n) }}</td>
+                <td class="px-4 py-2.5 text-end tnum">{{ n(b.value) }}</td>
+                <td class="px-4 py-2.5 text-end text-[11px] text-ink-muted">{{ cyAction(b.action) }}</td>
+              </tr>
+              <tr v-if="!Object.keys(cy.buckets || {}).length"><td colspan="4" class="px-4 py-10 text-center text-[12.5px]" style="color:#047857">{{ L("Every order tells its complete story. 🎉","كل أوردر بيحكي قصته كاملة 🎉","Toutes les commandes sont complètes 🎉") }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="cyBucket" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+          <div class="px-4 py-2.5 text-[11.5px] font-bold border-b border-line-hair" style="background:#fafaf9">{{ cyLabel(cyBucket) }} <span class="text-ink-muted font-normal" dir="ltr">{{ drillRows.length }} / {{ drillTotal }}</span></div>
+          <TableLoading v-if="drillLoading" :rows="4" />
+          <table v-else class="w-full text-[11.5px]">
+            <tbody>
+              <tr v-for="d in drillRows" :key="d.so" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/30">
+                <td class="px-4 py-2 font-mono text-[11px]">{{ d.doc }}</td>
+                <td class="px-4 py-2 font-mono text-[10.5px] text-ink-muted">{{ d.so }}</td>
+                <td class="px-4 py-2 text-end tnum">{{ n(d.amount) }}</td>
+                <td class="px-4 py-2 text-end w-32">
+                  <button v-if="d.action === 'bill'" class="h-6 px-2 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="busy === d.doc" @click="bill(d)">{{ busy === d.doc ? "…" : L("Make invoice","اعمل فاتورة","Facturer") }}</button>
+                  <button v-else-if="d.action === 'credit_note'" class="h-6 px-2 rounded-[7px] text-[10.5px] font-bold text-white hover:opacity-90 disabled:opacity-50" style="background:#b45309" :disabled="busy === d.doc" @click="creditNote(d)">{{ busy === d.doc ? "…" : L("Credit note","إشعار دائن","Avoir") }}</button>
+                  <span v-else class="text-[10px] text-ink-muted">{{ L("review","مراجعة","à revoir") }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </template>
+
+    <div v-if="view === 'month'" class="bg-white rounded-card border border-line overflow-hidden shadow-card">
       <TableLoading v-if="loading" :rows="8" />
       <div v-else-if="!rows.length" class="py-14 text-center text-[12.5px] text-ink-muted">{{ L("No data for this year.","لا توجد بيانات لهذه السنة.","Aucune donnée.") }}</div>
       <div v-else class="overflow-x-auto">
@@ -92,7 +160,7 @@
     </div>
 
     <!-- tie-out to the P&L -->
-    <div v-if="d0 && d0.tie_out" class="bg-white rounded-card border border-line shadow-card px-4 py-3">
+    <div v-if="view === 'month' && d0 && d0.tie_out" class="bg-white rounded-card border border-line shadow-card px-4 py-3">
       <div class="text-[11.5px] font-bold mb-1.5">{{ L("Ties out to the P&L COGS section","التسوية مع بند الكوجز في قائمة الدخل","Rapproché du P&L") }}</div>
       <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-[11.5px] tnum" dir="ltr">
         <span>{{ L("DN cost","تكلفة الأذون","Coût BL") }}: <b>{{ n(d0.tie_out.dn) }}</b></span>
@@ -122,6 +190,10 @@ const n = (v) => (v == null ? "—" : Math.round(v).toLocaleString("en-US"));
 
 const years = [2026, 2025];
 const year = ref(2026);
+const view = ref("month");
+const cy = ref(null);
+const cyLoading = ref(false);
+const cyBucket = ref("");
 const loading = ref(false);
 const d0 = ref(null);
 const rows = ref([]);
@@ -187,8 +259,40 @@ async function creditNote(d) {
   } catch (e) { alert((e && e.message) || e); }
   finally { busy.value = ""; }
 }
+const CY_LABELS = {
+  delivered_no_si: () => L("Delivered, awaiting invoice", "متسلّم مستني فاتورة", "Livré, à facturer"),
+  collected_no_si: () => L("Collected, never invoiced", "متحصّل بلا فاتورة", "Encaissé sans facture"),
+  returned_no_cn: () => L("Returned after invoicing — no credit note", "راجع بعد الفوترة — بلا إشعار دائن", "Retour facturé sans avoir"),
+  cn_no_refund: () => L("Credit note without formal refund", "إشعار دائن بلا استرداد رسمي", "Avoir sans remboursement"),
+  goods_out_cancelled: () => L("Cancelled order, goods went out", "أوردر ملغي وبضاعته خرجت", "Annulée, marchandise sortie"),
+  rev_no_dn: () => L("Invoice with no shipment", "فاتورة بلا شحنة", "Facture sans BL"),
+  in_transit: () => L("In transit (young — just watching)", "في السكة (حديث — مراقبة بس)", "En transit (récent)"),
+};
+const cyLabel = (k) => (CY_LABELS[k] ? CY_LABELS[k]() : k);
+const cyAction = (a) => a === "bill" ? L("Make invoice", "فاتورة", "Facturer")
+  : a === "credit_note" ? L("Credit note", "إشعار دائن", "Avoir")
+  : a === "none" ? L("wait", "استنى", "attendre") : L("review", "مراجعة", "revoir");
+
+async function loadCycle() {
+  cyLoading.value = true; cyBucket.value = ""; drillRows.value = [];
+  try {
+    cy.value = await api.call("accounting_portal.api.matching.cycle",
+      { company: currentCompany(), year: year.value }, { fresh: true });
+  } catch (e) { alert((e && e.message) || e); }
+  finally { cyLoading.value = false; }
+}
+async function pickCycle(b) {
+  cyBucket.value = b; drillLoading.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.matching.cycle_drill",
+      { company: currentCompany(), year: year.value, bucket: b }, { fresh: true });
+    drillRows.value = r.rows || []; drillTotal.value = r.total || 0;
+  } catch (e) { alert((e && e.message) || e); }
+  finally { drillLoading.value = false; }
+}
+function reload() { load(); if (view.value === "cycle" || cy.value) loadCycle(); }
 const { entityId } = useUi();
-watch(entityId, load);
+watch(entityId, reload);
 onMounted(load);
 </script>
 

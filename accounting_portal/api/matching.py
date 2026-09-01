@@ -238,3 +238,173 @@ def drill(company=None, year=None, month=None, bucket=None, limit=100):
                 for d in dns if d.ym == month and d.bucket in want]
     rows.sort(key=lambda r: -r["amount"])
     return {"rows": rows[:lim], "total": len(rows), "shown": min(len(rows), lim)}
+
+
+# ═══════════════════════ CYCLE VIEW — order-level contract ═══════════════════
+# The month view answers the finance question; this answers the operational
+# one: does every order tell its COMPLETE story in documents, regardless of
+# which month each document landed in? The contract (agreed 2026-09-01,
+# policy: a post-invoice return ALWAYS gets a credit note + a formal refund):
+#
+#   delivered            -> DN + SI
+#   returned pre-invoice -> DN + return DN, and NO invoice
+#   returned post-invoice-> DN + SI + return DN + CN + refund PE
+#   cancelled            -> no goods movement at all
+#   in transit           -> DN only, and only while young
+
+CY_TRANSIT_DAYS = 15
+
+CY_BUCKETS = {
+    "delivered_no_si":   {"action": "bill",        "side": "cost"},
+    "collected_no_si":   {"action": "bill",        "side": "cost"},
+    "returned_no_cn":    {"action": "credit_note", "side": "revenue"},
+    "cn_no_refund":      {"action": "review",      "side": "revenue"},
+    "goods_out_cancelled": {"action": "review",    "side": "cost"},
+    "rev_no_dn":         {"action": "review",      "side": "revenue"},
+    "in_transit":        {"action": "none",        "side": "cost"},
+}
+
+
+def _cycle_orders(company, year):
+    """Every 2026 order classified against the contract. Returns
+    (orders, per-order doc maps) — orders carry .bucket ('complete' or a
+    CY_BUCKETS key) plus the doc that carries the bucket's action."""
+    sos = frappe.db.sql(
+        """SELECT name, status, docstatus, transaction_date
+           FROM `tabSales Order`
+           WHERE company=%s AND YEAR(transaction_date)=%s AND docstatus IN (1,2)""",
+        (company, year), as_dict=True)
+    names = [s.name for s in sos]
+
+    def grouped(q, vals=1):
+        out = {}
+        for i in range(0, len(names), 5000):
+            for r in frappe.db.sql(q, (names[i:i + 5000],)):
+                out[r[0]] = r[1] if vals == 1 else r[1:]
+        return out
+
+    dn = grouped("""SELECT di.against_sales_order, MIN(dn.name)
+        FROM `tabDelivery Note Item` di JOIN `tabDelivery Note` dn ON dn.name=di.parent
+        WHERE dn.docstatus=1 AND dn.is_return=0 AND di.against_sales_order IN %s
+        GROUP BY 1""")
+    dn_date = grouped("""SELECT di.against_sales_order, MAX(dn.posting_date)
+        FROM `tabDelivery Note Item` di JOIN `tabDelivery Note` dn ON dn.name=di.parent
+        WHERE dn.docstatus=1 AND dn.is_return=0 AND di.against_sales_order IN %s
+        GROUP BY 1""")
+    rdn = grouped("""SELECT di.against_sales_order, MIN(dn.name)
+        FROM `tabDelivery Note Item` di JOIN `tabDelivery Note` dn ON dn.name=di.parent
+        WHERE dn.docstatus=1 AND dn.is_return=1 AND di.against_sales_order IN %s
+        GROUP BY 1""")
+    si = grouped("""SELECT sii.sales_order, MIN(s.name)
+        FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` s ON s.name=sii.parent
+        WHERE s.docstatus=1 AND s.is_return=0 AND sii.sales_order IN %s
+        GROUP BY 1""")
+    si_val = grouped("""SELECT sii.sales_order, SUM(sii.base_net_amount)
+        FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` s ON s.name=sii.parent
+        WHERE s.docstatus=1 AND s.is_return=0 AND sii.sales_order IN %s
+        GROUP BY 1""")
+    cn = grouped("""SELECT sii.sales_order, MIN(s.name)
+        FROM `tabSales Invoice Item` sii JOIN `tabSales Invoice` s ON s.name=sii.parent
+        WHERE s.docstatus=1 AND s.is_return=1 AND sii.sales_order IN %s
+        GROUP BY 1""")
+    paid = grouped("""SELECT per.reference_name, MIN(pe.name)
+        FROM `tabPayment Entry Reference` per JOIN `tabPayment Entry` pe ON pe.name=per.parent
+        WHERE pe.docstatus=1 AND per.reference_doctype='Sales Order'
+          AND per.reference_name IN %s GROUP BY 1""")
+    # refund PE: a Pay-type payment referencing the order's credit note
+    cn_names = [v for v in cn.values() if v]
+    refunded = set()
+    for i in range(0, len(cn_names), 5000):
+        for r in frappe.db.sql(
+            """SELECT DISTINCT per.reference_name
+               FROM `tabPayment Entry Reference` per
+               JOIN `tabPayment Entry` pe ON pe.name=per.parent
+               WHERE pe.docstatus=1 AND pe.payment_type='Pay'
+                 AND per.reference_doctype='Sales Invoice'
+                 AND per.reference_name IN %s""", (cn_names[i:i + 5000],)):
+            refunded.add(r[0])
+    today = nowdate()
+    for s in sos:
+        has_dn, has_rdn, has_si, has_cn = s.name in dn, s.name in rdn, s.name in si, s.name in cn
+        s.doc, s.rev = None, flt(si_val.get(s.name))
+        cancelled = s.docstatus == 2 or s.status == "Cancelled"
+        if cancelled:
+            if has_dn and not has_rdn:
+                s.bucket, s.doc = "goods_out_cancelled", dn.get(s.name)
+            else:
+                s.bucket = "complete"
+        elif has_rdn:
+            if not has_si:
+                s.bucket = "complete"                       # clean pre-invoice return
+            elif not has_cn:
+                s.bucket, s.doc = "returned_no_cn", si.get(s.name)
+            elif cn.get(s.name) not in refunded:
+                s.bucket, s.doc = "cn_no_refund", cn.get(s.name)
+            else:
+                s.bucket = "complete"
+        elif has_dn and has_si:
+            s.bucket = "complete"
+        elif has_dn:
+            age = frappe.utils.date_diff(today, dn_date.get(s.name))
+            if s.name in paid:
+                s.bucket, s.doc = "collected_no_si", dn.get(s.name)
+            elif age is not None and age <= CY_TRANSIT_DAYS:
+                s.bucket, s.doc = "in_transit", dn.get(s.name)
+            else:
+                s.bucket, s.doc = "delivered_no_si", dn.get(s.name)
+        elif has_si:
+            s.bucket, s.doc = "rev_no_dn", si.get(s.name)
+        else:
+            s.bucket = "complete"                           # never shipped — nothing owed
+    return sos
+
+
+@frappe.whitelist()
+def cycle(company=None, year=None):
+    """The order-lifecycle audit: complete stories vs exceptions, no months."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    target = company if (company and company in companies) else (companies[0] if companies else None)
+    if not target:
+        return {}
+    y = int(year or nowdate()[:4])
+    ck = f"ap_cycle:{target}:{y}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
+    sos = _cycle_orders(target, y)
+    buckets = {}
+    complete = 0
+    for s in sos:
+        if s.bucket == "complete":
+            complete += 1
+            continue
+        b = buckets.setdefault(s.bucket, {"n": 0, "value": 0.0})
+        b["n"] += 1
+        b["value"] += flt(s.rev)
+    out = {"company": target, "year": y,
+           "orders": len(sos), "complete": complete,
+           "incomplete": len(sos) - complete,
+           "buckets": {k: {"n": v["n"], "value": round(v["value"]),
+                           "action": CY_BUCKETS.get(k, {}).get("action", "review")}
+                       for k, v in buckets.items()}}
+    frappe.cache().set_value(ck, out, expires_in_sec=CACHE_SEC)
+    return out
+
+
+@frappe.whitelist()
+def cycle_drill(company=None, year=None, bucket=None, limit=100):
+    assert_portal_access()
+    companies = resolve_companies(company)
+    target = company if (company and company in companies) else (companies[0] if companies else None)
+    if not target or not bucket:
+        return {"rows": []}
+    y = int(year or nowdate()[:4])
+    sos = [s for s in _cycle_orders(target, y) if s.bucket == bucket]
+    act = CY_BUCKETS.get(bucket, {}).get("action", "review")
+    rows = [{"doc": s.doc or s.name, "so": s.name, "customer": "",
+             "amount": round(flt(s.rev)), "action": act if s.doc else "review"}
+            for s in sos]
+    rows.sort(key=lambda r: -r["amount"])
+    lim = min(int(limit or 100), 300)
+    return {"rows": rows[:lim], "total": len(rows), "shown": min(len(rows), lim)}
