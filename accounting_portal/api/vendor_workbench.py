@@ -1127,6 +1127,25 @@ def submit_preview(supplier=None, items=None):
             "anchor_today": sum(1 for r in out if r["rate"] and not r["retro_ok"])}
 
 
+_RUN_STALE_SECONDS = 600
+
+
+def _run_is_stale(run):
+    """A run whose driver died (closed tab, killed worker) stays 'running'
+    forever — nothing calls finish_run. Six vendors were found wedged this way
+    on 2026-09-01 (one since two days prior). A run with no heartbeat for 10
+    minutes is dead: real runs write an item every few seconds."""
+    if (run or {}).get("state") != "running":
+        return False
+    last = run.get("updated") or run.get("started")
+    if not last:
+        return True
+    try:
+        return frappe.utils.time_diff_in_seconds(frappe.utils.now(), last) > _RUN_STALE_SECONDS
+    except Exception:
+        return True
+
+
 def _record_run(supplier, ic, msg, ok, total=None):
     """Persist one item's outcome immediately: re-read state (other tabs/jobs may
     have touched it), append the result, bump the counter, commit. Progress is
@@ -1141,6 +1160,7 @@ def _record_run(supplier, ic, msg, ok, total=None):
     if total:
         r["total"] = total
     r["state"] = "running"
+    r["updated"] = frappe.utils.now()
     r["done"] = flt(r.get("done")) + 1
     r.setdefault("results", []).append({"item_code": ic, "result": msg})
     r["results"] = r["results"][-40:]
@@ -1243,7 +1263,7 @@ def submit_batch(supplier=None, items=None, note=None):
     st = _state()
     v = st.setdefault(supplier, {})
     run = v.get("run") or {}
-    if run.get("state") == "running":
+    if run.get("state") == "running" and not _run_is_stale(run):
         return {"supplier": supplier, "queued": 0, "already_running": 1,
                 "done": run.get("done"), "total": run.get("total")}
     done = v.setdefault("submitted", [])
@@ -1280,6 +1300,17 @@ def submit_progress(supplier=None):
     assert_portal_access()
     v = (_state().get(supplier) or {})
     run = v.get("run") or {}
+    if _run_is_stale(run):
+        # self-heal on poll: flip the dead run to done so the UI offers
+        # resume instead of "keep this tab open" for a loop that no longer exists
+        st = _state()
+        r = st.setdefault(supplier, {}).setdefault("run", {})
+        r["state"] = "done"
+        r["finished"] = frappe.utils.now()
+        r["note"] = "auto-released: no heartbeat for %ds" % _RUN_STALE_SECONDS
+        _save_state(st)
+        frappe.db.commit()
+        run = r
     return {"supplier": supplier,
             "state": run.get("state") or "idle",
             "done": int(flt(run.get("done"))), "total": int(flt(run.get("total"))),
