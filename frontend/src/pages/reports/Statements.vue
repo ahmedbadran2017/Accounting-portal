@@ -129,18 +129,26 @@
             <template v-for="sk in ['revenue', 'cogs', 'opex']" :key="sk">
               <tr style="background:#fcfcfb"><td :colspan="dm.months.length + 2" class="px-4 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3 sticky start-0" >{{ secLabel(sk) }}</td></tr>
               <template v-if="sk === 'cogs' && dm.cogs_groups">
-                <template v-for="grp in cogsGroupOrder" :key="grp.key">
+                <tr v-for="(a, i) in cGroup('core').accounts" :key="'core' + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
+                  <td class="px-4 py-1.5 truncate max-w-[220px] sticky start-0 bg-white hover:text-accent-dark">{{ a.name }}</td>
+                  <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
+                  <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(a.total) }}</td>
+                </tr>
+                <tr class="border-t border-line-2 font-bold" style="background:#f3f8f6">
+                  <td class="px-4 py-1.5 sticky start-0" style="background:#f3f8f6">{{ L("Gross profit — trading (revenue − delivered cost)","مجمل الربح التشغيلي (الإيراد − تكلفة الأذون)","Marge brute — exploitation") }}</td>
+                  <td v-for="(v, j) in grossCore" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
+                  <td class="px-4 py-1.5 text-end tnum">{{ money(grossCoreTotal) }}</td>
+                </tr>
+                <tr style="background:#fcfcfb"><td :colspan="dm.months.length + 2" class="px-4 py-1 text-[10.5px] font-bold text-ink-3 sticky start-0" style="background:#fcfcfb">{{ L("Below the trading margin — lumpy by posting month, not by sale","تحت الهامش التشغيلي — متقلبة بشهر التسجيل مش بشهر البيع","Sous la marge — par mois d'écriture") }}</td></tr>
+                <template v-for="grp in cogsGroupOrder.filter(g => g.key !== 'core')" :key="grp.key">
                   <template v-if="cGroup(grp.key).accounts.length">
-                    <tr v-if="grp.key !== 'core'" style="background:#fcfcfb">
-                      <td :colspan="dm.months.length + 2" class="px-4 py-1 text-[10.5px] font-bold sticky start-0" :style="'color:' + grp.color + ';background:#fcfcfb'">{{ grp.label() }}</td>
+                    <tr class="border-t border-line-hair">
+                      <td class="px-4 py-1.5 sticky start-0 bg-white font-semibold" :style="'color:' + grp.color">{{ grp.label() }}</td>
+                      <td v-for="(v, j) in cGroup(grp.key).monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
+                      <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(cGroup(grp.key).total) }}</td>
                     </tr>
-                    <tr v-for="(a, i) in cGroup(grp.key).accounts" :key="grp.key + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
-                      <td class="px-4 py-1.5 truncate max-w-[220px] sticky start-0 bg-white hover:text-accent-dark" :class="grp.key !== 'core' ? 'ps-7' : ''">{{ a.name }}</td>
-                      <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
-                      <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(a.total) }}</td>
-                    </tr>
-                    <tr v-if="grp.key === 'capitalized' && dm.freight_net" class="border-t border-line-2 font-bold" style="background:#f3f8f6">
-                      <td class="px-4 py-1.5 sticky start-0" style="background:#f3f8f6">{{ L("Net freight charged to the period","صافي الشحن المحمّل على الفترة","Fret net imputé") }}</td>
+                    <tr v-if="grp.key === 'capitalized' && dm.freight_net" class="border-t border-line-hair font-semibold" style="background:#fafaf9">
+                      <td class="px-4 py-1.5 sticky start-0" style="background:#fafaf9">{{ L("= net freight & corrections charged","= صافي الشحن والتصحيحات المحمّل","= fret et corrections nets") }}</td>
                       <td v-for="(v, j) in dm.freight_net.monthly" :key="j" class="px-3 py-1.5 text-end tnum">{{ money(v) }}</td>
                       <td class="px-4 py-1.5 text-end tnum">{{ money(dm.freight_net.total) }}</td>
                     </tr>
@@ -259,6 +267,12 @@ const mSection = (k) => (dm.value.sections || []).find((s) => s.key === k) || { 
 // COGS block presentation: core rows flat, then the freight story
 // (paid − capitalized = net charged), then legacy and intercompany tails
 const cGroup = (k) => (dm.value.cogs_groups || {})[k] || { accounts: [], monthly: [], total: 0 };
+const grossCore = computed(() => {
+  const rev = mSection("revenue").monthly_total || [];
+  const core = cGroup("core").monthly || [];
+  return rev.map((v, i) => v - (core[i] || 0));
+});
+const grossCoreTotal = computed(() => grossCore.value.reduce((s, v) => s + v, 0));
 const cogsGroupOrder = [
   { key: "core", label: () => "", color: "" },
   { key: "freight", label: () => L("Freight & customs — paid", "الشحن والجمارك — مدفوع", "Fret et douane — payé"), color: "#0b5c4f" },
