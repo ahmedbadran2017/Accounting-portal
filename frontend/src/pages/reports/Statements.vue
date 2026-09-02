@@ -128,11 +128,32 @@
           <tbody>
             <template v-for="sk in ['revenue', 'cogs', 'opex']" :key="sk">
               <tr style="background:#fcfcfb"><td :colspan="dm.months.length + 2" class="px-4 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3 sticky start-0" >{{ secLabel(sk) }}</td></tr>
-              <tr v-for="(a, i) in mSection(sk).accounts" :key="sk + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
-                <td class="px-4 py-1.5 truncate max-w-[220px] sticky start-0 bg-white hover:text-accent-dark">{{ a.name }}</td>
-                <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
-                <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(a.total) }}</td>
-              </tr>
+              <template v-if="sk === 'cogs' && dm.cogs_groups">
+                <template v-for="grp in cogsGroupOrder" :key="grp.key">
+                  <template v-if="cGroup(grp.key).accounts.length">
+                    <tr v-if="grp.key !== 'core'" style="background:#fcfcfb">
+                      <td :colspan="dm.months.length + 2" class="px-4 py-1 text-[10.5px] font-bold sticky start-0" :style="'color:' + grp.color + ';background:#fcfcfb'">{{ grp.label() }}</td>
+                    </tr>
+                    <tr v-for="(a, i) in cGroup(grp.key).accounts" :key="grp.key + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
+                      <td class="px-4 py-1.5 truncate max-w-[220px] sticky start-0 bg-white hover:text-accent-dark" :class="grp.key !== 'core' ? 'ps-7' : ''">{{ a.name }}</td>
+                      <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
+                      <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(a.total) }}</td>
+                    </tr>
+                    <tr v-if="grp.key === 'capitalized' && dm.freight_net" class="border-t border-line-2 font-bold" style="background:#f3f8f6">
+                      <td class="px-4 py-1.5 sticky start-0" style="background:#f3f8f6">{{ L("Net freight charged to the period","صافي الشحن المحمّل على الفترة","Fret net imputé") }}</td>
+                      <td v-for="(v, j) in dm.freight_net.monthly" :key="j" class="px-3 py-1.5 text-end tnum">{{ money(v) }}</td>
+                      <td class="px-4 py-1.5 text-end tnum">{{ money(dm.freight_net.total) }}</td>
+                    </tr>
+                  </template>
+                </template>
+              </template>
+              <template v-else>
+                <tr v-for="(a, i) in mSection(sk).accounts" :key="sk + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
+                  <td class="px-4 py-1.5 truncate max-w-[220px] sticky start-0 bg-white hover:text-accent-dark">{{ a.name }}</td>
+                  <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
+                  <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(a.total) }}</td>
+                </tr>
+              </template>
               <tr class="border-t border-line-2 font-bold" style="background:#fafaf9">
                 <td class="px-4 py-1.5 sticky start-0" style="background:#fafaf9">{{ L("Total","إجمالي","Total") }} {{ secLabel(sk).toLowerCase() }}</td>
                 <td v-for="(v, j) in mSection(sk).monthly_total" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : ''">{{ money(v) }}</td>
@@ -235,6 +256,16 @@ async function loadMonthly() {
 }
 function setYear(yr) { mYear.value = yr; loadMonthly(); }
 const mSection = (k) => (dm.value.sections || []).find((s) => s.key === k) || { accounts: [], monthly_total: [], total: 0 };
+// COGS block presentation: core rows flat, then the freight story
+// (paid − capitalized = net charged), then legacy and intercompany tails
+const cGroup = (k) => (dm.value.cogs_groups || {})[k] || { accounts: [], monthly: [], total: 0 };
+const cogsGroupOrder = [
+  { key: "core", label: () => "", color: "" },
+  { key: "freight", label: () => L("Freight & customs — paid", "الشحن والجمارك — مدفوع", "Fret et douane — payé"), color: "#0b5c4f" },
+  { key: "capitalized", label: () => L("(−) capitalized into inventory", "(−) اترسمل في قيمة المخزون", "(−) capitalisé en stock"), color: "#0b5c4f" },
+  { key: "legacy", label: () => L("Legacy corrections (closed)", "تصحيحات قديمة (مقفولة)", "Corrections héritées"), color: "#78716c" },
+  { key: "intercompany", label: () => L("Intercompany — under cleanup", "بينية — قيد التنضيف", "Intersociétés — en cours"), color: "#b45309" },
+];
 const secLabel = (k) => ({ revenue: L("Revenue", "الإيرادات", "Produits"), cogs: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), opex: L("Operating expenses", "المصروفات التشغيلية", "Charges") }[k] || k);
 function mCsv() {
   const mo = dm.value.months || [];

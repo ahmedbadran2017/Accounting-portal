@@ -1297,6 +1297,20 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
             return "cogs"
         return "opex"
 
+    def cogs_group(name, at):
+        # presentation grouping inside the COGS section — tells the freight
+        # story (paid − capitalized = charged) instead of 18 scattered rows
+        nm = str(name)
+        if at == "Stock Adjustment":
+            return "capitalized"
+        if nm.startswith(("770.07", "770.0.7")):
+            return "freight"
+        if nm.startswith("71.999"):
+            return "legacy"
+        if nm.startswith("71.002"):
+            return "intercompany"
+        return "core"
+
     accts = {}
     for r in rows:
         i = midx.get(r["ym"])
@@ -1305,7 +1319,8 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
         sec = classify(r["rt"], r["at"], r["name"])
         amt = (1 if r["rt"] == "Income" else -1) * flt(r["net"])  # revenue +, expense +
         a = accts.setdefault(r["name"], {"account": r["name"], "name": r["an"], "section": sec,
-                                         "monthly": [0.0] * n, "total": 0.0})
+                                         "monthly": [0.0] * n, "total": 0.0,
+                                         "group": cogs_group(r["name"], r["at"]) if sec == "cogs" else None})
         a["monthly"][i] += amt
         a["total"] += amt
 
@@ -1332,6 +1347,26 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
         "gross_monthly": gross, "gross_total": sum(gross),
         "net_monthly": net, "net_total": sum(net),
     }
+    # per-group subtotals for the COGS block presentation
+    cg = {}
+    for a in accts.values():
+        if a["section"] != "cogs":
+            continue
+        g = cg.setdefault(a.get("group") or "core",
+                          {"monthly": [0.0] * n, "total": 0.0, "accounts": []})
+        g["accounts"].append(a)
+        g["total"] += a["total"]
+        for i in range(n):
+            g["monthly"][i] += a["monthly"][i]
+    for g in cg.values():
+        g["monthly"] = [round(x) for x in g["monthly"]]
+        g["total"] = round(g["total"])
+        g["accounts"].sort(key=lambda a: -abs(a["total"]))
+    fr = cg.get("freight", {"monthly": [0] * n, "total": 0})
+    cap = cg.get("capitalized", {"monthly": [0] * n, "total": 0})
+    result["cogs_groups"] = cg
+    result["freight_net"] = {"monthly": [fr["monthly"][i] + cap["monthly"][i] for i in range(n)],
+                             "total": fr["total"] + cap["total"]}
     try:
         frappe.cache().set_value(ck, result, expires_in_sec=180)
     except Exception:
