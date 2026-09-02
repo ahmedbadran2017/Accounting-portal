@@ -173,6 +173,18 @@
                 <td class="px-4 py-1.5 text-end tnum">{{ money(dm.gross_total) }}</td>
               </tr>
             </template>
+            <template v-if="dm.cogs_groups">
+              <tr class="border-t border-line-2 font-bold" style="background:#f3f8f6">
+                <td class="px-4 py-1.5 sticky start-0" style="background:#f3f8f6">{{ L("Operating net (trading margin − opex)","الصافي التشغيلي (الهامش التشغيلي − المصاريف)","Résultat opérationnel") }}</td>
+                <td v-for="(v, j) in opNet" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
+                <td class="px-4 py-1.5 text-end tnum">{{ money(opNetTotal) }}</td>
+              </tr>
+              <tr class="border-t border-line-hair text-ink-2">
+                <td class="px-4 py-1.5 sticky start-0 bg-white text-[11.5px]">{{ L("(−) freight, corrections & intercompany layers","(−) طبقات الشحن والتصحيحات والبينية","(−) couches fret et corrections") }}</td>
+                <td v-for="(v, j) in layersMonthly" :key="j" class="px-3 py-1.5 text-end tnum text-[11.5px]">{{ v ? money(v) : "·" }}</td>
+                <td class="px-4 py-1.5 text-end tnum text-[11.5px] font-semibold">{{ money(layersTotal) }}</td>
+              </tr>
+            </template>
             <tr class="border-t-2 border-ink font-extrabold" style="background:#faf6f4">
               <td class="px-4 py-2 sticky start-0" style="background:#faf6f4">{{ L("Net profit","صافي الربح","Résultat net") }}</td>
               <td v-for="(v, j) in dm.net_monthly" :key="j" class="px-3 py-2 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
@@ -273,6 +285,20 @@ const grossCore = computed(() => {
   return rev.map((v, i) => v - (core[i] || 0));
 });
 const grossCoreTotal = computed(() => grossCore.value.reduce((s, v) => s + v, 0));
+// the lumpy layers (freight paid + capitalization credit + legacy + intercompany):
+// operating net − layers = final net, so the bridge is visible row by row
+const layersMonthly = computed(() => {
+  const f = (dm.value.freight_net || {}).monthly || [];
+  const lg = cGroup("legacy").monthly || [];
+  const ic = cGroup("intercompany").monthly || [];
+  return (dm.value.months || []).map((_, i) => (f[i] || 0) + (lg[i] || 0) + (ic[i] || 0));
+});
+const layersTotal = computed(() => layersMonthly.value.reduce((s, v) => s + v, 0));
+const opNet = computed(() => {
+  const op = mSection("opex").monthly_total || [];
+  return grossCore.value.map((v, i) => v - (op[i] || 0));
+});
+const opNetTotal = computed(() => opNet.value.reduce((s, v) => s + v, 0));
 const cogsGroupOrder = [
   { key: "core", label: () => "", color: "" },
   { key: "freight", label: () => L("Freight & customs — paid", "الشحن والجمارك — مدفوع", "Fret et douane — payé"), color: "#0b5c4f" },
