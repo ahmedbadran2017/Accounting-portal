@@ -129,17 +129,26 @@
             <template v-for="sk in ['revenue', 'cogs', 'opex']" :key="sk">
               <tr style="background:#fcfcfb"><td :colspan="dm.months.length + 2" class="px-4 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3 sticky start-0" >{{ secLabel(sk) }}</td></tr>
               <template v-if="sk === 'cogs' && dm.cogs_groups">
-                <tr v-for="(a, i) in cGroup('core').accounts" :key="'core' + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
-                  <td class="px-4 py-1.5 truncate max-w-[220px] sticky start-0 bg-white hover:text-accent-dark">{{ a.name }}</td>
-                  <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
-                  <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(a.total) }}</td>
+                <tr class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="showCore = !showCore">
+                  <td class="px-4 py-1.5 sticky start-0 bg-white font-semibold">
+                    <Icon v-if="cGroup('core').accounts.length > 1" :name="showCore ? 'chevDown' : 'chev'" :size="11" class="inline me-1" />{{ L("Cost of goods sold (delivered)","تكلفة البضاعة المباعة (أذون التسليم)","Coût des marchandises vendues") }}
+                  </td>
+                  <td v-for="(v, j) in cGroup('core').monthly" :key="j" class="px-3 py-1.5 text-end tnum text-ink-2">{{ v ? money(v) : "·" }}</td>
+                  <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(cGroup('core').total) }}</td>
                 </tr>
+                <template v-if="showCore">
+                  <tr v-for="(a, i) in cGroup('core').accounts" :key="'core' + i" class="border-t border-line-hair text-[11.5px] hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
+                    <td class="px-4 py-1 ps-9 truncate max-w-[220px] sticky start-0 bg-white text-ink-muted hover:text-accent-dark">{{ a.name }}</td>
+                    <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1 text-end tnum text-ink-muted">{{ v ? money(v) : "·" }}</td>
+                    <td class="px-4 py-1 text-end tnum text-ink-2">{{ money(a.total) }}</td>
+                  </tr>
+                </template>
                 <tr class="border-t border-line-2 font-bold" style="background:#f3f8f6">
                   <td class="px-4 py-1.5 sticky start-0" style="background:#f3f8f6">{{ L("Gross profit — trading","مجمل الربح التشغيلي","Marge brute — exploitation") }}</td>
                   <td v-for="(v, j) in grossCore" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
                   <td class="px-4 py-1.5 text-end tnum">{{ money(grossCoreTotal) }}</td>
                 </tr>
-                <tr class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="showLayers = !showLayers">
+                <tr v-if="Math.abs(layersTotal) > 1" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="showLayers = !showLayers">
                   <td class="px-4 py-1.5 sticky start-0 bg-white font-semibold text-ink-2">
                     <Icon :name="showLayers ? 'chevDown' : 'chev'" :size="11" class="inline me-1" />{{ L("Adjustments below the margin (net)","تسويات تحت الهامش (صافي)","Ajustements sous la marge (net)") }}
                   </td>
@@ -274,6 +283,7 @@ const mSection = (k) => (dm.value.sections || []).find((s) => s.key === k) || { 
 // (paid − capitalized = net charged), then legacy and intercompany tails
 const cGroup = (k) => (dm.value.cogs_groups || {})[k] || { accounts: [], monthly: [], total: 0 };
 const showLayers = ref(false);
+const showCore = ref(false);
 const grossCore = computed(() => {
   const rev = mSection("revenue").monthly_total || [];
   const core = cGroup("core").monthly || [];
