@@ -1263,11 +1263,12 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
 
     rows = frappe.db.sql(
         """SELECT a.name, a.account_name AS an, a.root_type AS rt, IFNULL(a.account_type,'') AS at,
-                  DATE_FORMAT(g.posting_date,'%%Y-%%m') AS ym, ROUND(SUM(g.credit-g.debit)) AS net
+                  DATE_FORMAT(g.posting_date,'%%Y-%%m') AS ym, g.voucher_type AS vt,
+                  ROUND(SUM(g.credit-g.debit)) AS net
            FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
            WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type IN ('Income','Expense')
              AND g.posting_date BETWEEN %s AND %s
-           GROUP BY a.name, ym""",
+           GROUP BY a.name, ym, g.voucher_type""",
         (target, f"{y}-01-01", f"{y}-12-31"), as_dict=True)
     presentation = None
     if pres_ccy and pres_ccy != ccy:
@@ -1297,9 +1298,13 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
             return "cogs"
         return "opex"
 
-    def cogs_group(name, at):
+    def cogs_group(name, at, vt):
         # presentation grouping inside the COGS section — tells the freight
-        # story (paid − capitalized = charged) instead of 18 scattered rows
+        # story (paid − capitalized = charged) instead of 18 scattered rows.
+        # 'core' means DELIVERED cost only: the same account can carry direct
+        # supplier bills (the 815K pollution) which would silently poison the
+        # trading margin (April read 12% GM), so anything not posted by a
+        # delivery/sales voucher goes to its own 'direct' bucket below the line
         nm = str(name)
         if at == "Stock Adjustment":
             return "capitalized"
@@ -1309,7 +1314,9 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
             return "legacy"
         if nm.startswith("71.002"):
             return "intercompany"
-        return "core"
+        if vt in ("Delivery Note", "Sales Invoice"):
+            return "core"
+        return "direct"
 
     accts = {}
     for r in rows:
@@ -1318,9 +1325,10 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
             continue
         sec = classify(r["rt"], r["at"], r["name"])
         amt = (1 if r["rt"] == "Income" else -1) * flt(r["net"])  # revenue +, expense +
-        a = accts.setdefault(r["name"], {"account": r["name"], "name": r["an"], "section": sec,
-                                         "monthly": [0.0] * n, "total": 0.0,
-                                         "group": cogs_group(r["name"], r["at"]) if sec == "cogs" else None})
+        grp = cogs_group(r["name"], r["at"], r.get("vt")) if sec == "cogs" else None
+        key = r["name"] + ("§" + grp if grp else "")
+        a = accts.setdefault(key, {"account": r["name"], "name": r["an"], "section": sec,
+                                   "monthly": [0.0] * n, "total": 0.0, "group": grp})
         a["monthly"][i] += amt
         a["total"] += amt
 

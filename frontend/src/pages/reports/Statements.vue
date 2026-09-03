@@ -291,7 +291,8 @@ const layersMonthly = computed(() => {
   const f = (dm.value.freight_net || {}).monthly || [];
   const lg = cGroup("legacy").monthly || [];
   const ic = cGroup("intercompany").monthly || [];
-  return (dm.value.months || []).map((_, i) => (f[i] || 0) + (lg[i] || 0) + (ic[i] || 0));
+  const dr = cGroup("direct").monthly || [];
+  return (dm.value.months || []).map((_, i) => (f[i] || 0) + (lg[i] || 0) + (ic[i] || 0) + (dr[i] || 0));
 });
 const layersTotal = computed(() => layersMonthly.value.reduce((s, v) => s + v, 0));
 const opNet = computed(() => {
@@ -303,6 +304,7 @@ const cogsGroupOrder = [
   { key: "core", label: () => "", color: "" },
   { key: "freight", label: () => L("Freight & customs — paid", "الشحن والجمارك — مدفوع", "Fret et douane — payé"), color: "#0b5c4f" },
   { key: "capitalized", label: () => L("(−) capitalized into inventory", "(−) اترسمل في قيمة المخزون", "(−) capitalisé en stock"), color: "#0b5c4f" },
+  { key: "direct", label: () => L("Direct postings on COGS accounts — under review", "قيود مباشرة على حسابات الكوجز — قيد المراجعة", "Écritures directes — en revue"), color: "#b45309" },
   { key: "legacy", label: () => L("Legacy corrections (closed)", "تصحيحات قديمة (مقفولة)", "Corrections héritées"), color: "#78716c" },
   { key: "intercompany", label: () => L("Intercompany — under cleanup", "بينية — قيد التنضيف", "Intersociétés — en cours"), color: "#b45309" },
 ];
