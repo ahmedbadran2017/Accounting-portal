@@ -154,6 +154,11 @@
                   <td v-for="(v, j) in grossCore" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
                   <td class="px-4 py-1.5 text-end tnum">{{ money(grossCoreTotal) }}</td>
                 </tr>
+                <tr class="text-[11px]" style="background:#f3f8f6">
+                  <td class="px-4 pb-1.5 sticky start-0 text-ink-muted" style="background:#f3f8f6">{{ L("Margin %","نسبة الهامش %","Marge %") }}</td>
+                  <td v-for="(p, j) in gmPct" :key="j" class="px-3 pb-1.5 text-end tnum" :class="p !== null && p < 0 ? 'text-sale' : 'text-success-dark'">{{ p === null ? "·" : p + "%" }}</td>
+                  <td class="px-4 pb-1.5 text-end tnum font-semibold text-success-dark">{{ gmPctTotal }}%</td>
+                </tr>
                 <tr v-if="cleanView && Math.abs(layersTotal) > 1" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="cleanView = false">
                   <td :colspan="dm.months.length + 1" class="px-4 py-1 text-[10.5px] text-ink-muted sticky start-0 bg-white">
                     {{ L("Adjustments parked out of this view — tap to inspect","تسويات متركنة بره العرض ده — دوس للفحص","Ajustements masqués — cliquer pour voir") }}
@@ -306,6 +311,14 @@ const grossCore = computed(() => {
   return rev.map((v, i) => v - (core[i] || 0));
 });
 const grossCoreTotal = computed(() => grossCore.value.reduce((s, v) => s + v, 0));
+const gmPct = computed(() => {
+  const rev = mSection("revenue").monthly_total || [];
+  return grossCore.value.map((v, i) => (rev[i] ? Math.round((100 * v) / rev[i]) : null));
+});
+const gmPctTotal = computed(() => {
+  const rev = (mSection("revenue").monthly_total || []).reduce((s, v) => s + v, 0);
+  return rev ? Math.round((100 * grossCoreTotal.value) / rev) : 0;
+});
 // the lumpy layers (freight paid + capitalization credit + legacy + intercompany):
 // operating net − layers = final net, so the bridge is visible row by row
 const layersMonthly = computed(() => {
