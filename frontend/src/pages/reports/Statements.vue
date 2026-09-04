@@ -113,6 +113,12 @@
         <Icon name="scale" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("P&L by month","الأرباح والخسائر بالشهر","Résultat par mois") }}</span>
         <span class="text-[10px] text-ink-muted">{{ dm.currency }} · {{ mYear }}</span>
         <div class="ms-auto flex items-center gap-1.5">
+          <button v-if="dm.cogs_groups" @click="cleanView = !cleanView"
+                  class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
+                  :class="cleanView ? 'text-white border-transparent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'"
+                  :style="cleanView ? 'background:#0f766e' : ''">
+            {{ cleanView ? L("Clean view ✓","عرض نضيف ✓","Vue épurée ✓") : L("Full (ledger)","كامل (دفتري)","Complet") }}
+          </button>
           <button v-for="yr in [y, y - 1]" :key="yr" @click="setYear(yr)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="mYear === yr ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ yr }}</button>
           <button @click="mCsv" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />CSV</button>
         </div>
@@ -148,14 +154,20 @@
                   <td v-for="(v, j) in grossCore" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
                   <td class="px-4 py-1.5 text-end tnum">{{ money(grossCoreTotal) }}</td>
                 </tr>
-                <tr v-if="Math.abs(layersTotal) > 1" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="showLayers = !showLayers">
+                <tr v-if="cleanView && Math.abs(layersTotal) > 1" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="cleanView = false">
+                  <td :colspan="dm.months.length + 1" class="px-4 py-1 text-[10.5px] text-ink-muted sticky start-0 bg-white">
+                    {{ L("Adjustments parked out of this view — tap to inspect","تسويات متركنة بره العرض ده — دوس للفحص","Ajustements masqués — cliquer pour voir") }}
+                  </td>
+                  <td class="px-4 py-1 text-end tnum text-[10.5px] text-ink-muted">{{ money(layersTotal) }}</td>
+                </tr>
+                <tr v-if="!cleanView && Math.abs(layersTotal) > 1" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="showLayers = !showLayers">
                   <td class="px-4 py-1.5 sticky start-0 bg-white font-semibold text-ink-2">
                     <Icon :name="showLayers ? 'chevDown' : 'chev'" :size="11" class="inline me-1" />{{ L("Adjustments below the margin (net)","تسويات تحت الهامش (صافي)","Ajustements sous la marge (net)") }}
                   </td>
                   <td v-for="(v, j) in layersMonthly" :key="j" class="px-3 py-1.5 text-end tnum text-ink-2">{{ v ? money(v) : "·" }}</td>
                   <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(layersTotal) }}</td>
                 </tr>
-                <template v-if="showLayers">
+                <template v-if="showLayers && !cleanView">
                   <template v-for="grp in cogsGroupOrder.filter(g => g.key !== 'core')" :key="grp.key">
                     <tr v-if="cGroup(grp.key).accounts.length" class="border-t border-line-hair text-[11.5px]">
                       <td class="px-4 py-1 ps-9 sticky start-0 bg-white" :style="'color:' + grp.color">{{ grp.label() }}</td>
@@ -188,9 +200,9 @@
               <td v-for="(v, j) in opNet" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
               <td class="px-4 py-1.5 text-end tnum">{{ money(opNetTotal) }}</td>
             </tr>
-            <tr class="border-t-2 border-ink font-extrabold" style="background:#faf6f4">
-              <td class="px-4 py-2 sticky start-0" style="background:#faf6f4">{{ L("Net profit","صافي الربح","Résultat net") }}</td>
-              <td v-for="(v, j) in dm.net_monthly" :key="j" class="px-3 py-2 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
+            <tr :class="cleanView && dm.cogs_groups ? 'border-t border-line-hair text-[11.5px] text-ink-muted' : 'border-t-2 border-ink font-extrabold'" :style="cleanView && dm.cogs_groups ? '' : 'background:#faf6f4'">
+              <td class="px-4 sticky start-0" :class="cleanView && dm.cogs_groups ? 'py-1 bg-white' : 'py-2'" :style="cleanView && dm.cogs_groups ? '' : 'background:#faf6f4'">{{ cleanView && dm.cogs_groups ? L("Ledger net (after parked adjustments)","الصافي الدفتري (بعد التسويات المتركنة)","Résultat comptable") : L("Net profit","صافي الربح","Résultat net") }}</td>
+              <td v-for="(v, j) in dm.net_monthly" :key="j" class="px-3 text-end tnum" :class="[cleanView && dm.cogs_groups ? 'py-1' : 'py-2', v < 0 ? 'text-sale' : (cleanView && dm.cogs_groups ? '' : 'text-success-dark')]">{{ money(v) }}</td>
               <td class="px-4 py-2 text-end tnum">{{ money(dm.net_total) }}</td>
             </tr>
           </tbody>
@@ -284,6 +296,10 @@ const mSection = (k) => (dm.value.sections || []).find((s) => s.key === k) || { 
 const cGroup = (k) => (dm.value.cogs_groups || {})[k] || { accounts: [], monthly: [], total: 0 };
 const showLayers = ref(false);
 const showCore = ref(false);
+// bank-audit-style park: default reading hides the cleanup layers so the
+// statement reads revenue -> delivered cost -> margin -> opex -> operating net;
+// the full ledger view is one tap away and the tie to books is never lost
+const cleanView = usePersistedRef("ap_pnl_clean_view", true);
 const grossCore = computed(() => {
   const rev = mSection("revenue").monthly_total || [];
   const core = cGroup("core").monthly || [];
