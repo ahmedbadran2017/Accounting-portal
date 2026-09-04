@@ -54,3 +54,11 @@ doc_events = {
         "validate": "accounting_portal.api.stock_guard.validate_stock_entry",
     },
 }
+
+# hourly cache warmer — the matching/cycle screens are year-wide scans
+# (~5-20s cold); precomputing keeps every human visit on a warm cache
+scheduler_events = {
+    "hourly": [
+        "accounting_portal.api.matching.warm_caches",
+    ],
+}

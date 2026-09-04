@@ -100,7 +100,7 @@ def balance_sheet(company=None, as_on=None):
     out["as_on"] = as_on
     out["check"] = round(out["assets"] - out["liabilities"] - out["equity"], 0)
     try:
-        frappe.cache().set_value(bs_key, out, expires_in_sec=180)
+        frappe.cache().set_value(bs_key, out, expires_in_sec=900)
     except Exception:
         pass
     return out
@@ -328,7 +328,7 @@ def sales_collections_cohort(company=None, from_date=None, to_date=None):
     t = {k: round(sum(m[k] for m in months)) for k in ("orders", "invoiced", "delivered", "collected", "outstanding")}
     t["collection_rate"] = round(t["collected"] / t["delivered"] * 100, 1) if t["delivered"] else 0
     out = {"company": target, "from_date": from_date, "to_date": to_date, "months": months, "totals": t}
-    frappe.cache().set_value(ck, out, expires_in_sec=180)
+    frappe.cache().set_value(ck, out, expires_in_sec=900)
     return out
 
 
@@ -786,7 +786,7 @@ def cash_forecast(company=None):
         "liquidity_7d_ok": (cash - cheques_7 - bills_due * 0.5) > 0,
     }
     try:
-        frappe.cache().set_value(ck, result, expires_in_sec=180)
+        frappe.cache().set_value(ck, result, expires_in_sec=900)
     except Exception:
         pass
     return result
@@ -1114,7 +1114,7 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
         "pnl": pnl_pack, "balance_sheet": bs_pack, "cash_flow": cf_pack,
     }
     try:
-        frappe.cache().set_value(ck, result, expires_in_sec=180)
+        frappe.cache().set_value(ck, result, expires_in_sec=900)
     except Exception:
         pass
     return result
@@ -1376,7 +1376,7 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
     result["freight_net"] = {"monthly": [fr["monthly"][i] + cap["monthly"][i] for i in range(n)],
                              "total": fr["total"] + cap["total"]}
     try:
-        frappe.cache().set_value(ck, result, expires_in_sec=180)
+        frappe.cache().set_value(ck, result, expires_in_sec=900)
     except Exception:
         pass
     return result

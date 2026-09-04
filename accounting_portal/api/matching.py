@@ -26,7 +26,21 @@ from frappe.utils import flt, nowdate
 
 from accounting_portal.api.permissions import assert_portal_access, resolve_companies
 
-CACHE_SEC = 300
+CACHE_SEC = 3600   # heavy year-wide scans; an hourly warmer keeps it fresh
+
+
+def warm_caches():
+    """Hourly scheduler hook: precompute the heavy screens for the main
+    company so humans always hit a warm cache."""
+    from frappe.utils import nowdate as _nd
+    co, y = "Justyol Morocco", int(_nd()[:4])
+    for fn, args in ((monthly, (co, y)), (cycle, (co, y))):
+        try:
+            frappe.cache().delete_value(
+                ("ap_match:%s:%s" if fn is monthly else "ap_cycle:%s:%s") % (co, y))
+            fn(co, y)
+        except Exception:
+            frappe.log_error(title="report cache warmer", message=frappe.get_traceback())
 
 # buckets that carry an action in the UI
 B_RETURNED = "returned"          # self-cancelling — no accounting action
@@ -73,37 +87,31 @@ def _base_sets(company, year):
            WHERE s.company=%s AND s.docstatus=1 AND s.is_return=0
              AND YEAR(s.posting_date)=%s""", (company, year), as_dict=True)
 
-    def chunked(seq, fn):
-        out = set()
-        seq = [s for s in seq if s]
-        for i in range(0, len(seq), 5000):
-            out |= fn(seq[i:i + 5000])
-        return out
-
-    all_sos = list({d.so for d in dns} | {s.so for s in sis})
-    so_with_si = chunked(all_sos, lambda c: {r[0] for r in frappe.db.sql(
+    # one JOIN query per fact over the company's order universe — the previous
+    # per-5000 IN-list chunking cost ~15s per screen load on ~70K orders
+    so_year = """JOIN `tabSales Order` so ON so.name={col}
+           WHERE so.company=%s AND so.transaction_date>=%s"""
+    y0 = f"{int(year) - 1}-11-01"   # orders can precede their 2026 documents
+    so_with_si = {r[0] for r in frappe.db.sql(
         """SELECT DISTINCT sii.sales_order FROM `tabSales Invoice Item` sii
-           JOIN `tabSales Invoice` s ON s.name=sii.parent
-           WHERE s.docstatus=1 AND s.is_return=0 AND sii.sales_order IN %s""", (c,))})
-    so_with_dn = chunked(all_sos, lambda c: {r[0] for r in frappe.db.sql(
+           JOIN `tabSales Invoice` s ON s.name=sii.parent AND s.docstatus=1 AND s.is_return=0
+           """ + so_year.format(col="sii.sales_order"), (company, y0))}
+    so_with_dn = {r[0] for r in frappe.db.sql(
         """SELECT DISTINCT di.against_sales_order FROM `tabDelivery Note Item` di
-           JOIN `tabDelivery Note` dn ON dn.name=di.parent
-           WHERE dn.docstatus=1 AND dn.is_return=0 AND di.against_sales_order IN %s""", (c,))})
-    so_returned = chunked(all_sos, lambda c: {r[0] for r in frappe.db.sql(
+           JOIN `tabDelivery Note` dn ON dn.name=di.parent AND dn.docstatus=1 AND dn.is_return=0
+           """ + so_year.format(col="di.against_sales_order"), (company, y0))}
+    so_returned = {r[0] for r in frappe.db.sql(
         """SELECT DISTINCT di.against_sales_order FROM `tabDelivery Note Item` di
-           JOIN `tabDelivery Note` dn ON dn.name=di.parent
-           WHERE dn.docstatus=1 AND dn.is_return=1 AND di.against_sales_order IN %s""", (c,))})
-    so_paid = chunked(all_sos, lambda c: {r[0] for r in frappe.db.sql(
+           JOIN `tabDelivery Note` dn ON dn.name=di.parent AND dn.docstatus=1 AND dn.is_return=1
+           """ + so_year.format(col="di.against_sales_order"), (company, y0))}
+    so_paid = {r[0] for r in frappe.db.sql(
         """SELECT DISTINCT per.reference_name FROM `tabPayment Entry Reference` per
-           JOIN `tabPayment Entry` pe ON pe.name=per.parent
-           WHERE pe.docstatus=1 AND per.reference_doctype='Sales Order'
-             AND per.reference_name IN %s""", (c,))})
-    so_status = {}
-    live = [s for s in all_sos if s]
-    for i in range(0, len(live), 5000):
-        for r in frappe.db.sql("SELECT name, status FROM `tabSales Order` WHERE name IN %s",
-                               (live[i:i + 5000],)):
-            so_status[r[0]] = r[1]
+           JOIN `tabPayment Entry` pe ON pe.name=per.parent AND pe.docstatus=1
+           """ + so_year.format(col="per.reference_name")
+        + " AND per.reference_doctype='Sales Order'", (company, y0))}
+    so_status = dict(frappe.db.sql(
+        """SELECT name, status FROM `tabSales Order`
+           WHERE company=%s AND transaction_date>=%s""", (company, y0)))
 
     for d in dns:
         d.cogs = flt(cogs.get(d.name))
