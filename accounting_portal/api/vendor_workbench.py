@@ -726,7 +726,7 @@ def freight_summary(supplier=None):
     ch_sched = _rate_scheds().get(chan) or []
     src = ("vendor" if flt(rates_cfg.get(f"vendor::{supplier}")) > 0
            else ("schedule" if ch_sched else "channel"))
-    return {"supplier": supplier, "channel": chan, "rate_kg": rate_kg,
+    return {"supplier": supplier, "channel": chan, "rate_kg": rate_kg, "packaging_per_unit": _pack_rate(),
             "channel_rate": chan_rate, "rate_sched": ch_sched,
             "rate_source": src,
             "pool_mad": pool26, "pool_2025_mad": pool25,
@@ -1063,17 +1063,33 @@ def _pricing(supplier, items):
     return out
 
 
+_PACK_KEY = "ap_packaging_per_unit"
+_PACK_DEFAULT = 1.40   # MAD per delivered unit — measured 167,015 MAD / 119,107
+                       # units (FY2026 to Sep); runtime-editable via the default
+
+
+def _pack_rate():
+    try:
+        v = flt(frappe.db.get_default(_PACK_KEY))
+        return v if v > 0 else _PACK_DEFAULT
+    except Exception:
+        return _PACK_DEFAULT
+
+
 def _invoice_sched(supplier, items):
     """Submit schedule = the era timeline from _pricing (CFO doctrine: each
-    invoice opens an era at ITS OWN price; freight era-priced too). Items with
-    a manual cost override get NO schedule (uniform verified truth)."""
+    invoice opens an era at ITS OWN price; freight era-priced too, and every
+    era carries the flat packaging cost per unit). Items with a manual cost
+    override get NO schedule (uniform verified truth)."""
     pr = _pricing(supplier, items)
     ovs = _cost_overrides()
+    pk = _pack_rate()
     out = {}
     for ic, p in pr.items():
         if ic in ovs:
             continue
-        out[ic] = [{"date": e["date"], "rate": e["rate"]} for e in p["eras"]]
+        out[ic] = [{"date": e["date"], "rate": round(flt(e["rate"]) + pk, 2)}
+                   for e in p["eras"]]
     return out
 
 def _full_rates(supplier, items):
@@ -1091,20 +1107,23 @@ def _full_rates(supplier, items):
                     "SELECT name, IFNULL(weight_per_unit,0) x FROM `tabItem` WHERE name IN %s",
                     (items[i:i + 700],), as_dict=True):
                 w[r.name] = flt(r.x)
+    pk = _pack_rate()
     out = {}
     for ic in items:
         ov = flt((ovs.get(ic) or {}).get("rate"))
         p = pr.get(ic)
         if ov > 0:
             fr = round(rate_kg * w.get(ic, 0.0), 2)
-            out[ic] = {"product": ov, "freight": fr, "rate": round(ov + fr, 2),
+            out[ic] = {"product": ov, "freight": fr, "packaging": pk,
+                       "rate": round(ov + fr + pk, 2),
                        "weight_kg": w.get(ic, 0), "eras": 0}
         elif p:
             out[ic] = {"product": p["latest"], "freight": p["eras"][-1]["freight"],
-                       "rate": p["rate"], "weight_kg": p["weight_kg"],
+                       "packaging": pk,
+                       "rate": round(flt(p["rate"]) + pk, 2), "weight_kg": p["weight_kg"],
                        "eras": len(p["eras"])}
         else:
-            out[ic] = {"product": None, "freight": 0, "rate": None,
+            out[ic] = {"product": None, "freight": 0, "packaging": pk, "rate": None,
                        "weight_kg": w.get(ic, 0), "eras": 0}
     return out
 
@@ -1138,7 +1157,7 @@ def submit_preview(supplier=None, items=None):
                     "retro_ok": bool(anchor and str(anchor) < frappe.utils.nowdate()),
                     "no_cost": not rr.get("rate"),
                     "no_weight": rate_kg > 0 and flt(rr.get("weight_kg")) <= 0})
-    return {"supplier": supplier, "channel": chan, "rate_kg": rate_kg, "rows": out,
+    return {"supplier": supplier, "channel": chan, "rate_kg": rate_kg, "packaging_per_unit": _pack_rate(), "rows": out,
             "ready": sum(1 for r in out if r["rate"] and r["retro_ok"]),
             "no_cost": sum(1 for r in out if r["no_cost"]),
             "no_weight": sum(1 for r in out if r["no_weight"]),
@@ -1204,7 +1223,7 @@ def _submit_one_item(supplier, ic, note=None, total=None):
         return {"item_code": ic, "ok": 0, "result": "skipped — no weight"}
     split = (f"vendor workbench — {supplier} [{chan}]: "
              f"product {rr['product']} + freight {rr['freight']} "
-             f"({rate_kg}/kg × {rr['weight_kg']}kg)")
+             f"({rate_kg}/kg × {rr['weight_kg']}kg) + packaging {rr.get('packaging', 0)}")
     sched = None if ic in cost_ovs else (scheds.get(ic) or None)
     if sched:
         split += f" — {len(sched)} invoice era(s)"
