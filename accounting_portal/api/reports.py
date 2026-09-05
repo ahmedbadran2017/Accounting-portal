@@ -1256,10 +1256,6 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
     if hit is not None:
         return hit
     ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
-    last_m = int(nowdate()[5:7]) if y == int(nowdate()[:4]) else 12
-    months = [f"{y}-{m:02d}" for m in range(1, last_m + 1)]
-    midx = {ym: i for i, ym in enumerate(months)}
-    n = len(months)
 
     rows = frappe.db.sql(
         """SELECT a.name, a.account_name AS an, a.root_type AS rt, IFNULL(a.account_type,'') AS at,
@@ -1270,6 +1266,19 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
              AND g.posting_date BETWEEN %s AND %s
            GROUP BY a.name, ym, g.voucher_type""",
         (target, f"{y}-01-01", f"{y}-12-31"), as_dict=True)
+    # months run to the LAST month carrying data, not just the current one —
+    # a future-dated entry (e.g. a mis-dated October bill) must show up and
+    # be seen, not silently vanish from every total (audit caught 1,340 MAD
+    # of report-invisible expense on 2026-09-03)
+    last_m = int(nowdate()[5:7]) if y == int(nowdate()[:4]) else 12
+    for r in rows:
+        try:
+            last_m = max(last_m, int(str(r.ym)[5:7]))
+        except Exception:
+            pass
+    months = [f"{y}-{m:02d}" for m in range(1, last_m + 1)]
+    midx = {ym: i for i, ym in enumerate(months)}
+    n = len(months)
     presentation = None
     if pres_ccy and pres_ccy != ccy:
         from accounting_portal.api.group_pnl import _month_rates
