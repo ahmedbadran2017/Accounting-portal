@@ -62,6 +62,9 @@
         </table>
       </div>
 
+      <!-- activity trail + hour heatmap (person's own timezone) -->
+      <ActivityTrail :company="d.company" :user="d.user" :from="d.from_date" :to="d.to_date" />
+
       <!-- monthly trend -->
       <div v-if="d.monthly && d.monthly.length" class="bg-white rounded-card border border-line shadow-card px-4 py-3">
         <div class="flex items-center gap-2 mb-3"><Icon name="chart" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Monthly activity","النشاط الشهري","Activité mensuelle") }}</span>
@@ -109,6 +112,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
+import ActivityTrail from "./ActivityTrail.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
