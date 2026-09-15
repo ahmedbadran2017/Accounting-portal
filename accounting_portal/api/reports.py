@@ -560,6 +560,14 @@ def daily_entry_checklist(company=None, date=None):
     def one(v):
         return flt((v or [[None]])[0][0])
 
+    # pricing-cycle counters feed the last three items; a broken pricing module
+    # must not take the whole checklist down with it
+    try:
+        from accounting_portal.api import pricing
+        cyc = pricing.cycle_health()
+    except Exception:
+        cyc = {}
+
     # 1) collections recorded for the day (COD / bank receipts)
     pe_in = frappe.db.sql(
         "SELECT COUNT(*), SUM(paid_amount) FROM `tabPayment Entry` WHERE company=%s "
