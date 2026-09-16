@@ -4,6 +4,8 @@ All live ERPNext, entity-scoped, filtering is_cancelled = 0. Balances use the
 net sum(debit - credit) convention; the trial balance presents each account's
 net on the debit or credit side.
 """
+import json
+
 import frappe
 from frappe.utils import flt
 
@@ -632,3 +634,126 @@ def disable_dead_accounts(company=None):
         except Exception:
             frappe.clear_last_message()
     return {"disabled": len(done), "accounts": done}
+
+
+# ── Create account (the Desk trail showed 36 accounts hand-made there, each
+#    typed three times — once per company) ───────────────────────────────────
+
+CREATE_ACCT_ACTION = "Create account"
+
+_ACCOUNT_TYPES = [
+    "", "Bank", "Cash", "Receivable", "Payable", "Current Asset", "Current Liability", "Fixed Asset",
+    "Expense Account", "Income Account", "Cost of Goods Sold", "Direct Expense", "Indirect Expense",
+    "Direct Income", "Indirect Income", "Stock", "Tax", "Equity", "Liability", "Depreciation",
+    "Accumulated Depreciation", "Chargeable", "Round Off", "Temporary", "Capital Work in Progress",
+    "Stock Received But Not Billed", "Stock Adjustment", "Expenses Included In Valuation",
+    "Asset Received But Not Billed", "Service Received But Not Billed",
+]
+
+
+@frappe.whitelist()
+def account_parents(company=None):
+    """Group accounts (possible parents) of the company, the other companies a
+    new account can be mirrored into, and the account types."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    groups = frappe.db.sql(
+        """SELECT name AS value, name AS label, IFNULL(account_number,'') AS number, account_name, root_type
+           FROM `tabAccount` WHERE company=%s AND is_group=1 AND disabled=0 ORDER BY lft""",
+        (target,), as_dict=True)
+    others = [c for c in resolve_companies(None) if c != target]
+    return {"company": target, "groups": groups, "companies": others, "types": _ACCOUNT_TYPES,
+            "currency": frappe.get_cached_value("Company", target, "default_currency")}
+
+
+def _twin_parent(parent, other_company):
+    """The equivalent group in another company — same account number, else same name."""
+    p = frappe.db.get_value("Account", parent, ["account_number", "account_name"], as_dict=True)
+    if not p:
+        return None
+    if p.account_number:
+        hit = frappe.db.get_value("Account", {"company": other_company, "account_number": p.account_number, "is_group": 1}, "name")
+        if hit:
+            return hit
+    return frappe.db.get_value("Account", {"company": other_company, "account_name": p.account_name, "is_group": 1}, "name")
+
+
+@frappe.whitelist()
+def create_account(company=None, parent_account=None, account_name=None, account_number=None,
+                   account_type=None, account_currency=None, mirror=None):
+    """Create a postable account under a group, optionally mirrored into other
+    companies under their equivalent group. Audited; reversible while unused."""
+    assert_can_write()
+    target = _target(company)
+    if not target:
+        frappe.throw("No company in scope")
+    account_name = (account_name or "").strip()
+    account_number = (account_number or "").strip() or None
+    if not (parent_account and account_name):
+        frappe.throw("Parent group and account name are required")
+    par = frappe.db.get_value("Account", parent_account, ["company", "is_group"], as_dict=True)
+    if not par or par.company != target:
+        frappe.throw("Parent account not in this company")
+    if not par.is_group:
+        frappe.throw("Parent must be a group account")
+    if account_type and account_type not in _ACCOUNT_TYPES:
+        frappe.throw("Unknown account type")
+    mirror = mirror if isinstance(mirror, list) else (json.loads(mirror) if mirror else [])
+    targets, skipped = [{"company": target, "parent": parent_account}], []
+    for mc in mirror:
+        if mc == target or mc not in resolve_companies(None):
+            continue
+        tp = _twin_parent(parent_account, mc)
+        if tp:
+            targets.append({"company": mc, "parent": tp})
+        else:
+            skipped.append({"company": mc, "reason": "no equivalent group"})
+    for t in targets:
+        if frappe.db.exists("Account", {"company": t["company"], "account_name": account_name}):
+            frappe.throw(f"An account named '{account_name}' already exists in {t['company']}")
+        if account_number and frappe.db.exists("Account", {"company": t["company"], "account_number": account_number}):
+            frappe.throw(f"Account number {account_number} is already used in {t['company']}")
+    key = f"acct:{target}:{account_number or account_name}"
+    return _actions.execute(
+        CREATE_ACCT_ACTION, target, key,
+        payload={"targets": targets, "skipped": skipped, "account_name": account_name,
+                 "account_number": account_number, "account_type": account_type or "",
+                 "account_currency": account_currency or ""},
+        amount=0, notes=f"Create account {account_number or ''} {account_name} in {len(targets)} compan{'y' if len(targets) == 1 else 'ies'}")
+
+
+def _create_acct_poster(action):
+    import json as _json
+    p = action.payload if isinstance(action.payload, dict) else _json.loads(action.payload or "{}")
+    created = []
+    for t in p["targets"]:
+        doc = frappe.get_doc({
+            "doctype": "Account", "company": t["company"], "parent_account": t["parent"],
+            "account_name": p["account_name"], "account_number": p.get("account_number") or None,
+            "account_type": p.get("account_type") or None,
+            "account_currency": p.get("account_currency") or frappe.get_cached_value("Company", t["company"], "default_currency"),
+            "is_group": 0,
+        })
+        doc.insert(ignore_permissions=True)
+        created.append(doc.name)
+        _cache.bust_report_caches(t["company"])
+    return {"voucher_type": "Account", "voucher_no": created[0] if created else None,
+            "result": {"created": created, "skipped": p.get("skipped") or []}}
+
+
+def _create_acct_reverter(action):
+    import json as _json
+    res = action.result if isinstance(action.result, dict) else _json.loads(action.result or "{}")
+    gone = []
+    for name in res.get("created") or []:
+        if frappe.db.exists("Account", name) and not frappe.db.count("GL Entry", {"account": name}):
+            frappe.delete_doc("Account", name, ignore_permissions=True)
+            gone.append(name)
+    return {"deleted": gone}
+
+
+_actions.register_poster(CREATE_ACCT_ACTION, _create_acct_poster)
+_actions.register_reverter(CREATE_ACCT_ACTION, _create_acct_reverter)
+_actions._NO_GATE.add(CREATE_ACCT_ACTION)

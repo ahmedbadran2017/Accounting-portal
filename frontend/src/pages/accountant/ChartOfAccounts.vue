@@ -8,12 +8,44 @@
 
     <AccountCleanup v-if="coaView === 'cleanup'" />
     <template v-else>
+    <!-- New account modal: one form, mirrored into the sister companies under the same group -->
+    <div v-if="newOpen" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" @click.self="newOpen = false">
+      <div class="bg-white rounded-card shadow-pop w-full max-w-lg p-5 space-y-3">
+        <div class="text-[14px] font-bold flex items-center gap-2"><Icon name="plus" :size="14" color="#0b5c4f" />{{ L("New account","حساب جديد","Nouveau compte") }} <span class="text-[11px] text-ink-muted font-normal">{{ np.company }}</span></div>
+        <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Under group","تحت المجموعة","Groupe parent") }} *</label>
+          <SearchSelect v-model="nf.parent_account" :items="np.groups || []" :placeholder="L('Search groups…','ابحث في المجموعات…','Rechercher…')" inputClass="h-9 text-[12.5px] bg-white" /></div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Number","الرقم","Numéro") }}</label><input v-model.trim="nf.account_number" dir="ltr" placeholder="770.012.031" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.account_name" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40" /></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Type","النوع","Type") }}</label>
+            <select v-model="nf.account_type" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40"><option v-for="t in (np.types || [])" :key="t" :value="t">{{ t || L("(untyped)","(بدون نوع)","(sans type)") }}</option></select></div>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.account_currency" :placeholder="np.currency" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40" /></div>
+        </div>
+        <div v-if="(np.companies || []).length">
+          <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Also create in","أنشئه أيضًا في","Créer aussi dans") }}</label>
+          <div class="flex flex-wrap gap-3">
+            <label v-for="c in np.companies" :key="c" class="inline-flex items-center gap-1.5 text-[12px]"><input type="checkbox" :value="c" v-model="nf.mirror" /> {{ c }}</label>
+          </div>
+          <p class="text-[10px] text-ink-muted mt-1">{{ L("Mirrored under the group with the same number (or name) in each company; companies without that group are skipped.","بيتعمل تحت المجموعة بنفس الرقم (أو الاسم) في كل شركة؛ اللي مفيهاش المجموعة بتتخطى.","Créé sous le groupe équivalent de chaque société.") }}</p>
+        </div>
+        <p v-if="newErr" class="text-[12px] text-sale">{{ newErr }}</p>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="newOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
+          <button @click="createAccount" :disabled="newBusy || !nf.parent_account || !nf.account_name" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ newBusy ? "…" : L("Create","إنشاء","Créer") }}</button>
+        </div>
+      </div>
+    </div>
     <!-- Toolbar -->
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Chart of accounts","دليل الحسابات","Plan comptable") }}</span>
       <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
       <span class="hidden md:inline text-[11px] text-ink-muted">{{ L("live balances · click any account to open its ledger","أرصدة حيّة · اضغط أي حساب لفتح الأستاذ","soldes en direct") }}</span>
       <div class="ms-auto flex items-center gap-2">
+        <button v-if="canWrite" type="button" @click="openNew" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-[10px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand">
+          <Icon name="plus" :size="13" color="#fff" />{{ L("New account","حساب جديد","Nouveau compte") }}
+        </button>
         <button type="button" @click="onlyAnomalies = !onlyAnomalies" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-[10px] border text-[12px] font-semibold transition" :class="onlyAnomalies ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white border-line-2 text-ink-2 hover:bg-app-warm/50'">
           <Icon name="alert" :size="13" :color="onlyAnomalies ? '#be123c' : '#9a8f86'" />
           {{ L("Anomalies","الشذوذ","Anomalies") }}
@@ -106,14 +138,43 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import AccountCleanup from "@/pages/accountant/AccountCleanup.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
+const { can } = useAuth();
+const toast = useToast();
 const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const canWrite = computed(() => can("post_entries"));
+
+// ── New account (mirrored across companies) ──
+const newOpen = ref(false);
+const newBusy = ref(false);
+const newErr = ref("");
+const np = ref({ groups: [], companies: [], types: [], currency: "" });
+const nf = reactive({ parent_account: "", account_number: "", account_name: "", account_type: "", account_currency: "", mirror: [] });
+async function openNew() {
+  newErr.value = ""; newOpen.value = true;
+  Object.assign(nf, { parent_account: "", account_number: "", account_name: "", account_type: "", account_currency: "", mirror: [] });
+  try { np.value = (await api.call("accounting_portal.api.ledger.account_parents", { company: currentCompany() })) || np.value; } catch { /* keep */ }
+}
+async function createAccount() {
+  newBusy.value = true; newErr.value = "";
+  try {
+    const r = await api.call("accounting_portal.api.ledger.create_account", { company: currentCompany(), ...nf, mirror: nf.mirror });
+    let res = r && r.result; res = typeof res === "string" ? JSON.parse(res) : res;
+    const made = (res && res.created) || []; const skipped = (res && res.skipped) || [];
+    toast.success(L(`Created ${made.length} account${made.length === 1 ? "" : "s"}`, `تم إنشاء ${made.length} حساب`, `${made.length} compte(s) créé(s)`) + (skipped.length ? " · " + L("skipped", "تخطّى", "ignoré") + " " + skipped.map((s) => s.company).join(", ") : ""));
+    newOpen.value = false; load();
+  } catch (e) { newErr.value = String(e?.message || e).slice(0, 200); }
+  finally { newBusy.value = false; }
+}
 const coaView = ref("balances");
 const VIEWS = [
   { k: "balances", icon: "scale", label: () => L("Balances", "الأرصدة", "Soldes") },

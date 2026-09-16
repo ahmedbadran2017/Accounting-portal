@@ -96,6 +96,7 @@ def _ensure_posters():
     import accounting_portal.api.purchases    # noqa: F401 — Receipt/Invoice/Pay posters
     import accounting_portal.api.bulk         # noqa: F401 — Bulk Submit/Cancel posters
     import accounting_portal.api.docops       # noqa: F401 — Amend Document poster
+    import accounting_portal.api.docedit      # noqa: F401 — Redate Document poster
     import accounting_portal.api.reconciliation  # noqa: F401 — Clear Bank Entry poster
     import accounting_portal.api.landed_engine   # noqa: F401 — cost/weight posters + reverters
     import accounting_portal.api.recurring        # noqa: F401 — recurring-draft poster + reverter

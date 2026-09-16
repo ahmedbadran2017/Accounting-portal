@@ -1,0 +1,302 @@
+"""Draft editor + one-click redate — the two things that kept sending the
+accountants back to the ERPNext Desk.
+
+What the Desk trail showed (Jun–Sep 2026): 705 Payment Entries, 347 Journal
+Entries and 353 Purchase Invoices were cancelled and re-created by hand as
+amendments — to change a posting date (JE ×221, PE ×160), a bank/cash account or
+mode of payment, a reference date, a line's expense account, an amount. The
+portal could amend (cancel → linked draft) but the draft itself was read-only
+beyond three cosmetic fields, so the edit still needed the Desk.
+
+Two entry points:
+- get_draft / save_draft — a schema-driven editor for a docstatus-0 document
+  (header fields + child rows). Saving runs ERPNext's own validate, so totals,
+  taxes and currency amounts recompute exactly as they would in the Desk. Not
+  gated (a draft posts nothing); every save is logged as "Edit draft".
+- redate — the single most common amendment, as one click: cancel → copy →
+  new posting date → submit. Gated like Amend (it reverses posted GL).
+"""
+import json
+
+import frappe
+from frappe.utils import flt, cint, getdate
+
+from accounting_portal.api import _actions, bulk
+from accounting_portal.api.permissions import (
+    assert_can_write, assert_portal_access, resolve_companies,
+)
+
+REDATE_ACTION = "Redate document"
+EDIT_ACTION = "Edit draft"
+
+# Field spec: (fieldname, type, options_key, read_only)
+#   type ∈ Date · Data · Text · Currency · Float · Int · Check · Select · Link · Party
+#   options_key → a list in the `options` dict returned by get_draft (Select/Link)
+#   Party → the frontend searches accountant.party_options with the row/header party_type
+_H = lambda f, t, o=None, ro=False: {"field": f, "type": t, "options": o, "ro": ro}  # noqa: E731
+
+_SCHEMA = {
+    "Journal Entry": {
+        "header": [_H("posting_date", "Date"), _H("voucher_type", "Select", "voucher_types"),
+                   _H("cheque_no", "Data"), _H("cheque_date", "Date"), _H("user_remark", "Text")],
+        "child": {"field": "accounts", "can_add": True, "can_remove": True,
+                  "columns": [_H("account", "Link", "accounts"), _H("party_type", "Select", "party_types"),
+                              _H("party", "Party"), _H("debit_in_account_currency", "Currency"),
+                              _H("credit_in_account_currency", "Currency"), _H("cost_center", "Link", "cost_centers"),
+                              _H("user_remark", "Data")]},
+    },
+    "Payment Entry": {
+        "header": [_H("posting_date", "Date"), _H("payment_type", "Select", "payment_types"),
+                   _H("mode_of_payment", "Link", "modes"), _H("party_type", "Select", "party_types"),
+                   _H("party", "Party"), _H("paid_from", "Link", "accounts"), _H("paid_to", "Link", "accounts"),
+                   _H("paid_amount", "Currency"), _H("received_amount", "Currency"),
+                   _H("source_exchange_rate", "Float"), _H("target_exchange_rate", "Float"),
+                   _H("reference_no", "Data"), _H("reference_date", "Date"), _H("remarks", "Text")],
+        "child": {"field": "references", "can_add": False, "can_remove": True,
+                  "columns": [_H("reference_doctype", "Data", ro=True), _H("reference_name", "Data", ro=True),
+                              _H("total_amount", "Currency", ro=True), _H("outstanding_amount", "Currency", ro=True),
+                              _H("allocated_amount", "Currency")]},
+    },
+    "Purchase Invoice": {
+        "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("bill_no", "Data"),
+                   _H("bill_date", "Date"), _H("remarks", "Text")],
+        "child": {"field": "items", "can_add": False, "can_remove": True,
+                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency"), _H("expense_account", "Link", "accounts"),
+                              _H("cost_center", "Link", "cost_centers")]},
+    },
+    "Sales Invoice": {
+        "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("remarks", "Text")],
+        "child": {"field": "items", "can_add": False, "can_remove": True,
+                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency")]},
+    },
+    "Additional Salary": {
+        "header": [_H("employee", "Party"), _H("salary_component", "Link", "components"),
+                   _H("amount", "Currency"), _H("payroll_date", "Date"),
+                   _H("overwrite_salary_structure_amount", "Check")],
+        "child": None,
+    },
+}
+# Additional Salary has no party_type field; the Party picker searches Employees.
+_PARTY_FIXED = {"Additional Salary": "Employee"}
+# Redate is the amend-and-resubmit shortcut; these carry a posting_date.
+_REDATE_OK = ("Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Additional Salary")
+_REDATE_FIELD = {"Additional Salary": "payroll_date"}
+
+_TYPE_CAST = {"Currency": flt, "Float": flt, "Int": cint, "Check": cint}
+
+
+def _company_ok(doc):
+    if doc.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+
+
+def _options(doctype, company):
+    out = {}
+    acc = frappe.db.sql(
+        "SELECT name AS value, name AS label, account_type AS type, account_currency AS currency "
+        "FROM `tabAccount` WHERE company=%s AND is_group=0 AND disabled=0 ORDER BY name", (company,), as_dict=True)
+    out["accounts"] = acc
+    out["cost_centers"] = frappe.db.sql(
+        "SELECT name AS value, name AS label FROM `tabCost Center` WHERE company=%s AND is_group=0 AND disabled=0 ORDER BY name",
+        (company,), as_dict=True)
+    out["party_types"] = [{"value": v, "label": v} for v in ("", "Customer", "Supplier", "Employee")]
+    if doctype == "Journal Entry":
+        out["voucher_types"] = [{"value": v, "label": v} for v in (
+            "Journal Entry", "Bank Entry", "Cash Entry", "Credit Card Entry", "Contra Entry",
+            "Debit Note", "Credit Note", "Write Off Entry", "Exchange Rate Revaluation", "Deferred Revenue", "Deferred Expense")]
+    if doctype == "Payment Entry":
+        out["payment_types"] = [{"value": v, "label": v} for v in ("Receive", "Pay", "Internal Transfer")]
+        out["modes"] = [{"value": r[0], "label": r[0]} for r in frappe.db.sql(
+            "SELECT name FROM `tabMode of Payment` WHERE enabled=1 ORDER BY name")]
+    if doctype == "Additional Salary":
+        out["components"] = [{"value": r[0], "label": f"{r[0]} ({r[1]})"} for r in frappe.db.sql(
+            "SELECT name, type FROM `tabSalary Component` WHERE IFNULL(disabled,0)=0 ORDER BY type, name")]
+    return out
+
+
+def _val(v):
+    if v is None:
+        return ""
+    return str(v)
+
+
+@frappe.whitelist()
+def get_draft(doctype=None, name=None):
+    """The editable view of a draft. Returns supported=False (not an error) when
+    the document is not a draft or the doctype has no editor, so the UI can fall
+    back to the small after-submit field editor."""
+    assert_portal_access()
+    if doctype not in _SCHEMA or not name or not frappe.db.exists(doctype, name):
+        return {"supported": False, "reason": "unsupported"}
+    doc = frappe.get_doc(doctype, name)
+    _company_ok(doc)
+    if doc.docstatus != 0:
+        return {"supported": False, "reason": "not_draft", "docstatus": doc.docstatus}
+    meta = frappe.get_meta(doctype)
+    spec = _SCHEMA[doctype]
+    header = []
+    for h in spec["header"]:
+        if not meta.has_field(h["field"]):
+            continue
+        df = meta.get_field(h["field"])
+        header.append({**h, "label": df.label if df else h["field"], "value": _val(doc.get(h["field"]))})
+    child = None
+    if spec["child"]:
+        cf = spec["child"]["field"]
+        cmeta = frappe.get_meta(meta.get_field(cf).options)
+        cols = []
+        for c in spec["child"]["columns"]:
+            if not cmeta.has_field(c["field"]):
+                continue
+            df = cmeta.get_field(c["field"])
+            cols.append({**c, "label": df.label if df else c["field"]})
+        rows = []
+        for r in doc.get(cf) or []:
+            row = {"name": r.name, "idx": r.idx}
+            for c in cols:
+                row[c["field"]] = _val(r.get(c["field"]))
+            rows.append(row)
+        child = {"field": cf, "label": meta.get_field(cf).label or cf, "columns": cols, "rows": rows,
+                 "can_add": spec["child"]["can_add"], "can_remove": spec["child"]["can_remove"]}
+    return {"supported": True, "doctype": doctype, "name": name, "company": doc.company,
+            "currency": doc.get("currency") or doc.get("paid_from_account_currency") or frappe.get_cached_value("Company", doc.company, "default_currency"),
+            "party_type_fixed": _PARTY_FIXED.get(doctype), "header": header, "child": child,
+            "options": _options(doctype, doc.company)}
+
+
+def _cast(spec_type, v):
+    if v in (None, ""):
+        return None if spec_type in ("Date", "Link", "Party", "Select", "Data", "Text") else 0
+    fn = _TYPE_CAST.get(spec_type)
+    return fn(v) if fn else v
+
+
+@frappe.whitelist()
+def save_draft(doctype=None, name=None, header=None, rows=None):
+    """Apply edits to a draft and save it through ERPNext's validate. `header` is
+    {field: value}; `rows` is the full child table as the user left it — rows
+    with a `name` are updated, rows without one are appended (where allowed),
+    rows missing from the list are removed (where allowed)."""
+    assert_can_write()
+    if doctype not in _SCHEMA or not name or not frappe.db.exists(doctype, name):
+        frappe.throw("Not editable")
+    doc = frappe.get_doc(doctype, name)
+    _company_ok(doc)
+    if doc.docstatus != 0:
+        frappe.throw("Only a draft can be edited. Amend the document first.")
+    header = header if isinstance(header, dict) else json.loads(header or "{}")
+    rows = rows if isinstance(rows, list) else json.loads(rows or "null")
+    spec = _SCHEMA[doctype]
+    before = {}
+    changed = {}
+    for h in spec["header"]:
+        f = h["field"]
+        if h["ro"] or f not in header or not doc.meta.has_field(f):
+            continue
+        new = _cast(h["type"], header[f])
+        old = doc.get(f)
+        if _val(old) != _val(new):
+            before[f] = _val(old)
+            changed[f] = _val(new)
+            doc.set(f, new)
+    row_note = None
+    if rows is not None and spec["child"]:
+        cf = spec["child"]["field"]
+        cols = [c for c in spec["child"]["columns"] if not c["ro"]]
+        existing = {r.name: r for r in (doc.get(cf) or [])}
+        kept = []
+        added = 0
+        for r in rows:
+            rn = r.get("name")
+            if rn and rn in existing:
+                row = existing[rn]
+            else:
+                if not spec["child"]["can_add"]:
+                    continue
+                row = doc.append(cf, {})
+                added += 1
+            for c in cols:
+                if c["field"] in r:
+                    row.set(c["field"], _cast(c["type"], r[c["field"]]))
+            kept.append(row)
+        removed = 0
+        if spec["child"]["can_remove"]:
+            keep_names = {r.name for r in kept if r.name}
+            for rn, row in existing.items():
+                if rn not in keep_names:
+                    doc.remove(row)
+                    removed += 1
+        for i, row in enumerate(doc.get(cf) or [], start=1):
+            row.idx = i
+        row_note = {"rows": len(doc.get(cf) or []), "added": added, "removed": removed}
+    if doctype in ("Purchase Invoice", "Sales Invoice") and changed.get("posting_date"):
+        doc.set_posting_time = 1
+    doc.flags.ignore_permissions = True
+    doc.save()
+    frappe.get_doc({
+        "doctype": "Accounting Portal Action", "action_type": EDIT_ACTION, "status": "Posted",
+        "company": doc.company, "reference_doctype": doctype, "reference_name": name,
+        "voucher_type": doctype, "voucher_no": name, "proposed_by": frappe.session.user,
+        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
+        "amount": flt(doc.get(bulk._ALLOWED.get(doctype, "")) or 0) if bulk._ALLOWED.get(doctype) else 0,
+        "payload": json.dumps({"before": before, "after": changed, "rows": row_note}),
+        "result": json.dumps({"saved": name}), "notes": f"Edited draft {name}",
+    }).insert(ignore_permissions=True)
+    return get_draft(doctype, name)
+
+
+# ── Redate: cancel → copy → new date → submit, one click ───────────────────────
+
+def _redate_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    dt, name, new_date = p["doctype"], p["name"], p["posting_date"]
+    d = frappe.get_doc(dt, name)
+    d.flags.ignore_permissions = True
+    if d.docstatus == 1:
+        d.cancel()
+    elif d.docstatus != 2:
+        frappe.throw("Only a submitted or cancelled document can be redated")
+    new = frappe.copy_doc(d)
+    new.amended_from = name
+    new.set(_REDATE_FIELD.get(dt, "posting_date"), new_date)
+    if new.meta.has_field("set_posting_time"):
+        new.set_posting_time = 1
+    new.flags.ignore_permissions = True
+    new.insert()
+    new.submit()
+    return {"voucher_type": dt, "voucher_no": new.name,
+            "result": {"amended_from": name, "new_doc": new.name, "posting_date": str(new_date)}}
+
+
+_actions.register_poster(REDATE_ACTION, _redate_poster)
+
+
+@frappe.whitelist()
+def redate(doctype=None, name=None, posting_date=None, company=None):
+    """Move a posted document to another date without retyping it: cancel, copy
+    as an amendment with the new date, submit. Gated by the document amount."""
+    assert_can_write()
+    if doctype not in _REDATE_OK:
+        frappe.throw(f"Redate is not available for {doctype}")
+    if not (name and posting_date):
+        frappe.throw("Document and new date are required")
+    new_date = str(getdate(posting_date))
+    doc_company = frappe.db.get_value(doctype, name, "company")
+    if not doc_company or doc_company not in resolve_companies(company):
+        frappe.throw("Not permitted", frappe.PermissionError)
+    field = _REDATE_FIELD.get(doctype, "posting_date")
+    if str(frappe.db.get_value(doctype, name, field)) == new_date:
+        frappe.throw("That is already the document's date")
+    if frappe.db.get_value(doctype, name, "docstatus") not in (1, 2):
+        frappe.throw("Only a submitted document can be redated — a draft is edited directly")
+    if frappe.db.get_value(doctype, {"amended_from": name}, "name"):
+        frappe.throw("This document was already amended")
+    amt = flt(frappe.db.get_value(doctype, name, bulk._ALLOWED[doctype]) or 0) if doctype in bulk._ALLOWED else 0
+    key = f"redate:{doctype}:{name}:{new_date}"
+    return _actions.execute(
+        REDATE_ACTION, doc_company, key,
+        payload={"doctype": doctype, "name": name, "posting_date": new_date},
+        amount=amt, reference_doctype=doctype, reference_name=name,
+        notes=f"Redate {doctype} {name} → {new_date}")

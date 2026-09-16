@@ -23,6 +23,8 @@ _ALLOWED = {
     "Purchase Order": "grand_total", "Purchase Receipt": "grand_total",
     "Purchase Invoice": "grand_total", "Delivery Note": "grand_total",
     "Payment Entry": "paid_amount", "Journal Entry": "total_debit",
+    # payroll bonuses/deductions — amended on the Desk 34× in a quarter (date/amount)
+    "Additional Salary": "amount",
 }
 
 

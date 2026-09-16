@@ -613,6 +613,22 @@ def payroll_generate(company=None, month=None, notes=None):
     if not (target and month):
         frappe.throw("company and month are required")
     from accounting_portal.api import _actions
+    # Preflight: HRMS answers "No employees found" for a month that is simply
+    # already run, which reads like a broken portal. Say what is actually true.
+    start, _end = _month_bounds(month)
+    done = frappe.db.sql(
+        "SELECT employee, payroll_entry FROM `tabSalary Slip` WHERE company=%s AND start_date=%s AND docstatus=1",
+        (target, start), as_dict=True)
+    if done:
+        slipped = {r.employee for r in done}
+        active = set(frappe.get_all("Employee", {"company": target, "status": "Active"}, pluck="name"))
+        assigned = set(frappe.get_all("Salary Structure Assignment", {"company": target, "docstatus": 1}, pluck="employee"))
+        remaining = sorted((active & assigned) - slipped)
+        runs = sorted({r.payroll_entry for r in done if r.payroll_entry})
+        if not remaining:
+            frappe.throw(f"{month} is already run: {len(done)} submitted slips"
+                         f"{' (' + ', '.join(runs[:4]) + ('…' if len(runs) > 4 else '') + ')' if runs else ''}. "
+                         "Nothing left to generate — see Runs.")
     key = "payroll-run:" + frappe.generate_hash(f"{target}:{month}", 14)
     return _actions.execute(RUN_ACTION, target, key, payload={"month": month},
                             amount=0, notes=notes or f"Generate payroll slips {month}")
@@ -629,7 +645,16 @@ def _run_poster(doc):
         "currency": _ccy(target), "exchange_rate": 1,
         "payroll_payable_account": payable, "cost_center": cc,
     })
-    pe.fill_employee_details()
+    try:
+        pe.fill_employee_details()
+    except frappe.ValidationError:
+        frappe.clear_last_message()
+        n_slipped = frappe.db.count("Salary Slip", {"company": target, "start_date": start, "docstatus": 1})
+        n_assigned = frappe.db.count("Salary Structure Assignment",
+                                     {"company": target, "docstatus": 1, "payroll_payable_account": payable})
+        frappe.throw(f"No employee left to run for {month}: {n_slipped} already have a submitted slip, "
+                     f"{n_assigned} hold a Salary Structure Assignment on {payable}. "
+                     "Anyone missing needs an assignment (Employees → Assign structure).")
     if not pe.get("employees"):
         frappe.throw("No eligible employees to run (each needs a submitted Salary Structure Assignment).")
     pe.insert(ignore_permissions=True)
@@ -1061,6 +1086,166 @@ def _create_emp_reverter(doc):
     return {"deleted": name}
 
 
+# ── HR quick entries that used to need the Desk ────────────────────────────────
+# The Desk trail (Jun–Sep 2026) showed Rofayda hand-keying 127 Employee Check-ins
+# and 3 Employee Advances, Hanane 21 check-ins — none of which the portal offered.
+
+ADV_ACTION = "Employee advance"
+CHECKIN_ACTION = "Employee check-in"
+
+
+@frappe.whitelist()
+def list_checkins(company=None, from_date=None, to_date=None, employee=None):
+    """Attendance log (Employee Checkin) for the company over a date range."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": []}
+    if not (from_date and to_date):
+        d = getdate(nowdate())
+        from_date, to_date = d.replace(day=1), get_last_day(d)
+    conds, params = ["e.company=%(c)s", "ec.time BETWEEN %(f)s AND %(t)s"], {
+        "c": target, "f": f"{from_date} 00:00:00", "t": f"{to_date} 23:59:59"}
+    if employee:
+        conds.append("ec.employee=%(e)s"); params["e"] = employee
+    rows = frappe.db.sql(
+        f"""SELECT ec.name, ec.employee, e.employee_name nm, ec.log_type, ec.time, IFNULL(ec.device_id,'') device,
+                   IFNULL(ec.attendance,'') attendance
+            FROM `tabEmployee Checkin` ec JOIN `tabEmployee` e ON e.name=ec.employee
+            WHERE {' AND '.join(conds)} ORDER BY ec.time DESC LIMIT 500""", params, as_dict=True)
+    for r in rows:
+        r["time"] = str(r["time"])[:16]
+        r["deletable"] = int(r["device"] == "portal" and not r["attendance"])
+    return {"company": target, "from_date": str(from_date), "to_date": str(to_date), "rows": rows}
+
+
+@frappe.whitelist()
+def add_checkin(company=None, employee=None, log_type=None, time=None):
+    """Record one IN/OUT punch by hand (device_id 'portal'). Not gated — an
+    attendance log posts nothing to the ledger — but audited."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and employee and time):
+        frappe.throw("employee and time are required")
+    if log_type not in ("IN", "OUT"):
+        frappe.throw("log_type must be IN or OUT")
+    if not frappe.db.exists("Employee", {"name": employee, "company": target}):
+        frappe.throw("Employee not found in this company")
+    doc = frappe.get_doc({"doctype": "Employee Checkin", "employee": employee, "log_type": log_type,
+                          "time": str(time).replace("T", " ")[:19], "device_id": "portal"})
+    doc.insert(ignore_permissions=True)
+    frappe.get_doc({
+        "doctype": "Accounting Portal Action", "action_type": CHECKIN_ACTION, "status": "Posted",
+        "company": target, "reference_doctype": "Employee", "reference_name": employee,
+        "voucher_type": "Employee Checkin", "voucher_no": doc.name, "proposed_by": frappe.session.user,
+        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(), "amount": 0,
+        "payload": json.dumps({"employee": employee, "log_type": log_type, "time": str(doc.time)}),
+        "result": json.dumps({"name": doc.name}), "notes": f"{log_type} {employee} {str(doc.time)[:16]}",
+    }).insert(ignore_permissions=True)
+    return {"name": doc.name}
+
+
+@frappe.whitelist()
+def delete_checkin(name=None):
+    """Remove a punch entered from the portal that attendance has not consumed yet."""
+    assert_can_write()
+    row = frappe.db.get_value("Employee Checkin", name, ["device_id", "attendance", "employee"], as_dict=True)
+    if not row:
+        frappe.throw("Not found")
+    if row.device_id != "portal" or row.attendance:
+        frappe.throw("Only portal-entered punches not yet used by attendance can be removed")
+    if not frappe.db.exists("Employee", {"name": row.employee, "company": ["in", resolve_companies()]}):
+        frappe.throw("Not permitted", frappe.PermissionError)
+    frappe.delete_doc("Employee Checkin", name, ignore_permissions=True)
+    return {"deleted": name}
+
+
+@frappe.whitelist()
+def advance_options(company=None):
+    """Advance accounts + payment modes for the Employee Advance form."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    default = frappe.db.get_value("Company", target, "default_employee_advance_account")
+    accounts = frappe.db.sql(
+        """SELECT name AS value, name AS label FROM `tabAccount`
+           WHERE company=%s AND is_group=0 AND disabled=0 AND root_type='Asset'
+             AND (name LIKE '%%dvance%%' OR name LIKE '%%mploy%%' OR name=%s) ORDER BY name""",
+        (target, default or ""), as_dict=True)
+    modes = frappe.db.sql(
+        """SELECT mop.name AS value, mop.name AS label, mopa.default_account AS account
+           FROM `tabMode of Payment` mop LEFT JOIN `tabMode of Payment Account` mopa
+             ON mopa.parent=mop.name AND mopa.company=%s
+           WHERE mop.enabled=1 ORDER BY mop.name""", (target,), as_dict=True)
+    return {"company": target, "currency": _ccy(target), "default_account": default,
+            "accounts": accounts, "modes": modes}
+
+
+@frappe.whitelist()
+def list_employee_advances(company=None, limit=200):
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": []}
+    rows = frappe.db.sql(
+        """SELECT a.name, a.employee, e.employee_name nm, a.posting_date, a.purpose, a.advance_amount,
+                  a.paid_amount, a.claimed_amount, a.return_amount, a.status, a.docstatus, a.advance_account
+           FROM `tabEmployee Advance` a JOIN `tabEmployee` e ON e.name=a.employee
+           WHERE a.company=%s AND a.docstatus<2 ORDER BY a.posting_date DESC, a.creation DESC LIMIT %s""",
+        (target, int(limit or 200)), as_dict=True)
+    for r in rows:
+        r["posting_date"] = str(r["posting_date"])
+        for k in ("advance_amount", "paid_amount", "claimed_amount", "return_amount"):
+            r[k] = _m(r.get(k))
+        r["open"] = _m(r["advance_amount"] - r["claimed_amount"] - r["return_amount"])
+    return {"company": target, "currency": _ccy(target), "rows": rows,
+            "open_total": _m(sum(r["open"] for r in rows if r["docstatus"] == 1)),
+            "unpaid_total": _m(sum(r["advance_amount"] - r["paid_amount"] for r in rows if r["docstatus"] == 1))}
+
+
+@frappe.whitelist()
+def create_employee_advance(company=None, employee=None, amount=None, purpose=None, posting_date=None,
+                            mode_of_payment=None, advance_account=None, repay_from_salary=0, notes=None):
+    """Book an Employee Advance (submitted). Gated by amount like any payment;
+    reversible by cancelling the voucher."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and employee and purpose):
+        frappe.throw("employee and purpose are required")
+    amt = _m(amount)
+    if amt <= 0:
+        frappe.throw("Amount must be greater than zero")
+    if not frappe.db.exists("Employee", {"name": employee, "company": target}):
+        frappe.throw("Employee not found in this company")
+    from accounting_portal.api import _actions
+    pd = str(getdate(posting_date or nowdate()))
+    key = "empadv:" + frappe.generate_hash(f"{target}:{employee}:{amt}:{pd}:{purpose[:30]}", 14)
+    return _actions.execute(
+        ADV_ACTION, target, key,
+        payload={"employee": employee, "amount": amt, "purpose": purpose, "posting_date": pd,
+                 "mode_of_payment": mode_of_payment, "advance_account": advance_account,
+                 "repay_from_salary": int(str(repay_from_salary) in ("1", "true", "True"))},
+        amount=amt, notes=notes or f"Advance {amt} to {employee}")
+
+
+def _adv_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    a = frappe.get_doc({
+        "doctype": "Employee Advance", "company": doc.company, "employee": p["employee"],
+        "posting_date": p.get("posting_date") or nowdate(), "currency": _ccy(doc.company), "exchange_rate": 1,
+        "purpose": p["purpose"], "advance_amount": flt(p["amount"]),
+        "advance_account": p.get("advance_account") or frappe.db.get_value(
+            "Company", doc.company, "default_employee_advance_account"),
+        "mode_of_payment": p.get("mode_of_payment") or None,
+        "repay_unclaimed_amount_from_salary": int(p.get("repay_from_salary") or 0),
+    })
+    a.insert(ignore_permissions=True)
+    a.submit()
+    return {"voucher_type": "Employee Advance", "voucher_no": a.name,
+            "result": {"advance": a.name, "amount": flt(p["amount"])}}
+
+
 # Generate/pay register via the shared cancel-voucher undo where applicable.
 def _register():
     from accounting_portal.api import _actions
@@ -1086,6 +1271,8 @@ def _register():
     _actions.register_poster(EMP_CREATE_ACTION, _create_emp_poster)
     _actions.register_reverter(EMP_CREATE_ACTION, _create_emp_reverter)
     _actions._NO_GATE.add(EMP_CREATE_ACTION)
+    _actions.register_poster(ADV_ACTION, _adv_poster)
+    _actions.register_reverter(ADV_ACTION, _actions._cancel_voucher_reverter)
 
 
 _register()

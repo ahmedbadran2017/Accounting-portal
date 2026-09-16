@@ -2,6 +2,8 @@
   <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
     <!-- Document actions: submit / cancel / amend / assign -->
     <DocActions :doctype="doctype" :name="name" @changed="onChanged" @open="goto" />
+    <!-- full draft editor (header + lines) for JE / PE / bills / invoices / pay adjustments -->
+    <DraftEditor v-if="draftOpen" :doctype="doctype" :name="name" @close="draftOpen = false" @saved="draftOpen = false; onChanged()" />
     <!-- Toolbar: tags + print + edit -->
     <div class="flex items-center gap-2 px-3 py-2.5 border-b border-line-hair flex-wrap">
       <Icon name="filter" :size="13" color="#a8a29e" />
@@ -123,6 +125,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import DocActions from "@/components/DocActions.vue";
+import DraftEditor from "@/components/DraftEditor.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
 
@@ -226,7 +229,17 @@ const printUrl = computed(() => `/api/method/frappe.utils.print_format.download_
 const editOpen = ref(false);
 const editFields = ref([]);
 const savingEdit = ref(false);
+const draftOpen = ref(false);
+const DRAFT_DOCTYPES = ["Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Additional Salary"];
 async function openEdit() {
+  // A draft of an editable doctype gets the full editor (header + lines); anything
+  // else keeps the small after-submit field editor.
+  if (DRAFT_DOCTYPES.includes(props.doctype)) {
+    try {
+      const g = await api.call("accounting_portal.api.docedit.get_draft", { doctype: props.doctype, name: props.name }, { fresh: true });
+      if (g && g.supported) { draftOpen.value = true; return; }
+    } catch { /* fall through to the field editor */ }
+  }
   editOpen.value = true; editFields.value = [];
   try { editFields.value = (await api.call("accounting_portal.api.docmeta.editable_fields", { doctype: props.doctype, name: props.name })).fields || []; }
   catch { editFields.value = []; }
