@@ -1,7 +1,6 @@
 import api from "@/services/api";
 import { iniOf } from "@/composables/useLive";
 import { findOrder, orderDims, orderTimeline, orderStageJournals } from "@/data/orders";
-import { useCreated } from "@/composables/useCreated";
 
 // Order detail: live ERPNext (get_order) with sample fallback. Returns the full
 // view-model the page binds to ({ o, dims, timeline, journal }) so the template
@@ -88,12 +87,8 @@ function sampleVM(ord, l) {
 }
 
 export function useOrders() {
-  const { findCreatedOrder } = useCreated();
-
   async function loadDetail(id, locale) {
     if (!id) return null;
-    const created = findCreatedOrder(id);
-    if (created) return sampleVM(created, locale);
     try {
       const d = await api.call("accounting_portal.api.sales.get_order", { name: id });
       return liveVM(d, locale);
