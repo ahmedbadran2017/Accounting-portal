@@ -5,7 +5,7 @@
       <span class="text-[13px] font-bold">{{ L("Customers","العملاء","Clients") }}</span>
       <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
             :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">
-        {{ live ? L("Live","مباشر","En direct") : L("Sample","عيّنة","Échantillon") }}
+        {{ live ? L("Live","مباشر","En direct") : L("Load failed","فشل التحميل","Échec") }}
       </span>
       <span class="hidden lg:inline text-[11px] text-ink-muted flex-1">{{ L("LTV & delivery health · computed from invoices","القيمة العمرية وصحة التسليم · محسوبة من الفواتير","LTV & livraison · calculé depuis les factures") }}</span>
       <div class="relative ms-auto w-[200px]">

@@ -6,7 +6,8 @@
         <Icon name="layers" :size="17" color="#e9d5ff" />
         <span class="text-[13px] font-bold">{{ L("Consolidated · Justyol Holding", "موحَّد · Justyol Holding", "Consolidé · Justyol Holding") }}</span>
         <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-white/15 px-2.5 py-1 rounded-full ms-1">{{ d.base || "USD" }}</span>
-        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="isLive ? 'background:rgba(52,211,153,.22);color:#a7f3d0' : 'background:rgba(251,191,36,.22);color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="isLive ? 'background:rgba(52,211,153,.22);color:#a7f3d0' : 'background:rgba(251,191,36,.22);color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+        <span v-if="loadErr" class="text-[10px] text-amber-300/90 truncate max-w-[20rem]" :title="loadErr">{{ loadErr }}</span>
       </div>
       <p class="text-[13px] leading-relaxed text-violet-50/95 max-w-4xl">{{ digest }}</p>
     </div>
@@ -233,8 +234,8 @@ const router = useRouter();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const money = (n) => fmtAmount(n);
 
-const SAMPLE = { base: "USD", rows: [{ company: "Justyol Morocco", abbr: "JM", currency: "MAD", rate: 0.105, base: { net: 70695385, assets: 72183437, cash: 71073 } }], totals: { income: 2580000, net: 70536553, assets: 73035766, cash: 232584 }, rate_warnings: [] };
 const d = ref({ rows: [], totals: {} });
+const loadErr = ref("");
 // ── group P&L (policy-eliminated) + IC matrix ──
 const g = ref(null);
 const m = ref(null);
@@ -266,7 +267,10 @@ loadMatrix();
 const isLive = ref(null);
 async function load() {
   try { d.value = await api.call("accounting_portal.api.consolidation.consolidated_financials", { base: "USD" }); isLive.value = true; }
-  catch { d.value = SAMPLE; isLive.value = false; }
+  // Consolidated totals are a board-level number. Inventing them on a failed
+  // load is worse than showing nothing.
+  catch (e) { d.value = { rows: [], totals: {} }; isLive.value = false;
+    loadErr.value = String(e?.message || e).slice(0, 180); }
 }
 onMounted(load);
 

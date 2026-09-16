@@ -2,7 +2,7 @@
   <div class="space-y-3.5">
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Verified due diligence","العناية الواجبة المُتحقَّقة","Due diligence vérifiée") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("every figure tied to the GL — investor / audit ready","كل رقم مطابق للأستاذ — جاهز للمستثمر/التدقيق","chaque chiffre lié au GL") }}</span>
       <span class="ms-auto inline-flex items-center gap-1.5 text-[11.5px] font-bold px-2.5 py-1 rounded-full" :style="scoreStyle"><Icon name="shield" :size="13" :color="scoreFg" />{{ d.score }}/{{ d.total }} {{ L("checks pass","فحص ناجح","contrôles OK") }}</span>
     </div>
@@ -39,7 +39,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
-import { currentCompany } from "@/composables/useLive";
+import { currentCompany, blankLike } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
@@ -55,7 +55,7 @@ const d = ref(SAMPLE);
 const isLive = ref(null);
 async function load() {
   try { d.value = await api.call("accounting_portal.api.reports.verified_dd", { company: currentCompany() }); isLive.value = true; }
-  catch { d.value = SAMPLE; isLive.value = false; }
+  catch { d.value = blankLike(SAMPLE); isLive.value = false; }
 }
 onMounted(load);
 watch(entityId, load);

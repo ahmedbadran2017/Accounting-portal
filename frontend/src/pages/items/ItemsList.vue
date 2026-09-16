@@ -14,7 +14,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="box" :size="14" color="#0b5c4f" /></span>
         <span class="text-[13px] font-bold">{{ L("Items & true margin","الأصناف والهامش الحقيقي","Articles & marge") }}</span>
-        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
         <div class="ms-auto flex items-center gap-2">
           <select v-model="group" @change="load" class="h-9 border border-line-2 rounded-[10px] px-2 text-[12px] bg-white max-w-[150px] focus:outline-none focus:border-accent/40">
             <option value="">{{ L("All groups","كل المجموعات","Tous") }}</option>
@@ -101,15 +101,12 @@ const search = usePersistedRef("ap_items_search", "");
 const group = usePersistedRef("ap_items_group", "");
 let t = null;
 
-const SAMPLE = [
-  { item_code: "JY-JKT-0301", item_name: "Veste en Jean", sku: "JY-JKT-0301", item_group: "Vestes", cost: 104.65, avg_sold: 299, landed: 11.5, cod_fee: 14.95, rto_pct: 18, true_margin: 137.6, true_margin_pct: 46, qty_sold: 320, stock_qty: 120 },
-];
 async function load() {
   loading.value = true;
   try {
     rows.value = await api.call("accounting_portal.api.items.list_items", { company: currentCompany(), search: search.value || undefined, group: group.value || undefined, limit: 80 });
     isLive.value = true;
-  } catch { rows.value = SAMPLE; isLive.value = false; }
+  } catch { rows.value = []; isLive.value = false; }
   finally { loading.value = false; }
 }
 async function loadGroups() {

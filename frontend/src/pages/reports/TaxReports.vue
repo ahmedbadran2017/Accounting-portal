@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2">
       <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
             :class="live ? 'text-success-dark bg-success-soft' : 'text-amber-700 bg-amber-50'">
-        <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échantillon") }}
+        <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}
       </span>
       <span class="text-[11px] text-ink-muted">{{ L("VAT declaration — monthly (DGI Morocco · déclaration le 20)","ض.ق.م — تصريح شهري (المديرية العامة للضرائب · حتى 20)","TVA — déclaration mensuelle (DGI)") }}</span>
     </div>
@@ -98,11 +98,6 @@ function stat(p) {
   if (p.deadline >= today) return { c: "#b45309", bg: "#fffbeb", label: L("Due", "مستحق", "À déclarer") };
   return { c: "#78716c", bg: "#f5f5f4", label: L("Past deadline", "انتهى الموعد", "Échue") };
 }
-const SAMPLE_P = [
-  { month: "2026-06", output: 143286, input: 1229, net: 142057, deadline: "2026-07-20" },
-  { month: "2026-05", output: 229403, input: 10057, net: 219346, deadline: "2026-06-20" },
-  { month: "2026-04", output: 258603, input: 13663, net: 244940, deadline: "2026-05-20" },
-];
 // Next to declare = most recent month whose deadline is still upcoming (else the latest).
 const nextDue = computed(() => periods.value.find((p) => p.deadline >= today) || periods.value[0] || null);
 const nextStatus = computed(() => (nextDue.value ? stat(nextDue.value) : { c: "#0369a1", bg: "#eff6ff", label: "" }));
@@ -111,7 +106,7 @@ async function load() {
   const r = await loadVat();
   live.value = r.live; vat.value = r.data;
   try { periods.value = (await api.call("accounting_portal.api.reports.vat_periods", { company: currentCompany() })).periods || []; }
-  catch { periods.value = SAMPLE_P; }
+  catch { periods.value = []; }
 }
 onMounted(load);
 watch(entityId, load);

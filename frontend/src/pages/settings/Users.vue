@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2 flex-wrap">
       <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
             :class="live ? 'text-success-dark bg-success-soft' : 'text-amber-700 bg-amber-50'">
-        <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échantillon") }}
+        <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}
       </span>
       <span class="text-[11px] text-ink-muted">{{ L("Everyone with portal access and their role.","كل من لديه صلاحية الدخول ودوره.","Chaque utilisateur du portail et son rôle.") }}</span>
       <button v-if="canManage" @click="openInvite" class="ms-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand"><Icon name="plus" :size="13" color="#fff" />{{ L("Invite","دعوة","Inviter") }}</button>

@@ -26,7 +26,7 @@
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-[13.5px] font-bold text-amber-900">{{ L("Inventory health — perpetual stock isn't relieving to COGS","صحة المخزون — الجرد المستمر لا يُرحّل لتكلفة المبيعات","Santé du stock — non soldé en CMV") }}</span>
-            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">{{ healthLive ? L("LIVE","مباشر","LIVE") : L("SAMPLE","عيّنة","ÉCH.") }}</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">{{ healthLive ? L("LIVE","مباشر","LIVE") : L("LOAD FAILED","فشل التحميل","ÉCHEC") }}</span>
           </div>
           <p class="text-[12px] text-amber-800 mt-1 leading-relaxed">{{ L("Stock-in-hand carries "+money0(health.stock_in_hand)+" MAD while “"+(health.adjustment_account||'Stock Adjustment')+"” absorbs "+money0(health.adjustment_balance)+". Deliveries aren't posting cost of goods sold, so per-order margin is unmeasurable and the balance sheet is overstated.","المخزون يحمل "+money0(health.stock_in_hand)+" درهم بينما يمتص حساب التسوية "+money0(health.adjustment_balance)+". التسليمات لا تُرحّل تكلفة المبيعات، فالهامش غير قابل للقياس.","Le stock porte "+money0(health.stock_in_hand)+" MAD.") }}</p>
         </div>

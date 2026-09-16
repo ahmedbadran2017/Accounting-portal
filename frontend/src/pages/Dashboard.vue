@@ -363,7 +363,7 @@
         <div class="flex-1">
           <div class="flex items-center gap-2">
             <div class="text-[13.5px] font-bold">{{ t("dash.flagged_title") }}</div>
-            <span class="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full border" :style="alertsLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ alertsLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+            <span class="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full border" :style="alertsLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ alertsLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
           </div>
           <div class="text-[11px] text-ink-muted">{{ t("dash.flagged_sub") }}</div>
         </div>

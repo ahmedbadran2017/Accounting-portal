@@ -40,7 +40,7 @@
     <!-- Toolbar -->
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Chart of accounts","دليل الحسابات","Plan comptable") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       <span class="hidden md:inline text-[11px] text-ink-muted">{{ L("live balances · click any account to open its ledger","أرصدة حيّة · اضغط أي حساب لفتح الأستاذ","soldes en direct") }}</span>
       <div class="ms-auto flex items-center gap-2">
         <button v-if="canWrite" type="button" @click="openNew" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-[10px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand">

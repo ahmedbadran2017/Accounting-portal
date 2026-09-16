@@ -10,7 +10,7 @@
     <div class="bg-white border border-line rounded-card shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
         <span class="text-[12.5px] font-bold">{{ L("Recent opening entries","قيود افتتاحية حديثة","Écritures d'ouverture récentes") }}</span>
-        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       </div>
       <TableLoading v-if="loading" :rows="5" />
       <table v-else class="w-full text-[12px]">

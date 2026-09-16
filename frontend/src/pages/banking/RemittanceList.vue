@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="truck" :size="14" color="#b45309" /></span>
       <span class="text-[13px] font-bold">{{ L("COD remittance batches","دفعات تحصيل COD","Lots d’encaissement COD") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       <span class="hidden lg:inline text-[11px] text-ink-muted">{{ L("carrier collected vs deposited","المُحصَّل مقابل المُودَع","collecté vs déposé") }}</span>
       <div class="ms-auto relative">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
@@ -62,11 +62,10 @@ const isLive = ref(null);
 const loading = ref(true);
 const search = usePersistedRef("ap_remit_search", "");
 let t = null;
-const SAMPLE = [{ ref: "CATH0102…0526", carrier: "Cathedis", date: "2026-05-02", orders: 716, expected: 150990, collected: 154153, variance: 3163, status: "over" }];
 async function load() {
   loading.value = true;
   try { rows.value = await api.call("accounting_portal.api.cod.cod_remittances", { company: currentCompany(), search: search.value || undefined, limit: 2000 }); isLive.value = true; }
-  catch { rows.value = SAMPLE; isLive.value = false; }
+  catch { rows.value = []; isLive.value = false; }
   finally { loading.value = false; }
 }
 function onSearch() { clearTimeout(t); t = setTimeout(load, 350); }

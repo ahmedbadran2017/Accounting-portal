@@ -2,7 +2,7 @@
   <div class="space-y-3.5">
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Cash forecast","توقّع النقد","Prévision de trésorerie") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("cash now + carrier COD coming in − cheques & bills going out","النقد الآن + تحصيل COD القادم − الشيكات والفواتير","trésorerie + COD entrant − chèques & factures") }}</span>
     </div>
 
@@ -50,7 +50,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
-import { currentCompany } from "@/composables/useLive";
+import { currentCompany, blankLike } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
@@ -63,7 +63,7 @@ const d = ref(SAMPLE);
 const isLive = ref(null);
 async function load() {
   try { d.value = await api.call("accounting_portal.api.reports.cash_forecast", { company: currentCompany() }); isLive.value = true; }
-  catch { d.value = SAMPLE; isLive.value = false; }
+  catch { d.value = blankLike(SAMPLE); isLive.value = false; }
 }
 onMounted(load);
 watch(entityId, load);

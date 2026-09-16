@@ -24,7 +24,7 @@
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
         <input v-model.trim="st.search.value" :placeholder="t('module.search')" class="w-full h-9 bg-white border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40" />
       </div>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? lbl("Live","مباشر","Live") : lbl("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? lbl("Live","مباشر","Live") : lbl("Load failed","فشل التحميل","Échec") }}</span>
       <div class="flex items-center gap-1 bg-app-warm/60 rounded-chip p-0.5" :title="lbl('Active = confirmed onward','النشطة = من التأكيد فصاعدًا','Actives = à partir de la confirmation')">
         <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="setActive(true)">{{ lbl("Active","النشطة","Actives") }}</button>
         <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="!activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="setActive(false)">{{ lbl("All","الكل","Toutes") }}</button>

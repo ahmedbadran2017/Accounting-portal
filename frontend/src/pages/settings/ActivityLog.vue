@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2">
       <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
             :class="live ? 'text-success-dark bg-success-soft' : 'text-amber-700 bg-amber-50'">
-        <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échantillon") }}
+        <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}
       </span>
       <span class="text-[11px] text-ink-muted">{{ L("Every write the team makes from the portal — who, what, when, and the posted voucher.","كل عملية كتابة يقوم بها الفريق من البورتال — من، وماذا، ومتى، والمستند المُرحّل.","Chaque écriture passée depuis le portail.") }}</span>
     </div>
@@ -197,7 +197,7 @@ async function load() {
   const r = await liveOrSample("accounting_portal.api._actions.list_actions", { company: currentCompany(), limit: 100 }, () => SAMPLE);
   live.value = r.live;
   // Only ever show demo rows when NOT live — never mask a real (empty/failed) audit feed.
-  rows.value = r.live ? (Array.isArray(r.data) ? r.data : []) : SAMPLE;
+  rows.value = r.live && Array.isArray(r.data) ? r.data : [];
 }
 const requireApproval = ref(true);
 const threshold = ref(10000);

@@ -12,16 +12,34 @@ export function currentCompany() {
 // ERPNext endpoint; if it's unreachable (app not installed yet / 403 pre-login)
 // it returns the sample so the UI always renders. Returns the source so each
 // screen can show a Live/Sample badge.
+// The books are live. A fabricated figure that renders exactly like a real one is
+// worse than a blank screen, so a failed load keeps the SHAPE of the fallback —
+// so every downstream computed and template still resolves — and none of its
+// numbers: arrays empty, numbers zero, strings blank.
+export function blankLike(v) {
+  if (Array.isArray(v)) return [];
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const k of Object.keys(v)) out[k] = blankLike(v[k]);
+    return out;
+  }
+  if (typeof v === "number") return 0;
+  if (typeof v === "string") return "";
+  if (typeof v === "boolean") return false;
+  return v;
+}
+
 export async function liveOrSample(method, args, fallback, normalize) {
   try {
     const r = await api.call(method, args || {});
     return { live: true, data: normalize ? normalize(r) : r };
-  } catch {
-    // Never silent: the header shows an amber "sample data" chip while any screen
-    // is rendering a fallback, so a fabricated figure can't pass as a real one.
+  } catch (e) {
+    // Never silent: the header shows an amber chip naming every endpoint that
+    // failed, so a blank figure can't pass for a real zero either.
     apiHealth.samples++;
     if (!apiHealth.sampleMethods.includes(method)) apiHealth.sampleMethods.push(method);
-    return { live: false, data: fallback() };
+    const shape = typeof fallback === "function" ? fallback() : fallback;
+    return { live: false, error: String(e?.message || e).slice(0, 180), data: blankLike(shape) };
   }
 }
 

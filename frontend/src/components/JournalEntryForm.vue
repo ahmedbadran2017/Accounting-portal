@@ -112,10 +112,10 @@
 
       <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
         <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-        <button v-if="!opening" class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-accent-dark border border-line-2 hover:bg-white disabled:opacity-50" :disabled="!hasAnyLine || posting" @click="post(true)" :title="L('Save unsubmitted — finish later from Journals','احفظ بدون ترحيل — كمّله لاحقًا من القيود','Enregistrer en brouillon')">
+        <button v-if="!opening" class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-accent-dark border border-line-2 hover:bg-white disabled:opacity-50" :disabled="!hasAnyLine || posting || !accounts.length" @click="post(true)" :title="L('Save unsubmitted — finish later from Journals','احفظ بدون ترحيل — كمّله لاحقًا من القيود','Enregistrer en brouillon')">
           {{ posting === 'draft' ? L("Saving…","جارٍ…","…") : L("Save draft", "حفظ مسودة", "Brouillon") }}
         </button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!balanced || mixedCurrency || posting" @click="post(false)">
+        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!balanced || mixedCurrency || posting || !accounts.length" @click="post(false)">
           {{ posting === 'post' ? L("Posting…", "جارٍ…", "…") : L("Post entry", "ترحيل القيد", "Passer") }}
         </button>
       </div>
@@ -139,12 +139,6 @@ const { entityId, entities } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const entityName = computed(() => (entities.find((e) => e.id === entityId.value) || entities[0]).name);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const SAMPLE_ACCOUNTS = [
-  { name: "71.999 - Correction Need Income - JM" }, { name: "120.01 - Debtors - JM" },
-  { name: "100.002.002 - Petty cash - JM" }, { name: "600.002 - Good Sales at Morocco - JM" },
-  { name: "320.01 - Creditors - JM" }, { name: "191.020 - VAT %20 - JM" },
-];
 
 const clientKey = newClientKey();
 const autoReverse = ref(false);
@@ -193,8 +187,16 @@ function pickParty(ln, pt) { ln.party = pt.name; ln.pq = pt.label || pt.name; op
 onMounted(async () => {
   try {
     const a = await api.call("accounting_portal.api.accountant.account_options", { company: currentCompany() });
-    accounts.value = Array.isArray(a) && a.length ? a : SAMPLE_ACCOUNTS;
-  } catch { accounts.value = SAMPLE_ACCOUNTS; }
+    accounts.value = Array.isArray(a) ? a : [];
+    if (!accounts.value.length) error.value = L("No accounts loaded for this company.", "لم تُحمَّل أي حسابات لهذه الشركة.", "Aucun compte chargé.");
+  } catch (e) {
+    // Never offer a made-up chart of accounts on a posting form — a hardcoded
+    // account name here is a posting to the wrong account.
+    accounts.value = [];
+    error.value = L("Could not load the chart of accounts — reload before posting.",
+                    "تعذّر تحميل دليل الحسابات — أعد التحميل قبل الترحيل.",
+                    "Impossible de charger le plan comptable — rechargez avant de comptabiliser.");
+  }
 });
 
 const totalDr = computed(() => lines.value.reduce((s, l) => s + (Number(l.debit) || 0), 0));

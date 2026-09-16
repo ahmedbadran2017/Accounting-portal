@@ -152,7 +152,7 @@
           <span class="w-1.5 h-1.5 rounded-full" :class="healthy ? 'bg-success' : 'bg-rose-500 animate-pulse'"></span>{{ healthy ? L("Connected", "متصل", "Connecté") : L("Offline", "غير متصل", "Hors ligne") }}
         </span>
         <span v-if="apiHealth.samples" class="hidden md:inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-chip" style="background:#fffbeb;color:#92400e" :title="apiHealth.sampleMethods.join(', ')">
-          {{ L("Sample data on screen", "بيانات عيّنة على الشاشة", "Données d'exemple affichées") }}
+          {{ L("Some data failed to load", "تعذّر تحميل بعض البيانات", "Certaines données n'ont pas pu être chargées") }}
         </span>
 
         <div class="relative" v-click-outside="() => (langOpen = false)">

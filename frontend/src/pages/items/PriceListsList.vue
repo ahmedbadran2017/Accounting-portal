@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="scale" :size="14" color="#0b5c4f" /></span>
       <span class="text-[13px] font-bold">{{ L("Price lists","قوائم الأسعار","Listes de prix") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("lists","قائمة","listes") }}</span>
     </div>
     <TableLoading v-if="loading" :rows="5" />
@@ -49,11 +49,10 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const rows = ref([]);
 const isLive = ref(null);
 const loading = ref(true);
-const SAMPLE = [{ name: "Morocco", currency: "MAD", selling: 0, buying: 1, items: 27457, updated: "2026-06-21" }];
 async function load() {
   loading.value = true;
   try { rows.value = await api.call("accounting_portal.api.items.list_price_lists", {}); isLive.value = true; }
-  catch { rows.value = SAMPLE; isLive.value = false; }
+  catch { rows.value = []; isLive.value = false; }
   finally { loading.value = false; }
 }
 onMounted(load);

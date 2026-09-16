@@ -2,7 +2,7 @@
   <div class="space-y-3.5">
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Missing documents","مستندات ناقصة","Documents manquants") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("documents with no source file attached — attach to clear the audit gap","مستندات بدون ملف مرفق — ارفع المستند لإغلاق فجوة التدقيق","sans pièce jointe — joignez pour combler le manque") }}</span>
     </div>
 

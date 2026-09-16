@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="clock" :size="14" color="#b45309" /></span>
       <span class="text-[13px] font-bold">{{ L("Carrier receivable aging", "تقادم ذمم الناقلين", "Ancienneté créances transporteurs") }}</span>
-      <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("Cash held by carriers, by age", "النقد لدى الناقلين، حسب العمر", "Cash détenu, par âge") }}</span>
     </div>
     <div v-if="loading" class="px-1"><TableLoading :rows="4" /></div>
@@ -64,14 +64,10 @@ const worst = computed(() => {
   return w;
 });
 
-const SAMPLE = [
-  { carrier: "Cathedis", d0_3: 182000, d4_7: 96000, d8_14: 40000, d15p: 12000, total: 330000, avg_days: 5.2, alert: false },
-  { carrier: "Sendit", d0_3: 48000, d4_7: 31000, d8_14: 22000, d15p: 18400, total: 119400, avg_days: 9.8, alert: true },
-];
 async function load() {
   loading.value = true;
   try { carriers.value = (await api.call("accounting_portal.api.cod.carrier_aging", { company: currentCompany() })).carriers || []; live.value = true; }
-  catch { carriers.value = SAMPLE; live.value = false; }
+  catch { carriers.value = []; live.value = false; }
   finally { loading.value = false; }
 }
 watch(entityId, load, { immediate: true });

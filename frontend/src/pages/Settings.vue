@@ -16,7 +16,7 @@
 
     <!-- Taxes -->
     <div v-else-if="activeSub === 'taxconf'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Taxes","الضرائب","Taxes") }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span></div>
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Taxes","الضرائب","Taxes") }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span></div>
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Tax template","قالب الضريبة","Modèle") }}</th>
@@ -36,7 +36,7 @@
 
     <!-- Currencies -->
     <div v-else-if="activeSub === 'currencies'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Currency exchange rates","أسعار صرف العملات","Taux de change") }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span></div>
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Currency exchange rates","أسعار صرف العملات","Taux de change") }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span></div>
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Pair","الزوج","Paire") }}</th>

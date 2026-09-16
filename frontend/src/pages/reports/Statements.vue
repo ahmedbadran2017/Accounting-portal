@@ -5,7 +5,7 @@
       <div class="inline-flex bg-white border border-line rounded-chip p-1 shadow-card">
         <button v-for="s in TABS" :key="s.key" @click="tab = s.key" class="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition" :class="tab === s.key ? 'bg-app-warm text-accent-dark shadow-card' : 'text-ink-3 hover:text-ink'">{{ s.label() }}</button>
       </div>
-      <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+      <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
       <div class="ms-auto flex items-center gap-1.5">
         <template v-if="tab !== 'monthly'">
           <button v-for="p in PRESETS" :key="p.key" @click="setPreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="preset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>

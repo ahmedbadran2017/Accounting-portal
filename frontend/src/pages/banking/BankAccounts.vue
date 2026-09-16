@@ -37,7 +37,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="14" color="#0369a1" /></span>
         <span class="text-[13px] font-bold">{{ L("Bank & cash accounts", "حسابات البنوك والنقد", "Comptes bancaires & caisse") }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
         <button v-if="canWrite" @click="showSettle = true" class="h-8 px-2.5 rounded-chip text-[11.5px] font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 inline-flex items-center gap-1.5"><Icon name="scale" :size="13" color="#4338ca" />{{ L("Monthly settlement","تسوية شهرية","Règlement") }}</button>
         <!-- Operating / Under audit / All -->
         <div class="inline-flex rounded-[10px] border border-line-2 overflow-hidden bg-app-warm/40 text-[11.5px] font-semibold">
@@ -253,16 +253,11 @@ async function bulkPark(flag) {
   finally { busy.value = false; }
 }
 
-const SAMPLE = [
-  { name: "108.021.003 - Cathedis - JM", account_name: "Cathedis", account_type: "Bank", ccy: "MAD", book: 471081, book_base: 471081, base_ccy: "MAD", uncleared_n: 642, uncleared_v: 1208400, under_audit: 0 },
-  { name: "102.02.01.01 - BMCE - JM", account_name: "BMCE-…130355", account_type: "Bank", ccy: "MAD", book: 12483, book_base: 12483, base_ccy: "MAD", uncleared_n: 3407, uncleared_v: 44372442, under_audit: 0 },
-  { name: "100.002.002 - Petty cash - JM", account_name: "Petty cash", account_type: "Cash", ccy: "MAD", book: -845264, book_base: -845264, base_ccy: "MAD", uncleared_n: 120, uncleared_v: 280000, under_audit: 1 },
-];
 async function load() {
   loading.value = true;
   selected.value = new Set();
   try { accounts.value = await api.call("accounting_portal.api.reconciliation.bank_rec_accounts", { company: currentCompany(), ...fyc.filterValue() }) || []; live.value = true; }
-  catch { accounts.value = SAMPLE; live.value = false; }
+  catch { accounts.value = []; live.value = false; }
   finally { loading.value = false; }
 }
 function open(name) { router.push({ path: "/accounting/banking/accounts", query: { id: name } }); }

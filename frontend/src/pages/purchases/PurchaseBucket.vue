@@ -26,7 +26,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" :style="{ background: active.tint }"><Icon :name="active.icon" :size="14" :color="active.color" /></span>
         <span class="text-[13px] font-bold">{{ active.label() }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("docs","مستند","docs") }} · {{ dateScope || "FY 2026" }}<span v-if="bucketCount > rows.length"> · {{ L("first","أول","premiers") }} {{ rows.length }}</span></span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
@@ -157,7 +157,7 @@ import Icon from "@/components/Icon.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import api from "@/services/api";
-import { currentCompany } from "@/composables/useLive";
+import { currentCompany, blankLike } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useTableTools } from "@/composables/useTableTools";
 import { useToast } from "@/composables/useToast";
@@ -249,7 +249,7 @@ const SAMPLE_SUM = { tobuy: { count: 1319, value: 3333693 }, received: { count: 
 async function loadSummary() {
   const [fd, td] = bounds(datePreset.value);
   try { sum.value = await api.call("accounting_portal.api.purchases.purchases_summary", { company: currentCompany(), from_date: fd || undefined, to_date: td || undefined }) || {}; }
-  catch { sum.value = SAMPLE_SUM; }
+  catch { sum.value = blankLike(SAMPLE_SUM); }
 }
 async function loadRows() {
   loading.value = true;
