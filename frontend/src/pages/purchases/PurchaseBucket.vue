@@ -219,7 +219,9 @@ const rows = ref([]);
 const sum = ref({});
 const live = ref(null);
 const loading = ref(false);
-const srch = ref("");
+// Vendor cards link here as ?supplier=… — the bucket has no supplier parameter,
+// but its search matches supplier and supplier_name, so seed the box with it.
+const srch = ref(route.query.supplier || "");
 const datePreset = usePersistedRef("ap_purchbucket_preset", "month");
 const dateFrom = usePersistedRef("ap_purchbucket_from", "");
 const dateTo = usePersistedRef("ap_purchbucket_to", "");
@@ -265,6 +267,7 @@ watch(entityId, loadSummary, { immediate: true });
 watch([bucket, entityId], () => { tt.reset(); loadRows(); }, { immediate: true });
 watch([dateFrom, dateTo], () => { clearTimeout(timer); timer = setTimeout(() => { loadSummary(); loadRows(); }, 300); });
 watch(srch, () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); });
+watch(() => route.query.supplier, (v) => { srch.value = v || ""; });
 
 function goBucket(k) { router.push(`/accounting/purchases/${k}`); }
 function open(name) { router.push({ path: `/accounting/purchases/${bucket.value}`, query: { id: name } }); }

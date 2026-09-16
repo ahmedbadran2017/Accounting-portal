@@ -55,7 +55,8 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="14" color="#0369a1" /></span>
         <span class="text-[13px] font-bold truncate max-w-[260px]">{{ selName }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
+        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+        <span v-if="loadErr" class="text-[10px] text-rose-600 truncate max-w-[22rem]" :title="loadErr">{{ loadErr }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted tnum">{{ (total || 0).toLocaleString() }} {{ L("uncleared entries", "قيد غير مُسوّى", "écritures") }}<span v-if="total > rows.length"> · {{ L("showing", "معروض", "affiché") }} {{ rows.length.toLocaleString() }}</span></span>
         <span class="inline-flex items-center gap-1 text-[11px]">
           <input type="date" v-model="fromD" @change="loadRows()" class="h-8 bg-white border border-line-2 rounded-[8px] px-1.5 text-[11.5px] focus:outline-none focus:border-accent/40" :title="L('From date','من تاريخ','Du')" />
@@ -173,22 +174,15 @@ function onImported() { loadAccounts(); loadRows(); }
 const tt = useTableTools(rows, cols, { storeKey: "bankrec", keyField: "voucher", defaultSort: "date", defaultDir: -1 });
 const bulkNote = computed(() => { const t = tt.selectedRows.value.reduce((a, r) => a + Math.abs(Number(r.amount) || 0), 0); return t ? fmt(t) + " MAD" : ""; });
 
-const SAMPLE_ACC = [
-  { name: "102.02.01.01", account_name: "BMCE-…130355", account_type: "Bank", ccy: "MAD", book: 918294, uncleared_n: 3407, uncleared_v: 44372442 },
-  { name: "108.021.003", account_name: "Cathedis Transactions", account_type: "Bank", ccy: "MAD", book: 453101, uncleared_n: 642, uncleared_v: 1208400 },
-];
-const SAMPLE_ROWS = [
-  { voucher: "PAY-20199", doctype: "Payment Entry", date: "2026-06-24", party: "BISFOR LOGISTIC SARL", ref: "CHQ 2772334", amount: -52638 },
-  { voucher: "PAY-22493", doctype: "Payment Entry", date: "2026-06-20", party: "Lachhed najia", ref: "", amount: 129 },
-];
 
 async function loadAccounts() {
   loadingAcc.value = true;
   try { accounts.value = await api.call("accounting_portal.api.reconciliation.bank_rec_accounts", { company: currentCompany(), ...fyFilter() }) || []; }
-  catch { accounts.value = SAMPLE_ACC; }
+  catch (e) { accounts.value = []; loadErr.value = String(e?.message || e).slice(0, 180); }
   finally { loadingAcc.value = false; }
   if (accounts.value.length && !sel.value) pick(accounts.value[0]);
 }
+const loadErr = ref("");
 const carryover = ref({ n: 0, v: 0 });
 function showAllTime() { fyc.selected.value = "all"; }
 
@@ -234,7 +228,10 @@ async function loadRows() {
     total.value = Array.isArray(res) ? rows.value.length : (res?.total || rows.value.length);
     carryover.value = Array.isArray(res) ? { n: 0, v: 0 } : { n: res?.carryover_n || 0, v: res?.carryover_v || 0 };
     live.value = true;
-  } catch { rows.value = SAMPLE_ROWS; total.value = SAMPLE_ROWS.length; carryover.value = { n: 0, v: 0 }; live.value = false; }
+  // A reconciliation screen must never show invented rows: a failed load reads
+  // as "nothing outstanding", which is the one wrong answer that looks clean.
+  } catch (e) { rows.value = []; total.value = 0; carryover.value = { n: 0, v: 0 }; live.value = false;
+    loadErr.value = String(e?.message || e).slice(0, 180); }
   finally { loading.value = false; }
 }
 async function loadMore() {

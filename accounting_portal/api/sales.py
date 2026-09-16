@@ -138,7 +138,7 @@ def list_orders(company=None, state=None, search=None, customer=None, active=0,
     # total + state_counts are page-INVARIANT (they don't change as you page) but
     # each is a full _STATE_CASE scan over ~227k orders. Cache them per filter
     # signature (60s) so paging within a result set doesn't re-scan every click.
-    base_sig = f"{target}|{customer or ''}|{search or ''}|{from_date or ''}|{to_date or ''}"
+    base_sig = f"{target}|{customer or ''}|{search or ''}|{from_date or ''}|{to_date or ''}|{status or ''}"
     sc_key = f"ap_orders_sc:{base_sig}"
     state_counts = frappe.cache().get_value(sc_key)
     if state_counts is None:
@@ -299,7 +299,7 @@ def list_receipts(company=None, search=None, from_date=None, to_date=None, start
         "IFNULL(NULLIF(pe.mode_of_payment,''),'—') AS method, pe.paid_amount AS collected, pe.posting_date AS date",
         f"{col} {d}, pe.creation {d}", start, page_size, max_ps=200)
     # KPI totals over the WHOLE filtered set — page-invariant, cache per filter sig.
-    sum_key = f"ap_rcpt_sum:{target}|{search or ''}|{from_date or ''}|{to_date or ''}"
+    sum_key = f"ap_rcpt_sum:{target}|{search or ''}|{from_date or ''}|{to_date or ''}|{status or ''}"
     summ = frappe.cache().get_value(sum_key)
     if summ is None:
         r = frappe.db.sql(
@@ -458,7 +458,7 @@ def list_invoices(company=None, search=None, from_date=None, to_date=None, start
         f"{col} {d}, si.creation {d}", start, page_size)
     # KPI totals over the WHOLE filtered set — page-invariant, so cache per filter
     # signature (60s) instead of re-scanning on every page click.
-    sum_key = f"ap_inv_sum:{target}|{search or ''}|{from_date or ''}|{to_date or ''}"
+    sum_key = f"ap_inv_sum:{target}|{search or ''}|{from_date or ''}|{to_date or ''}|{status or ''}"
     summ = frappe.cache().get_value(sum_key)
     if summ is None:
         r = frappe.db.sql(

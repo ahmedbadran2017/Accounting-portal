@@ -72,7 +72,7 @@ const isLive = ref(null);
 const df = useDateFilter("credits", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_credits", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },  { storeKey: "credits" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() , storeKey: "credits" },
 );
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });

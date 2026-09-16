@@ -62,6 +62,7 @@ import DateFilterBar from "@/components/DateFilterBar.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useDateFilter } from "@/composables/useDateFilter";
 import { useUi } from "@/composables/useUi";
 
@@ -84,14 +85,21 @@ const ins = ref(null);
 const df = useDateFilter("challans", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_challans", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },  { storeKey: "challans" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() , storeKey: "challans" },
 );
 // Status chips + page size + full-list Excel (ListToolbar).
 const listStatus = usePersistedRef("ap_ls_challans", "open");
 const listPageSize = usePersistedRef("ap_lps_challans", 25);
 const extraStatuses = [];
 const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
-watch([listStatus, listPageSize], () => { st.pageSize.value = listPageSize.value; st.setFilters({ status: listStatus.value }); }, { immediate: true });
+let _lsFirst = true;
+watch([listStatus, listPageSize], () => {
+  st.pageSize.value = listPageSize.value;
+  // First run seeds the filter before the page's own initial load, so opening
+  // the list costs one request, not two.
+  if (_lsFirst) { _lsFirst = false; st.filters.value = { ...st.filters.value, status: listStatus.value }; return; }
+  st.setFilters({ status: listStatus.value });
+}, { immediate: true });
 
 st.load();
 async function loadIns() { try { ins.value = await api.call("accounting_portal.api.sales.challans_summary", { company: currentCompany() }); } catch { ins.value = null; } }

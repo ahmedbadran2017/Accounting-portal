@@ -77,6 +77,7 @@ import { useBulkDocs } from "@/composables/useBulkDocs";
 import { INV_STATUS, invStatusLabel, invStatusFromRow, fmt2 } from "@/data/invoices";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useDateFilter } from "@/composables/useDateFilter";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import { useUi } from "@/composables/useUi";
@@ -103,14 +104,21 @@ const df = useDateFilter("invoices", (f) => st.setFilters(f));
 const { actions: bulkActions } = useBulkDocs("Sales Invoice", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_invoices", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },  { storeKey: "invoices" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() , storeKey: "invoices" },
 );
 // Status chips + page size + full-list Excel (ListToolbar).
 const listStatus = usePersistedRef("ap_ls_invoices", "open");
 const listPageSize = usePersistedRef("ap_lps_invoices", 25);
 const extraStatuses = [];
 const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
-watch([listStatus, listPageSize], () => { st.pageSize.value = listPageSize.value; st.setFilters({ status: listStatus.value }); }, { immediate: true });
+let _lsFirst = true;
+watch([listStatus, listPageSize], () => {
+  st.pageSize.value = listPageSize.value;
+  // First run seeds the filter before the page's own initial load, so opening
+  // the list costs one request, not two.
+  if (_lsFirst) { _lsFirst = false; st.filters.value = { ...st.filters.value, status: listStatus.value }; return; }
+  st.setFilters({ status: listStatus.value });
+}, { immediate: true });
 
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });

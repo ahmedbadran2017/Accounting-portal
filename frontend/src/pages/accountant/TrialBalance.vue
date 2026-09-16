@@ -96,11 +96,15 @@ const pdfBusy = ref(false);
 // the moment the accountant needs the detail.
 function openLedger(r) {
   if (!r?.account) return;
-  router.push({ path: "/accounting/accountant/gl", query: { account: r.account, from: fromDate?.value || undefined } });
+  router.push({ path: "/accounting/accountant/gl", query: { account: r.account } });
 }
 function exportCsv() {
-  const head = ["Account", "Opening", "Debit", "Credit", "Closing"];
-  const lines = rows.value.map((r) => [r.account, r.opening ?? "", r.period_dr ?? r.debit ?? "", r.period_cr ?? r.credit ?? "", r.closing ?? r.balance ?? ""]
+  // Keys come straight from ledger.trial_balance: code/name/dr/cr, plus
+  // opening/period_dr/period_cr/closing only when a period is selected.
+  const head = ["Code", "Account", "Opening", "Debit", "Credit", "Closing"];
+  const lines = rows.value.map((r) => [r.code ?? "", r.name ?? r.account ?? "",
+    r.opening ?? "", period.value ? r.period_dr : r.dr, period.value ? r.period_cr : r.cr,
+    r.closing ?? ((r.dr ?? 0) - (r.cr ?? 0))]
     .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
   const csv = [head.join(","), ...lines].join("\n");
   const a = document.createElement("a");

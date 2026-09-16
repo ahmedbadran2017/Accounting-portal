@@ -49,6 +49,8 @@ const ICONS = {
   send: "M4 12l16-8-6 16-3-6z",
   refresh: "M21 12a9 9 0 11-2.6-6.3M21 4v5h-5",
   download: "M12 4v11m0 0l-4-4m4 4l4-4M5 19h14",
+  plug: "M9 3v6M15 3v6M7 9h10v4a5 5 0 01-10 0zM12 18v3",
+  flag: "M5 21V4m0 0h11l-2 4 2 4H5",
   doc: "M6 2h8l4 4v16H6zM14 2v4h4",
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   scale: "M12 3v18M5 21h14M7 7l-4 6a4 4 0 008 0zM17 7l-4 6a4 4 0 008 0zM7 7l5-2 5 2",

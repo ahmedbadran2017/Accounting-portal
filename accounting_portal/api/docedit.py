@@ -201,7 +201,10 @@ def get_draft(doctype=None, name=None):
             rows.append(row)
         child = {"field": cf, "label": meta.get_field(cf).label or cf, "columns": cols, "rows": rows,
                  "can_add": spec["child"]["can_add"] and not submitted_mode,
-                 "can_remove": spec["child"]["can_remove"] and not submitted_mode}
+                 "can_remove": spec["child"]["can_remove"] and not submitted_mode,
+                 # Drives the "Get outstanding invoices" picker on a Payment Entry;
+                 # without it the allocation endpoints are unreachable from the UI.
+                 "fill": spec["child"].get("fill")}
     return {"supported": True, "doctype": doctype, "name": name, "company": doc.company,
             "docstatus": doc.docstatus, "submitted_mode": bool(submitted_mode),
             "submitted_kind": ("reaccount" if spec.get("submitted") else "update_items") if submitted_mode else None,

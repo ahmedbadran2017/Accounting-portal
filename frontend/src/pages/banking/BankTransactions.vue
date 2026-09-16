@@ -70,7 +70,7 @@ const live = ref(null);
 const df = useDateFilter("banktx", (f) => st.setFilters(f), "month");
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.reconciliation.bank_transactions", { company: currentCompany(), ...params }).then((r) => { live.value = true; return r; }),
-  { pageSize: 50, sortField: "date", sortDir: "desc", filters: df.filterValue() },  { storeKey: "banktx" },
+  { pageSize: 50, sortField: "date", sortDir: "desc", filters: df.filterValue() , storeKey: "banktx" },
 );
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });

@@ -100,10 +100,17 @@ def general_ledger(company=None, account=None, party=None, voucher_no=None,
             """, params, as_dict=True)
         for r in rows:
             r["date"] = str(r["date"])
-        return {"rows": rows, "opening": 0.0, "total": total, "start": st, "page_size": ps,
-                "total_dr": round(total_dr, 2), "total_cr": round(total_cr, 2), "closing": None,
-                "include_cancelled": inc, "grouped": True, "company": target,
-                "currency": frappe.get_cached_value("Company", target, "default_currency")}
+        grouped = {"rows": rows, "opening": 0.0, "total": total, "start": st, "page_size": ps,
+                   "total_dr": round(total_dr, 2), "total_cr": round(total_cr, 2), "closing": None,
+                   "include_cancelled": inc, "grouped": True, "company": target,
+                   "currency": frappe.get_cached_value("Company", target, "default_currency")}
+        # This branch returns early, so it has to fill the cache itself — otherwise
+        # every page of a grouped ledger re-runs two full scans.
+        try:
+            frappe.cache().set_value(ck, grouped, expires_in_sec=120)
+        except Exception:
+            pass
+        return grouped
 
     rows = frappe.db.sql(
         f"""
@@ -201,7 +208,9 @@ def trial_balance(company=None, from_date=None, to_date=None):
             total_cr += cr
             debit_nature = r.root_type in ("Asset", "Expense")
             anomaly = (debit_nature and bal < 0) or (not debit_nature and bal > 0) or abs(bal) >= 50_000_000
-            row = {"code": r.code, "name": r.name, "root_type": r.root_type,
+            # `account` is the Account docname — the key the GL drill and the PDF
+            # need; `code`/`name` are only the display halves.
+            row = {"account": r.acct, "code": r.code, "name": r.name, "root_type": r.root_type,
                    "dr": dr, "cr": cr, "anomaly": bool(anomaly)}
             if period:
                 row.update({"opening": round(opening.get(r.acct, 0.0), 2),
@@ -280,7 +289,7 @@ def pending_journals(company=None, limit=50):
 
 # ── Chart-of-accounts cleanup ─────────────────────────────────────────────────
 from accounting_portal.api import _actions  # noqa: E402
-from accounting_portal.api.permissions import assert_super_admin  # noqa: E402
+from accounting_portal.api.permissions import assert_can_write, assert_super_admin  # noqa: E402
 
 DISABLE_ACCT_ACTION = "Toggle account disabled"
 

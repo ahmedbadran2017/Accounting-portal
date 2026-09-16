@@ -157,7 +157,7 @@ function dateFilter() { const [fd, td] = dateBounds(datePreset.value); return { 
 const { actions: bulkActions } = useBulkDocs("Sales Order", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_orders", { company: currentCompany(), customer: customerFilter.value || undefined, active: activeOnly.value ? 1 : 0, state: filterState.value || undefined, ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: dateFilter() },  { storeKey: "orders" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: dateFilter() , storeKey: "orders" },
 );
 st.load();
 

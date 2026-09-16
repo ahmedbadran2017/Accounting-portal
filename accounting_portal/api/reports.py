@@ -1451,8 +1451,12 @@ def report_pdf(report=None, company=None, from_date=None, to_date=None,
     if report == "trial_balance":
         from accounting_portal.api.ledger import trial_balance
         d = trial_balance(company=target, from_date=from_date, to_date=to_date)
-        rows = [[r.get("account"), _money(r.get("opening")), _money(r.get("period_dr") or r.get("debit")),
-                 _money(r.get("period_cr") or r.get("credit")), _money(r.get("closing") or r.get("balance"))]
+        # trial_balance rows are keyed account/code/name/dr/cr (+ opening/period_dr/
+        # period_cr/closing when a period is given) — not debit/credit/balance.
+        rows = [[f"{r.get('code') or ''} {r.get('name') or r.get('account') or ''}".strip(),
+                 _money(r.get("opening")), _money(r.get("period_dr") if r.get("period") else r.get("dr")),
+                 _money(r.get("period_cr") if r.get("period") else r.get("cr")),
+                 _money(r.get("closing") if r.get("period") else (r.get("dr") or 0) - (r.get("cr") or 0))]
                 for r in d.get("rows", [])]
         rows.append(["<b>TOTAL</b>", "", f"<b>{_money(d.get('total_dr'))}</b>", f"<b>{_money(d.get('total_cr'))}</b>", ""])
         body = _rows_table(["Account", "Opening", "Debit", "Credit", "Closing"], rows)
@@ -1462,7 +1466,7 @@ def report_pdf(report=None, company=None, from_date=None, to_date=None,
         d = _ps(party_type=party_type, party=party, company=target, from_date=from_date, to_date=to_date)
         rows = [["Opening", "", "", _money(d.get("opening"))]]
         for m in d.get("rows", []):
-            rows.append([m.get("date"), (m.get("voucher") or m.get("against") or "")[:40],
+            rows.append([m.get("date"), (m.get("doc") or m.get("type") or "")[:40],
                          _money(m.get("debit")) + " / " + _money(m.get("credit")), _money(m.get("balance"))])
         rows.append(["<b>Closing</b>", "", "", f"<b>{_money(d.get('closing'))}</b>"])
         body = _rows_table(["Date", "Voucher", "Dr / Cr", "Balance"], rows)

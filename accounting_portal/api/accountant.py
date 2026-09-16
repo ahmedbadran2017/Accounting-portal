@@ -203,7 +203,10 @@ def _build_je_doc(company, posting_date, lines, remark):
             {"account": ln["account"],
              "debit_in_account_currency": flt(ln.get("debit")),
              "credit_in_account_currency": flt(ln.get("credit")),
-             "party_type": ln.get("party_type") or None, "party": ln.get("party") or None}
+             "party_type": ln.get("party_type") or None, "party": ln.get("party") or None,
+             # Official / Non-Official split — dropping it here silently mixed the
+             # two books on every saved draft.
+             "cost_center": ln.get("cost_center") or None}
             for ln in (lines or [])
         ],
     })
@@ -258,7 +261,7 @@ def create_journal_entry(company=None, posting_date=None, lines=None, remark=Non
         rev_date = _first_of_next_month(posting_date)
         rev_lines = [{"account": ln["account"], "debit": flt(ln.get("credit")),
                       "credit": flt(ln.get("debit")), "party_type": ln.get("party_type"),
-                      "party": ln.get("party")} for ln in lines]
+                      "party": ln.get("party"), "cost_center": ln.get("cost_center")} for ln in lines]
         _actions.execute(JE_ACTION, target,
                          f"je-rev:{target}:{rev_date}:{round(dr, 2)}:{(remark or '')[:40]}",
                          payload={"posting_date": rev_date, "lines": rev_lines,

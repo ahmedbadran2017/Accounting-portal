@@ -5,6 +5,8 @@ not relieving to COGS), so unit cost falls back to last_purchase_rate. Selling
 prices live in Shopify / Sales Orders, so per-item margin uses the recent average
 sold rate, not a MAD selling price list (there isn't one).
 """
+import json
+
 import frappe
 
 from accounting_portal.api.permissions import assert_can_write, assert_portal_access, resolve_companies

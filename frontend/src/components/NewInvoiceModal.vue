@@ -149,6 +149,13 @@ async function save() {
     if (sales.value) args.customer = form.party; else { args.supplier = form.party; args.bill_no = form.bill_no || undefined; args.bill_date = form.bill_date || undefined; }
     const r = await api.call(`accounting_portal.api.invoicing.${method}`, args);
     let res = r && r.result; res = typeof res === "string" ? JSON.parse(res) : res;
+    // Above the materiality threshold the gateway files the action for approval
+    // instead of posting it — say so, rather than claiming a draft that isn't there.
+    if (r?.status === "Proposed") {
+      toast.info(L("Sent for approval — nothing posted yet", "أُرسلت للموافقة — لم يتم الترحيل بعد", "Envoyée pour approbation — rien n'est encore comptabilisé"));
+      emit("posted", r); emit("close");
+      return;
+    }
     toast.success((res?.docstatus === 1 ? L("Invoice submitted", "تم ترحيل الفاتورة", "Facture soumise") : L("Draft created", "أُنشئت المسودة", "Brouillon créé")) + (res?.invoice ? " · " + res.invoice : ""));
     emit("posted", res); emit("close");
     if (res?.invoice) router.push({ path: sales.value ? "/accounting/sales/invoices" : "/accounting/purchases/bills", query: { id: res.invoice } });

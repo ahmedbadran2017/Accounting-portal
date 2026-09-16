@@ -73,6 +73,7 @@ import { useBulkDocs } from "@/composables/useBulkDocs";
 import { MATCH_META, BILL_STATUS, matchLabel, billStatusLabel } from "@/data/purchases";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useDateFilter } from "@/composables/useDateFilter";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import { useUi } from "@/composables/useUi";
@@ -99,14 +100,21 @@ const df = useDateFilter("bills", (f) => st.setFilters(f));
 const { actions: bulkActions } = useBulkDocs("Purchase Invoice", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.purchases.list_bills", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },  { storeKey: "bills" },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() , storeKey: "bills" },
 );
 // Status chips + page size + full-list Excel (ListToolbar).
 const listStatus = usePersistedRef("ap_ls_bills", "open");
 const listPageSize = usePersistedRef("ap_lps_bills", 25);
 const extraStatuses = [{ k: "overdue", label: () => L("Overdue","المتأخر","En retard") }, { k: "paid", label: () => L("Paid","المدفوع","Payées") }];
 const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
-watch([listStatus, listPageSize], () => { st.pageSize.value = listPageSize.value; st.setFilters({ status: listStatus.value }); }, { immediate: true });
+let _lsFirst = true;
+watch([listStatus, listPageSize], () => {
+  st.pageSize.value = listPageSize.value;
+  // First run seeds the filter before the page's own initial load, so opening
+  // the list costs one request, not two.
+  if (_lsFirst) { _lsFirst = false; st.filters.value = { ...st.filters.value, status: listStatus.value }; return; }
+  st.setFilters({ status: listStatus.value });
+}, { immediate: true });
 
 // Arriving from a supplier page (?supplier=…) narrows the list to that supplier.
 watch(() => route.query.supplier, (v) => { if (v) st.search.value = String(v); }, { immediate: true });

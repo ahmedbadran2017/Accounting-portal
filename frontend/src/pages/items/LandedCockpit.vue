@@ -161,6 +161,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import { useServerTable } from "@/composables/useServerTable";
+import Icon from "@/components/Icon.vue";
 import StatCard from "@/components/StatCard.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import LandedCostAllocModal from "@/components/LandedCostAllocModal.vue";
