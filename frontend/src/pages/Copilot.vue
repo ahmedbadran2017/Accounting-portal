@@ -133,7 +133,7 @@ import { ref, reactive, computed, nextTick, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import { SEV_META, sevLabel, seedMessages, replyTo } from "@/data/copilot";
+import { SEV_META, sevLabel } from "@/data/copilot";
 import { loadControls, feedFrom, toFeedItem } from "@/composables/useAuditor";
 import { renderMarkdown } from "@/composables/useMarkdown";
 import { usePersistedRef } from "@/composables/usePersistedRef";
@@ -142,6 +142,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { can } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import { newClientKey } from "@/utils/helpers";
 
 const { locale } = useI18n();
 const router = useRouter();
@@ -149,7 +150,7 @@ const { entityId } = useUi();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
-const messages = reactive(seedMessages(locale.value));
+const messages = reactive([]);
 const draft = ref("");
 const typing = ref(false);
 const thread = ref(null);
@@ -265,8 +266,14 @@ async function send() {
   try {
     const r = await api.call("accounting_portal.api.auditor.ask_auditor", { question: text, company: currentCompany() });
     messages.push({ role: "ai", text: r.answer, source: r.source });
-  } catch {
-    messages.push(replyTo(text, locale.value)); // offline fallback
+  } catch (e) {
+    // Never invent an answer here. The canned fallback carried a fully formed
+    // journal entry with figures, and the Approve button below would have let an
+    // accountant "approve" a posting that nothing had ever proposed.
+    messages.push({ role: "ai", error: true,
+      text: L("I could not reach the auditor. Nothing was analysed — please try again.",
+              "تعذّر الوصول إلى المدقق. لم يتم تحليل أي شيء — أعد المحاولة.",
+              "Auditeur injoignable. Rien n'a été analysé — réessayez.") });
   } finally {
     typing.value = false;
     scrollEnd();
@@ -274,7 +281,31 @@ async function send() {
 }
 function quick(s) { draft.value = s; send(); }
 function investigate(a) { draft.value = `${L("Investigate", "تحقّق من", "Enquêter sur")} ${a.ref} — ${a.title(locale.value)}`; send(); }
-function queue(m) { m.proposal.queued = true; }
+async function queue(m) {
+  // This used to set a flag and nothing else: the accountant saw "Queued for
+  // checker" while the server had never heard of the entry.
+  if (m.queueBusy) return;
+  m.queueBusy = true;
+  try {
+    const p = m.proposal || {};
+    const r = await api.call("accounting_portal.api.accountant.create_journal_entry", {
+      company: currentCompany(),
+      posting_date: p.posting_date || undefined,
+      lines: JSON.stringify(p.lines || []),
+      remark: p.note || L("Proposed by the auditor", "مقترح من المدقق", "Proposé par l'auditeur"),
+      submit: 0,
+      client_key: newClientKey(),
+    });
+    m.proposal.queued = true;
+    m.proposal.voucher = r?.voucher_no || r?.result?.journal || "";
+    toast.success(L("Draft journal created", "أُنشئت مسودة القيد", "Brouillon d'écriture créé")
+      + (m.proposal.voucher ? " · " + m.proposal.voucher : ""));
+  } catch (e) {
+    toast.error(String(e?.message || e).slice(0, 180));
+  } finally {
+    m.queueBusy = false;
+  }
+}
 function go(g) { if (g) router.push(g.sub ? `/accounting/${g.module}/${g.sub}` : `/accounting/${g.module}`); }
 
 onMounted(() => { scrollEnd(); loadFeed(); loadUsers(); loadBoard(); });

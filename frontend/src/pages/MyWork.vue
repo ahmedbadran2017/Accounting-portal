@@ -27,7 +27,7 @@
           <div class="text-[10.5px] text-ink-muted mt-1.5">{{ L("Due","الاستحقاق","Échéance") }} {{ t.due || "—" }}</div>
         </div>
         <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <button v-if="t.reference_type && t.reference_name" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="openRef(t)">{{ L("Open","فتح","Ouvrir") }}</button>
+          <button v-if="canOpenRef(t)" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="openRef(t)">{{ L("Open","فتح","Ouvrir") }}</button>
           <button v-else-if="t.is_audit" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="go('/accounting/copilot')">{{ L("View","عرض","Voir") }}</button>
           <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-success-dark bg-success-soft hover:opacity-80 disabled:opacity-50" :disabled="busy === t.task" @click="done(t)">{{ busy === t.task ? "…" : L("Done","تم","Fait") }}</button>
         </div>
@@ -74,6 +74,9 @@ async function done(t) {
   finally { busy.value = ""; }
 }
 const REF_ROUTE = { "Sales Invoice": "sales/invoices", "Sales Order": "sales/orders", "Purchase Invoice": "purchases/bills", "Payment Entry": "purchases/payments", "Journal Entry": "accountant/journals", "Delivery Note": "sales/challans", "Purchase Order": "purchases/tobuy" };
+// The Open button used to render for any task with a reference, including the
+// doctypes this map does not cover, and then did nothing when pressed.
+function canOpenRef(t) { return !!(t && t.reference_type && t.reference_name && REF_ROUTE[t.reference_type]); }
 function openRef(t) { const r = REF_ROUTE[t.reference_type]; if (r) router.push({ path: `/accounting/${r}`, query: { id: t.reference_name } }); }
 function go(p) { router.push(p); }
 const overdue = (d) => d && String(d) < today;

@@ -100,7 +100,7 @@ import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import { SUBTABS, defaultSub } from "@/data/nav";
-import { settingsUsers, settingsTaxes, settingsCurrencies } from "@/data/settings";
+import { settingsCurrencies } from "@/data/settings";
 import { AV } from "@/data/orders";
 
 const { t, locale } = useI18n();
@@ -117,7 +117,6 @@ const title = computed(() => {
   const found = subs.find((s) => s[0] === activeSub.value);
   return found ? t(found[1]) : t("nav.settings");
 });
-const users = computed(() => settingsUsers(locale.value));
 function goSub(s) { router.push(`/accounting/settings/${s}`); }
 
 // Live reference data (taxes / FX / companies).
@@ -125,7 +124,8 @@ const ref_ = ref({ taxes: [], fx: [], companies: [] });
 const refLive = ref(false);
 async function loadRef() {
   try { ref_.value = await api.call("accounting_portal.api.settings.settings_reference", {}); refLive.value = true; }
-  catch { refLive.value = false; ref_.value = { taxes: settingsTaxes(locale.value).map((x) => ({ name: x.name, rate: x.rate, company: x.region })), fx: [], companies: [] }; }
+  // Four invented tax templates used to appear in the live Taxes table here.
+  catch { refLive.value = false; ref_.value = { taxes: [], fx: [], companies: [] }; }
 }
 onMounted(loadRef);
 const taxRows = computed(() => ref_.value.taxes || []);

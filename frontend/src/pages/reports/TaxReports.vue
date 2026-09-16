@@ -9,7 +9,7 @@
     </div>
 
     <!-- Next declaration headline -->
-    <button v-if="nextDue" @click="" class="w-full bg-white rounded-card border p-4 shadow-card text-start" :style="{ borderColor: nextStatus.c + '55' }">
+    <div v-if="nextDue" class="w-full bg-white rounded-card border p-4 shadow-card text-start" :style="{ borderColor: nextStatus.c + '55' }">
       <div class="flex items-center gap-3 flex-wrap">
         <span class="w-10 h-10 rounded-[12px] grid place-items-center flex-shrink-0" :style="{ background: nextStatus.bg }"><Icon name="percent" :size="18" :color="nextStatus.c" /></span>
         <div class="flex-1 min-w-0">
@@ -22,7 +22,7 @@
           <div class="text-[10.5px] text-ink-muted">{{ nextDue.net >= 0 ? L("net payable","صافي مستحق","net à payer") : L("credit","رصيد دائن","crédit") }}</div>
         </div>
       </div>
-    </button>
+    </div>
 
     <!-- Monthly tracker -->
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">

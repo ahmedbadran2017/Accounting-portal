@@ -65,6 +65,13 @@
         </div>
       </div>
     </template>
+    <!-- Without this branch a failed load left the page blank below the Back
+         link, with nothing to say the document had not been fetched. -->
+    <div v-else class="px-4 py-14 text-center">
+      <div class="text-[13px] font-bold text-ink-2">{{ L("Could not open this document.", "تعذّر فتح هذا المستند.", "Impossible d'ouvrir ce document.") }}</div>
+      <div class="text-[12px] text-ink-muted mt-1">{{ L("It may have been deleted, or the load failed.", "قد يكون محذوفًا أو فشل التحميل.", "Supprimé, ou le chargement a échoué.") }}</div>
+      <button class="mt-3 h-9 px-4 rounded-[9px] text-[12px] font-bold border border-line-2" @click="load()">{{ L("Try again", "إعادة المحاولة", "Réessayer") }}</button>
+    </div>
   </div>
 </template>
 

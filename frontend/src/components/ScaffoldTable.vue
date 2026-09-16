@@ -16,7 +16,9 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon :name="cfg.icon" :size="14" color="#0b5c4f" /></span>
         <span class="text-[13px] font-bold">{{ title }}</span>
         <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
-              :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? "Live" : "Sample" }}</span>
+              :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? "Live" : L("Load failed","فشل التحميل","Échec") }}</span>
+        <span v-if="notBuilt" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" style="background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe">{{ L("Not built yet","لم تُبنَ بعد","Pas encore construit") }}</span>
+        <span v-if="loadErr" class="text-[10px] text-rose-600 truncate max-w-[20rem]" :title="loadErr">{{ loadErr }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("records","سجل","enreg.") }}</span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
@@ -159,6 +161,8 @@ const title = computed(() => {
 
 const rows = ref([]);
 const isLive = ref(null);
+const loadErr = ref("");
+const notBuilt = ref(false);
 const loading = ref(true);
 const insightCards = ref([]);
 const search = ref("");
@@ -320,13 +324,21 @@ async function load() {
       const raw = Array.isArray(data) ? data : [];
       rows.value = raw.map((r) => pack(c.live.map(r), r));
       isLive.value = true;
-    } catch {
-      rows.value = c.rows.map((cells) => ({ cells, open: null }));
+      loadErr.value = "";
+    } catch (e) {
+      // The demo rows in data/scaffolds.js read like real business records —
+      // Arabic customer names, tracking numbers, amounts — and the Export CSV
+      // button below would write them to a file. Show the failure instead.
+      rows.value = [];
       isLive.value = false;
+      loadErr.value = String(e?.message || e).slice(0, 180);
     }
   } else {
-    rows.value = c.rows.map((cells) => ({ cells, open: null }));
+    // This screen has no endpoint yet. Say so rather than filling it with
+    // invented records that carry no badge at all.
+    rows.value = [];
     isLive.value = null;
+    notBuilt.value = true;
   }
 
   loading.value = false;

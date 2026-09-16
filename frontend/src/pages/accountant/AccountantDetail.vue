@@ -89,7 +89,7 @@
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Recent documents","آخر المستندات","Documents récents") }}</span></div>
         <table class="w-full text-[12px]">
           <tbody>
-            <tr v-for="(r,i) in d.recent" :key="i" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40 cursor-pointer group" @click="openDoc(r)">
+            <tr v-for="(r,i) in d.recent" :key="i" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40 group" :class="canOpen(r) ? 'cursor-pointer' : ''" @click="openDoc(r)">
               <td class="px-4 py-2 w-px"><span class="text-[10px] font-bold rounded px-1.5 py-0.5 tnum" :style="`background:${tint(r.code)};color:${ink(r.code)}`">{{ r.code }}</span></td>
               <td class="px-2 py-2 font-mono text-[11px] group-hover:text-accent-dark">{{ r.name }}</td>
               <td class="px-3 py-2 text-ink-3 whitespace-nowrap">{{ r.date }}</td>
@@ -154,7 +154,13 @@ watch(user, load);
 watch(entityId, () => router.push({ path: "/accounting/accountant/team" }));
 
 function back() { router.push({ path: "/accounting/accountant/team" }); }
-const DOC_ROUTE = { JE: "/accounting/accountant/journals", PE: "/accounting/sales/payments", PI: "/accounting/purchases/bills", SI: "/accounting/sales/invoices" };
+const DOC_ROUTE = { JE: "/accounting/accountant/journals", PE: "/accounting/sales/payments",
+  PI: "/accounting/purchases/bills", SI: "/accounting/sales/invoices",
+  SO: "/accounting/sales/orders", DN: "/accounting/sales/challans",
+  PO: "/accounting/purchases/tobuy", PR: "/accounting/purchases/received" };
+// The row was styled clickable whatever the doctype, so anything outside this
+// map looked interactive and did nothing.
+function canOpen(r) { return !!(r && r.name && DOC_ROUTE[r.code]); }
 function openDoc(r) { const p = DOC_ROUTE[r.code]; if (p && r.name) router.push({ path: p, query: { id: r.name } }); }
 
 const maxCreated = computed(() => Math.max(1, ...(d.value.monthly || []).map((m) => m.created)));

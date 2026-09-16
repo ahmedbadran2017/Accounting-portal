@@ -1,4 +1,5 @@
 import { ref, computed, watch } from "vue";
+import { apiHealth } from "@/services/api";
 
 // Server-side paginated table. The `fetcher(params)` returns { rows, total, ... }
 // for the current page / search / sort / filters; Next·Prev·search·sort·filter
@@ -46,7 +47,17 @@ export function useServerTable(fetcher, opts = {}) {
       extra.value = res || {};
     } catch (e) {
       // surface the failure — an empty table on error must never read as "all clear"
-      if (my === seq) { rows.value = []; total.value = 0; error.value = String(e?.message || e).slice(0, 200) || "load failed"; }
+      if (my === seq) {
+        rows.value = []; total.value = 0;
+        error.value = String(e?.message || e).slice(0, 200) || "load failed";
+        // A 403 or a validation error never reaches apiHealth through api.js,
+        // which only flips on 5xx. Register it so the header says something too.
+        try {
+          apiHealth.samples++;
+          const tag = opts.storeKey ? `list:${opts.storeKey}` : "list";
+          if (!apiHealth.sampleMethods.includes(tag)) apiHealth.sampleMethods.push(tag);
+        } catch { /* ignore */ }
+      }
     } finally {
       if (my === seq) loading.value = false;
     }

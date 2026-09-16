@@ -111,7 +111,7 @@
       <table class="w-full text-[12px]">
         <tbody>
           <tr v-for="(e,i) in feed" :key="i" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40"
-              :class="e.name ? 'cursor-pointer group' : ''" @click="openDoc(e)">
+              :class="canOpen(e) ? 'cursor-pointer group' : ''" @click="openDoc(e)">
             <td class="px-4 py-2 w-px whitespace-nowrap tnum text-ink-3">{{ e.at.slice(11,16) }}</td>
             <td class="px-1 py-2 w-px text-[9.5px] text-ink-muted tnum hidden sm:table-cell">{{ sameDay ? '' : e.at.slice(5,10) }}</td>
             <td class="px-2 py-2 w-px"><span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap" :class="kindClass(e.kind)">{{ kindLabel(e.kind) }}</span></td>
@@ -267,7 +267,12 @@ const ink = (c) => INK[c] || "#57534e";
 const DOC_ROUTE = {
   JE: "/accounting/accountant/journals", PE: "/accounting/sales/payments",
   PI: "/accounting/purchases/bills", SI: "/accounting/sales/invoices",
-  PO: "/accounting/purchases/orders", SO: "/accounting/sales/orders",
+  // purchases has no `orders` sub; `tobuy` is the Purchase Order bucket.
+  PO: "/accounting/purchases/tobuy", SO: "/accounting/sales/orders",
+  PR: "/accounting/purchases/received", DN: "/accounting/sales/challans",
 };
+// A row is only clickable when we know where it goes; otherwise the hand
+// cursor promised a navigation that silently did nothing.
+function canOpen(e) { return !!(e && e.name && DOC_ROUTE[e.code]); }
 function openDoc(e) { const p = DOC_ROUTE[e.code]; if (p && e.name) router.push({ path: p, query: { id: e.name } }); }
 </script>

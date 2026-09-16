@@ -296,5 +296,7 @@ const PALETTE = ["#7c3aed", "#0369a1", "#047857", "#b45309", "#be123c"];
 function badge(co) { let h = 0; for (const c of String(co)) h = (h * 31 + c.charCodeAt(0)) % PALETTE.length; return PALETTE[h]; }
 function share(e) { const tot = d.value.rows.reduce((s, r) => s + Math.abs(r.base.assets), 0) || 1; return Math.abs(e.base.assets) / tot * 100; }
 function goAuditor() { router.push("/accounting/copilot"); }
-function goEntity() { router.push("/accounting/reports/pl"); }
+// `reports/pl` is not a route — every entity row landed on the generic
+// "pending build" placeholder. grouppnl is the per-entity P&L.
+function goEntity(company) { router.push({ path: "/accounting/reports/grouppnl", query: company ? { company } : {} }); }
 </script>
