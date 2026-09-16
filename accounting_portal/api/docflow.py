@@ -196,6 +196,17 @@ def _flow_poster(action):
         frappe.flags.ignore_permissions = False
     new = _as_doc(new)
     new.flags.ignore_permissions = True
+    # A Payment Entry whose mode of payment is a Bank type cannot be saved without
+    # a reference number and date — ERPNext throws "Reference No and Reference Date
+    # is mandatory for Bank transaction". Three payments failed on this today. The
+    # source document is the only reference we honestly have at draft time; the
+    # accountant replaces it with the real transfer reference before submitting.
+    if new.doctype == "Payment Entry" and not new.get("reference_no"):
+        mop = new.get("mode_of_payment")
+        bank_mode = bool(mop) and frappe.db.get_value("Mode of Payment", mop, "type") in ("Bank", "Phone")
+        if bank_mode or new.get("payment_type") in ("Pay", "Receive"):
+            new.reference_no = name
+            new.reference_date = new.get("posting_date") or frappe.utils.nowdate()
     if not (new.get("name") and frappe.db.exists(new.doctype, new.name)):
         new.insert()
     return {"voucher_type": new.doctype, "voucher_no": new.name,

@@ -71,4 +71,27 @@ router.beforeEach(async (to) => {
   return true;
 });
 
+// Every deploy gives the chunks new hashes and deletes the old files. A tab that
+// was open across a deploy still holds the previous entry bundle, so its next
+// lazy import 404s and the screen silently loses whatever that chunk held — an
+// action bar, an activity panel, a whole page. Reload once, on the spot, instead
+// of leaving a section blank with nothing in the server log to show for it.
+const RELOAD_FLAG = "ap_chunk_reload";
+function isChunkLoadFailure(err) {
+  const msg = String((err && (err.message || err)) || "");
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload/i.test(msg);
+}
+router.onError((err, to) => {
+  if (!isChunkLoadFailure(err)) return;
+  let already = "";
+  try { already = sessionStorage.getItem(RELOAD_FLAG) || ""; } catch { /* private mode */ }
+  // Reload once per destination, so a genuinely missing file cannot loop.
+  if (already === to.fullPath) return;
+  try { sessionStorage.setItem(RELOAD_FLAG, to.fullPath); } catch { /* ignore */ }
+  window.location.assign(to.fullPath);
+});
+router.afterEach(() => {
+  try { sessionStorage.removeItem(RELOAD_FLAG); } catch { /* ignore */ }
+});
+
 export default router;

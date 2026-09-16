@@ -202,6 +202,20 @@ def _dup_poster(action):
         new.posting_date = frappe.utils.nowdate()
     if new.meta.has_field("set_posting_time"):
         new.set_posting_time = 0
+    # The copy keeps the ORIGINAL due date while the posting date moves to today,
+    # so ERPNext rejects it with "Due Date cannot be before Posting / Supplier
+    # Invoice Date". Six duplicates failed on this today. Clearing the dependent
+    # dates lets ERPNext recompute them from the payment terms.
+    for fld in ("due_date", "bill_date", "schedule_date", "delivery_date"):
+        if new.meta.has_field(fld) and new.get(fld) and str(new.get(fld)) < str(new.get("posting_date") or ""):
+            new.set(fld, None)
+    if new.meta.has_field("bill_no"):
+        new.bill_no = None          # a supplier invoice number belongs to one bill only
+    # The copied payment schedule carries the original due dates, which is what
+    # actually triggered the rejection. Emptying it makes ERPNext rebuild it from
+    # the new posting date and the payment terms.
+    if new.meta.has_field("payment_schedule"):
+        new.set("payment_schedule", [])
     new.flags.ignore_permissions = True
     new.insert()
     return {"voucher_type": dt, "voucher_no": new.name, "result": {"new_doc": new.name, "from": name}}
