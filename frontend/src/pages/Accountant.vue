@@ -15,7 +15,9 @@
 
 
     <JournalDetail v-if="activeSub === 'journals' && route.query.id" />
-    <DailyChecklist v-else-if="activeSub === 'daily'" />
+    <!-- One screen, two scopes. `daily` is no longer in the navigation but the
+         URL still resolves here, so old links and bookmarks keep working. -->
+    <PeriodClose v-else-if="activeSub === 'daily'" key="daily" scope="day" />
     <Journals v-else-if="activeSub === 'journals'" />
     <Remediation v-else-if="activeSub === 'triage'" />
     <ChartOfAccounts v-else-if="activeSub === 'coa'" />
@@ -50,7 +52,6 @@ import FixedAssets from "@/pages/accountant/FixedAssets.vue";
 import FxRevaluation from "@/pages/accountant/FxRevaluation.vue";
 import OpeningEntry from "@/pages/accountant/OpeningEntry.vue";
 import PeriodClose from "@/pages/accountant/PeriodClose.vue";
-import DailyChecklist from "@/pages/accountant/DailyChecklist.vue";
 import TeamPerformance from "@/pages/accountant/TeamPerformance.vue";
 import AccountantDetail from "@/pages/accountant/AccountantDetail.vue";
 import { useUi } from "@/composables/useUi";

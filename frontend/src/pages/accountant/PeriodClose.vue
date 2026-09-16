@@ -3,28 +3,29 @@
     <!-- Checklist -->
     <div class="bg-white border border-line rounded-[14px] p-4 shadow-card">
       <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-[13px] font-bold">{{ L("Period-close checklist", "قائمة إقفال الفترة", "Liste de clôture") }}</span>
+        <span class="text-[13px] font-bold">{{ scope === 'day' ? L("Daily entries", "الإدخالات اليومية", "Saisies du jour") : L("Period close", "إقفال الفترة", "Clôture") }}</span>
+        <!-- The day checklist and the month checklist were two screens that
+             rendered the same list, and payroll kept a third close of its own
+             that neither linked to. One screen, two scopes. -->
+        <div class="flex gap-0.5 bg-app-warm rounded-chip p-0.5">
+          <button v-for="sc in [['day', L('Day','اليوم','Jour')], ['month', L('Month','الشهر','Mois')]]" :key="sc[0]"
+                  class="px-2.5 py-1 rounded-lg text-[11.5px] font-semibold"
+                  :class="scope === sc[0] ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'"
+                  @click="setScope(sc[0])">{{ sc[1] }}</button>
+        </div>
+        <input v-if="scope === 'day'" v-model="day" type="date" class="h-[28px] px-2 rounded-[8px] border border-line text-[12px]" @change="load" />
         <LiveBadge :live="live" />
         <span class="ms-auto text-[11px] font-bold px-2 py-0.5 rounded-full" :style="ready ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ ready ? L("Ready to lock", "جاهز للإقفال", "Prêt") : (data.blocked + data.pending) + " " + L("open", "متبقّي", "ouverts") }}</span>
       </div>
-      <div class="text-[11px] text-ink-muted mb-3 mt-0.5">{{ monthLabel }} · {{ L("everything must tie before locking", "كل شيء يجب أن يتطابق قبل الإقفال", "tout doit concorder avant verrouillage") }}</div>
-      <div v-if="loading"><TableLoading :rows="6" /></div>
-      <div v-else class="flex flex-col gap-2.5">
-        <button v-for="c in items" :key="c.key" @click="go(c.link)"
-                class="flex items-center gap-2.5 px-3 py-2.5 border rounded-[11px] text-start hover:shadow-card transition-all"
-                :style="{ borderColor: meta(c).bd, background: c.state === 'done' ? '#fdfdfc' : meta(c).bg + '55' }">
-          <span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center flex-shrink-0" :style="{ background: meta(c).bg }"><Icon :name="meta(c).icon" :size="13" :color="meta(c).fg" /></span>
-          <div class="flex-1 min-w-0">
-            <div class="text-[12px] font-semibold">{{ L(c.en, c.ar, c.fr) }}</div>
-            <div v-if="c.state !== 'done'" class="text-[10.5px] text-ink-muted">{{ valueLabel(c) }}</div>
-          </div>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded-badge border whitespace-nowrap" :style="{ background: meta(c).bg, color: meta(c).fg, borderColor: meta(c).bd }">{{ statusLabel(c) }}</span>
-          <Icon name="arrow" :size="12" color="#cfc9c4" class="rtl:rotate-180 flex-shrink-0" />
-        </button>
+      <div class="text-[11px] text-ink-muted mb-3 mt-0.5">
+        <template v-if="scope === 'day'">{{ day }} · {{ L("leave the books updated before you leave the desk", "سيب الدفاتر محدثة قبل ما تقوم", "laissez les livres à jour avant de partir") }}</template>
+        <template v-else>{{ monthLabel }} · {{ L("everything must tie before locking", "كل شيء يجب أن يتطابق قبل الإقفال", "tout doit concorder avant verrouillage") }}</template>
       </div>
+      <div v-if="loading"><TableLoading :rows="6" /></div>
+      <CloseChecklist v-else :items="items" :currency="data.currency || 'MAD'" @open="go" />
     </div>
 
-    <div class="flex flex-col gap-3.5">
+    <div v-if="scope === 'month'" class="flex flex-col gap-3.5">
       <!-- Readiness gauge -->
       <div class="bg-white border border-line rounded-[14px] p-4 shadow-card">
         <div class="text-[13px] font-bold mb-2.5">{{ L("Readiness", "الجاهزية", "Préparation") }}</div>
@@ -86,10 +87,11 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import LiveBadge from "@/components/LiveBadge.vue";
+import CloseChecklist from "@/components/CloseChecklist.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany, blankLike } from "@/composables/useLive";
@@ -98,6 +100,7 @@ import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 
 const { locale } = useI18n();
+const route = useRoute();
 const router = useRouter();
 const { entityId } = useUi();
 const { isAdmin } = useAuth();
@@ -156,10 +159,26 @@ const count = (s) => items.value.filter((i) => i.state === s).length;
 const pct = (s) => (items.value.length ? count(s) / items.value.length * 100 : 0);
 function go(link) { if (link) router.push(link); }
 
+const props = defineProps({ scope: { type: String, default: "" } });
+// The sub in the URL picks the scope; the toggle can then change it.
+// Opened from the navigation this is the daily habit, so it lands on the day;
+// the month is one click away and keeps the lock and the fiscal-year close.
+const scope = ref(props.scope === "month" || route.query.scope === "month" ? "month" : "day");
+const day = ref(new Date().toISOString().slice(0, 10));
+function setScope(s) {
+  scope.value = s;
+  router.replace({ query: { ...route.query, scope: s } });
+  load();
+}
+
 async function load() {
   loading.value = true;
-  try { data.value = await api.call("accounting_portal.api.reports.period_close_status", { company: currentCompany() }); live.value = true; }
-  catch { data.value = blankLike(SAMPLE); live.value = false; }
+  try {
+    data.value = scope.value === "day"
+      ? await api.call("accounting_portal.api.reports.daily_entry_checklist", { company: currentCompany(), date: day.value })
+      : await api.call("accounting_portal.api.reports.period_close_status", { company: currentCompany() });
+    live.value = true;
+  } catch { data.value = blankLike(SAMPLE); live.value = false; }
   finally { loading.value = false; }
 }
 const years = ref([]), closeBusy = ref("");
