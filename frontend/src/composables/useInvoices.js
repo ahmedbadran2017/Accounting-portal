@@ -11,6 +11,7 @@ function liveVM(d) {
   return {
     inv: {
       id: d.name, customer: d.customer, date: String(d.posting_date || ""),
+      due_date: String(d.due_date || ""),
       city: d.city && d.city !== "—" ? d.city : "", phone: d.phone || "",
       status: invStatusFromRow(d), is_return: !!d.is_return, outstanding: Number(d.outstanding_amount) || 0,
       net: d.net_total, vat: d.total_taxes_and_charges, gross: d.grand_total, currency: d.currency || "MAD",

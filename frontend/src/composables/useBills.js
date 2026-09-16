@@ -21,6 +21,7 @@ function liveVM(d, l) {
   return {
     b: {
       id: d.name, vendor: d.supplier, date: String(d.posting_date || ""), bill_no: d.bill_no || "",
+      due_date: String(d.due_date || ""),
       amount: sign + Math.round(Math.abs(Number(d.grand_total) || 0)).toLocaleString("en-US"),
       currency: d.currency || "MAD",
       outstanding: Number(d.outstanding_amount) || 0, on_hold: !!d.on_hold,

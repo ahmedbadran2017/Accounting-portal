@@ -15,8 +15,12 @@
           <div class="text-[17px] font-bold tracking-tight font-mono">{{ b.id }}</div>
           <div class="text-[12.5px] text-ink-3">{{ b.vendor }}<span v-if="b.date"> · {{ b.date }}</span><span v-if="b.bill_no" class="text-ink-muted"> · {{ b.bill_no }}</span></div>
         </div>
+        <!-- Same on the payables side: outstanding was only ever used inside a
+             v-if and a button label, while the grand total took the large slot. -->
         <div class="ms-auto text-end">
-          <div class="text-[22px] font-bold tnum" :class="b.amount.includes('-') ? 'text-sale' : ''">{{ b.amount }} <span class="text-[12px] text-ink-muted font-normal">{{ b.currency }}</span></div>
+          <div class="text-[10.5px] text-ink-muted font-semibold">{{ Number(b.outstanding) > 0 ? L("Outstanding","المستحق","Restant dû") : L("Total","الإجمالي","Total") }}</div>
+          <div class="text-[24px] font-bold tnum leading-tight" :class="Number(b.outstanding) > 0 ? 'text-sale' : ''">{{ Number(b.outstanding) > 0 ? fmt2(b.outstanding) : b.amount }} <span class="text-[12px] text-ink-muted font-normal">{{ b.currency }}</span></div>
+          <div v-if="Number(b.outstanding) > 0" class="text-[11.5px] text-ink-3 mt-0.5 tnum">{{ L("of","من","sur") }} {{ b.amount }}<span v-if="b.due_date"> · {{ L("due","الاستحقاق","échéance") }} {{ b.due_date }}</span></div>
           <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border mt-1"
                 :style="{ background: BILL_STATUS[b.status].bg, color: BILL_STATUS[b.status].fg, borderColor: BILL_STATUS[b.status].bd }">
             {{ billStatusLabel(b.status, locale) }}

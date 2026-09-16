@@ -25,7 +25,7 @@
         </div>
         <div class="text-end">
           <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Outstanding payable","المستحق","Dû") }}</div>
-          <div class="text-[20px] font-bold tnum" :class="d.payable < 0 ? 'text-success-dark' : 'text-sale'">{{ fmt(d.payable) }} <span class="text-[11px] text-ink-muted">{{ d.currency }}</span></div>
+          <div class="text-[24px] font-bold tnum leading-tight" :class="d.payable < 0 ? 'text-success-dark' : 'text-sale'">{{ fmt(d.payable) }} <span class="text-[12px] text-ink-muted font-normal">{{ d.currency }}</span></div>
         </div>
       </div>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-[15px]">
@@ -43,7 +43,10 @@
           <span class="text-[10.5px] text-ink-muted font-semibold">{{ cn.label }}</span>
           <Icon name="chevDown" :size="14" color="#cbb5ad" class="-rotate-90 rtl:rotate-90" />
         </div>
-        <div class="text-[20px] font-bold tnum mt-[3px]">{{ cn.value }}</div>
+        <!-- These are counts. They were set at the same size as the payable
+             balance, so a tile reading "4" shouted as loudly as one reading
+             1,204,338. -->
+        <div class="text-[15px] font-bold tnum mt-[3px]">{{ cn.value }}</div>
       </button>
     </div>
 

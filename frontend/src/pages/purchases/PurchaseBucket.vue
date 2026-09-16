@@ -13,10 +13,13 @@
               <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
               <span v-if="dateScope" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ dateScope }}</span>
             </div>
-            <div class="text-[24px] font-extrabold tnum leading-tight tracking-tight" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ cardCount(b.key).toLocaleString() }}</div>
+            <!-- The count was the loudest thing on the screen and the money was
+                 an 11px afterthought: 1,319 orders read bigger than the
+                 3.3M MAD sitting behind them. Swapped. -->
+            <div class="text-[13px] font-bold tnum leading-tight text-ink-3">{{ cardCount(b.key).toLocaleString("en-US") }} <span class="text-ink-muted font-normal text-[11px]">{{ L("docs","مستند","doc.") }}</span></div>
           </div>
         </div>
-        <div class="relative mt-2 text-[11px] text-ink-3 font-semibold tnum">{{ money(cardValue(b.key)) }} <span class="text-ink-muted font-normal">{{ ccy }}</span></div>
+        <div class="relative mt-1 text-[22px] font-extrabold tnum leading-tight tracking-tight" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ money(cardValue(b.key)) }} <span class="text-[11px] text-ink-muted font-normal">{{ ccy }}</span></div>
         <div class="relative mt-1 text-[10px] text-ink-muted">{{ b.hint() }}</div>
       </button>
     </div>

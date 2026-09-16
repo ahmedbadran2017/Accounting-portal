@@ -20,8 +20,9 @@
         </button>
         <PartyStatement :open="showStatement" party-type="Customer" :party="(d.raw && d.raw.name) || d.name" :party-name="d.name" @close="showStatement = false" />
         <div class="text-end">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ d.creditLabel }}</div>
-          <div class="text-[20px] font-bold tnum" style="color:#7c3aed">{{ d.credit }} <span class="text-[11px] text-ink-muted">MAD</span></div>
+          <div class="text-[10.5px] text-ink-muted font-semibold">{{ d.owedLabel }}</div>
+          <div class="text-[24px] font-bold tnum leading-tight" :class="d.owedRaw > 0 ? 'text-ink' : 'text-ink-3'">{{ d.owed }} <span class="text-[12px] text-ink-muted font-normal">MAD</span></div>
+          <div v-if="d.credit" class="text-[11px] mt-0.5" style="color:#7c3aed">{{ d.creditLabel }} {{ d.credit }}</div>
         </div>
       </div>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-[15px]">
@@ -39,7 +40,9 @@
           <span class="text-[10.5px] text-ink-muted font-semibold">{{ cn.label }}</span>
           <Icon name="chevDown" :size="14" color="#cbb5ad" class="-rotate-90 rtl:rotate-90" />
         </div>
-        <div class="text-[20px] font-bold tnum mt-[3px]">{{ cn.value }}</div>
+        <!-- A row count is a signpost, not a figure. It used to be set at the
+             same size as the money on the cards above it. -->
+        <div class="text-[15px] font-bold tnum mt-[3px]">{{ cn.value }}</div>
       </button>
     </div>
 

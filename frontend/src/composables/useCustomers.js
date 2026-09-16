@@ -19,7 +19,11 @@ function voucherRoute(type, doc) {
 
 /** Map the live get_customer payload into the detail view-model the page renders. */
 function normalizeDetail(d, l) {
-  const credit = d.store_credit ? "+" + Math.round(d.store_credit).toLocaleString() : "0";
+  // The page led with store credit, which renders "0" for almost every customer,
+  // and never showed the receivable balance at all — the figure an AR clerk opens
+  // a customer to read. `outstanding` was in the payload the whole time.
+  const credit = d.store_credit ? "+" + Math.round(d.store_credit).toLocaleString("en-US") : "";
+  const owed = Math.round(Number(d.outstanding) || 0);
   return {
     id: d.name,
     name: d.customer_name || d.name,
@@ -30,9 +34,13 @@ function normalizeDetail(d, l) {
     since: d.since || "—",
     credit,
     creditLabel: L(l, "Store credit", "رصيد المتجر", "Avoir client"),
+    owed: owed.toLocaleString("en-US"),
+    owedRaw: owed,
+    owedLabel: L(l, "Owes us", "مستحق علينا", "Doit"),
     sinceLabel: L(l, "since", "منذ", "depuis"),
     stats: [
-      { label: "LTV", value: Math.round(d.stats.ltv).toLocaleString() + " MAD" },
+      { label: L(l, "Store credit", "رصيد المتجر", "Avoir"), value: d.store_credit ? Math.round(d.store_credit).toLocaleString("en-US") : "0" },
+      { label: "LTV", value: Math.round(d.stats.ltv).toLocaleString("en-US") + " MAD" },
       { label: L(l, "Orders", "الطلبات", "Commandes"), value: String(d.stats.orders) },
       { label: L(l, "Delivery", "التسليم", "Livraison"), value: d.stats.delivery_rate + "%" },
       { label: "RTO", value: d.stats.rto_rate + "%" },

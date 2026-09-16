@@ -17,7 +17,18 @@
             <span v-if="inv.city" class="inline-flex items-center gap-1"><Icon name="building" :size="11" />{{ inv.city }}</span>
           </div>
         </div>
-        <div class="ms-auto flex items-center gap-2 h-fit">
+        <!-- The outstanding balance was never rendered as a field: it appeared
+             only inside the Pay modal and inside a button label, while the
+             largest type on the page was the document id. It is the figure an
+             AR clerk opens an invoice to read. -->
+        <div class="ms-auto text-end">
+          <div class="text-[10.5px] text-ink-muted font-semibold">{{ Number(inv.outstanding) > 0 ? L("Outstanding","المستحق","Restant dû") : L("Total","الإجمالي","Total") }}</div>
+          <div class="text-[24px] font-bold tnum leading-tight" :class="Number(inv.outstanding) > 0 ? 'text-sale' : 'text-ink'">
+            {{ fmt2(Number(inv.outstanding) > 0 ? inv.outstanding : inv.gross) }} <span class="text-[12px] text-ink-muted font-normal">{{ inv.currency }}</span>
+          </div>
+          <div v-if="Number(inv.outstanding) > 0" class="text-[11.5px] text-ink-3 mt-0.5 tnum">{{ L("of","من","sur") }} {{ fmt2(inv.gross) }}<span v-if="inv.due_date"> · {{ L("due","الاستحقاق","échéance") }} {{ inv.due_date }}</span></div>
+        </div>
+        <div class="flex items-center gap-2 h-fit">
           <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-badge border"
                 :style="{ background: st.bg, color: st.fg, borderColor: st.bd }">{{ invStatusLabel(inv.status, locale) }}</span>
           <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand px-2.5 py-1 rounded-chip" @click="openPay">
