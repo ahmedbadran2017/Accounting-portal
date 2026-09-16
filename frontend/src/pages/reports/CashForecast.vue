@@ -59,7 +59,9 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const money = (n) => fmtAmount(n);
 
 const SAMPLE = { currency: "MAD", cash: 675192, carrier_float: 5720000, runrate_30d: 1009125, cheques_7d: 341792, cheques_out: 3407000, bills_due: 7302975, proj_7d: -2700000, proj_30d: -4710000, liquidity_7d_ok: false };
-const d = ref(SAMPLE);
+// Blank until the server answers — the old initializer painted a full
+// fabricated screen (hero figures and all) on every entry.
+const d = ref(blankLike(SAMPLE));
 const isLive = ref(null);
 async function load() {
   try { d.value = await api.call("accounting_portal.api.reports.cash_forecast", { company: currentCompany() }); isLive.value = true; }

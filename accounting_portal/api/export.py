@@ -177,7 +177,7 @@ def list_xlsx(key=None, **filters):
         [],
         [label for _f, label in cols],
     ]
-    numeric = {"amount", "base_amount", "net", "vat", "gross", "outstanding", "value", "collected", "unallocated"}
+    numeric = {"amount", "base_amount", "net", "vat", "gross", "outstanding_amount", "value", "collected", "unallocated"}
     for r in rows:
         data.append([_num(r.get(f)) if f in numeric else (r.get(f) if r.get(f) is not None else "") for f, _l in cols])
     _send(f"{key}-{frappe.utils.nowdate()}.xlsx", sheet, data, [18] * len(cols))

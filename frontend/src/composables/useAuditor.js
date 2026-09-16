@@ -1,5 +1,4 @@
 import { liveOrSample, currentCompany } from "@/composables/useLive";
-import { ANOMALIES } from "@/data/copilot";
 
 // Sample findings shaped like the backend run_controls() output, so the feed
 // renders the same whether live or offline.
@@ -38,6 +37,7 @@ export function toFeedItem(f) {
 }
 
 export function feedFrom(findings) {
-  const arr = (findings || []).map(toFeedItem);
-  return arr.length ? arr : ANOMALIES;
+  // An empty result means the auditor found nothing, or the call failed. Either
+  // way it is not a licence to show a canned list of invented anomalies.
+  return (findings || []).map(toFeedItem);
 }

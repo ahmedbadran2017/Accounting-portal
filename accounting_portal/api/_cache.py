@@ -21,6 +21,8 @@ _PREFIXES = (
     "ap_pnlest:",
     # cash forecast (was never busted — audit finding)
     "ap_cashfc:",
+    # dashboard sales headline (was uncached and took 21s per page load)
+    "ap_headline:",
 )
 
 
@@ -45,7 +47,8 @@ def bust_report_caches(company=None):
         except Exception:
             pass
     # keys NOT keyed by company (audit finding: ap_consol:USD never matched)
-    for p in ("ap_consol:", "ap_cashfc:", "ap_model_catalogue"):
+    # keyed by user, not company — a new proposal must reach the bell at once
+    for p in ("ap_consol:", "ap_cashfc:", "ap_model_catalogue", "ap_notif:"):
         try:
             frappe.cache().delete_keys(p)
         except Exception:

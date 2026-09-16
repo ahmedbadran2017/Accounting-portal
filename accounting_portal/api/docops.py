@@ -259,10 +259,22 @@ def doc_delete(doctype=None, name=None, company=None):
 @frappe.whitelist()
 def notifications(limit=25):
     """One inbox for the header bell: actions awaiting approval, documents
-    assigned to me, and comments that mention me. A pending ≥10k posting used to
-    be invisible until somebody browsed to the activity log."""
+    assigned to me, and mentions. A pending >=10k posting used to be invisible
+    until somebody browsed to the activity log.
+
+    This runs on every page, so every query here must hit an index. The first
+    version scanned `tabComment.content LIKE '%me%'` across 3.3M rows (6.7s) and
+    `tabToDo` unindexed across 375k (0.1-1.2s) on each page load. Mentions now
+    come from Notification Log, which is indexed on for_user, and the whole
+    answer is cached for a minute per user.
+    """
     assert_portal_access()
     me = frappe.session.user
+    ck = f"ap_notif:{me}:{int(limit)}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
+
     from accounting_portal.api.permissions import resolve_companies
     comps = resolve_companies(None) or []
     out = []
@@ -277,23 +289,37 @@ def notifications(limit=25):
                         "company": a.company, "on": str(a.creation)[:16],
                         "route": "/accounting/settings/activity"})
 
-    for t in frappe.get_all("ToDo", filters={"allocated_to": me, "status": "Open"},
-                            fields=["name", "reference_type", "reference_name", "description", "date", "priority", "creation"],
-                            order_by="creation desc", limit=int(limit)):
+    # `modified` is indexed on ToDo; allocated_to is not. Bounding the window
+    # turns a full scan into a range read, and an assignment older than six
+    # months is not news anyway.
+    for t in frappe.db.sql("""SELECT name, reference_type, reference_name, description, date, priority, creation
+                              FROM `tabToDo`
+                              WHERE allocated_to=%s AND status='Open'
+                                AND modified > DATE_SUB(NOW(), INTERVAL 180 DAY)
+                              ORDER BY modified DESC LIMIT %s""",
+                           (me, int(limit)), as_dict=True):
         out.append({"kind": "assignment", "id": t.name, "title": t.reference_type or "Task",
                     "detail": frappe.utils.strip_html(t.description or "")[:120],
                     "ref_doctype": t.reference_type, "ref_name": t.reference_name,
                     "due": str(t.date or ""), "priority": t.priority, "on": str(t.creation)[:16]})
 
-    for c in frappe.db.sql("""SELECT name, reference_doctype, reference_name, content, owner, creation
-                              FROM `tabComment` WHERE comment_type='Comment' AND content LIKE %s
-                                AND owner <> %s ORDER BY creation DESC LIMIT %s""",
-                           (f"%{me}%", me, int(limit)), as_dict=True):
-        out.append({"kind": "mention", "id": c.name, "title": c.reference_doctype,
-                    "detail": frappe.utils.strip_html(c.content or "")[:120], "by": c.owner,
-                    "ref_doctype": c.reference_doctype, "ref_name": c.reference_name,
+    # Frappe already records every mention as a Notification Log row, indexed on
+    # for_user — one millisecond instead of a 3.3M-row content scan.
+    for c in frappe.db.sql("""SELECT name, document_type, document_name, subject, from_user, creation
+                              FROM `tabNotification Log`
+                              WHERE for_user=%s AND type='Mention'
+                              ORDER BY creation DESC LIMIT %s""",
+                           (me, int(limit)), as_dict=True):
+        out.append({"kind": "mention", "id": c.name, "title": c.document_type,
+                    "detail": frappe.utils.strip_html(c.subject or "")[:120], "by": c.from_user,
+                    "ref_doctype": c.document_type, "ref_name": c.document_name,
                     "on": str(c.creation)[:16]})
 
     out.sort(key=lambda x: x.get("on") or "", reverse=True)
     counts = {k: sum(1 for x in out if x["kind"] == k) for k in ("approval", "assignment", "mention")}
-    return {"rows": out[: int(limit)], "counts": counts, "total": len(out)}
+    res = {"rows": out[: int(limit)], "counts": counts, "total": len(out)}
+    try:
+        frappe.cache().set_value(ck, res, expires_in_sec=60)
+    except Exception:
+        pass
+    return res

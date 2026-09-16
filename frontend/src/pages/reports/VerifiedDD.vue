@@ -51,7 +51,9 @@ const SAMPLE = { currency: "MAD", score: 1, total: 6, metrics: { revenue: 781055
   { area: "Gross margin quality", status: "fail", value: "−44.7%", note: "COGS exceeds revenue — inventory/COGS posting is broken" },
   { area: "Receivables integrity", status: "fail", value: "−2,851,136 MAD", note: "Debtors carry a credit balance — collections unapplied" },
 ] };
-const d = ref(SAMPLE);
+// Blank until the server answers — the old initializer painted a full
+// fabricated screen (hero figures and all) on every entry.
+const d = ref(blankLike(SAMPLE));
 const isLive = ref(null);
 async function load() {
   try { d.value = await api.call("accounting_portal.api.reports.verified_dd", { company: currentCompany() }); isLive.value = true; }

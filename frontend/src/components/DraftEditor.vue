@@ -66,7 +66,7 @@
                       </select>
                       <SearchSelect v-else-if="c.type === 'Link'" v-model="r[c.field]" :items="d.options[c.options] || []" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white min-w-[220px]" />
                       <PartyPick v-else-if="c.type === 'Party'" v-model="r[c.field]" :party-type="r.party_type" :disabled="!r.party_type" small />
-                      <ItemPick v-else-if="c.type === 'Item'" v-model="r[c.field]" @picked="(o) => onItemPicked(r, o)" />
+                      <ItemPick v-else-if="c.type === 'Item'" v-model="r[c.field]" :side="d.doctype === 'Purchase Invoice' ? 'buying' : 'selling'" @picked="(o) => onItemPicked(r, o)" />
                       <input v-else v-model="r[c.field]" class="h-8 w-full min-w-[120px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40" />
                     </td>
                     <td v-if="d.child.can_remove" class="px-1 py-1.5 text-center"><button type="button" class="text-ink-muted hover:text-sale" :title="L('Remove row','حذف السطر','Supprimer')" @click="rv.splice(i, 1)"><Icon name="close" :size="13" /></button></td>
@@ -232,7 +232,7 @@ async function save() {
 
 // ── Item picker: type-ahead against sales.item_options (code, name, last rate) ──
 const ItemPick = {
-  props: { modelValue: { type: String, default: "" } },
+  props: { modelValue: { type: String, default: "" }, side: { type: String, default: "selling" } },
   emits: ["update:modelValue", "picked"],
   setup(p, { emit: em }) {
     const hits = ref([]); const open = ref(false); let t = null;
@@ -240,7 +240,7 @@ const ItemPick = {
       const q = ev.target.value; em("update:modelValue", q); open.value = true;
       clearTimeout(t);
       t = setTimeout(async () => {
-        try { hits.value = (await api.call("accounting_portal.api.sales.item_options", { search: q, limit: 15 })) || []; }
+        try { hits.value = (await api.call("accounting_portal.api.sales.item_options", { search: q, limit: 15, side: p.side })) || []; }
         catch { hits.value = []; }
       }, 220);
     }

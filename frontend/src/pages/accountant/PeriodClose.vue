@@ -143,7 +143,9 @@ const SAMPLE = { month: "2026-06", ready: false, blocked: 1, pending: 3, items: 
   { key: "vat", en: "VAT computed for the period", ar: "الضريبة محسوبة", fr: "TVA calculée", state: "done", value: 142057, unit: "MAD", link: "/accounting/reports/taxreports" },
 ] };
 
-const data = ref(SAMPLE);
+// Blank until the server answers — the old initializer painted a full
+// fabricated screen (hero figures and all) on every entry.
+const data = ref(blankLike(SAMPLE));
 const live = ref(null);
 const loading = ref(true);
 const items = computed(() => data.value.items || []);

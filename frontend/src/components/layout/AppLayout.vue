@@ -251,9 +251,18 @@ function badgeFor(m) {
   if (m.id === "mywork") return workCount.value > 0 ? String(workCount.value) : "";
   return m.badge || "";
 }
-onMounted(() => { loadWorkCount(); loadApprovals(); loadNotif(); window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline); });
+onMounted(() => { syncHeader(true); window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline); });
 onUnmounted(() => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); });
-watch(() => route.path, () => { loadWorkCount(); loadApprovals(); loadNotif(); refreshBuild(); });
+// The header signals cost four requests. Refetching them on every route change
+// made rapid navigation four times heavier than the page itself, so they refresh
+// at most twice a minute — they are counters, not the page content.
+let lastHeaderSync = 0;
+function syncHeader(force) {
+  if (!force && Date.now() - lastHeaderSync < 30000) return;
+  lastHeaderSync = Date.now();
+  loadWorkCount(); loadApprovals(); loadNotif(); refreshBuild();
+}
+watch(() => route.path, () => syncHeader(false));
 
 // Every entry here opens a REAL form that posts to ERPNext. (The old "order" and
 // "invoice" entries wrote a fake document to memory and toasted success.)

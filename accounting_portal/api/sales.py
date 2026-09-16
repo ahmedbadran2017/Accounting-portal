@@ -610,17 +610,28 @@ def _voucher_journal(voucher_no):
 
 
 @frappe.whitelist()
-def item_options(company=None, search=None, limit=20):
-    """Items for the Sales Order create picker — code, name, image, last sell rate."""
+def item_options(company=None, search=None, limit=20, side="selling"):
+    """Items for the create pickers — code, name, image, and a suggested rate.
+
+    `side` decides which rate comes back. It defaults to selling for the Sales
+    Order picker, but the draft editor also runs this on supplier bills, and a
+    last SELLING price pre-filled onto a purchase line is a materially wrong
+    default that looks exactly like a real one.
+    """
     assert_portal_access()
     like = f"%{(search or '').strip()}%"
+    buying = str(side).lower() == "buying"
+    rate_sql = ("(SELECT ip.price_list_rate FROM `tabItem Price` ip "
+                " WHERE ip.item_code=i.name AND ip.buying=1 ORDER BY ip.modified DESC LIMIT 1)"
+                if buying else
+                "(SELECT ip.price_list_rate FROM `tabItem Price` ip "
+                " WHERE ip.item_code=i.name AND ip.selling=1 ORDER BY ip.modified DESC LIMIT 1)")
     return frappe.db.sql(
-        """SELECT i.name AS item_code, i.item_name, i.image,
-                  (SELECT price_list_rate FROM `tabItem Price` ip
-                     WHERE ip.item_code=i.name AND ip.selling=1 ORDER BY ip.modified DESC LIMIT 1) AS rate
-           FROM `tabItem` i
-           WHERE i.disabled=0 AND (i.name LIKE %(s)s OR i.item_name LIKE %(s)s)
-           ORDER BY i.modified DESC LIMIT %(limit)s""",
+        f"""SELECT i.name AS item_code, i.item_name, i.image,
+                   {rate_sql} AS rate
+            FROM `tabItem` i
+            WHERE i.disabled=0 AND (i.name LIKE %(s)s OR i.item_name LIKE %(s)s)
+            ORDER BY i.modified DESC LIMIT %(limit)s""",
         {"s": like, "limit": min(int(limit or 20), 40)}, as_dict=True)
 
 

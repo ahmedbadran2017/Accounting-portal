@@ -402,7 +402,7 @@ import DashboardSkeleton from "@/components/DashboardSkeleton.vue";
 import { useUi } from "@/composables/useUi";
 import { usePersistedRef } from "@/composables/usePersistedRef";
 import { buildDashVM } from "@/data/dashboard";
-import { ANOMALIES, SEV_META, sevLabel } from "@/data/copilot";
+import { SEV_META, sevLabel } from "@/data/copilot";
 import { useDashboard, overlayCockpit } from "@/composables/useDashboard";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -554,7 +554,9 @@ const alertRows = computed(() => {
   if (Array.isArray(live)) {
     return live.map((a, i) => ({ id: "al" + i, title: a.title, desc: a.detail, sev: a.severity === "high" ? "critical" : a.severity === "medium" ? "high" : "low", icon: SEV_ICON[a.severity] || "shield", route: a.route, amount: "" }));
   }
-  return ANOMALIES.slice(0, 4).map((a) => ({ id: a.id, title: a.title(locale.value), desc: a.desc(locale.value), sev: a.sev, icon: a.icon, amount: a.amount, go: a.go }));
+  // No live alerts yet, or the call failed: show nothing. The canned list that
+  // used to fill this space was indistinguishable from real findings.
+  return [];
 });
 const sev = (a) => SEV_META[a.sev] || SEV_META.low;
 function goAlert(a) { if (a.route) router.push(a.route); else if (a.go) go(a.go); }

@@ -544,44 +544,60 @@ def sales_headline(company=None, year=None):
     yr = str(year or nowdate()[:4])
     ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
 
-    def gl(where, args, sign=1):
-        v = frappe.db.sql(
-            f"""SELECT SUM(credit)-SUM(debit) FROM `tabGL Entry`
-                WHERE company=%s AND is_cancelled=0 AND fiscal_year=%s {where}""",
-            (target, yr, *args))[0][0]
-        return flt(v) * sign
+    # This is the dashboard hero and it was the slowest call in the portal: 21s,
+    # uncached, because it ran three queries per month in a 12-month loop and
+    # wrapped every date in YEAR()/MONTH(), which no index can serve. One grouped
+    # query per source over a plain date range answers all twelve months at once.
+    ck = f"ap_headline:{target}:{yr}"
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
 
-    revenue = gl("AND account LIKE '600.%%'", ())
-    # VAT charged on sales only — settlements and journals must not inflate it
-    vat = gl("""AND account LIKE '391.%%'
-                AND voucher_type IN ('Sales Invoice','Delivery Note','POS Invoice')""", ())
-    ordered = flt(frappe.db.sql(
-        """SELECT SUM(grand_total) FROM `tabSales Order`
-           WHERE company=%s AND docstatus=1 AND YEAR(transaction_date)=%s""", (target, yr))[0][0])
-    orders = frappe.db.sql(
-        """SELECT COUNT(*) FROM `tabSales Order`
-           WHERE company=%s AND docstatus=1 AND YEAR(transaction_date)=%s""", (target, yr))[0][0]
+    y0, y1 = f"{yr}-01-01", f"{yr}-12-31"
+
+    gl_rows = frappe.db.sql(
+        """SELECT MONTH(posting_date) AS m,
+                  SUM(CASE WHEN account LIKE '600.%%' THEN credit - debit ELSE 0 END) AS rev,
+                  SUM(CASE WHEN account LIKE '391.%%'
+                            AND voucher_type IN ('Sales Invoice','Delivery Note','POS Invoice')
+                           THEN credit - debit ELSE 0 END) AS vat
+           FROM `tabGL Entry`
+           WHERE company=%s AND is_cancelled=0 AND posting_date BETWEEN %s AND %s
+             AND (account LIKE '600.%%' OR account LIKE '391.%%')
+           GROUP BY MONTH(posting_date)""",
+        (target, y0, y1), as_dict=True)
+
+    so_rows = frappe.db.sql(
+        """SELECT MONTH(transaction_date) AS m, SUM(grand_total) AS val, COUNT(*) AS n
+           FROM `tabSales Order`
+           WHERE company=%s AND docstatus=1 AND transaction_date BETWEEN %s AND %s
+           GROUP BY MONTH(transaction_date)""",
+        (target, y0, y1), as_dict=True)
+
     collected = flt(frappe.db.sql(
         """SELECT SUM(base_paid_amount) FROM `tabPayment Entry`
            WHERE company=%s AND docstatus=1 AND payment_type='Receive'
-             AND YEAR(posting_date)=%s""", (target, yr))[0][0])
+             AND posting_date BETWEEN %s AND %s""", (target, y0, y1))[0][0])
+
+    by_m = {int(r.m): r for r in gl_rows}
+    so_m = {int(r.m): r for r in so_rows}
+    revenue = sum(flt(r.rev) for r in gl_rows)
+    vat = sum(flt(r.vat) for r in gl_rows)
+    ordered = sum(flt(r.val) for r in so_rows)
+    orders = sum(int(r.n or 0) for r in so_rows)
 
     months = []
     for m in range(1, 13):
-        r = gl("AND MONTH(posting_date)=%s AND account LIKE '600.%%'", (m,))
-        v = gl("""AND MONTH(posting_date)=%s AND account LIKE '391.%%'
-                  AND voucher_type IN ('Sales Invoice','Delivery Note','POS Invoice')""", (m,))
-        o = flt(frappe.db.sql(
-            """SELECT SUM(grand_total) FROM `tabSales Order`
-               WHERE company=%s AND docstatus=1 AND YEAR(transaction_date)=%s
-                 AND MONTH(transaction_date)=%s""", (target, yr, m))[0][0])
+        r = flt(by_m.get(m, {}).get("rev")) if m in by_m else 0.0
+        v = flt(by_m.get(m, {}).get("vat")) if m in by_m else 0.0
+        o = flt(so_m.get(m, {}).get("val")) if m in so_m else 0.0
         if not (r or v or o):
             continue
         months.append({"month": m, "ordered": round(o), "billed": round(r + v),
                        "revenue": round(r), "vat": round(v)})
 
     billed = revenue + vat
-    return {
+    res = {
         "company": target, "currency": ccy, "year": yr,
         "orders": int(orders or 0),
         "ordered": round(ordered), "billed": round(billed),
@@ -590,3 +606,8 @@ def sales_headline(company=None, year=None):
         "conversion": round(100.0 * billed / ordered, 1) if ordered else None,
         "months": months,
     }
+    try:
+        frappe.cache().set_value(ck, res, expires_in_sec=300)
+    except Exception:
+        pass
+    return res
