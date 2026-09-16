@@ -116,9 +116,15 @@ export function parseServerMessage(result, fallback = "An error occurred") {
  * Internal finance tool → 2 decimals, grouped, currency code after the number
  * (matches how the team reads TRY / USD / MAD figures).
  */
+// The locale is pinned deliberately. Passing `undefined` follows the browser,
+// and an Arabic browser renders Arabic-Indic numerals — which nobody here reads
+// in a ledger. Grouping and digit shape stay the same in all three languages;
+// only the words around the number change.
+const NUM_LOCALE = "en-US";
+
 export function fmtMoney(amount, currency = "", decimals = 2) {
   const n = Number(amount || 0);
-  const s = n.toLocaleString(undefined, {
+  const s = n.toLocaleString(NUM_LOCALE, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
@@ -132,7 +138,12 @@ export function fmtMoney(amount, currency = "", decimals = 2) {
  * 174230 → "174,230"   128844.735 → "128,844.74"   -1234.5 → "-1,234.5"
  */
 export function fmtAmount(n) {
-  return Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return Number(n || 0).toLocaleString(NUM_LOCALE, { maximumFractionDigits: 2 });
+}
+
+/** Whole units — for counts and for totals where the decimals are noise. */
+export function fmtWhole(n) {
+  return Math.round(Number(n || 0)).toLocaleString(NUM_LOCALE);
 }
 
 export function fmtDate(s, fallback = "—") {
@@ -140,3 +151,48 @@ export function fmtDate(s, fallback = "—") {
   const d = new Date(s);
   return isNaN(d) ? fallback : d.toLocaleDateString();
 }
+
+/** Where a document lives in the portal.
+ *
+ * There were six of these maps plus seven hand-written branches, and they
+ * disagreed: only the General Ledger checked the party type on a Payment Entry,
+ * so everywhere else a customer receipt opened the supplier-payment screen. Two
+ * of them also pointed Purchase Orders at `purchases/orders`, a sub that does
+ * not exist, and landed the user on the "pending build" placeholder.
+ *
+ * Returns null when the doctype has no portal page — callers use that to decide
+ * whether a row is clickable at all, instead of showing a hand cursor that does
+ * nothing.
+ */
+const DOC_PATHS = {
+  "Sales Invoice":        "sales/invoices",
+  "Sales Order":          "sales/orders",
+  "Delivery Note":        "sales/challans",
+  "Purchase Invoice":     "purchases/bills",
+  "Purchase Order":       "purchases/tobuy",
+  "Purchase Receipt":     "purchases/received",
+  "Journal Entry":        "accountant/journals",
+  "Landed Cost Voucher":  "items/landed",
+  "Item":                 "items/items",
+  "Customer":             "sales/customers",
+  "Supplier":             "purchases/vendors",
+};
+
+export function routeForDoc(doctype, name, partyType) {
+  if (!doctype || !name) return null;
+  if (doctype === "Payment Entry") {
+    // A receipt from a customer belongs under Sales; a payment to a supplier
+    // under Purchases. Sending both to Purchases was the most common misroute.
+    const path = partyType === "Customer" ? "/accounting/sales/payments" : "/accounting/purchases/payments";
+    return { path, query: { id: name } };
+  }
+  const p = DOC_PATHS[doctype];
+  return p ? { path: `/accounting/${p}`, query: { id: name } } : null;
+}
+
+/** Short codes the activity and audit screens use, mapped to real doctypes. */
+export const DOC_CODE = {
+  SI: "Sales Invoice", SO: "Sales Order", DN: "Delivery Note",
+  PI: "Purchase Invoice", PO: "Purchase Order", PR: "Purchase Receipt",
+  JE: "Journal Entry", PE: "Payment Entry", LCV: "Landed Cost Voucher",
+};

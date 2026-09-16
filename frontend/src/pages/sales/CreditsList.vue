@@ -5,7 +5,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fef2f2"><Icon name="refresh" :size="14" color="#b91c1c" /></span>
         <span class="text-[13px] font-bold">{{ L("Returns & credit notes","المرتجعات وإشعارات الدائن","Retours & avoirs") }}</span>
-        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Sample","عينة","Échant.") }}</span>
+        <LiveBadge :live="isLive" />
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} · {{ L("returned / exception orders","مرتجع / استثناء","retours / exceptions") }}</span>
         <div class="ms-auto relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
@@ -45,6 +45,7 @@ import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";

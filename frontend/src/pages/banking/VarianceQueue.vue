@@ -3,8 +3,7 @@
     <!-- Headline: the −2.85M over-collection story -->
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("COD cash reconciliation","تسوية كاش COD","Rapprochement COD") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
-            :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+      <LiveBadge :live="isLive" />
       <span class="text-[11px] text-ink-muted flex-1">{{ L("Unallocated COD receipts vs open invoices — clear the debtor balance","سندات COD غير مخصّصة مقابل فواتير مفتوحة — صفِّ رصيد المدينون","Encaissements COD non lettrés vs factures ouvertes") }}</span>
     </div>
 
@@ -92,6 +91,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import { useReconciliation, fmtMAD } from "@/composables/useReconciliation";
 import api from "@/services/api";
 import { currentCompany, blankLike } from "@/composables/useLive";

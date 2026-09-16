@@ -2,7 +2,7 @@
   <div v-if="d" class="max-w-[1080px] mx-auto space-y-3.5">
     <div class="flex items-center gap-2">
       <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-3 hover:text-ink" @click="back">
-        <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ L("Back to suppliers","العودة للموردين","Retour aux fournisseurs") }}
+        <span class="rotate-180 rtl:rotate-0"><Icon name="arrow" :size="15" /></span>{{ L("Back to suppliers","العودة للموردين","Retour aux fournisseurs") }}
       </button>
       <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-3 py-1.5 rounded-chip hover:bg-app-warm" @click="showStatement = true">
         <Icon name="ledger" :size="14" />{{ L("Statement","كشف حساب","Relevé") }}

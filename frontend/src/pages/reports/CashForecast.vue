@@ -2,7 +2,7 @@
   <div class="space-y-3.5">
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Cash forecast","توقّع النقد","Prévision de trésorerie") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+      <LiveBadge :live="isLive" />
       <span class="text-[11px] text-ink-muted">{{ L("cash now + carrier COD coming in − cheques & bills going out","النقد الآن + تحصيل COD القادم − الشيكات والفواتير","trésorerie + COD entrant − chèques & factures") }}</span>
     </div>
 
@@ -49,6 +49,7 @@ import { fmtAmount } from "@/utils/helpers";
 import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import api from "@/services/api";
 import { currentCompany, blankLike } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";

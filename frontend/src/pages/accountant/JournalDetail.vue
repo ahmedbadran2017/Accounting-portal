@@ -68,6 +68,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { routeForDoc } from "@/utils/helpers";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -88,20 +89,13 @@ const loading = ref(true);
 const totalDr = computed(() => (j.value?.accounts || []).reduce((a, r) => a + Number(r.debit || 0), 0));
 const totalCr = computed(() => (j.value?.accounts || []).reduce((a, r) => a + Number(r.credit || 0), 0));
 
-const REF_ROUTE = {
-  "Sales Invoice": "sales/invoices", "Purchase Invoice": "purchases/bills", "Sales Order": "sales/orders",
-  "Purchase Order": "purchases/tobuy", "Delivery Note": "sales/challans", "Purchase Receipt": "purchases/received",
-  "Journal Entry": "accountant/journals", "Expense Claim": "expenses", "Employee Advance": "payroll",
-};
 // A JE line that settles an invoice opens it — the reference used to be dead text,
 // which made "what does this entry clear?" a manual search every time.
 function openRef(a) {
-  if (!a.reference_name) return;
-  if (a.reference_type === "Payment Entry") {
-    router.push({ path: "/accounting/purchases/payments", query: { id: a.reference_name } }); return;
-  }
-  const r = REF_ROUTE[a.reference_type];
-  if (r) router.push({ path: `/accounting/${r}`, query: { id: a.reference_name } });
+  // Was hard-coded to the supplier-payment screen for every Payment Entry, so a
+  // customer receipt on a journal line opened the wrong page.
+  const to = routeForDoc(a.reference_type, a.reference_name, a.party_type);
+  if (to) router.push(to);
 }
 
 function back() { router.push("/accounting/accountant/journals"); }

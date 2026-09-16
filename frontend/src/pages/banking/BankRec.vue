@@ -55,7 +55,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="14" color="#0369a1" /></span>
         <span class="text-[13px] font-bold truncate max-w-[260px]">{{ selName }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+        <LiveBadge :live="live" />
         <span v-if="loadErr" class="text-[10px] text-rose-600 truncate max-w-[22rem]" :title="loadErr">{{ loadErr }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted tnum">{{ (total || 0).toLocaleString() }} {{ L("uncleared entries", "قيد غير مُسوّى", "écritures") }}<span v-if="total > rows.length"> · {{ L("showing", "معروض", "affiché") }} {{ rows.length.toLocaleString() }}</span></span>
         <span class="inline-flex items-center gap-1 text-[11px]">
@@ -119,11 +119,12 @@
 </template>
 
 <script setup>
-import { fmtAmount } from "@/utils/helpers";
+import { fmtAmount, routeForDoc } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
@@ -146,7 +147,7 @@ const toast = useToast();
 const router = useRouter();
 const route = useRoute();
 function open(o) {
-  if (o.doctype === "Payment Entry") router.push({ path: "/accounting/purchases/payments", query: { id: o.voucher } });
+  const to = routeForDoc(o.doctype, o.voucher, o.party_type); if (to) { router.push(to); return; }
   else router.push({ path: "/accounting/accountant/journals", query: { id: o.voucher } });
 }
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

@@ -133,7 +133,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
-import { fmtAmount } from "@/utils/helpers";
+import { fmtAmount, routeForDoc, DOC_CODE } from "@/utils/helpers";
 
 const props = defineProps({ company: String, user: String, from: String, to: String });
 const { locale } = useI18n();
@@ -264,15 +264,8 @@ const INK = { JE: "#0f766e", PE: "#0369a1", PI: "#be123c", SI: "#7c3aed", PO: "#
 const tint = (c) => TINT[c] || "#f5f5f4";
 const ink = (c) => INK[c] || "#57534e";
 
-const DOC_ROUTE = {
-  JE: "/accounting/accountant/journals", PE: "/accounting/sales/payments",
-  PI: "/accounting/purchases/bills", SI: "/accounting/sales/invoices",
-  // purchases has no `orders` sub; `tobuy` is the Purchase Order bucket.
-  PO: "/accounting/purchases/tobuy", SO: "/accounting/sales/orders",
-  PR: "/accounting/purchases/received", DN: "/accounting/sales/challans",
-};
 // A row is only clickable when we know where it goes; otherwise the hand
 // cursor promised a navigation that silently did nothing.
-function canOpen(e) { return !!(e && e.name && DOC_ROUTE[e.code]); }
-function openDoc(e) { const p = DOC_ROUTE[e.code]; if (p && e.name) router.push({ path: p, query: { id: e.name } }); }
+function canOpen(e) { return !!routeForDoc(DOC_CODE[e?.code], e?.name, e?.party_type); }
+function openDoc(e) { const to = routeForDoc(DOC_CODE[e.code], e.name, e.party_type); if (to) router.push(to); }
 </script>

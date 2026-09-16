@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="truck" :size="14" color="#0369a1" /></span>
       <span class="text-[13px] font-bold">{{ L("Landed-cost vouchers","سندات التكلفة المحمَّلة","Bons de coût de revient") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+      <LiveBadge :live="isLive" />
       <span class="hidden lg:inline text-[11px] text-ink-muted">{{ L("freight, customs, duties capitalised into inventory","شحن وجمارك ورسوم تُرسمل في المخزون","frais capitalisés dans le stock") }}</span>
     </div>
     <TableLoading v-if="loading" :rows="6" />
@@ -41,6 +41,7 @@ import { ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";

@@ -34,7 +34,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fffbeb"><Icon name="doc" :size="14" color="#b45309" /></span>
         <span class="text-[13px] font-bold">{{ L("Cheque register", "سجل الشيكات", "Registre des chèques") }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+        <LiveBadge :live="live" />
         <span v-if="loadErr" class="text-[10px] text-rose-600 truncate max-w-[20rem]" :title="loadErr">{{ loadErr }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("cheques", "شيك", "chèques") }}<span v-if="status"> · {{ statusLabel(status) }}</span></span>
         <div class="relative ms-auto">
@@ -97,6 +97,7 @@ import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";

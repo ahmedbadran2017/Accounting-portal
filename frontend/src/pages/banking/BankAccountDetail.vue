@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { fmtAmount } from "@/utils/helpers";
+import { fmtAmount, routeForDoc } from "@/utils/helpers";
 import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -104,7 +104,7 @@ const money = (n) => fmtAmount(n);
 function back() { router.push("/accounting/banking/accounts"); }
 function goRec() { router.push("/accounting/banking/bankrec"); }
 function openVoucher(e) {
-  if (e.type === "Payment Entry") router.push({ path: "/accounting/purchases/payments", query: { id: e.voucher } });
+  const to = routeForDoc(e.type, e.voucher, e.party_type); if (to) { router.push(to); return; }
   else if (e.type === "Journal Entry") router.push({ path: "/accounting/accountant/journals", query: { id: e.voucher } });
 }
 

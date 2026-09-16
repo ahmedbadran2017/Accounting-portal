@@ -2,7 +2,7 @@
   <div class="space-y-3">
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("FX revaluation","إعادة تقييم العملات","Réévaluation FX") }}</span>
-      <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+      <LiveBadge :live="isLive" />
       <span class="text-[11px] text-ink-muted">{{ L("unrealized gain/loss on foreign-currency balances at the latest rate","ربح/خسارة غير محققة على الأرصدة بالعملات الأجنبية بآخر سعر","plus/moins-value latente") }}</span>
     </div>
 
@@ -67,6 +67,7 @@ import { ref, onMounted, watch, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";

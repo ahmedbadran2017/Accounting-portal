@@ -1,7 +1,7 @@
 <template>
   <div v-if="b" class="space-y-3.5">
     <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-3 hover:text-ink" @click="back">
-      <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ L("Back to bills","العودة للفواتير","Retour aux factures") }}
+      <span class="rotate-180 rtl:rotate-0"><Icon name="arrow" :size="15" /></span>{{ L("Back to bills","العودة للفواتير","Retour aux factures") }}
     </button>
     <!-- document action bar (DocHub teleports Create / status / submit / edit / print here) -->
     <div id="doc-toolbar" class="empty:hidden"></div>

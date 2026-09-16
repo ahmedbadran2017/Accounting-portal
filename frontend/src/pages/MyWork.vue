@@ -38,6 +38,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import { routeForDoc } from "@/utils/helpers";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -73,11 +74,10 @@ async function done(t) {
   } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
   finally { busy.value = ""; }
 }
-const REF_ROUTE = { "Sales Invoice": "sales/invoices", "Sales Order": "sales/orders", "Purchase Invoice": "purchases/bills", "Payment Entry": "purchases/payments", "Journal Entry": "accountant/journals", "Delivery Note": "sales/challans", "Purchase Order": "purchases/tobuy" };
 // The Open button used to render for any task with a reference, including the
 // doctypes this map does not cover, and then did nothing when pressed.
-function canOpenRef(t) { return !!(t && t.reference_type && t.reference_name && REF_ROUTE[t.reference_type]); }
-function openRef(t) { const r = REF_ROUTE[t.reference_type]; if (r) router.push({ path: `/accounting/${r}`, query: { id: t.reference_name } }); }
+function canOpenRef(t) { return !!routeForDoc(t?.reference_type, t?.reference_name, t?.party_type); }
+function openRef(t) { const to = routeForDoc(t.reference_type, t.reference_name, t.party_type); if (to) router.push(to); }
 function go(p) { router.push(p); }
 const overdue = (d) => d && String(d) < today;
 const prioBg = (p) => ({ High: "background:#fef2f2", Medium: "background:#fffbeb", Low: "background:#f5f5f4" }[p] || "background:#f5f5f4");

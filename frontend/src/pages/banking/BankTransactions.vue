@@ -5,7 +5,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="ledger" :size="14" color="#0b5c4f" /></span>
         <span class="text-[13px] font-bold">{{ L("Bank transactions", "حركات البنوك", "Transactions bancaires") }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+        <LiveBadge :live="live" />
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("movements", "حركة", "mouvements") }}</span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
@@ -41,9 +41,11 @@
 
 <script setup>
 import { ref, watch } from "vue";
+import { routeForDoc } from "@/utils/helpers";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
@@ -76,7 +78,7 @@ st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });
 
 function open(o) {
-  if (o.type === "Payment Entry") router.push({ path: "/accounting/purchases/payments", query: { id: o.voucher } });
+  const to = routeForDoc(o.type, o.voucher, o.party_type); if (to) { router.push(to); return; }
   else if (o.type === "Journal Entry") router.push({ path: "/accounting/accountant/journals", query: { id: o.voucher } });
 }
 </script>

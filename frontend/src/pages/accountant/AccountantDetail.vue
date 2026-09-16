@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { fmtAmount } from "@/utils/helpers";
+import { fmtAmount, routeForDoc, DOC_CODE } from "@/utils/helpers";
 import { ref, computed, watch, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -154,14 +154,10 @@ watch(user, load);
 watch(entityId, () => router.push({ path: "/accounting/accountant/team" }));
 
 function back() { router.push({ path: "/accounting/accountant/team" }); }
-const DOC_ROUTE = { JE: "/accounting/accountant/journals", PE: "/accounting/sales/payments",
-  PI: "/accounting/purchases/bills", SI: "/accounting/sales/invoices",
-  SO: "/accounting/sales/orders", DN: "/accounting/sales/challans",
-  PO: "/accounting/purchases/tobuy", PR: "/accounting/purchases/received" };
 // The row was styled clickable whatever the doctype, so anything outside this
 // map looked interactive and did nothing.
-function canOpen(r) { return !!(r && r.name && DOC_ROUTE[r.code]); }
-function openDoc(r) { const p = DOC_ROUTE[r.code]; if (p && r.name) router.push({ path: p, query: { id: r.name } }); }
+function canOpen(r) { return !!routeForDoc(DOC_CODE[r?.code], r?.name, r?.party_type); }
+function openDoc(r) { const to = routeForDoc(DOC_CODE[r.code], r.name, r.party_type); if (to) router.push(to); }
 
 const maxCreated = computed(() => Math.max(1, ...(d.value.monthly || []).map((m) => m.created)));
 const barH = (n) => Math.round((Number(n) || 0) / maxCreated.value * 100);

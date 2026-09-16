@@ -82,6 +82,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
+import { routeForDoc } from "@/utils/helpers";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
@@ -163,20 +164,9 @@ function resetFilters() {
   if (acct.value) router.replace({ path: route.path, query: {} }); else load();
 }
 
-const VTYPE_ROUTE = {
-  "Sales Invoice": "sales/invoices", "Sales Order": "sales/orders", "Delivery Note": "sales/challans",
-  "Purchase Invoice": "purchases/bills", "Purchase Order": "purchases/tobuy", "Purchase Receipt": "purchases/received",
-  "Journal Entry": "accountant/journals", "Landed Cost Voucher": "items/landed",
-};
 function openVoucher(g) {
-  if (!g.ref) return;
-  if (g.voucher_type === "Payment Entry") {
-    // Receipts live under Sales, supplier payments under Purchases.
-    const path = g.party_type === "Customer" ? "/accounting/sales/payments" : "/accounting/purchases/payments";
-    router.push({ path, query: { id: g.ref } }); return;
-  }
-  const r = VTYPE_ROUTE[g.voucher_type];
-  if (r) router.push({ path: `/accounting/${r}`, query: { id: g.ref } });
+  const to = routeForDoc(g.voucher_type, g.ref, g.party_type);
+  if (to) router.push(to);
 }
 
 // Server-built .xlsx of the WHOLE filtered set (the CSV button is this page only).

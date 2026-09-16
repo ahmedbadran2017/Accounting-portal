@@ -37,7 +37,7 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="14" color="#0369a1" /></span>
         <span class="text-[13px] font-bold">{{ L("Bank & cash accounts", "حسابات البنوك والنقد", "Comptes bancaires & caisse") }}</span>
-        <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+        <LiveBadge :live="live" />
         <button v-if="canWrite" @click="showSettle = true" class="h-8 px-2.5 rounded-chip text-[11.5px] font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 inline-flex items-center gap-1.5"><Icon name="scale" :size="13" color="#4338ca" />{{ L("Monthly settlement","تسوية شهرية","Règlement") }}</button>
         <!-- Operating / Under audit / All -->
         <div class="inline-flex rounded-[10px] border border-line-2 overflow-hidden bg-app-warm/40 text-[11.5px] font-semibold">
@@ -120,6 +120,7 @@ import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import LiveBadge from "@/components/LiveBadge.vue";
 import TableToolbar from "@/components/TableToolbar.vue";
 import TablePager from "@/components/TablePager.vue";
 import TableLoading from "@/components/TableLoading.vue";
