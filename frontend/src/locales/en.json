@@ -36,7 +36,7 @@
   "sub": {
     "customers": "Customers",
     "orders": "Sales orders",
-    "todeliver": "To deliver",
+    "todeliver": "Pipeline",
     "delivered": "Delivered",
     "collected": "Collected",
     "toreturn": "To return",
@@ -51,7 +51,7 @@
     "tobuy": "To buy",
     "received": "Received",
     "billed": "Billed",
-    "topay": "To pay",
+    "topay": "Pipeline",
     "paid": "Paid",
     "pos": "Purchase orders",
     "bills": "Bills",

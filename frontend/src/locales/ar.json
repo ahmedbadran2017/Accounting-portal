@@ -36,7 +36,7 @@
   "sub": {
     "customers": "العملاء",
     "orders": "أوامر البيع",
-    "todeliver": "للتسليم",
+    "todeliver": "المسار",
     "delivered": "مُسلّمة",
     "collected": "محصّلة",
     "toreturn": "للإرجاع",
@@ -51,7 +51,7 @@
     "tobuy": "للشراء",
     "received": "مُستلم",
     "billed": "متفوتر",
-    "topay": "للدفع",
+    "topay": "المسار",
     "paid": "مدفوع",
     "pos": "أوامر شراء",
     "bills": "الفواتير",

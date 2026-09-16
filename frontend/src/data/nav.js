@@ -75,3 +75,18 @@ export function defaultSub(module) {
   // no sidebar sub-tabs): `[]` is truthy but `[][0][0]` throws.
   return s && s.length ? s[0][0] : null;
 }
+
+// Stages of one pipeline, not separate screens. `CodBucket` and `PurchaseBucket`
+// already render the whole pipeline as a strip of clickable cards with counts at
+// the top of the page, so repeating those stages in the tab row above it gave
+// the accountant ten tab targets for two screens — and the tab row carried less
+// information than the strip it duplicated.
+//
+// They stay in SUBTABS so every existing URL and bookmark keeps resolving; they
+// are simply not drawn as tabs. One entry each leads into the pipeline.
+export const PIPELINE_SUBS = new Set([
+  "delivered", "collected", "toreturn", "returned",   // sales — `todeliver` stays as the way in
+  "tobuy", "received", "billed", "paid",              // purchases — `topay` stays as the way in
+]);
+
+export const tabsFor = (mod) => (SUBTABS[mod] || []).filter((s) => !PIPELINE_SUBS.has(s[0]));

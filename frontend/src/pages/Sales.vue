@@ -64,7 +64,7 @@ import ChallanDetail from "@/pages/sales/ChallanDetail.vue";
 import CreditsList from "@/pages/sales/CreditsList.vue";
 import ToBillQueue from "@/pages/sales/ToBillQueue.vue";
 import { useUi } from "@/composables/useUi";
-import { SUBTABS, defaultSub } from "@/data/nav";
+import { SUBTABS, defaultSub, tabsFor } from "@/data/nav";
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -103,7 +103,7 @@ function onOrdered(res) {
   }
 }
 
-const subs = SUBTABS.sales;
+const subs = tabsFor("sales");
 const activeSub = computed(() => route.params.sub || defaultSub("sales"));
 const entityName = computed(() => (entities.find((e) => e.id === entityId.value) || entities[0]).name);
 const title = computed(() => {

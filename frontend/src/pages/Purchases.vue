@@ -53,7 +53,7 @@ import Cheques from "@/pages/purchases/Cheques.vue";
 import Shipments from "@/pages/purchases/Shipments.vue";
 import IntermediaryHub from "@/pages/purchases/IntermediaryHub.vue";
 import { useUi } from "@/composables/useUi";
-import { SUBTABS, defaultSub } from "@/data/nav";
+import { SUBTABS, defaultSub, tabsFor } from "@/data/nav";
 
 const { t, locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -63,7 +63,7 @@ const { entityId, entities } = useUi();
 const showPo = ref(false);
 function onPoCreated() { if (activeSub.value === "tobuy") router.replace({ path: "/accounting/purchases/tobuy", query: { _r: Date.now() } }); }
 
-const subs = SUBTABS.purchases;
+const subs = tabsFor("purchases");
 const activeSub = computed(() => route.params.sub || defaultSub("purchases"));
 const entityName = computed(() => (entities.find((e) => e.id === entityId.value) || entities[0]).name);
 const title = computed(() => {
