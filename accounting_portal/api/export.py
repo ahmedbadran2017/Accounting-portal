@@ -146,9 +146,18 @@ def list_xlsx(key=None, **filters):
     method, sheet, cols = spec
     fn = frappe.get_attr(method)
     filters.pop("cmd", None)
-    for junk in ("start", "page_size", "limit"):
+    for junk in ("start", "page_size", "limit", "key"):
         filters.pop(junk, None)
     filters = {k: v for k, v in filters.items() if v not in (None, "", "undefined")}
+    # Only pass what the list endpoint actually declares. The URL carries whatever
+    # the screen had on it, and an unknown key would be a 500 instead of a download.
+    import inspect
+    target_fn = getattr(fn, "__wrapped__", fn)
+    try:
+        accepted = set(inspect.signature(target_fn).parameters)
+        filters = {k: v for k, v in filters.items() if k in accepted}
+    except (TypeError, ValueError):
+        pass
 
     rows, start, page = [], 0, 200
     total = None

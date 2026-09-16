@@ -105,7 +105,7 @@ _SORT_COLS = {"date": "so.transaction_date", "value": "so.grand_total",
 @frappe.whitelist()
 def list_orders(company=None, state=None, search=None, customer=None, active=0,
                 from_date=None, to_date=None, start=0, page_size=25,
-                sort_field="date", sort_dir="desc"):
+                sort_field="date", sort_dir="desc", status=None):
     """Server-paginated COD sales orders. Returns one page (start/page_size) plus
     the total count and per-state counts for the pipeline strip — so the UI pages
     through the full set at high speed instead of capping at a client-side 500."""
@@ -117,7 +117,7 @@ def list_orders(company=None, state=None, search=None, customer=None, active=0,
     start = max(0, int(start or 0))
     page_size = min(max(1, int(page_size or 25)), 100)
 
-    conds = ["so.company = %(company)s", "so.docstatus < 2"]
+    conds = ["so.company = %(company)s", _ds("so", status)]
     params = {"company": target}
     if customer:
         conds.append("so.customer = %(customer)s"); params["customer"] = customer
@@ -430,14 +430,15 @@ _INV_SORT = {"date": "si.posting_date", "gross": "si.grand_total", "customer": "
 
 
 @frappe.whitelist()
-def list_invoices(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+def list_invoices(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25,
+                  sort_field="date", sort_dir="desc", status=None):
     """Sales invoices for one company (revenue; VAT 20%), server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
     if not companies:
         return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    conds = ["si.company = %(company)s", "si.docstatus < 2"]
+    conds = ["si.company = %(company)s", _ds("si", status)]
     params = {"company": target}
     if from_date:
         conds.append("si.posting_date >= %(fd)s"); params["fd"] = from_date
