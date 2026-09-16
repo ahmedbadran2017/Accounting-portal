@@ -24,7 +24,12 @@ export const SUBTABS = {
   ],
   // legacy screens (costing / valuation / landed / cockpit) are hidden, not
   // deleted — their pages still resolve by direct URL if ever needed
-  items: [["items", "sub.items"], ["vendors", "sub.vendors"], ["costtrace", "sub.costtrace"], ["weights", "sub.weights"], ["zerocost", "sub.zerocost"], ["cutover", "sub.cutover"], ["agreed", "sub.agreed"], ["pricelists", "sub.pricelists"]],
+  items: [["items", "sub.items"], ["vendors", "sub.vendors"], ["costtrace", "sub.costtrace"], ["weights", "sub.weights"], ["zerocost", "sub.zerocost"], ["cutover", "sub.cutover"], ["agreed", "sub.agreed"], ["pricelists", "sub.pricelists"],
+    // These four render real screens in Items.vue and were never listed here,
+    // so the landed-cost workbench, the item cost card, the valuation doctor
+    // and the landed cockpit could only be reached by typing a URL.
+    ["landed", "sub.landed"], ["costing", "sub.costing"],
+    ["valuation", "sub.valuation"], ["cockpit", "sub.cockpit"]],
   banking: [
     ["accounts", "sub.accounts"], ["transactions", "sub.transactions"],
     ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["codclose", "sub.codclose"], ["settlements", "sub.settlements"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"], ["cleanup", "sub.cleanup"],
@@ -37,10 +42,9 @@ export const SUBTABS = {
   // (its own inner tabs), so it carries no sidebar sub-tabs.
   expenses: [],
   payroll: [],
-  reports: [["grouppnl", "sub.grouppnl"], ["matching", "sub.matching"], ["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["missingdocs", "sub.missingdocs"], ["statements", "sub.statements"], ["investors", "sub.investors"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"], ["dataroom", "sub.dataroom"]],
+  reports: [["grouppnl", "sub.grouppnl"], ["matching", "sub.matching"], ["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["missingdocs", "sub.missingdocs"], ["statements", "sub.statements"], ["investors", "sub.investors"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"],],
   settings: [
     ["orgs", "sub.orgs"], ["users", "sub.users"], ["activity", "sub.activity"], ["taxconf", "sub.taxconf"], ["currencies", "sub.currencies"],
-    ["locations", "sub.locations"], ["tags", "sub.tags"], ["custom", "sub.custom"], ["integrations", "sub.integrations"], ["anomrules", "sub.anomrules"],
   ],
 };
 
@@ -60,14 +64,6 @@ export const NAV_GROUPS = [
 ];
 
 // ★ Justyol-only shortcuts (jump straight to a module+sub). label = i18n key.
-export const JONLY = [
-  { label: "jonly.cod", icon: "truck", module: "banking", sub: "remittance" },
-  { label: "jonly.carrier", icon: "clock", module: "banking", sub: "aging" },
-  { label: "jonly.margin", icon: "box", module: "items", sub: "costtrace" },
-  { label: "jonly.consolidation", icon: "layers", module: "dashboard", sub: null, entity: "group" },
-  { label: "jonly.dd", icon: "chart", module: "reports", sub: "dd" },
-  { label: "jonly.copilot", icon: "shield", module: "copilot", sub: null },
-];
 
 export function defaultSub(module) {
   const s = SUBTABS[module];
