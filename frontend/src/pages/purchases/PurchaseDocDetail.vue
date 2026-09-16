@@ -4,7 +4,14 @@
       <Icon name="arrow" :size="14" class="rotate-180" />{{ backLabel }}
     </button>
     <!-- document action bar (DocHub teleports Create / status / submit / edit / print here) -->
-    <div id="doc-toolbar" class="empty:hidden"></div>
+    <!-- The action bar. It used to live inside DocHub at the foot of the page and
+         be teleported up here, which made it depend on this div existing at the
+         moment DocHub mounted — a DOM probe in an onMounted. When that probe read
+         false the whole bar rendered at the bottom instead, and when the target
+         was not reachable it rendered nowhere at all. The page draws it now. -->
+    <DocActions v-if="route.query.id" :doctype="doctype" :name="route.query.id"
+                class="bg-white rounded-card border border-line shadow-card overflow-hidden"
+                @changed="load" @open="(n) => router.push({ query: { id: n } })" />
 
     <div v-if="loading" class="bg-white rounded-card border border-line shadow-card"><TableLoading :rows="4" /></div>
     <div v-else-if="!d" class="bg-white rounded-card border border-line shadow-card py-16 text-center text-[12px] text-ink-muted">{{ L("Document not found.","المستند غير موجود.","Introuvable.") }}</div>
@@ -160,6 +167,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import DocHub from "@/components/DocHub.vue";
+import DocActions from "@/components/DocActions.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";

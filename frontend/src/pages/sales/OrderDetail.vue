@@ -4,7 +4,14 @@
       <span class="rotate-180 rtl:rotate-0"><Icon name="arrow" :size="15" /></span>{{ L("Back to orders","العودة للطلبات","Retour aux commandes") }}
     </button>
     <!-- document action bar (DocHub teleports Create / status / submit / edit / print here) -->
-    <div id="doc-toolbar" class="empty:hidden"></div>
+    <!-- The action bar. It used to live inside DocHub at the foot of the page and
+         be teleported up here, which made it depend on this div existing at the
+         moment DocHub mounted — a DOM probe in an onMounted. When that probe read
+         false the whole bar rendered at the bottom instead, and when the target
+         was not reachable it rendered nowhere at all. The page draws it now. -->
+    <DocActions v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id"
+                class="bg-white rounded-card border border-line shadow-card overflow-hidden"
+                @changed="load" @open="(n) => router.push({ query: { id: n } })" />
 
     <!-- PE-only: carrier ref is on the payment but not the order → shows as Delivered -->
     <div v-if="fixable.fixable" class="flex items-center gap-3 px-4 py-2.5 rounded-card border border-amber-200 bg-amber-50/70">
@@ -166,6 +173,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import FactCard from "@/components/FactCard.vue";
 import DocHub from "@/components/DocHub.vue";
+import DocActions from "@/components/DocActions.vue";
 import { STATE_META, stateLabel, AV, postingInfo } from "@/data/orders";
 import { useOrders } from "@/composables/useOrders";
 import api from "@/services/api";

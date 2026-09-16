@@ -4,7 +4,14 @@
       <span class="rotate-180 rtl:rotate-0"><Icon name="arrow" :size="15" /></span>{{ L("Back to invoices","العودة للفواتير","Retour aux factures") }}
     </button>
     <!-- document action bar (DocHub teleports Create / status / submit / edit / print here) -->
-    <div id="doc-toolbar" class="empty:hidden"></div>
+    <!-- The action bar. It used to live inside DocHub at the foot of the page and
+         be teleported up here, which made it depend on this div existing at the
+         moment DocHub mounted — a DOM probe in an onMounted. When that probe read
+         false the whole bar rendered at the bottom instead, and when the target
+         was not reachable it rendered nowhere at all. The page draws it now. -->
+    <DocActions v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id"
+                class="bg-white rounded-card border border-line shadow-card overflow-hidden"
+                @changed="load" @open="(n) => router.push({ query: { id: n } })" />
 
     <!-- Header -->
     <div class="bg-white rounded-card border border-line p-5">
@@ -199,6 +206,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import DocHub from "@/components/DocHub.vue";
+import DocActions from "@/components/DocActions.vue";
 import { INV_STATUS, invStatusLabel, fmt2 } from "@/data/invoices";
 import { useInvoices } from "@/composables/useInvoices";
 import api from "@/services/api";

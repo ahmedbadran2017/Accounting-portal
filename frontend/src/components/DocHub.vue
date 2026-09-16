@@ -2,22 +2,10 @@
   <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
     <!-- full draft editor (header + lines) for JE / PE / bills / invoices / pay adjustments -->
     <DraftEditor v-if="draftOpen" :doctype="doctype" :name="name" @close="draftOpen = false" @saved="draftOpen = false; onChanged()" />
-    <!-- The action bar lives at the TOP of the page (a detail page provides
-         <div id="doc-toolbar">); without that slot it stays here inline. -->
-    <Teleport to="#doc-toolbar" :disabled="!toolbarUp">
-      <div :class="toolbarUp ? 'bg-white rounded-card border border-line shadow-card overflow-hidden' : ''">
-    <!-- Document actions: create / status / submit / cancel / amend / assign -->
-    <DocActions :doctype="doctype" :name="name" @changed="onChanged" @open="goto" @failed="actionsFailed = $event" />
-    <!-- An empty toolbar used to be indistinguishable from a document that has
-         no actions. Say which one it is. -->
-    <div v-if="actionsFailed" class="flex items-center gap-2 px-3 py-2 text-[11.5px] border-b" style="background:#fef2f2;border-color:#fecaca;color:#b91c1c">
-      <Icon name="alert" :size="13" color="#b91c1c" />
-      <span class="min-w-0">{{ L("The actions for this document could not be loaded.","تعذّر تحميل إجراءات هذا المستند.","Actions du document non chargées.") }}
-        <span v-if="typeof actionsFailed === 'string'" class="opacity-80 break-all"> — {{ actionsFailed }}</span></span>
-      <button class="ms-auto h-6 px-2 rounded-[7px] font-bold border" style="border-color:#fecaca" @click="hardReload">{{ L("Reload","إعادة التحميل","Recharger") }}</button>
-    </div>
+    <!-- The action bar moved to the page itself. This panel keeps what belongs
+         to it: tags, print, edit, and the activity / attachments / notes tabs. -->
     <!-- Toolbar: tags + print + edit -->
-    <div class="flex items-center gap-2 px-3 py-2.5 flex-wrap" :class="toolbarUp ? '' : 'border-b border-line-hair'">
+    <div class="flex items-center gap-2 px-3 py-2.5 flex-wrap border-b border-line-hair">
       <Icon name="filter" :size="13" color="#a8a29e" />
       <span v-for="tg in tags" :key="tg" class="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-accent-soft text-accent-dark">{{ tg }}<button @click="removeTag(tg)" class="hover:text-sale"><Icon name="x" :size="10" /></button></span>
       <input v-model.trim="newTag" @keyup.enter="addTag" :placeholder="L('+ tag', '+ وسم', '+ tag')" class="w-20 h-6 text-[11px] bg-transparent border-b border-dashed border-line-2 focus:outline-none focus:border-accent/40" />
@@ -39,8 +27,6 @@
         </div>
       </div>
     </div>
-      </div>
-    </Teleport>
 
     <!-- Tabs -->
     <div class="flex items-center gap-1 px-3 pt-2.5 border-b border-line-hair">
@@ -152,12 +138,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
-import DocActions from "@/components/DocActions.vue";
 import DraftEditor from "@/components/DraftEditor.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
@@ -170,11 +155,6 @@ const { locale } = useI18n();
 const toast = useToast();
 // Refresh the activity timeline + tell the parent detail page to reload its data.
 function onChanged() { loadActivity(); emit("changed"); }
-// Lift the action bar to the page's #doc-toolbar slot when the page offers one.
-const toolbarUp = ref(false);
-const actionsFailed = ref(false);
-function hardReload() { window.location.reload(); }
-onMounted(async () => { await nextTick(); toolbarUp.value = !!document.getElementById("doc-toolbar"); });
 // Navigate to a related document (e.g. the new draft created by Amend).
 function goto(name) { router.replace({ path: route.path, query: { ...route.query, id: name } }); }
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
