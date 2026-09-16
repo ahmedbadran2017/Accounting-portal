@@ -42,7 +42,10 @@ def doc_state(doctype=None, name=None):
     if doctype not in bulk._ALLOWED or not name or not frappe.db.exists(doctype, name):
         return {"exists": False}
     ds = frappe.db.get_value(doctype, name, "docstatus")
-    amended_to = frappe.db.get_value(doctype, {"amended_from": name}, "name")
+    # Only a submitted or cancelled document can be amended, so for a draft this
+    # question has no bearing — and asking it is a full table scan until the
+    # amended_from index lands (748ms on a Sales Order).
+    amended_to = frappe.db.get_value(doctype, {"amended_from": name}, "name") if ds in (1, 2) else None
     return {
         "exists": True, "docstatus": ds, "amount": _amount(doctype, name),
         "can_submit": ds == 0, "can_cancel": ds == 1,

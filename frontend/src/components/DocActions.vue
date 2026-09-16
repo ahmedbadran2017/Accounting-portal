@@ -10,7 +10,7 @@
     <div class="flex items-center gap-1">
       <span v-for="u in assignList" :key="u" :title="u" class="w-6 h-6 rounded-full grid place-items-center text-[9px] font-bold text-white" :style="{ background: avatarColor(u) }">{{ initials(u) }}</span>
       <div class="relative">
-        <button @click="assignOpen = !assignOpen" class="w-6 h-6 rounded-full grid place-items-center border border-dashed border-line-2 text-ink-muted hover:bg-white" :title="L('Assign','إسناد','Assigner')"><Icon name="plus" :size="11" /></button>
+        <button @click="assignOpen = !assignOpen; if (assignOpen) loadUsers();" class="w-6 h-6 rounded-full grid place-items-center border border-dashed border-line-2 text-ink-muted hover:bg-white" :title="L('Assign','إسناد','Assigner')"><Icon name="plus" :size="11" /></button>
         <div v-if="assignOpen" class="absolute z-20 mt-1 start-0 w-52 bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-60 overflow-auto">
           <button v-for="u in users" :key="u.name" @click="assign(u.name)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm flex items-center justify-between">
             <span class="truncate">{{ u.full_name || u.name }}</span>
@@ -148,22 +148,32 @@ async function setStatus(s) {
   finally { busy.value = false; }
 }
 
+// 12s, not the request layer's 45s: an action bar that has not appeared after
+// twelve seconds is a fault, and the accountant should be told rather than left
+// looking at a document with no actions on it.
+function withDeadline(p, ms = 12000) {
+  return Promise.race([p, new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("No response after " + Math.round(ms / 1000) + "s")), ms))]);
+}
+
 async function loadState() {
   try {
-    const s = await api.call("accounting_portal.api.docops.doc_state", { doctype: props.doctype, name: props.name });
+    const s = await withDeadline(api.call("accounting_portal.api.docops.doc_state", { doctype: props.doctype, name: props.name }));
     Object.assign(state, s);
     emit("failed", false);
   } catch (e) {
     // The whole bar is hidden when nothing loads, which reads exactly like a
     // document that simply has no actions. Tell the parent so it can say so.
     state.exists = false;
-    emit("failed", true);
+    emit("failed", String(e?.message || e).slice(0, 160) || true);
   }
   try { assignList.value = await api.call("accounting_portal.api.docops.assignees", { doctype: props.doctype, name: props.name }) || []; } catch { /* */ }
   loadFlow();
 }
 async function loadUsers() { try { users.value = await api.call("accounting_portal.api.docops.assignable_users", {}) || []; } catch { /* */ } }
-onMounted(() => { loadState(); loadUsers(); });
+// loadUsers fetched every assignable user on mount for a menu almost nobody
+// opens. It waits for the menu now.
+onMounted(() => { loadState(); });
 watch(() => props.name, loadState);
 
 const pill = computed(() => {

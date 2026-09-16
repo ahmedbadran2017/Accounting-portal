@@ -12,7 +12,8 @@
          no actions. Say which one it is. -->
     <div v-if="actionsFailed" class="flex items-center gap-2 px-3 py-2 text-[11.5px] border-b" style="background:#fef2f2;border-color:#fecaca;color:#b91c1c">
       <Icon name="alert" :size="13" color="#b91c1c" />
-      <span>{{ L("The actions for this document could not be loaded.","تعذّر تحميل إجراءات هذا المستند.","Actions du document non chargées.") }}</span>
+      <span class="min-w-0">{{ L("The actions for this document could not be loaded.","تعذّر تحميل إجراءات هذا المستند.","Actions du document non chargées.") }}
+        <span v-if="typeof actionsFailed === 'string'" class="opacity-80 break-all"> — {{ actionsFailed }}</span></span>
       <button class="ms-auto h-6 px-2 rounded-[7px] font-bold border" style="border-color:#fecaca" @click="hardReload">{{ L("Reload","إعادة التحميل","Recharger") }}</button>
     </div>
     <!-- Toolbar: tags + print + edit -->
@@ -43,7 +44,7 @@
 
     <!-- Tabs -->
     <div class="flex items-center gap-1 px-3 pt-2.5 border-b border-line-hair">
-      <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
+      <button v-for="t in tabs" :key="t.key" @click="openTab(t.key)"
               class="px-3 py-2 text-[12px] font-semibold rounded-t-[8px] -mb-px border-b-2 transition"
               :class="tab === t.key ? 'border-accent text-accent-dark' : 'border-transparent text-ink-3 hover:text-ink'">
         {{ t.label() }}<span v-if="t.n" class="ms-1 text-[10px] text-ink-muted">{{ t.n }}</span>
@@ -53,6 +54,11 @@
     <!-- Activity -->
     <div v-if="tab === 'activity'" class="p-4">
       <div v-if="loadingAct" class="py-4"><TableLoading :rows="3" /></div>
+      <div v-else-if="actErr" class="py-5 text-center">
+        <div class="text-[12px] font-bold text-rose-700">{{ L("Could not load the history.", "تعذّر تحميل السجل.", "Historique non chargé.") }}</div>
+        <div class="text-[11px] text-ink-muted mt-1 break-all">{{ actErr }}</div>
+        <button class="mt-2 h-7 px-3 rounded-[8px] text-[11.5px] font-bold border border-line-2" @click="loadActivity">{{ L("Try again", "إعادة المحاولة", "Réessayer") }}</button>
+      </div>
       <div v-else-if="!events.length" class="py-6 text-center text-[12px] text-ink-muted">{{ L("No activity yet.", "لا نشاط بعد.", "Aucune activité.") }}</div>
       <div v-else class="space-y-3">
         <div v-for="(e, i) in events" :key="i" class="flex gap-2.5">
@@ -199,11 +205,28 @@ const tabs = computed(() => [
   { key: "notes", label: () => L("Notes", "الملاحظات", "Notes"), n: notes.value.length },
 ]);
 
+// A panel that spins with no end and no message is the worst state this screen
+// can be in: the accountant cannot tell an empty history from a request that
+// never came back. Whatever goes wrong, this stops and says so.
+const actErr = ref("");
 async function loadActivity() {
   loadingAct.value = true;
-  try { events.value = (await api.call("accounting_portal.api.docmeta.get_activity", { doctype: props.doctype, name: props.name })).events || []; }
-  catch { events.value = []; }
-  finally { loadingAct.value = false; }
+  actErr.value = "";
+  try {
+    const r = await withDeadline(api.call("accounting_portal.api.docmeta.get_activity", { doctype: props.doctype, name: props.name }));
+    events.value = r.events || [];
+  } catch (e) {
+    events.value = [];
+    actErr.value = String(e?.message || e).slice(0, 180);
+  } finally { loadingAct.value = false; }
+}
+
+// The request layer already gives up after 45s. That is far too long to stare at
+// a skeleton, and it does not cover a promise that never reaches the network.
+const PANEL_DEADLINE_MS = 12000;
+function withDeadline(p, ms = PANEL_DEADLINE_MS) {
+  return Promise.race([p, new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("No response after " + Math.round(ms / 1000) + "s")), ms))]);
 }
 async function loadFiles() {
   loadingFiles.value = true;
@@ -346,5 +369,19 @@ async function sendEmail() {
   finally { sending.value = false; }
 }
 
-watch(() => [props.doctype, props.name], () => { if (props.name) { loadActivity(); loadFiles(); loadTags(); } }, { immediate: true });
+// Opening a document used to fire five requests at once for panels nobody had
+// asked for yet. Only the visible tab loads; the other two load when opened.
+const loadedTabs = ref(new Set());
+function openTab(k) {
+  tab.value = k;
+  if (loadedTabs.value.has(k)) return;
+  loadedTabs.value.add(k);
+  if (k === "files") loadFiles();
+}
+watch(() => [props.doctype, props.name], () => {
+  if (!props.name) return;
+  loadedTabs.value = new Set(["activity"]);
+  loadActivity();
+  loadTags();
+}, { immediate: true });
 </script>
