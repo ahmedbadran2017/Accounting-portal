@@ -476,13 +476,17 @@ def _clear_bank_poster(action):
     date = p.get("date") or nowdate()
     skipped = []
     for e in p["entries"]:
+        # A statement covers a month, and the import knows each line's own date.
+        # One date for the whole file would put a 3 June payment in the 30 June
+        # period; the entry's own date wins where it has one.
+        when = e.get("date") or date
         # Never silently re-date something already reconciled: the reverter
         # matches on the date it wrote, so an overwrite makes the undo impossible.
         prev = frappe.db.get_value(e["doctype"], e["name"], "clearance_date")
-        if prev and str(prev) != str(date):
+        if prev and str(prev) != str(when):
             skipped.append(f"{e['name']} (already cleared {prev})")
             continue
-        frappe.db.set_value(e["doctype"], e["name"], "clearance_date", date)
+        frappe.db.set_value(e["doctype"], e["name"], "clearance_date", when)
     frappe.db.commit()
     first = p["entries"][0] if p["entries"] else {}
     return {"voucher_type": first.get("doctype"), "voucher_no": first.get("name"),
@@ -517,7 +521,8 @@ def mark_bank_cleared(company=None, entries=None, clearance_date=None):
     assert_can_write()
     target = _target(company)
     ents = entries if isinstance(entries, list) else json.loads(entries or "[]")
-    ents = [e for e in ents if e.get("doctype") in ("Payment Entry", "Journal Entry") and e.get("name")]
+    ents = [{"doctype": e["doctype"], "name": e["name"], "date": (e.get("date") or "").strip() or None}
+            for e in ents if e.get("doctype") in ("Payment Entry", "Journal Entry") and e.get("name")]
     if not target or not ents:
         frappe.throw("No entries selected")
     for e in ents:
@@ -528,14 +533,18 @@ def mark_bank_cleared(company=None, entries=None, clearance_date=None):
     # item 2026-09-16, which throws off the reconciliation cut-off and the
     # year-end. Refuse rather than guess: the statement date is the whole point
     # of a clearance date.
+    # …unless the caller stamped each entry with its own statement line's date,
+    # which the importer does and which is more precise than one date for a file
+    # spanning a month.
     date = (clearance_date or "").strip()
-    if not date:
+    if not date and not all(e["date"] for e in ents):
         frappe.throw("Pick the statement date — a clearance date stamped with today "
                      "would put these entries in the wrong reconciliation period.")
-    key = "clrbank:" + _digest("".join(sorted(e["name"] for e in ents)) + date, 16)
+    key = "clrbank:" + _digest(
+        "".join(sorted(e["name"] + ":" + (e["date"] or "") for e in ents)) + date, 16)
     res = _actions.execute(CLEAR_BANK_ACTION, target, key,
                            payload={"entries": ents, "date": date}, amount=0,
-                           notes=f"Reconciled {len(ents)} bank entr(ies) on {date}")
+                           notes=f"Reconciled {len(ents)} bank entr(ies) on {date or 'their own statement dates'}")
     try:
         frappe.cache().delete_keys("ap_bankrec_acc")
     except Exception:

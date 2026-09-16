@@ -202,7 +202,15 @@ async function doReconcile() {
   if (!window.confirm(L(`Reconcile ${result.value.matched_n} matched entr(ies)?`, `تسوية ${result.value.matched_n} قيد مطابَق؟`, `Rapprocher ${result.value.matched_n} ?`))) return;
   reconciling.value = true;
   try {
-    const entries = result.value.matched.map((m) => ({ doctype: m.book.doctype, name: m.book.voucher }));
+    // Each entry carries its own statement line's date. Sending none stamped
+    // today on the lot, which put a June statement's items in September; the
+    // endpoint now refuses a dateless batch rather than guess, so the date has
+    // to come from here — and the statement knows it per line.
+    const entries = result.value.matched.map((m) => ({
+      doctype: m.book.doctype, name: m.book.voucher, date: m.statement?.date || m.book?.dt || "",
+    }));
+    const undated = entries.filter((e) => !e.date).length;
+    if (undated) { toast.error(L(`${undated} matched line(s) have no statement date`, `${undated} سطر مطابَق من غير تاريخ في الكشف`, `${undated} ligne(s) sans date`)); return; }
     await api.call("accounting_portal.api.reconciliation.mark_bank_cleared", { company: currentCompany(), entries });
     toast.success(L(`${entries.length} reconciled`, `تمت تسوية ${entries.length}`, `${entries.length} rapprochés`));
     emit("done"); emit("close");
