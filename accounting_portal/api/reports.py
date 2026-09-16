@@ -1504,12 +1504,15 @@ def report_pdf(report=None, company=None, from_date=None, to_date=None,
                 rows.append(["<b>Out of balance</b>", f"<b>{_money(p_.get('check'))}</b>"])
             title = "Balance Sheet"
         else:
-            for k, label in (("operating", "Operating"), ("investing", "Investing"),
-                             ("financing", "Financing"), ("net", "Net movement"),
-                             ("opening", "Opening cash"), ("closing", "Closing cash")):
+            # Direct method: the keys financial_statements actually returns.
+            for k, label, strong in (("open_cash", "Opening cash", False), ("cash_in", "Cash in", False),
+                                     ("cash_out", "Cash out", False), ("net_change", "Net movement", True),
+                                     ("close_cash", "Closing cash", True)):
                 if k in p_:
-                    rows.append([f"<b>{label}</b>" if k in ("net", "closing") else label, _money(p_.get(k))])
-            title = "Cash Flow"
+                    rows.append([f"<b>{label}</b>" if strong else label, _money(p_.get(k))])
+            if not p_.get("reconciles", True):
+                rows.append(["<b>Does not reconcile</b>", ""])
+            title = "Cash Flow (direct)"
         body = _rows_table(["Line", "Amount"], rows)
     else:
         frappe.throw(f"Unknown report: {report}")

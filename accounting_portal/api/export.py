@@ -217,8 +217,10 @@ def statements_xlsx(report=None, company=None, from_date=None, to_date=None):
         data.append(["Total equity", "", flt(p.get("equity_total"))])
         data.append(["Out of balance", "", flt(p.get("check"))])
     else:
-        for k, label in (("opening", "Opening cash"), ("operating", "Operating"), ("investing", "Investing"),
-                         ("financing", "Financing"), ("net", "Net movement"), ("closing", "Closing cash")):
+        for k, label in (("open_cash", "Opening cash"), ("cash_in", "Cash in"), ("cash_out", "Cash out"),
+                         ("net_change", "Net movement"), ("close_cash", "Closing cash")):
             if k in p:
                 data.append([label, "", flt(p.get(k))])
+        data.append(["Method", p.get("method") or "direct", ""])
+        data.append(["Reconciles with bank movement", "yes" if p.get("reconciles") else "no", ""])
     _send(f"{key}-{(to_date or frappe.utils.nowdate())}.xlsx", key[:28], data, [42, 46, 18])
