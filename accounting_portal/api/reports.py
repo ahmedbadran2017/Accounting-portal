@@ -33,6 +33,12 @@ def pnl(company=None, from_date=None, to_date=None):
         return {}
     if not (from_date and to_date):
         from_date, to_date = _year_bounds()
+    # ~1.5s over the full year of GL. Repeat visits and the report tabs that
+    # re-read it should not pay for it again.
+    pnl_key = f"ap_pnl:{target}:{from_date}:{to_date}"
+    pnl_hit = frappe.cache().get_value(pnl_key)
+    if pnl_hit is not None:
+        return pnl_hit
 
     rows = frappe.db.sql(
         """SELECT a.name, a.account_name, a.root_type,
@@ -59,12 +65,17 @@ def pnl(company=None, from_date=None, to_date=None):
     if expense and expense_total and expense[0]["amount"] > 0.4 * expense_total and expense[0]["amount"] > 1_000_000:
         anomaly = {"account": expense[0]["account"], "name": expense[0]["name"], "amount": expense[0]["amount"]}
 
-    return {
+    res = {
         "from_date": from_date, "to_date": to_date, "company": target,
         "income": income[:20], "expense": expense[:20],
         "income_total": income_total, "expense_total": expense_total,
         "net": income_total - expense_total, "anomaly": anomaly,
     }
+    try:
+        frappe.cache().set_value(pnl_key, res, expires_in_sec=300)
+    except Exception:
+        pass
+    return res
 
 
 @frappe.whitelist()

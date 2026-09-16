@@ -408,6 +408,10 @@ def cash_bank_review(company=None):
     target = _target(company)
     if not target:
         return {}
+    cbr_key = f"ap_cashrev:{target}"
+    cbr_hit = frappe.cache().get_value(cbr_key)
+    if cbr_hit is not None:
+        return cbr_hit
     rows = frappe.db.sql(
         """SELECT a.name, a.account_number num, a.account_name nm, a.account_type typ,
                   a.account_currency ccy, a.disabled,
@@ -437,7 +441,12 @@ def cash_bank_review(company=None):
         "negative_cash": sum(1 for x in out if x["neg_cash"]),
         "real_bank": sum(1 for x in out if x["bucket"] == "bank"),
     }
-    return {"company": target, "rows": out, "summary": summary}
+    cbr = {"company": target, "rows": out, "summary": summary}
+    try:
+        frappe.cache().set_value(cbr_key, cbr, expires_in_sec=300)
+    except Exception:
+        pass
+    return cbr
 
 
 @frappe.whitelist()
@@ -631,7 +640,8 @@ def coa_audit(company=None):
     target = _target(company)
     if not target:
         return {}
-    return _coa_scan(target, detail=True)
+    # Full-chart scan: ~6.2s measured. It changes only when the chart does.
+    return _cache.cached(f"ap_coaaudit:{target}", 300, lambda: _coa_scan(target, detail=True))
 
 
 @frappe.whitelist()

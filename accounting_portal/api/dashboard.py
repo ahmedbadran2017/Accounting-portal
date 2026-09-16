@@ -63,6 +63,13 @@ def get_overview():
     where, params = _company_filter(companies)
     fy_start = _fiscal_year_start()
 
+    # Two full GL aggregates over every allowed company: ~3s measured. It is the
+    # first thing the dashboard asks for, so serve repeat visits from cache.
+    ck = "ap_ov:" + "|".join(sorted(companies)) + ":" + fy_start
+    hit = frappe.cache().get_value(ck)
+    if hit is not None:
+        return hit
+
     # Balance-sheet style figures (all-time, by account_type).
     bs = frappe.db.sql(
         f"""
@@ -137,8 +144,13 @@ def get_overview():
         "expense_ytd": sum(r["expense_ytd"] for r in companies_out),
         "net_ytd": sum(r["net_ytd"] for r in companies_out),
     }
-    return {"as_of": nowdate(), "fy_start": fy_start,
-            "companies": companies_out, "totals": totals}
+    res = {"as_of": nowdate(), "fy_start": fy_start,
+           "companies": companies_out, "totals": totals}
+    try:
+        frappe.cache().set_value(ck, res, expires_in_sec=120)
+    except Exception:
+        pass
+    return res
 
 
 @frappe.whitelist()
@@ -152,19 +164,32 @@ def get_recent_entries(limit=20, company=None):
         return []
     where, params = _company_filter(companies)
     limit = min(int(limit or 20), 100)
-    rows = frappe.db.sql(
-        f"""
-        SELECT gl.posting_date, gl.company, gl.account, gl.voucher_type,
-               gl.voucher_no, gl.debit, gl.credit, gl.party_type, gl.party,
-               gl.remarks
-        FROM `tabGL Entry` gl
-        WHERE gl.is_cancelled = 0 AND {where}
-        ORDER BY gl.posting_date DESC, gl.creation DESC
-        LIMIT %s
-        """,
-        params + [limit],
-        as_dict=True,
-    )
+
+    # Without a date bound this sorts the company's whole ledger to hand back
+    # twenty rows: 3.7s measured on 789k entries. A window lets the
+    # posting_date_company index serve the range and the sort — 0.3s. Books
+    # posted long ago still surface through the widening pass below.
+    def _page(days):
+        cond = f" AND gl.posting_date >= DATE_SUB(CURDATE(), INTERVAL {int(days)} DAY)" if days else ""
+        return frappe.db.sql(
+            f"""
+            SELECT gl.posting_date, gl.company, gl.account, gl.voucher_type,
+                   gl.voucher_no, gl.debit, gl.credit, gl.party_type, gl.party,
+                   gl.remarks
+            FROM `tabGL Entry` gl
+            WHERE gl.is_cancelled = 0 AND {where}{cond}
+            ORDER BY gl.posting_date DESC, gl.creation DESC
+            LIMIT %s
+            """,
+            params + [limit],
+            as_dict=True,
+        )
+
+    rows = _page(30)
+    if len(rows) < limit:
+        rows = _page(365)
+    if len(rows) < limit:
+        rows = _page(0)
     return rows
 
 
