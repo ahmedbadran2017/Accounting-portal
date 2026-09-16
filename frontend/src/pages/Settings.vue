@@ -2,11 +2,12 @@
   <div class="space-y-3.5">
     <PageHeader :title="title" :subtitle="entityName" />
 
-    <div class="flex flex-wrap gap-1 bg-white border border-line rounded-chip p-1 w-fit max-w-full overflow-x-auto">
-      <button v-for="s in subs" :key="s[0]" class="px-3 py-1.5 rounded-lg text-[12px] whitespace-nowrap"
-              :class="activeSub === s[0] ? 'text-accent-dark font-semibold bg-app-warm shadow-card' : 'text-ink-3 font-medium hover:text-ink'"
-              @click="goSub(s[0])">{{ t(s[1]) }}</button>
-    </div>
+    <!-- The sub-tab pill row that used to sit here rendered the same array the
+         sidebar renders, with the same labels, so every destination in the
+         portal was drawn twice on screen — and the active one a third time as
+         the page title. The sidebar holds more of them legibly, shows which
+         module they belong to, and is the navigation on mobile already. -->
+
 
     <!-- Activity & audit trail -->
     <ActivityLog v-if="activeSub === 'activity'" />

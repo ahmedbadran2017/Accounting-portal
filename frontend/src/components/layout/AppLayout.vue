@@ -224,7 +224,7 @@ import NewInvoiceModal from "@/components/NewInvoiceModal.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useUi } from "@/composables/useUi";
 import { applyLocale, LOCALES, LOCALE_LABEL, RTL_LOCALES } from "@/i18n";
-import { NAV_GROUPS, SUBTABS, defaultSub } from "@/data/nav";
+import { NAV_GROUPS, SUBTABS, defaultSub, tabsFor } from "@/data/nav";
 import { LOGO_URL } from "@/utils/constants";
 
 const { t, locale } = useI18n();
@@ -355,7 +355,10 @@ const initials = computed(() => {
   return s.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 });
 
-const subtabs = (m) => SUBTABS[m] || [];
+// Same list the pages use: the pipeline stages belong to the strip of cards
+// inside the two bucket screens, which carries their counts, not to a flat list
+// of ten sidebar rows that all open the same component.
+const subtabs = (m) => tabsFor(m);
 
 function goModule(m) {
   open.value = false;
