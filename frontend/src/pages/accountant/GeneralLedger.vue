@@ -22,6 +22,7 @@
       <span class="text-ink-muted text-[11px]">→</span>
       <input v-model="toDate" type="date" class="h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
       <label class="inline-flex items-center gap-1.5 text-[11.5px] text-ink-3"><input type="checkbox" v-model="includeCancelled" @change="apply" /> {{ L("Cancelled too","مع الملغي","Annulées aussi") }}</label>
+      <label class="inline-flex items-center gap-1.5 text-[11.5px] text-ink-3" :title="L('One line per document instead of per GL row','سطر لكل مستند بدل كل قيد','Une ligne par document')"><input type="checkbox" v-model="groupVoucher" @change="apply" /> {{ L("Group by voucher","تجميع بالسند","Par pièce") }}</label>
       <button @click="apply" class="h-8 px-3 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark">{{ L("Apply","تطبيق","Appliquer") }}</button>
       <button v-if="party||voucher||fromDate||toDate||acct" @click="resetFilters" class="h-8 px-2.5 rounded-[8px] text-[11.5px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm">{{ L("Clear","مسح","Effacer") }}</button>
     </div>
@@ -47,7 +48,7 @@
             <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Party","الطرف","Tiers") }}</th>
             <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
             <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
-            <th v-if="acct" class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance","الرصيد","Solde") }}</th>
+            <th v-if="acct && !d.grouped" class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance","الرصيد","Solde") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -58,9 +59,9 @@
             <td class="px-4 py-2.5 text-ink-muted whitespace-nowrap">{{ g.party || "—" }}</td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ g.dr ? money(g.dr) : "—" }}<span v-if="g.account_currency && g.account_currency !== d.currency && g.dr_acc" class="block text-[10px] text-ink-muted font-normal">{{ money(g.dr_acc) }} {{ g.account_currency }}</span></td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ g.cr ? money(g.cr) : "—" }}<span v-if="g.account_currency && g.account_currency !== d.currency && g.cr_acc" class="block text-[10px] text-ink-muted font-normal">{{ money(g.cr_acc) }} {{ g.account_currency }}</span></td>
-            <td v-if="acct" class="px-4 py-2.5 text-end tnum text-ink-3">{{ money(g.balance) }}</td>
+            <td v-if="acct && !d.grouped" class="px-4 py-2.5 text-end tnum text-ink-3">{{ money(g.balance) }}</td>
           </tr>
-          <tr v-if="!rows.length"><td :colspan="acct ? 7 : 6" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ loadError || L("No entries for these filters.","لا قيود.","Aucune écriture.") }}</td></tr>
+          <tr v-if="!rows.length"><td :colspan="acct && !d.grouped ? 7 : 6" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ loadError || L("No entries for these filters.","لا قيود.","Aucune écriture.") }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -124,6 +125,8 @@ const voucher = usePersistedRef("ap_gl_voucher", "");
 const fromDate = usePersistedRef("ap_gl_from", "");
 const toDate = usePersistedRef("ap_gl_to", "");
 const includeCancelled = ref(false);
+// Their saved Desk report was always "Group by Voucher (Consolidated)".
+const groupVoucher = usePersistedRef("ap_gl_grp", false);
 
 async function load() {
   loading.value = true; loadError.value = "";
@@ -133,6 +136,7 @@ async function load() {
       party: party.value || undefined, voucher_no: voucher.value || undefined,
       from_date: fromDate.value || undefined, to_date: toDate.value || undefined,
       start: start.value, page_size: pageSize.value, include_cancelled: includeCancelled.value ? 1 : 0,
+      group_by: groupVoucher.value ? "voucher" : undefined,
     }, { fresh: true }) || { rows: [], total: 0 };
   } catch (e) { d.value = { rows: [], opening: 0, total: 0 }; loadError.value = String(e?.message || e).slice(0, 160); }
   finally { loading.value = false; }
@@ -178,7 +182,8 @@ function openVoucher(g) {
 // Server-built .xlsx of the WHOLE filtered set (the CSV button is this page only).
 const excelUrl = computed(() => {
   const q = new URLSearchParams({ company: currentCompany(), account: acct.value || "", party: party.value || "", voucher_no: voucher.value || "",
-    from_date: fromDate.value || "", to_date: toDate.value || "", include_cancelled: includeCancelled.value ? "1" : "0" });
+    from_date: fromDate.value || "", to_date: toDate.value || "", include_cancelled: includeCancelled.value ? "1" : "0",
+    group_by: groupVoucher.value ? "voucher" : "" });
   return `/api/method/accounting_portal.api.export.gl_xlsx?${q.toString()}`;
 });
 

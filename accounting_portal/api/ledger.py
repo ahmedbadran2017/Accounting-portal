@@ -23,7 +23,7 @@ def _target(company):
 @frappe.whitelist()
 def general_ledger(company=None, account=None, party=None, voucher_no=None,
                    from_date=None, to_date=None, limit=200, start=0, page_size=None,
-                   include_cancelled=0):
+                   include_cancelled=0, group_by=None):
     """GL entries for one company, filterable by account / party / voucher / date
     range — the portal's replacement for the ERPNext General Ledger report.
 
@@ -41,7 +41,8 @@ def general_ledger(company=None, account=None, party=None, voucher_no=None,
     ps = min(int(page_size or limit or 100), 500)
     st = max(int(start or 0), 0)
     inc = str(include_cancelled) in ("1", "true", "True")
-    ck = f"ap_gl:{target}:{account or ''}:{party or ''}:{voucher_no or ''}:{from_date or ''}:{to_date or ''}:{st}:{ps}:{int(inc)}"
+    grp = (group_by or "").lower() == "voucher"
+    ck = f"ap_gl:{target}:{account or ''}:{party or ''}:{voucher_no or ''}:{from_date or ''}:{to_date or ''}:{st}:{ps}:{int(inc)}:{int(grp)}"
     cached_hit = frappe.cache().get_value(ck)
     if cached_hit is not None:
         return cached_hit
@@ -74,6 +75,35 @@ def general_ledger(company=None, account=None, party=None, voucher_no=None,
         f"SELECT COUNT(*) n, COALESCE(SUM(gl.debit),0) dr, COALESCE(SUM(gl.credit),0) cr "
         f"FROM `tabGL Entry` gl WHERE {where}", params, as_dict=True)[0]
     total, total_dr, total_cr = int(agg.n or 0), flt(agg.dr), flt(agg.cr)
+
+    if grp:
+        # "Group by Voucher (Consolidated)" — one line per document, the view the
+        # team ran 1,095 times in the Desk.
+        total = int(frappe.db.sql(
+            f"SELECT COUNT(*) FROM (SELECT 1 FROM `tabGL Entry` gl WHERE {where} GROUP BY gl.voucher_no) t",
+            params)[0][0] or 0)
+        rows = frappe.db.sql(
+            f"""
+            SELECT MIN(gl.posting_date) AS date, gl.voucher_type, gl.voucher_no AS ref,
+                   GROUP_CONCAT(DISTINCT gl.account ORDER BY gl.account SEPARATOR ', ') AS account,
+                   GROUP_CONCAT(DISTINCT NULLIF(gl.party,'') SEPARATOR ', ') AS party,
+                   MAX(gl.party_type) AS party_type,
+                   ROUND(SUM(gl.debit),2) AS dr, ROUND(SUM(gl.credit),2) AS cr,
+                   MAX(gl.remarks) AS remarks, 0 AS dr_acc, 0 AS cr_acc,
+                   MAX(gl.account_currency) AS account_currency,
+                   GROUP_CONCAT(DISTINCT NULLIF(gl.cost_center,'') SEPARATOR ', ') AS cost_center,
+                   MAX(gl.is_cancelled) AS is_cancelled, MAX(gl.against) AS against
+            FROM `tabGL Entry` gl WHERE {where}
+            GROUP BY gl.voucher_no, gl.voucher_type
+            ORDER BY date DESC, gl.voucher_no DESC
+            LIMIT %(lim)s OFFSET %(off)s
+            """, params, as_dict=True)
+        for r in rows:
+            r["date"] = str(r["date"])
+        return {"rows": rows, "opening": 0.0, "total": total, "start": st, "page_size": ps,
+                "total_dr": round(total_dr, 2), "total_cr": round(total_cr, 2), "closing": None,
+                "include_cancelled": inc, "grouped": True, "company": target,
+                "currency": frappe.get_cached_value("Company", target, "default_currency")}
 
     rows = frappe.db.sql(
         f"""

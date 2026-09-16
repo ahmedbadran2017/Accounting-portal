@@ -18,6 +18,10 @@
           <button @click="compare = compare ? 0 : 1, load()" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="compare ? 'bg-accent/10 text-accent-dark border-accent/30' : 'bg-white text-ink-3 border-line-2'">{{ L("Compare","مقارنة","Comparer") }}</button>
         </template>
         <button @click="printIt" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />{{ L("Print","طباعة","Imprimer") }}</button>
+          <button type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :disabled="pdfBusy" @click="downloadPdf">
+            <Icon name="doc" :size="13" />{{ pdfBusy ? "…" : "PDF" }}
+          </button>
+          <a :href="excelUrl" class="h-8 px-3 rounded-chip text-[11.5px] font-bold text-white inline-flex items-center gap-1.5" style="background:#1d6f42"><Icon name="download" :size="13" color="#fff" />Excel</a>
       </div>
     </div>
     <div v-if="tab !== 'monthly'" class="text-[11px] text-ink-muted no-print tnum">{{ d.from_date }} → {{ d.to_date }}<span v-if="compare && d.prior_from"> · {{ L("vs","مقابل","vs") }} {{ d.prior_from }} → {{ d.prior_to }}</span></div>
@@ -224,6 +228,7 @@ import { ref, computed, onMounted, watch, h } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
@@ -243,6 +248,7 @@ const TABS = [
   { key: "cf", label: () => L("Cash flow", "التدفّق النقدي", "Trésorerie") },
   { key: "monthly", label: () => L("By month", "بالشهر", "Par mois") },
 ];
+const toast = useToast();
 const tab = usePersistedRef("ap_stmt_tab", "pnl");
 watch(tab, (t) => { if (t === "monthly" && !dm.value.months) loadMonthly(); });
 
@@ -390,6 +396,24 @@ function delta(cur, prior) {
   return { t: (dv >= 0 ? "+" : "") + pct + "%", c: dv >= 0 ? "text-success-dark" : "text-sale" };
 }
 function printIt() { window.print(); }
+
+// PDF and Excel of the pack on screen (P&L / balance sheet / cash flow).
+const pdfBusy = ref(false);
+const packKey = computed(() => (tab.value === "bs" ? "balance_sheet" : tab.value === "cf" ? "cash_flow" : "pnl"));
+async function downloadPdf() {
+  pdfBusy.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.reports.report_pdf",
+      { report: packKey.value, company: currentCompany(), from_date: range().from, to_date: range().to });
+    if (r?.file_url) window.open(r.file_url, "_blank");
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 160)); }
+  finally { pdfBusy.value = false; }
+}
+const excelUrl = computed(() => {
+  const r = range();
+  const q = new URLSearchParams({ report: packKey.value, company: currentCompany(), from_date: r.from || "", to_date: r.to || "" });
+  return `/api/method/accounting_portal.api.export.statements_xlsx?${q.toString()}`;
+});
 
 const BsBlock = {
   props: ["title", "sections", "total", "compare", "onDrill"],

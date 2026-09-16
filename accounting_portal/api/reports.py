@@ -1467,6 +1467,50 @@ def report_pdf(report=None, company=None, from_date=None, to_date=None,
         rows.append(["<b>Closing</b>", "", "", f"<b>{_money(d.get('closing'))}</b>"])
         body = _rows_table(["Date", "Voucher", "Dr / Cr", "Balance"], rows)
         title = f"Statement · {party or ''}"
+    elif report in ("pnl", "balance_sheet", "cash_flow"):
+        # The docstring promised these three for months and the branch threw
+        # "Unknown report" — an auditor pack could not leave the portal as PDF.
+        d = financial_statements(company=target, from_date=from_date, to_date=to_date, compare=0)
+        pack = {"pnl": "pnl", "balance_sheet": "balance_sheet", "cash_flow": "cash_flow"}[report]
+        p_ = d.get(pack) or {}
+        rows = []
+
+        def _section(label, total):
+            rows.append([f"<b>{label}</b>", f"<b>{_money(total)}</b>"])
+
+        def _sections(secs):
+            for sec in secs or []:
+                _section(sec.get("section") or "—", sec.get("total"))
+                for a in sec.get("accounts") or []:
+                    rows.append([f"&nbsp;&nbsp;&nbsp;{(a.get('name') or a.get('account') or '')[:60]}", _money(a.get("amount"))])
+
+        if report == "pnl":
+            _sections(p_.get("revenue"))
+            rows.append(["<b>Revenue</b>", f"<b>{_money(p_.get('revenue_total'))}</b>"])
+            _sections([p_.get("cogs")] if p_.get("cogs") else [])
+            rows.append(["<b>Gross profit</b>", f"<b>{_money(p_.get('gross_profit'))}</b>"])
+            _sections(p_.get("opex"))
+            rows.append(["<b>Operating expenses</b>", f"<b>{_money(p_.get('opex_total'))}</b>"])
+            rows.append(["<b>NET RESULT</b>", f"<b>{_money(p_.get('net'))}</b>"])
+            title = "Profit &amp; Loss"
+        elif report == "balance_sheet":
+            rows.append(["<b>ASSETS</b>", ""]); _sections(p_.get("assets"))
+            rows.append(["<b>Total assets</b>", f"<b>{_money(p_.get('assets_total'))}</b>"])
+            rows.append(["<b>LIABILITIES</b>", ""]); _sections(p_.get("liabilities"))
+            rows.append(["<b>Total liabilities</b>", f"<b>{_money(p_.get('liabilities_total'))}</b>"])
+            rows.append(["<b>EQUITY</b>", ""]); _sections(p_.get("equity"))
+            rows.append(["<b>Total equity</b>", f"<b>{_money(p_.get('equity_total'))}</b>"])
+            if p_.get("check"):
+                rows.append(["<b>Out of balance</b>", f"<b>{_money(p_.get('check'))}</b>"])
+            title = "Balance Sheet"
+        else:
+            for k, label in (("operating", "Operating"), ("investing", "Investing"),
+                             ("financing", "Financing"), ("net", "Net movement"),
+                             ("opening", "Opening cash"), ("closing", "Closing cash")):
+                if k in p_:
+                    rows.append([f"<b>{label}</b>" if k in ("net", "closing") else label, _money(p_.get(k))])
+            title = "Cash Flow"
+        body = _rows_table(["Line", "Amount"], rows)
     else:
         frappe.throw(f"Unknown report: {report}")
 

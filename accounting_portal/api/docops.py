@@ -254,3 +254,46 @@ def doc_delete(doctype=None, name=None, company=None):
     return _actions.execute(DEL_ACTION, doc_company, key, payload={"doctype": doctype, "name": name},
                             amount=0, reference_doctype=doctype, reference_name=name,
                             notes=f"Delete draft {doctype} {name}")
+
+
+@frappe.whitelist()
+def notifications(limit=25):
+    """One inbox for the header bell: actions awaiting approval, documents
+    assigned to me, and comments that mention me. A pending ≥10k posting used to
+    be invisible until somebody browsed to the activity log."""
+    assert_portal_access()
+    me = frappe.session.user
+    from accounting_portal.api.permissions import resolve_companies
+    comps = resolve_companies(None) or []
+    out = []
+
+    if comps:
+        for a in frappe.get_all("Accounting Portal Action",
+                                filters={"status": "Proposed", "company": ["in", comps]},
+                                fields=["name", "action_type", "company", "amount", "notes", "owner", "creation"],
+                                order_by="creation desc", limit=int(limit)):
+            out.append({"kind": "approval", "id": a.name, "title": a.action_type,
+                        "detail": (a.notes or "")[:120], "by": a.owner, "amount": flt(a.amount),
+                        "company": a.company, "on": str(a.creation)[:16],
+                        "route": "/accounting/settings/activity"})
+
+    for t in frappe.get_all("ToDo", filters={"allocated_to": me, "status": "Open"},
+                            fields=["name", "reference_type", "reference_name", "description", "date", "priority", "creation"],
+                            order_by="creation desc", limit=int(limit)):
+        out.append({"kind": "assignment", "id": t.name, "title": t.reference_type or "Task",
+                    "detail": frappe.utils.strip_html(t.description or "")[:120],
+                    "ref_doctype": t.reference_type, "ref_name": t.reference_name,
+                    "due": str(t.date or ""), "priority": t.priority, "on": str(t.creation)[:16]})
+
+    for c in frappe.db.sql("""SELECT name, reference_doctype, reference_name, content, owner, creation
+                              FROM `tabComment` WHERE comment_type='Comment' AND content LIKE %s
+                                AND owner <> %s ORDER BY creation DESC LIMIT %s""",
+                           (f"%{me}%", me, int(limit)), as_dict=True):
+        out.append({"kind": "mention", "id": c.name, "title": c.reference_doctype,
+                    "detail": frappe.utils.strip_html(c.content or "")[:120], "by": c.owner,
+                    "ref_doctype": c.reference_doctype, "ref_name": c.reference_name,
+                    "on": str(c.creation)[:16]})
+
+    out.sort(key=lambda x: x.get("on") or "", reverse=True)
+    counts = {k: sum(1 for x in out if x["kind"] == k) for k in ("approval", "assignment", "mention")}
+    return {"rows": out[: int(limit)], "counts": counts, "total": len(out)}

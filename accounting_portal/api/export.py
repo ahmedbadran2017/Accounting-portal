@@ -54,7 +54,7 @@ def statement_xlsx(party_type=None, party=None, company=None, from_date=None, to
 
 
 @frappe.whitelist()
-def gl_xlsx(company=None, account=None, party=None, voucher_no=None, from_date=None, to_date=None, include_cancelled=0):
+def gl_xlsx(company=None, account=None, party=None, voucher_no=None, from_date=None, to_date=None, include_cancelled=0, group_by=None):
     """General ledger, the WHOLE filtered set (not the page on screen), up to
     50,000 rows, oldest first, with the running balance when one account is
     filtered. Pulls pages from ledger.general_ledger so filters and totals stay
@@ -66,7 +66,7 @@ def gl_xlsx(company=None, account=None, party=None, voucher_no=None, from_date=N
     while True:
         r = general_ledger(company=company, account=account or None, party=party or None, voucher_no=voucher_no or None,
                            from_date=from_date or None, to_date=to_date or None, start=start, page_size=page,
-                           include_cancelled=include_cancelled)
+                           include_cancelled=include_cancelled, group_by=group_by or None)
         if first is None:
             first = r
         got = r.get("rows") or []
@@ -75,7 +75,7 @@ def gl_xlsx(company=None, account=None, party=None, voucher_no=None, from_date=N
         if len(got) < page or start >= min(int(r.get("total") or 0), _MAX_ROWS):
             break
     rows.reverse()   # newest-first on screen → oldest-first in the workbook
-    single = bool(account)
+    single = bool(account) and not (first or {}).get('grouped')
     head = ["Date", "Voucher type", "Voucher", "Account", "Party type", "Party", "Debit", "Credit",
             "Account currency", "Debit (account currency)", "Credit (account currency)", "Cost center", "Against", "Remarks", "Cancelled"]
     if single:
@@ -171,3 +171,45 @@ def list_xlsx(key=None, **filters):
     for r in rows:
         data.append([_num(r.get(f)) if f in numeric else (r.get(f) if r.get(f) is not None else "") for f, _l in cols])
     _send(f"{key}-{frappe.utils.nowdate()}.xlsx", sheet, data, [18] * len(cols))
+
+
+@frappe.whitelist()
+def statements_xlsx(report=None, company=None, from_date=None, to_date=None):
+    """P&L / balance sheet / cash flow as a workbook — section rows in bold-ish
+    order with their accounts underneath, numbers as numbers."""
+    assert_portal_access()
+    from accounting_portal.api.reports import financial_statements
+    d = financial_statements(company=company, from_date=from_date, to_date=to_date, compare=0) or {}
+    key = {"balance_sheet": "balance_sheet", "cash_flow": "cash_flow"}.get(report, "pnl")
+    p = d.get(key) or {}
+    ccy = d.get("currency") or ""
+    data = [[{"pnl": "Profit & loss", "balance_sheet": "Balance sheet", "cash_flow": "Cash flow"}[key],
+             d.get("company") or company, "Currency", ccy],
+            ["Period", f"{d.get('from_date') or ''} → {d.get('to_date') or ''}"], [], ["Line", "Account", "Amount"]]
+
+    def sections(secs):
+        for sec in secs or []:
+            data.append([sec.get("section") or "—", "", flt(sec.get("total"))])
+            for a in sec.get("accounts") or []:
+                data.append(["", a.get("name") or a.get("account") or "", flt(a.get("amount"))])
+
+    if key == "pnl":
+        sections(p.get("revenue")); data.append(["Revenue", "", flt(p.get("revenue_total"))])
+        sections([p.get("cogs")] if p.get("cogs") else [])
+        data.append(["Gross profit", "", flt(p.get("gross_profit"))])
+        sections(p.get("opex")); data.append(["Operating expenses", "", flt(p.get("opex_total"))])
+        data.append(["NET RESULT", "", flt(p.get("net"))])
+    elif key == "balance_sheet":
+        data.append(["ASSETS", "", ""]); sections(p.get("assets"))
+        data.append(["Total assets", "", flt(p.get("assets_total"))])
+        data.append(["LIABILITIES", "", ""]); sections(p.get("liabilities"))
+        data.append(["Total liabilities", "", flt(p.get("liabilities_total"))])
+        data.append(["EQUITY", "", ""]); sections(p.get("equity"))
+        data.append(["Total equity", "", flt(p.get("equity_total"))])
+        data.append(["Out of balance", "", flt(p.get("check"))])
+    else:
+        for k, label in (("opening", "Opening cash"), ("operating", "Operating"), ("investing", "Investing"),
+                         ("financing", "Financing"), ("net", "Net movement"), ("closing", "Closing cash")):
+            if k in p:
+                data.append([label, "", flt(p.get(k))])
+    _send(f"{key}-{(to_date or frappe.utils.nowdate())}.xlsx", key[:28], data, [42, 46, 18])

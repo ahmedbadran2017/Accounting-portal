@@ -57,6 +57,8 @@ const index = computed(() => {
   out.push({ key: "create-journal", create: true, icon: "ledger", label: L("New journal entry", "قيد يومية جديد", "Nouvelle écriture"), action: "journal" });
   out.push({ key: "create-expense", create: true, icon: "doc", label: L("New expense / supplier bill", "مصروف / فاتورة مورد جديدة", "Nouvelle dépense / facture"), action: "expense" });
   out.push({ key: "create-payment", create: true, icon: "coins", label: L("Record a payment received", "تسجيل دفعة محصّلة", "Enregistrer un encaissement"), action: "payment" });
+  out.push({ key: "create-si", create: true, icon: "receipt", label: L("New sales invoice", "فاتورة بيع جديدة", "Nouvelle facture de vente"), action: "sales_invoice" });
+  out.push({ key: "create-pi", create: true, icon: "cart", label: L("New supplier invoice (items)", "فاتورة شراء بأصناف", "Nouvelle facture d'achat"), action: "purchase_invoice" });
   for (const g of NAV_GROUPS) {
     for (const m of g.items) {
       out.push({ key: "m-" + m.id, icon: m.icon, label: t("nav." + m.id), to: `/accounting/${m.id}` });

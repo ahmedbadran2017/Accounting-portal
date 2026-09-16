@@ -117,10 +117,34 @@
         <!-- Spacer pins the controls to the right edge -->
         <div class="flex-1"></div>
 
-        <!-- Pending approvals bell: Proposed actions waiting for a second person -->
-        <router-link v-if="approvals" to="/accounting/settings/activity" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-chip" style="background:#fffbeb;color:#92400e" :title="L('Actions waiting for approval','أكشنات بانتظار الموافقة','Actions en attente')">
-          <Icon name="bell" :size="13" color="#92400e" /><span class="tnum">{{ approvals }}</span>
-        </router-link>
+        <!-- Notifications: approvals waiting, documents assigned to me, mentions -->
+        <div class="relative" v-click-outside="() => (notifOpen = false)">
+          <button class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-chip"
+                  :style="notifTotal ? 'background:#fffbeb;color:#92400e' : 'color:#8a837b'"
+                  :title="L('Notifications','الإشعارات','Notifications')" @click="toggleNotif">
+            <Icon name="bell" :size="14" :color="notifTotal ? '#92400e' : '#a8a29e'" /><span v-if="notifTotal" class="tnum">{{ notifTotal }}</span>
+          </button>
+          <div v-if="notifOpen" class="absolute z-50 end-0 top-10 w-[360px] max-h-[70vh] overflow-auto bg-white border border-line rounded-[12px] shadow-pop">
+            <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[11.5px]">
+              <span class="font-bold">{{ L("Notifications","الإشعارات","Notifications") }}</span>
+              <span v-if="notif.counts?.approval" class="px-1.5 py-0.5 rounded-full text-[10px] font-bold" style="background:#fffbeb;color:#92400e">{{ notif.counts.approval }} {{ L("approvals","موافقات","approbations") }}</span>
+              <span v-if="notif.counts?.assignment" class="px-1.5 py-0.5 rounded-full text-[10px] font-bold" style="background:#eff6ff;color:#0369a1">{{ notif.counts.assignment }} {{ L("assigned","مُسند","assignés") }}</span>
+              <button class="ms-auto text-ink-muted hover:text-ink" @click="loadNotif">↻</button>
+            </div>
+            <button v-for="n in (notif.rows || [])" :key="n.kind + n.id" class="w-full text-start px-3 py-2 border-b border-line-hair/60 hover:bg-app-warm/50 flex gap-2.5" @click="openNotif(n)">
+              <span class="w-6 h-6 rounded-full grid place-items-center flex-shrink-0 mt-0.5"
+                    :style="n.kind === 'approval' ? 'background:#fffbeb' : n.kind === 'assignment' ? 'background:#eff6ff' : 'background:#f5f3ff'">
+                <Icon :name="n.kind === 'approval' ? 'shield' : n.kind === 'assignment' ? 'check' : 'send'" :size="12" :color="n.kind === 'approval' ? '#92400e' : n.kind === 'assignment' ? '#0369a1' : '#6d28d9'" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[12px] font-semibold truncate">{{ n.title }}<span v-if="n.ref_name" class="font-mono text-[10.5px] text-ink-muted ms-1">{{ n.ref_name }}</span></span>
+                <span class="block text-[11px] text-ink-3 truncate">{{ n.detail }}</span>
+                <span class="block text-[10px] text-ink-muted">{{ n.on }}<span v-if="n.amount"> · {{ Math.round(n.amount).toLocaleString() }}</span></span>
+              </span>
+            </button>
+            <div v-if="!(notif.rows || []).length" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ L("Nothing waiting.","لا شيء منتظر.","Rien en attente.") }}</div>
+          </div>
+        </div>
         <!-- Connectivity: bound to real API results, not a decorative dot -->
         <span class="hidden md:inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-chip"
               :class="healthy ? 'text-success-dark bg-success/10' : 'text-rose-700 bg-rose-50'"
@@ -179,6 +203,8 @@
     <NewExpenseModal v-if="formOpen === 'expense'" @close="formOpen = null" @posted="(r) => onFormPosted('expense', r)" />
     <PaymentEntryForm v-if="formOpen === 'payment'" @close="formOpen = null" @posted="(r) => onFormPosted('payment', r)" />
     <SalesOrderForm v-if="formOpen === 'order'" @close="formOpen = null" @posted="(r) => onFormPosted('order', r)" />
+    <NewInvoiceModal v-if="formOpen === 'sales_invoice'" kind="sales" @close="formOpen = null" @posted="formOpen = null" />
+    <NewInvoiceModal v-if="formOpen === 'purchase_invoice'" kind="purchase" @close="formOpen = null" @posted="formOpen = null" />
   </div>
 </template>
 
@@ -194,6 +220,7 @@ import JournalEntryForm from "@/components/JournalEntryForm.vue";
 import NewExpenseModal from "@/components/NewExpenseModal.vue";
 import PaymentEntryForm from "@/components/PaymentEntryForm.vue";
 import SalesOrderForm from "@/components/SalesOrderForm.vue";
+import NewInvoiceModal from "@/components/NewInvoiceModal.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useUi } from "@/composables/useUi";
 import { applyLocale, LOCALES, LOCALE_LABEL, RTL_LOCALES } from "@/i18n";
@@ -224,9 +251,9 @@ function badgeFor(m) {
   if (m.id === "mywork") return workCount.value > 0 ? String(workCount.value) : "";
   return m.badge || "";
 }
-onMounted(() => { loadWorkCount(); loadApprovals(); window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline); });
+onMounted(() => { loadWorkCount(); loadApprovals(); loadNotif(); window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline); });
 onUnmounted(() => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); });
-watch(() => route.path, () => { loadWorkCount(); loadApprovals(); refreshBuild(); });
+watch(() => route.path, () => { loadWorkCount(); loadApprovals(); loadNotif(); refreshBuild(); });
 
 // Every entry here opens a REAL form that posts to ERPNext. (The old "order" and
 // "invoice" entries wrote a fake document to memory and toasted success.)
@@ -235,6 +262,8 @@ const createOptions = computed(() => [
   { type: "expense", icon: "doc", label: L("Expense / supplier bill", "مصروف / فاتورة مورد", "Dépense / facture") },
   { type: "payment", icon: "coins", label: L("Payment received", "دفعة محصّلة", "Encaissement") },
   { type: "order", icon: "receipt", label: L("Sales order", "أمر بيع", "Commande") },
+  { type: "sales_invoice", icon: "receipt", label: L("Sales invoice", "فاتورة بيع", "Facture de vente") },
+  { type: "purchase_invoice", icon: "cart", label: L("Supplier invoice (items)", "فاتورة شراء بأصناف", "Facture d'achat") },
   { type: "customer", icon: "user", label: L("Customer", "عميل", "Client") },
 ]);
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -245,7 +274,7 @@ const formOpen = ref(null);
 function openCreate(type) {
   createMenuOpen.value = false; paletteOpen.value = false;
   if (type === "customer") { createType.value = "customer"; return; }
-  if (["journal", "expense", "payment", "order"].includes(type)) { formOpen.value = type; return; }
+  if (["journal", "expense", "payment", "order", "sales_invoice", "purchase_invoice"].includes(type)) { formOpen.value = type; return; }
   createType.value = null;
 }
 function hardReload() { window.location.reload(true); }
@@ -266,6 +295,28 @@ const approvals = ref(0);
 async function loadApprovals() {
   try { const r = await api.call("accounting_portal.api._actions.pending_count", {}, { fresh: true }); approvals.value = r?.count || 0; }
   catch { approvals.value = 0; }
+}
+
+// ── Notifications: approvals + assignments + mentions ──
+const notifOpen = ref(false);
+const notif = ref({ rows: [], counts: {}, total: 0 });
+const notifTotal = computed(() => notif.value.total || approvals.value || 0);
+async function loadNotif() {
+  try { notif.value = (await api.call("accounting_portal.api.docops.notifications", { limit: 25 }, { fresh: true })) || notif.value; }
+  catch { /* the approvals count still shows */ }
+}
+function toggleNotif() { notifOpen.value = !notifOpen.value; if (notifOpen.value) loadNotif(); }
+const NOTIF_ROUTE = {
+  "Sales Invoice": "sales/invoices", "Purchase Invoice": "purchases/bills", "Sales Order": "sales/orders",
+  "Purchase Order": "purchases/tobuy", "Delivery Note": "sales/challans", "Purchase Receipt": "purchases/received",
+  "Journal Entry": "accountant/journals", "Payment Entry": "purchases/payments", "Item": "items/items",
+};
+function openNotif(n) {
+  notifOpen.value = false;
+  if (n.kind === "approval") { router.push("/accounting/settings/activity"); return; }
+  const r = NOTIF_ROUTE[n.ref_doctype];
+  if (r && n.ref_name) router.push({ path: `/accounting/${r}`, query: { id: n.ref_name } });
+  else router.push("/accounting/mywork");
 }
 
 // Global ⌘K / Ctrl+K opens the command palette; Esc closes overlays.

@@ -7,6 +7,7 @@
         <span class="text-[13px] font-bold">{{ L("Trial balance","ميزان المراجعة","Balance") }}</span>
         <span class="text-[11px] text-ink-muted">{{ period ? L("opening → movement → closing, this year","افتتاحي ← حركة ← ختامي، هذه السنة","ouverture → mouvement → clôture") : L("net balance per account · reconciled to the GL","الرصيد الصافي لكل حساب","solde net par compte") }}</span>
         <button type="button" class="ms-auto h-8 px-3 rounded-chip text-[11.5px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :disabled="pdfBusy" @click="downloadPdf"><Icon name="doc" :size="13" />{{ pdfBusy ? "…" : L("PDF","PDF","PDF") }}</button>
+        <button type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm" @click="exportCsv">CSV</button>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
@@ -32,7 +33,7 @@
             </tr>
           </tbody>
           <tbody v-else>
-            <tr v-for="(r,i) in rows" :key="i" class="border-b border-line-hair" :class="r.anomaly ? 'bg-rose-50/40' : 'hover:bg-app-warm/60'">
+            <tr v-for="(r,i) in rows" :key="i" class="border-b border-line-hair cursor-pointer" :class="r.anomaly ? 'bg-rose-50/40' : 'hover:bg-app-warm/60'" @click="openLedger(r)" :title="L('Open this account in the general ledger','افتح الحساب في الأستاذ العام','Ouvrir dans le grand livre')">
               <td class="px-4 py-2.5 font-mono text-ink-3 whitespace-nowrap">{{ r.code }}</td>
               <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5">{{ r.name }}<Icon v-if="r.anomaly" name="alert" :size="12" color="#be123c" /></span></td>
               <template v-if="period">
@@ -70,6 +71,7 @@
 <script setup>
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import FiscalYearBar from "@/components/FiscalYearBar.vue";
 import api from "@/services/api";
@@ -84,11 +86,28 @@ const fyc = useFiscalYear();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const money = (n) => (Number(n) ? fmtAmount(n) : "—");
 
+const router = useRouter();
 const rows = ref([]);
 const loading = ref(true);
 const period = ref(false);
 const totals = ref({ dr: 0, cr: 0 });
 const pdfBusy = ref(false);
+// A trial-balance line without a way into the ledger is a dead end at exactly
+// the moment the accountant needs the detail.
+function openLedger(r) {
+  if (!r?.account) return;
+  router.push({ path: "/accounting/accountant/gl", query: { account: r.account, from: fromDate?.value || undefined } });
+}
+function exportCsv() {
+  const head = ["Account", "Opening", "Debit", "Credit", "Closing"];
+  const lines = rows.value.map((r) => [r.account, r.opening ?? "", r.period_dr ?? r.debit ?? "", r.period_cr ?? r.credit ?? "", r.closing ?? r.balance ?? ""]
+    .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
+  const csv = [head.join(","), ...lines].join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `trial-balance.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
 async function downloadPdf() {
   if (pdfBusy.value) return;
   pdfBusy.value = true;
