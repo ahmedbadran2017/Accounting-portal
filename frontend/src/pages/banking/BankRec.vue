@@ -56,7 +56,13 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="14" color="#0369a1" /></span>
         <span class="text-[13px] font-bold truncate max-w-[260px]">{{ selName }}</span>
         <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ live ? L("Live","مباشر","Live") : L("Sample","عيّنة","Échant.") }}</span>
-        <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("uncleared entries", "قيد غير مُسوّى", "écritures") }}</span>
+        <span class="hidden lg:inline text-[11px] text-ink-muted tnum">{{ (total || 0).toLocaleString() }} {{ L("uncleared entries", "قيد غير مُسوّى", "écritures") }}<span v-if="total > rows.length"> · {{ L("showing", "معروض", "affiché") }} {{ rows.length.toLocaleString() }}</span></span>
+        <span class="inline-flex items-center gap-1 text-[11px]">
+          <input type="date" v-model="fromD" @change="loadRows()" class="h-8 bg-white border border-line-2 rounded-[8px] px-1.5 text-[11.5px] focus:outline-none focus:border-accent/40" :title="L('From date','من تاريخ','Du')" />
+          <span class="text-ink-muted">→</span>
+          <input type="date" v-model="toD" @change="loadRows()" class="h-8 bg-white border border-line-2 rounded-[8px] px-1.5 text-[11.5px] focus:outline-none focus:border-accent/40" :title="L('To date','إلى تاريخ','Au')" />
+          <button v-if="fromD || toD" type="button" class="h-8 px-2 rounded-[8px] text-[11px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm" @click="fromD = ''; toD = ''; loadRows()">{{ L("Clear","مسح","Effacer") }}</button>
+        </span>
         <button v-if="carryover.n" type="button" class="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-chip bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100" @click="showAllTime" :title="L('Old outstanding items still count toward this year\'s closing balance — click to include them','قيود قديمة معلّقة لسه بتأثر على رصيد إقفال السنة دي — اضغط لعرضها','Anciens en suspens')">
           ⏳ {{ carryover.n }} {{ L("carried over from before", "مُرحّل من قبل", "reportés") }} ({{ fmt(carryover.v) }})
         </button>
@@ -96,6 +102,11 @@
           </tbody>
         </table>
       </div>
+      <div v-if="!loading && total > rows.length" class="px-4 py-3 border-t border-line-hair flex items-center justify-center gap-3 text-[12px]">
+        <span class="text-ink-muted tnum">{{ rows.length.toLocaleString() }} / {{ total.toLocaleString() }}</span>
+        <button type="button" class="h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? "…" : L("Load more", "تحميل المزيد", "Charger plus") }}</button>
+        <span class="text-[11px] text-ink-muted">{{ L("or narrow with the date range above", "أو ضيّق بالفترة فوق", "ou filtrez par dates") }}</span>
+      </div>
       <div v-if="!loading && !tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("Everything here is reconciled. ✓", "كل شيء مُسوّى. ✓", "Tout est rapproché. ✓") }}</div>
       <TablePager :t="tt" />
     </div>
@@ -122,6 +133,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useToast } from "@/composables/useToast";
 import { useTableTools } from "@/composables/useTableTools";
+import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useFiscalYear } from "@/composables/useFiscalYear";
 import BankStatementWorkbench from "@/pages/banking/BankStatementWorkbench.vue";
 
@@ -198,18 +210,43 @@ function closeWorkbench() {
   router.replace({ query: q });
   loadImports(); loadAccounts(); loadRows();
 }
+const PAGE = 500;
+const total = ref(0);
+const loadingMore = ref(false);
+const fromD = usePersistedRef("ap_bankrec_from", "");
+const toD = usePersistedRef("ap_bankrec_to", "");
+// An explicit range beats the fiscal-year window (that's how you reach June in September).
+function rangeFilter() {
+  const fy = fyFilter();
+  return { from_date: fromD.value || fy.from_date, to_date: toD.value || fy.to_date };
+}
+async function fetchPage(start) {
+  return api.call("accounting_portal.api.reconciliation.bank_uncleared",
+    { company: currentCompany(), account: sel.value, search: srch.value || undefined,
+      start, page_size: PAGE, ...rangeFilter() }, { fresh: true });
+}
 async function loadRows() {
   if (!sel.value) return;
   loading.value = true;
   try {
-    const res = await api.call("accounting_portal.api.reconciliation.bank_uncleared",
-      { company: currentCompany(), account: sel.value, search: srch.value || undefined, limit: 500, ...fyFilter() });
-    // New shape {rows, carryover_*}; tolerate the old plain array.
+    const res = await fetchPage(0);
     rows.value = Array.isArray(res) ? res : (res?.rows || []);
+    total.value = Array.isArray(res) ? rows.value.length : (res?.total || rows.value.length);
     carryover.value = Array.isArray(res) ? { n: 0, v: 0 } : { n: res?.carryover_n || 0, v: res?.carryover_v || 0 };
     live.value = true;
-  } catch { rows.value = SAMPLE_ROWS; carryover.value = { n: 0, v: 0 }; live.value = false; }
+  } catch { rows.value = SAMPLE_ROWS; total.value = SAMPLE_ROWS.length; carryover.value = { n: 0, v: 0 }; live.value = false; }
   finally { loading.value = false; }
+}
+async function loadMore() {
+  if (loadingMore.value || rows.value.length >= total.value) return;
+  loadingMore.value = true;
+  try {
+    const res = await fetchPage(rows.value.length);
+    const more = Array.isArray(res) ? res : (res?.rows || []);
+    const seen = new Set(rows.value.map((r) => r.voucher));
+    rows.value = rows.value.concat(more.filter((r) => !seen.has(r.voucher)));
+  } catch { /* keep what's loaded */ }
+  finally { loadingMore.value = false; }
 }
 function pick(a) { sel.value = a.name; selName.value = a.account_name; tt.clearSelection(); loadRows(); }
 

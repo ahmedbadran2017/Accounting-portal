@@ -397,15 +397,24 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
 
 
 @frappe.whitelist()
-def bank_uncleared(company=None, account=None, from_date=None, to_date=None, search=None, limit=400):
+def bank_uncleared(company=None, account=None, from_date=None, to_date=None, search=None,
+                   limit=None, start=0, page_size=200):
     """Uncleared book entries (Payment Entries + Journal Entries) hitting one bank
-    account — what hasn't been ticked off against the statement yet."""
+    account — what hasn't been ticked off against the statement yet.
+
+    Paginated over the UNION of both sources, so `total` is the real number of
+    uncleared items and any page of it is reachable. It used to take the newest
+    500 of each source and return the newest 500 of the merge: on BMCE (3,172
+    uncleared payments alone) that made everything older than a few weeks
+    unreachable — June was invisible in September.
+    """
     assert_portal_access()
     target = _target(company)
     if not target or not account:
-        return []
-    lim = min(int(limit or 400), 1000)
-    p = {"c": target, "a": account, "lim": lim}
+        return {"rows": [], "total": 0, "start": 0, "page_size": 0, "carryover_n": 0, "carryover_v": 0}
+    ps = min(int(page_size or limit or 200), 2000)
+    st = max(int(start or 0), 0)
+    p = {"c": target, "a": account, "lim": ps, "off": st}
     pe_c = ["pe.company=%(c)s", "pe.docstatus=1", "(pe.paid_to=%(a)s OR pe.paid_from=%(a)s)", "pe.clearance_date IS NULL"]
     je_c = ["je.company=%(c)s", "je.docstatus=1", "jea.account=%(a)s", "je.clearance_date IS NULL"]
     if from_date:
@@ -416,24 +425,27 @@ def bank_uncleared(company=None, account=None, from_date=None, to_date=None, sea
         pe_c.append("(pe.name LIKE %(s)s OR IFNULL(pe.party,'') LIKE %(s)s OR IFNULL(pe.reference_no,'') LIKE %(s)s)")
         je_c.append("(je.name LIKE %(s)s OR IFNULL(je.user_remark,'') LIKE %(s)s OR IFNULL(je.cheque_no,'') LIKE %(s)s)")
         p["s"] = f"%{search}%"
-    pe = frappe.db.sql(
-        f"""SELECT pe.name AS voucher, 'Payment Entry' AS doctype, pe.posting_date AS date,
-                   CASE WHEN pe.paid_to=%(a)s THEN pe.paid_amount ELSE -pe.paid_amount END AS amount,
-                   IFNULL(pe.party,'') AS party, IFNULL(pe.reference_no,'') AS ref
-            FROM `tabPayment Entry` pe WHERE {' AND '.join(pe_c)}
-            ORDER BY pe.posting_date DESC LIMIT %(lim)s""", p, as_dict=True)
-    je = frappe.db.sql(
-        f"""SELECT je.name AS voucher, 'Journal Entry' AS doctype, je.posting_date AS date,
-                   ROUND(SUM(jea.debit - jea.credit), 2) AS amount, '' AS party,
-                   IFNULL(je.cheque_no, IFNULL(je.user_remark,'')) AS ref
-            FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea
-              ON jea.parent=je.name AND jea.account=%(a)s
-            WHERE {' AND '.join(je_c)} GROUP BY je.name
-            ORDER BY je.posting_date DESC LIMIT %(lim)s""", p, as_dict=True)
-    rows = pe + je
+
+    union = f"""
+        SELECT pe.name AS voucher, 'Payment Entry' AS doctype, pe.posting_date AS date,
+               CASE WHEN pe.paid_to=%(a)s THEN pe.paid_amount ELSE -pe.paid_amount END AS amount,
+               IFNULL(pe.party,'') AS party, IFNULL(pe.reference_no,'') AS ref
+        FROM `tabPayment Entry` pe WHERE {' AND '.join(pe_c)}
+        UNION ALL
+        SELECT je.name AS voucher, 'Journal Entry' AS doctype, je.posting_date AS date,
+               ROUND(SUM(jea.debit - jea.credit), 2) AS amount, '' AS party,
+               IFNULL(je.cheque_no, IFNULL(je.user_remark,'')) AS ref
+        FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea
+          ON jea.parent=je.name AND jea.account=%(a)s
+        WHERE {' AND '.join(je_c)} GROUP BY je.name
+    """
+    agg = frappe.db.sql(f"SELECT COUNT(*) n, COALESCE(SUM(ABS(t.amount)),0) v FROM ({union}) t", p, as_dict=True)[0]
+    rows = frappe.db.sql(
+        f"SELECT * FROM ({union}) t ORDER BY t.date DESC, t.voucher DESC LIMIT %(lim)s OFFSET %(off)s",
+        p, as_dict=True)
     for r in rows:
         r["amount"] = flt(r["amount"]); r["date"] = str(r.get("date") or "")
-    rows.sort(key=lambda x: x["date"], reverse=True)
+
     # Uncleared items CARRIED OVER from before the period (old outstanding cheques /
     # transfers) still belong to this period's closing-balance reconciliation — a
     # fiscal-year work list must surface them, not hide them.
@@ -453,7 +465,8 @@ def bank_uncleared(company=None, account=None, from_date=None, to_date=None, sea
             (account, target, from_date))[0]
         carry_n = int(cp[0] or 0) + int(cj[0] or 0)
         carry_v = flt(cp[1]) + flt(cj[1])
-    return {"rows": rows[:lim], "carryover_n": carry_n, "carryover_v": round(carry_v, 2)}
+    return {"rows": rows, "total": int(agg.n or 0), "value": flt(agg.v), "start": st, "page_size": ps,
+            "carryover_n": carry_n, "carryover_v": round(carry_v, 2)}
 
 
 def _clear_bank_poster(action):

@@ -158,6 +158,14 @@
         </div>
       </header>
 
+      <!-- A newer build is on the server: this tab is running old code. Reported
+           three times as "the portal can't do X" before this existed. -->
+      <div v-if="staleTab" class="flex items-center gap-2 px-4 py-2 text-[12px] font-semibold" style="background:#fffbeb;color:#92400e;border-bottom:1px solid #fde68a">
+        <Icon name="refresh" :size="14" color="#92400e" />
+        {{ L("A newer version of the portal is available — reload to get it.", "في نسخة أحدث من البورتال — اعمل تحديث للصفحة.", "Une nouvelle version est disponible — rechargez.") }}
+        <button class="ms-auto h-7 px-3 rounded-chip text-[11.5px] font-bold text-white" style="background:#92400e" @click="hardReload">{{ L("Reload now", "تحديث الآن", "Recharger") }}</button>
+      </div>
+
       <main class="flex-1 p-[22px] max-w-[1500px] w-full mx-auto">
         <!-- Key by entity so switching company remounts the page and re-fetches
              (pages that load only in onMounted would otherwise show stale data). -->
@@ -195,7 +203,7 @@ import { LOGO_URL } from "@/utils/constants";
 const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { user, fullName, role, logout, hasAccess, isLoggedIn } = useAuth();
+const { user, fullName, role, logout, hasAccess, isLoggedIn, staleTab, refreshBuild } = useAuth();
 const noAccess = computed(() => isLoggedIn.value && !hasAccess.value);
 const { entityId, setEntity, entities } = useUi();
 
@@ -218,7 +226,7 @@ function badgeFor(m) {
 }
 onMounted(() => { loadWorkCount(); loadApprovals(); window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline); });
 onUnmounted(() => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); });
-watch(() => route.path, () => { loadWorkCount(); loadApprovals(); });
+watch(() => route.path, () => { loadWorkCount(); loadApprovals(); refreshBuild(); });
 
 // Every entry here opens a REAL form that posts to ERPNext. (The old "order" and
 // "invoice" entries wrote a fake document to memory and toasted success.)
@@ -240,6 +248,7 @@ function openCreate(type) {
   if (["journal", "expense", "payment", "order"].includes(type)) { formOpen.value = type; return; }
   createType.value = null;
 }
+function hardReload() { window.location.reload(true); }
 function onFormPosted(type, res) {
   formOpen.value = null;
   const v = res && (res.voucher_no || res.name);

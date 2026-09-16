@@ -242,13 +242,18 @@ const draftOpen = ref(false);
 const DRAFT_DOCTYPES = ["Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Additional Salary",
   "Delivery Note", "Purchase Receipt", "Sales Order", "Purchase Order"];
 async function openEdit() {
-  // A draft of an editable doctype gets the full editor (header + lines); anything
-  // else keeps the small after-submit field editor.
+  // A draft of an editable doctype gets the full editor (header + lines, including
+  // posting date, items, rates and accounts); anything else keeps the small
+  // after-submit field editor. A failure here is surfaced, never silently
+  // downgraded to the 4-field modal — that reads as "the portal can't edit items".
   if (DRAFT_DOCTYPES.includes(props.doctype)) {
     try {
       const g = await api.call("accounting_portal.api.docedit.get_draft", { doctype: props.doctype, name: props.name }, { fresh: true });
       if (g && g.supported) { draftOpen.value = true; return; }
-    } catch { /* fall through to the field editor */ }
+    } catch (e) {
+      toast.error(L("Couldn't open the full editor: ", "تعذّر فتح المحرر الكامل: ", "Impossible d'ouvrir l'éditeur : ") + String(e?.message || e).slice(0, 120));
+      return;
+    }
   }
   editOpen.value = true; editFields.value = [];
   try { editFields.value = (await api.call("accounting_portal.api.docmeta.editable_fields", { doctype: props.doctype, name: props.name })).fields || []; }

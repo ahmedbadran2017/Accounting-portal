@@ -16,6 +16,16 @@ from accounting_portal.api.permissions import (
 )
 
 
+def app_build():
+    """Mtime of the deployed JS bundle — the SPA's "is my tab stale?" signal."""
+    import os
+    try:
+        path = frappe.get_app_path("accounting_portal", "public", "app.js")
+        return str(int(os.path.getmtime(path)))
+    except Exception:
+        return ""
+
+
 def _desk_locked(user):
     try:
         from accounting_portal.api.deskguard import is_locked
@@ -55,4 +65,5 @@ def get_session_info():
             "post_entries": can_write(user),
             "desk_locked": _desk_locked(user),
         },
+        "app_build": app_build(),
     }

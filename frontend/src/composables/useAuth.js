@@ -11,6 +11,9 @@ const isAdmin = ref(false);
 const companies = ref([]);
 const capabilities = ref({});
 const hasAccess = ref(false);
+// Build stamp of the bundle this tab booted on (server reports the deployed one).
+const appBuild = ref(null);
+const staleTab = ref(false);
 const isLoading = ref(true);
 const isInitialized = ref(false);
 
@@ -26,6 +29,12 @@ function _applySession(data) {
   capabilities.value = data?.capabilities || {};
   // A logged-in user without any portal role comes back with has_access:false.
   hasAccess.value = data ? data.has_access !== false : false;
+  // First session info pins the build; a later change means the server shipped a
+  // new bundle while this tab kept running the old one.
+  if (data?.app_build) {
+    if (appBuild.value && appBuild.value !== data.app_build) staleTab.value = true;
+    else if (!appBuild.value) appBuild.value = data.app_build;
+  }
   // Pick the default landing entity by role (Viewer → consolidated, else Morocco).
   if (data?.role) useUi().applyRoleDefault(data.role);
 }
@@ -71,6 +80,20 @@ async function init() {
   }
 }
 
+// Re-read session info without touching the loading flags — used to notice that
+// the server shipped a new bundle while this tab stayed open.
+async function refreshBuild() {
+  try {
+    const res = await frappeApi(`/api/method/${API.SESSION_INFO}`);
+    if (!res.ok) return;
+    const { message } = await res.json();
+    if (message?.app_build) {
+      if (appBuild.value && appBuild.value !== message.app_build) staleTab.value = true;
+      else if (!appBuild.value) appBuild.value = message.app_build;
+    }
+  } catch { /* offline — the health chip covers it */ }
+}
+
 async function login(email, password) {
   const res = await frappeApi(API.LOGIN, { usr: email, pwd: password });
   if (!res.ok) {
@@ -96,6 +119,7 @@ export function can(action) {
 
 export function useAuth() {
   return {
+    appBuild, staleTab, refreshBuild,
     user, fullName, role, isAdmin, companies, capabilities, hasAccess,
     isLoggedIn, isGuest, isLoading, isInitialized,
     init, login, logout, can,
