@@ -33,7 +33,7 @@
             <span class="inline-flex items-center gap-1.5">
               <span class="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" :style="{ background: AV[o.av] }">{{ o.initials }}</span>{{ o.customer }}
             </span>
-            <span>{{ o.city }}</span><span>{{ o.carrier }}</span><span>{{ o.date }}</span>
+            <span>{{ o.date }}</span>
           </div>
         </div>
         <div class="text-end">
@@ -41,12 +41,11 @@
           <div class="text-[24px] font-bold tnum">{{ o.value }} <span class="text-[13px] text-ink-3">{{ o.currency }}</span></div>
         </div>
       </div>
-      <!-- Dimensions -->
-      <div class="flex gap-2 flex-wrap mt-3.5 pt-3.5 border-t border-line-hair">
-        <span v-for="d in dims" :key="d.k" class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-[5px] rounded-[8px] border" :class="d.mono ? 'bg-accent-soft border-accent/30 text-accent-dark' : 'bg-app-warm2 border-line text-ink-2'">
-          <span class="font-semibold" :class="d.mono ? 'text-accent-dark/70' : 'text-ink-muted'">{{ d.k }}</span><span :class="d.mono ? 'font-mono font-semibold' : ''">{{ d.v || "—" }}</span>
-        </span>
-      </div>
+      <!-- The chip row that used to sit here repeated all ten of its facts
+           further down the page — carrier, tracking and shipment three times
+           over, net and VAT twice, city twice — and six of the ten were a dash
+           or a zero on a normal order. Each fact is stated once now, in the card
+           it belongs to. -->
     </div>
 
     <!-- Products -->
@@ -73,39 +72,18 @@
 
     <!-- Operational + financial sections -->
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-      <!-- Customer & shipping -->
-      <div class="bg-white rounded-[14px] border border-line p-4 shadow-card">
-        <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#eff6ff"><Icon name="user" :size="13" color="#0369a1" /></span><span class="text-[12.5px] font-bold">{{ L("Customer & shipping","العميل والشحن","Client & livraison") }}</span></div>
-        <dl class="space-y-1.5 text-[12px]">
-          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Phone","الهاتف","Tél.") }}</dt><dd class="font-medium tnum">{{ shipping.phone }}</dd></div>
-          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("City","المدينة","Ville") }}</dt><dd class="font-medium">{{ shipping.city }}</dd></div>
-          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Governorate","المحافظة","Région") }}</dt><dd class="font-medium">{{ shipping.governorate }}</dd></div>
-        </dl>
-      </div>
-      <!-- Tracking -->
-      <div class="bg-white rounded-[14px] border border-line p-4 shadow-card">
-        <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#fff7ed"><Icon name="truck" :size="13" color="#c2410c" /></span><span class="text-[12.5px] font-bold">{{ L("Tracking","التتبّع","Suivi") }}</span></div>
-        <dl class="space-y-1.5 text-[12px]">
-          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Carrier","الناقل","Transporteur") }}</dt><dd class="font-medium">{{ tracking.carrier }}</dd></div>
-          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Tracking #","رقم التتبّع","N° suivi") }}</dt><dd class="font-medium font-mono">{{ tracking.number }}</dd></div>
-          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Status","الحالة","Statut") }}</dt><dd class="font-medium">{{ tracking.shipment }}</dd></div>
-          <div v-if="tracking.remittance" class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Remittance ref","مرجع التحصيل","Réf. remise") }}</dt><dd class="font-semibold font-mono text-accent-dark">{{ tracking.remittance }}</dd></div>
-        </dl>
+      <FactCard :title="L('Customer &amp; shipping','العميل والشحن','Client &amp; livraison')"
+                icon="user" tint="#eff6ff" color="#0369a1" :facts="shippingFacts"
+                :empty="L('No address on this order.','لا يوجد عنوان على هذا الطلب.','Aucune adresse sur cette commande.')" />
+
+      <FactCard :title="L('Delivery','التسليم','Livraison')"
+                icon="truck" tint="#fff7ed" color="#c2410c" :facts="deliveryFacts"
+                :empty="L('Not handed to a carrier yet.','لم تُسلَّم لشركة شحن بعد.','Pas encore remise au transporteur.')">
         <a v-if="tracking.url" :href="tracking.url" target="_blank" rel="noopener" class="mt-2.5 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-accent hover:text-accent-dark"><Icon name="arrow" :size="13" class="rtl:rotate-180" />{{ L("Track shipment","تتبّع الشحنة","Suivre") }}</a>
-      </div>
-      <!-- Financial -->
-      <div class="bg-white rounded-[14px] border border-line p-4 shadow-card">
-        <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#ecfdf5"><Icon name="coins" :size="13" color="#047857" /></span><span class="text-[12.5px] font-bold">{{ L("Financial","المالي","Financier") }}</span></div>
-        <dl class="space-y-1.5 text-[12px]">
-          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Net","الصافي","Net") }}</dt><dd class="font-medium tnum">{{ financial.net }}</dd></div>
-          <!-- The label used to read "VAT 20%" beside a zero, which asserts a rate the
-             order does not carry. Nine percent of 2026 orders have no tax rows at all;
-             say that rather than implying twenty percent produced nothing. -->
-        <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("VAT","ض.ق.م","TVA") }}</dt><dd class="font-medium tnum">{{ financial.vat }}<span v-if="!Number(o?.total_taxes_and_charges)" class="ms-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("no tax on this order","بدون ضريبة على هذا الطلب","aucune taxe") }}</span></dd></div>
-          <div class="flex justify-between gap-2 pt-1 border-t border-line-hair"><dt class="font-semibold">{{ L("Gross","الإجمالي","TTC") }}</dt><dd class="font-bold tnum">{{ financial.gross }}</dd></div>
-          <div class="flex items-center gap-2 pt-1"><dt class="text-ink-muted flex-1">{{ L("Billed / delivered","مفوتر / مُسلّم","Facturé / livré") }}</dt><dd class="font-medium tnum">{{ financial.billed }}% / {{ financial.delivered }}%</dd></div>
-        </dl>
-      </div>
+      </FactCard>
+
+      <FactCard :title="L('Financial','المالي','Financier')"
+                icon="coins" tint="#ecfdf5" color="#047857" :facts="financialFacts" />
     </div>
 
     <!-- Related documents -->
@@ -186,6 +164,7 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import FactCard from "@/components/FactCard.vue";
 import DocHub from "@/components/DocHub.vue";
 import { STATE_META, stateLabel, AV, postingInfo } from "@/data/orders";
 import { useOrders } from "@/composables/useOrders";
@@ -251,5 +230,37 @@ const sm = computed(() => STATE_META[o.value?.state] || STATE_META.placed);
 const post = computed(() => postingInfo(o.value?.state, locale.value));
 
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+
+// FactCard drops any row whose value is blank, so these lists can name every
+// field the document *could* carry and the card shows only what it has.
+const shippingFacts = computed(() => [
+  { label: L("Phone", "الهاتف", "Tél."), value: shipping.value.phone, num: true },
+  { label: L("City", "المدينة", "Ville"), value: shipping.value.city },
+  { label: L("Governorate", "المحافظة", "Région"), value: shipping.value.governorate },
+]);
+
+const deliveryFacts = computed(() => [
+  { label: L("Carrier", "الناقل", "Transporteur"), value: tracking.value.carrier },
+  { label: L("Tracking #", "رقم التتبّع", "N° suivi"), value: tracking.value.number, mono: true },
+  { label: L("Status", "الحالة", "Statut"), value: tracking.value.shipment },
+  { label: L("Expected", "متوقّع", "Prévu"), value: tracking.value.expected },
+  { label: L("Remittance ref", "مرجع التحصيل", "Réf. remise"), value: tracking.value.remittance, mono: true },
+]);
+
+const financialFacts = computed(() => {
+  const f = financial.value;
+  // "VAT 20%" beside a zero asserts a rate the order does not carry. Nine
+  // percent of 2026 orders have no tax rows at all.
+  const noTax = !Number(String(f.vat || "0").replace(/[^\d.-]/g, ""));
+  return [
+    { label: L("Net", "الصافي", "Net"), value: f.net, num: true },
+    { label: L("VAT", "ض.ق.م", "TVA"), value: f.vat, num: true,
+      note: noTax ? L("no tax on this order", "بدون ضريبة على هذا الطلب", "aucune taxe") : "" },
+    { label: L("Gross", "الإجمالي", "TTC"), value: f.gross, num: true, strong: true, rule: true },
+    { label: L("Advance paid", "مدفوع مقدمًا", "Avance"), value: Number(String(f.advance || 0).replace(/[^\d.-]/g, "")) ? f.advance : "", num: true },
+    { label: L("Billed / delivered", "مفوتر / مُسلّم", "Facturé / livré"),
+      value: (f.billed || f.delivered) ? `${f.billed}% / ${f.delivered}%` : "", num: true },
+  ];
+});
 function back() { router.push({ path: "/accounting/sales/orders" }); }
 </script>

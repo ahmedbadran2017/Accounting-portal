@@ -1,6 +1,6 @@
 import api from "@/services/api";
 import { iniOf } from "@/composables/useLive";
-import { findOrder, orderDims, orderTimeline, orderStageJournals } from "@/data/orders";
+import { orderStageJournals } from "@/data/orders";
 
 // Order detail: live ERPNext (get_order) with sample fallback. Returns the full
 // view-model the page binds to ({ o, dims, timeline, journal }) so the template
@@ -76,15 +76,6 @@ function liveVM(d, l) {
   };
 }
 
-function sampleVM(ord, l) {
-  return {
-    o: ord, dims: orderDims(ord, l), timeline: orderTimeline(ord, l), journal: orderStageJournals(ord, l), items: ord.items || [],
-    shipping: { phone: "+212 6•• •• •• ••", city: ord.city || "—", governorate: "—" },
-    tracking: { carrier: ord.carrier || "—", number: ord.trackStatus || "—", url: "", shipment: ord.trackStatus || "—", expected: "—" },
-    financial: { net: ord.net || ord.value, vat: ord.vat || 0, gross: ord.value, advance: 0, billed: 0, delivered: ord.state === "delivered" || ord.state === "settled" ? 100 : 0 },
-    related: { invoices: [], deliveries: [], payments: [] },
-  };
-}
 
 export function useOrders() {
   async function loadDetail(id, locale) {
@@ -93,8 +84,9 @@ export function useOrders() {
       const d = await api.call("accounting_portal.api.sales.get_order", { name: id });
       return liveVM(d, locale);
     } catch {
-      const s = findOrder(id);
-      return s ? sampleVM(s, locale) : null;
+      // This used to return a fabricated order from the demo data, so a failed
+      // load showed a complete, plausible document that does not exist.
+      return null;
     }
   }
   return { loadDetail };
