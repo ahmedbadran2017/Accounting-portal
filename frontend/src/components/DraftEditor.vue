@@ -66,6 +66,7 @@
                       </select>
                       <SearchSelect v-else-if="c.type === 'Link'" v-model="r[c.field]" :items="d.options[c.options] || []" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white min-w-[220px]" />
                       <PartyPick v-else-if="c.type === 'Party'" v-model="r[c.field]" :party-type="r.party_type" :disabled="!r.party_type" small />
+                      <ItemPick v-else-if="c.type === 'Item'" v-model="r[c.field]" @picked="(o) => onItemPicked(r, o)" />
                       <input v-else v-model="r[c.field]" class="h-8 w-full min-w-[120px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40" />
                     </td>
                     <td v-if="d.child.can_remove" class="px-1 py-1.5 text-center"><button type="button" class="text-ink-muted hover:text-sale" :title="L('Remove row','حذف السطر','Supprimer')" @click="rv.splice(i, 1)"><Icon name="close" :size="13" /></button></td>
@@ -144,7 +145,7 @@ const isJE = computed(() => props.doctype === "Journal Entry");
 const totDr = computed(() => rv.value.reduce((s, r) => s + (Number(r.debit_in_account_currency) || 0), 0));
 const totCr = computed(() => rv.value.reduce((s, r) => s + (Number(r.credit_in_account_currency) || 0), 0));
 const balanced = computed(() => Math.abs(totDr.value - totCr.value) < 0.005 && totDr.value > 0);
-const cellWidth = (c) => (["Currency", "Float", "Int"].includes(c.type) ? "width:120px" : c.type === "Select" ? "width:130px" : "");
+const cellWidth = (c) => (["Currency", "Float", "Int"].includes(c.type) ? "width:120px" : c.type === "Select" ? "width:130px" : c.type === "Item" ? "width:190px" : "");
 
 async function load() {
   loading.value = true; error.value = "";
@@ -162,7 +163,18 @@ watch(() => props.name, load);
 function addRow() {
   const row = {};
   for (const c of d.value.child?.columns || []) row[c.field] = "";
+  // A credit / debit note is booked with negative quantities.
+  if (d.value.child?.columns?.some((c) => c.field === "qty")) row.qty = d.value.is_return ? -1 : 1;
   rv.value.push(row);
+}
+
+// Picking an item fills the name straight away and seeds the rate from the last
+// price, so the accountant sees what they chose instead of a bare code.
+function onItemPicked(r, o) {
+  r.item_code = o.item_code;
+  if ("item_name" in r) r.item_name = o.item_name || o.item_code;
+  if ("rate" in r && !Number(r.rate) && Number(o.rate)) r.rate = Number(o.rate);
+  if ("qty" in r && !Number(r.qty)) r.qty = d.value.is_return ? -1 : 1;
 }
 
 // ── Allocation against open invoices (Payment Entry drafts) ──
@@ -217,6 +229,32 @@ async function save() {
   } catch (e) { error.value = String(e?.message || e).slice(0, 220); }
   finally { saving.value = false; }
 }
+
+// ── Item picker: type-ahead against sales.item_options (code, name, last rate) ──
+const ItemPick = {
+  props: { modelValue: { type: String, default: "" } },
+  emits: ["update:modelValue", "picked"],
+  setup(p, { emit: em }) {
+    const hits = ref([]); const open = ref(false); let t = null;
+    async function onInput(ev) {
+      const q = ev.target.value; em("update:modelValue", q); open.value = true;
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        try { hits.value = (await api.call("accounting_portal.api.sales.item_options", { search: q, limit: 15 })) || []; }
+        catch { hits.value = []; }
+      }, 220);
+    }
+    function pick(o) { em("update:modelValue", o.item_code); em("picked", o); open.value = false; hits.value = []; }
+    return () => h("div", { class: "relative" }, [
+      h("input", { value: p.modelValue, placeholder: "—", dir: "ltr",
+        class: "h-8 w-full min-w-[170px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40",
+        onInput, onFocus: () => { if (hits.value.length) open.value = true; }, onBlur: () => setTimeout(() => (open.value = false), 150) }),
+      open.value && hits.value.length ? h("div", { class: "absolute z-30 mt-1 start-0 w-80 max-h-56 overflow-auto bg-white border border-line rounded-[10px] shadow-pop py-1" },
+        hits.value.map((o) => h("button", { type: "button", class: "w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm", onMousedown: (e) => { e.preventDefault(); pick(o); } },
+          [h("span", { class: "font-mono text-[10.5px] text-ink-muted me-2" }, o.item_code), h("span", {}, o.item_name || "")]))) : null,
+    ]);
+  },
+};
 
 // ── Party picker: type-ahead against accountant.party_options for the row's party_type ──
 const PartyPick = {

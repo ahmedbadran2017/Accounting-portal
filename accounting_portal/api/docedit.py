@@ -60,8 +60,12 @@ _SCHEMA = {
     "Purchase Invoice": {
         "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("bill_no", "Data"),
                    _H("bill_date", "Date"), _H("remarks", "Text")],
-        "child": {"field": "items", "can_add": False, "can_remove": True,
-                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+        # A bill that arrives with a line missing is the accountant's daily case —
+        # on the Desk they just add it. Only the two invoice doctypes allow it:
+        # a stock line (Delivery Note / Purchase Receipt) also needs a warehouse
+        # and batch handling, which this editor does not ask for.
+        "child": {"field": "items", "can_add": True, "can_remove": True,
+                  "columns": [_H("item_code", "Item"), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency"), _H("expense_account", "Link", "accounts"),
                               _H("cost_center", "Link", "cost_centers")]},
         # After submit: the account a line hit can still change (allow_on_submit) —
@@ -73,8 +77,8 @@ _SCHEMA = {
     },
     "Sales Invoice": {
         "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("remarks", "Text")],
-        "child": {"field": "items", "can_add": False, "can_remove": True,
-                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+        "child": {"field": "items", "can_add": True, "can_remove": True,
+                  "columns": [_H("item_code", "Item"), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency")]},
         "submitted": {"columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
                                   _H("amount", "Currency", ro=True), _H("income_account", "Link", "accounts"),
@@ -208,6 +212,7 @@ def get_draft(doctype=None, name=None):
     return {"supported": True, "doctype": doctype, "name": name, "company": doc.company,
             "docstatus": doc.docstatus, "submitted_mode": bool(submitted_mode),
             "submitted_kind": ("reaccount" if spec.get("submitted") else "update_items") if submitted_mode else None,
+            "is_return": bool(doc.get("is_return")),
             "currency": doc.get("currency") or doc.get("paid_from_account_currency") or frappe.get_cached_value("Company", doc.company, "default_currency"),
             "party_type_fixed": _PARTY_FIXED.get(doctype), "header": header, "child": child,
             "options": _options(doctype, doc.company)}
@@ -215,7 +220,7 @@ def get_draft(doctype=None, name=None):
 
 def _cast(spec_type, v):
     if v in (None, ""):
-        return None if spec_type in ("Date", "Link", "Party", "Select", "Data", "Text") else 0
+        return None if spec_type in ("Date", "Link", "Party", "Select", "Data", "Text", "Item") else 0
     fn = _TYPE_CAST.get(spec_type)
     return fn(v) if fn else v
 
@@ -268,9 +273,23 @@ def save_draft(doctype=None, name=None, header=None, rows=None):
                     continue
                 row = doc.append(cf, {})
                 added += 1
+            prev_item = row.get("item_code")
             for c in cols:
                 if c["field"] in r:
                     row.set(c["field"], _cast(c["type"], r[c["field"]]))
+            # A new line, or a line whose item changed, must let ERPNext refill the
+            # fields that hang off item_code (name, description, uom, conversion
+            # factor, default accounts) — otherwise the row keeps the old item's.
+            if row.meta.has_field("item_code") and row.get("item_code") != prev_item:
+                for dep in ("item_name", "description", "uom", "stock_uom", "conversion_factor"):
+                    if row.meta.has_field(dep):
+                        row.set(dep, None)
+                if row.meta.has_field("qty") and not flt(row.get("qty")):
+                    row.set("qty", 1)
+            # A credit/debit note carries negative quantities; ERPNext rejects the
+            # save otherwise ("quantity must be negative number").
+            if doc.get("is_return") and row.meta.has_field("qty") and flt(row.get("qty")) > 0:
+                row.set("qty", -abs(flt(row.get("qty"))))
             kept.append(row)
         removed = 0
         if spec["child"]["can_remove"]:
