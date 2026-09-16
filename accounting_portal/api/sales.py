@@ -20,6 +20,14 @@ def _month_start():
     return getdate(nowdate()).replace(day=1).isoformat()
 
 
+
+def _ds(alias, status):
+    """Shared docstatus filter for the sales lists (see payments._docstatus_cond)."""
+    st = (status or "open").lower()
+    return {"draft": f"{alias}.docstatus=0", "submitted": f"{alias}.docstatus=1",
+            "cancelled": f"{alias}.docstatus=2", "all": "1=1"}.get(st, f"{alias}.docstatus<2")
+
+
 @frappe.whitelist()
 def orders_summary(company=None, since=None):
     """CFO order metrics for one company since `since` (default: month-to-date):
@@ -205,7 +213,7 @@ def _dn_shipment_for(order_names):
 
 @frappe.whitelist()
 def list_challans(company=None, search=None, from_date=None, to_date=None,
-                  start=0, page_size=25, sort_field="date", sort_dir="desc"):
+                  start=0, page_size=25, sort_field="date", sort_dir="desc", status=None):
     """Delivery Notes (COD challans) for one company — carrier, tracking, status.
     Server-paginated (Delivery Note runs to 100k+ rows)."""
     assert_portal_access()
@@ -213,7 +221,7 @@ def list_challans(company=None, search=None, from_date=None, to_date=None,
     if not companies:
         return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    conds = ["dn.company=%(c)s", "dn.docstatus<2"]
+    conds = ["dn.company=%(c)s", _ds("dn", status)]
     params = {"c": target}
     if search:
         conds.append("(dn.name LIKE %(s)s OR dn.customer LIKE %(s)s OR IFNULL(dn.custom_tracking_number,'') LIKE %(s)s)")
@@ -232,7 +240,7 @@ def list_challans(company=None, search=None, from_date=None, to_date=None,
         "IFNULL(NULLIF(dn.custom_tracking_number,''),'—') AS tracking, "
         "IFNULL(NULLIF(dn.custom_track_shipment_status,''), IFNULL(dn.custom_logistics_status, dn.status)) AS status, "
         "dn.custom_tracking_url AS tracking_url",
-        f"{col} {d}, dn.creation {d}", start, page_size)
+        f"{col} {d}, dn.creation {d}", start, page_size, max_ps=200)
     return {"rows": rows, "total": total, "start": s, "page_size": ps}
 
 
@@ -263,7 +271,8 @@ def challans_summary(company=None):
 
 
 @frappe.whitelist()
-def list_receipts(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+def list_receipts(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25,
+                  sort_field="date", sort_dir="desc", status=None):
     """COD receipts (Payment Entry · Receive) for one company — the cash landing,
     server-paginated."""
     assert_portal_access()
@@ -271,7 +280,7 @@ def list_receipts(company=None, search=None, from_date=None, to_date=None, start
     if not companies:
         return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    conds = ["pe.company=%(c)s", "pe.docstatus<2", "pe.payment_type='Receive'"]
+    conds = ["pe.company=%(c)s", _ds("pe", status), "pe.payment_type='Receive'"]
     params = {"c": target}
     if from_date:
         conds.append("pe.posting_date >= %(fd)s"); params["fd"] = from_date
@@ -288,7 +297,7 @@ def list_receipts(company=None, search=None, from_date=None, to_date=None, start
         "`tabPayment Entry` pe", where, params,
         "pe.name, pe.docstatus, pe.party AS customer, IFNULL(NULLIF(pe.reference_no,''),'—') AS ref, "
         "IFNULL(NULLIF(pe.mode_of_payment,''),'—') AS method, pe.paid_amount AS collected, pe.posting_date AS date",
-        f"{col} {d}, pe.creation {d}", start, page_size)
+        f"{col} {d}, pe.creation {d}", start, page_size, max_ps=200)
     # KPI totals over the WHOLE filtered set — page-invariant, cache per filter sig.
     sum_key = f"ap_rcpt_sum:{target}|{search or ''}|{from_date or ''}|{to_date or ''}"
     summ = frappe.cache().get_value(sum_key)

@@ -94,6 +94,14 @@ def party_options(company=None, party_type="Customer", search=None):
         (like, like), as_dict=True)
 
 
+def _docstatus_cond(alias, status):
+    """draft / submitted / cancelled / all → a docstatus condition. Default hides
+    cancelled but keeps drafts visible (they are real work in progress)."""
+    st = (status or "open").lower()
+    return {"draft": f"{alias}.docstatus=0", "submitted": f"{alias}.docstatus=1",
+            "cancelled": f"{alias}.docstatus=2", "all": "1=1"}.get(st, f"{alias}.docstatus<2")
+
+
 def _pe_poster(action):
     """Build + submit a Payment Entry from the action payload."""
     from erpnext.accounts.party import get_party_account
@@ -260,14 +268,15 @@ def create_payment_entry(company=None, party=None, amount=None, account=None,
 
 @frappe.whitelist()
 def list_payments_made(company=None, search=None, from_date=None, to_date=None,
-                       advances_only=0, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+                       advances_only=0, start=0, page_size=25, sort_field="date", sort_dir="desc", status=None):
     """Supplier (Pay) Payment Entries for one company, server-paginated.
     advances_only=1 keeps only payments with money still unallocated to bills."""
     assert_portal_access()
     target = _target(company)
     if not target:
         return {"rows": [], "total": 0}
-    conds = ["pe.company=%(c)s", "pe.docstatus<2", "pe.payment_type='Pay'", "pe.party_type='Supplier'"]
+    conds = ["pe.company=%(c)s", "pe.payment_type='Pay'", "pe.party_type='Supplier'"]
+    conds.append(_docstatus_cond("pe", status))
     params = {"c": target}
     if int(advances_only or 0):
         conds.append("pe.unallocated_amount > 0")
@@ -287,7 +296,7 @@ def list_payments_made(company=None, search=None, from_date=None, to_date=None,
         "IFNULL(pe.mode_of_payment,'—') AS method, pe.paid_amount AS amount, pe.paid_from_account_currency AS currency, "
         "IFNULL(pe.reference_no,'') AS reference_no, ROUND(pe.unallocated_amount,2) AS unallocated, "
         "(SELECT COUNT(*) FROM `tabPayment Entry Reference` per WHERE per.parent=pe.name AND per.reference_doctype='Purchase Invoice') AS n_bills",
-        f"{col} {d}, pe.creation {d}", start, page_size)
+        f"{col} {d}, pe.creation {d}", start, page_size, max_ps=200)
     for r in rows:
         r["amount"] = flt(r["amount"])
         r["unallocated"] = flt(r["unallocated"])

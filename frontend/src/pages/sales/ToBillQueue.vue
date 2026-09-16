@@ -102,7 +102,7 @@ const busy = ref("");
 const df = useDateFilter("tobill", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.to_bill_queue", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "asc", filters: df.filterValue() },
+  { pageSize: 25, sortField: "date", sortDir: "asc", filters: df.filterValue() },  { storeKey: "tobill" },
 );
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });

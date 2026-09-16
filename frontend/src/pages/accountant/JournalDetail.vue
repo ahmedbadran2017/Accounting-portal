@@ -44,7 +44,7 @@
             </tr></thead>
             <tbody>
               <tr v-for="(a, i) in j.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/50">
-                <td class="px-4 py-2.5"><div class="font-medium truncate max-w-[280px]">{{ a.account_name }}</div><div v-if="a.reference_name" class="text-[10px] text-ink-muted font-mono">{{ a.reference_name }}</div></td>
+                <td class="px-4 py-2.5"><div class="font-medium truncate max-w-[280px]">{{ a.account_name }}</div><button v-if="a.reference_name" type="button" class="text-[10px] font-mono text-accent-dark hover:underline" @click.stop="openRef(a)">{{ a.reference_type }} · {{ a.reference_name }}</button></td>
                 <td class="px-4 py-2.5 text-ink-3 truncate max-w-[160px]">{{ a.party || "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum" :class="a.debit ? 'font-semibold' : 'text-ink-muted'">{{ a.debit ? fmt(a.debit) : "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum" :class="a.credit ? 'font-semibold' : 'text-ink-muted'">{{ a.credit ? fmt(a.credit) : "—" }}</td>
@@ -87,6 +87,22 @@ const j = ref(null);
 const loading = ref(true);
 const totalDr = computed(() => (j.value?.accounts || []).reduce((a, r) => a + Number(r.debit || 0), 0));
 const totalCr = computed(() => (j.value?.accounts || []).reduce((a, r) => a + Number(r.credit || 0), 0));
+
+const REF_ROUTE = {
+  "Sales Invoice": "sales/invoices", "Purchase Invoice": "purchases/bills", "Sales Order": "sales/orders",
+  "Purchase Order": "purchases/tobuy", "Delivery Note": "sales/challans", "Purchase Receipt": "purchases/received",
+  "Journal Entry": "accountant/journals", "Expense Claim": "expenses", "Employee Advance": "payroll",
+};
+// A JE line that settles an invoice opens it — the reference used to be dead text,
+// which made "what does this entry clear?" a manual search every time.
+function openRef(a) {
+  if (!a.reference_name) return;
+  if (a.reference_type === "Payment Entry") {
+    router.push({ path: "/accounting/purchases/payments", query: { id: a.reference_name } }); return;
+  }
+  const r = REF_ROUTE[a.reference_type];
+  if (r) router.push({ path: `/accounting/${r}`, query: { id: a.reference_name } });
+}
 
 function back() { router.push("/accounting/accountant/journals"); }
 async function load() {

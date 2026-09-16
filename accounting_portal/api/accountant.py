@@ -53,6 +53,21 @@ def account_options(company=None):
         (target,), as_dict=True)
 
 
+@frappe.whitelist()
+def cost_center_options(company=None):
+    """Postable cost centres for the company — the books are split Official /
+    Non-Official on every line, and the portal had no way to set one."""
+    assert_portal_access()
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    return frappe.db.sql(
+        """SELECT name, cost_center_name FROM `tabCost Center`
+           WHERE company=%s AND is_group=0 AND IFNULL(disabled,0)=0 ORDER BY name""",
+        (target,), as_dict=True)
+
+
 def _je_poster(action):
     """Create + submit a balanced Journal Entry from the action payload."""
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
@@ -72,6 +87,7 @@ def _je_poster(action):
                 "credit_in_account_currency": flt(ln.get("credit")),
                 "party_type": ln.get("party_type") or None,
                 "party": ln.get("party") or None,
+                "cost_center": ln.get("cost_center") or None,
             }
             for ln in (p.get("lines") or [])
         ],
@@ -253,7 +269,7 @@ def create_journal_entry(company=None, posting_date=None, lines=None, remark=Non
 
 @frappe.whitelist()
 def list_journals(company=None, search=None, from_date=None, to_date=None,
-                  start=0, page_size=25, sort_field="date", sort_dir="desc"):
+                  start=0, page_size=25, sort_field="date", sort_dir="desc", status=None):
     """Journal Entries for one company, server-paginated. Includes drafts
     (docstatus 0) so they can be submitted."""
     assert_portal_access()
@@ -261,7 +277,9 @@ def list_journals(company=None, search=None, from_date=None, to_date=None,
     if not companies:
         return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    conds = ["je.company=%(c)s", "je.docstatus<2"]
+    st = (status or "open").lower()
+    conds = ["je.company=%(c)s", {"draft": "je.docstatus=0", "submitted": "je.docstatus=1",
+                                  "cancelled": "je.docstatus=2", "all": "1=1"}.get(st, "je.docstatus<2")]
     params = {"c": target}
     if from_date:
         conds.append("je.posting_date >= %(fd)s"); params["fd"] = from_date
@@ -277,7 +295,7 @@ def list_journals(company=None, search=None, from_date=None, to_date=None,
         "`tabJournal Entry` je", " AND ".join(conds), params,
         "je.name, je.posting_date AS date, je.voucher_type AS type, ROUND(je.total_debit,2) AS amount, "
         "IFNULL(je.user_remark,'') AS remark, je.docstatus, IFNULL(je.cheque_no,'') AS reference",
-        f"{col} {d}, je.creation {d}", start, page_size)
+        f"{col} {d}, je.creation {d}", start, page_size, max_ps=200)
     for r in rows:
         r["amount"] = flt(r["amount"])
         r["date"] = str(r.get("date") or "")
@@ -301,7 +319,7 @@ def get_journal(name=None):
     accounts = frappe.db.sql(
         """SELECT jea.account, IFNULL(a.account_name, jea.account) AS account_name,
                   jea.party_type, jea.party, ROUND(jea.debit, 2) AS debit, ROUND(jea.credit, 2) AS credit,
-                  jea.reference_type, jea.reference_name
+                  jea.reference_type, jea.reference_name, jea.user_remark AS line_remark
            FROM `tabJournal Entry Account` jea LEFT JOIN `tabAccount` a ON a.name=jea.account
            WHERE jea.parent=%s ORDER BY jea.idx""", name, as_dict=True)
     for r in accounts:

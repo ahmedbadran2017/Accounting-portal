@@ -103,6 +103,11 @@
             <button type="button" class="px-2.5 py-1 rounded-lg text-[11px]" :class="agingKind==='ar' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3'" @click="loadAging('ar')">{{ L("Receivable","مدينة","Créances") }}</button>
             <button type="button" class="px-2.5 py-1 rounded-lg text-[11px]" :class="agingKind==='ap' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3'" @click="loadAging('ap')">{{ L("Payable","دائنة","Dettes") }}</button>
           </div>
+          <div class="inline-flex items-center gap-1.5 ms-2">
+            <span class="text-[11px] text-ink-muted">{{ L("as of", "كما في", "au") }}</span>
+            <input type="date" v-model="asOn" @change="loadAging(agingKind)" class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[11.5px] bg-white" />
+            <button v-if="asOn !== today" type="button" class="h-7 px-2 rounded-[8px] text-[11px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm" @click="asOn = today; loadAging(agingKind)">{{ L("Today","اليوم","Auj.") }}</button>
+          </div>
         </div>
         <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
           <table class="w-full text-[12px]">
@@ -111,7 +116,7 @@
               <th class="px-2 py-2 text-end">{{ L("Current","حالي","Courant") }}</th><th class="px-2 py-2 text-end">1–30</th><th class="px-2 py-2 text-end">31–60</th><th class="px-2 py-2 text-end">61–90</th><th class="px-2 py-2 text-end">90+</th><th class="px-4 py-2 text-end">{{ L("Total","الإجمالي","Total") }}</th>
             </tr></thead>
             <tbody>
-              <tr v-for="p in agingRows" :key="p.party" class="border-t border-line-hair hover:bg-app-warm/40">
+              <tr v-for="p in agingRows" :key="p.party" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="openParty(p)">
                 <td class="px-4 py-2 truncate max-w-[220px]">{{ p.party_name || p.party }}</td>
                 <td class="px-2 py-2 text-end tnum text-ink-3">{{ fmt(p.cur) }}</td><td class="px-2 py-2 text-end tnum">{{ fmt(p.d1_30) }}</td><td class="px-2 py-2 text-end tnum">{{ fmt(p.d31_60) }}</td><td class="px-2 py-2 text-end tnum text-amber-700">{{ fmt(p.d61_90) }}</td><td class="px-2 py-2 text-end tnum text-sale font-semibold">{{ fmt(p.d90p) }}</td>
                 <td class="px-4 py-2 text-end tnum font-bold">{{ fmt(p.total) }}</td>
@@ -128,6 +133,41 @@
       </div>
     </template>
   </div>
+
+    <!-- invoices behind one party's aging -->
+    <div v-if="partyDrill" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" @click.self="partyDrill = null">
+      <div class="bg-white rounded-card shadow-pop w-full max-w-3xl max-h-[85vh] flex flex-col">
+        <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2">
+          <span class="text-[14px] font-bold">{{ partyDrill.party_name || partyDrill.party }}</span>
+          <span class="text-[11px] text-ink-muted">{{ L("open invoices as of", "الفواتير المفتوحة كما في", "factures au") }} {{ asOn }}</span>
+          <button class="ms-auto text-ink-muted hover:text-ink" @click="partyDrill = null">✕</button>
+        </div>
+        <div class="flex-1 overflow-auto">
+          <div v-if="partyLoading" class="py-8 text-center text-[12px] text-ink-muted">…</div>
+          <table v-else class="w-full text-[12px]">
+            <thead><tr class="text-[10px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
+              <th class="px-4 py-2 text-start">{{ L("Invoice","الفاتورة","Facture") }}</th>
+              <th class="px-3 py-2 text-start">{{ L("Date","التاريخ","Date") }}</th>
+              <th class="px-3 py-2 text-start">{{ L("Due","الاستحقاق","Échéance") }}</th>
+              <th class="px-3 py-2 text-end">{{ L("Age","العمر","Âge") }}</th>
+              <th class="px-3 py-2 text-end">{{ L("Total","الإجمالي","Total") }}</th>
+              <th class="px-4 py-2 text-end">{{ L("Outstanding","المستحق","Restant") }}</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="iv in partyRows" :key="iv.name" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="openInvoice(iv)">
+                <td class="px-4 py-2 font-mono">{{ iv.name }}</td>
+                <td class="px-3 py-2 text-ink-3">{{ iv.date }}</td>
+                <td class="px-3 py-2 text-ink-3">{{ iv.due_date || "—" }}</td>
+                <td class="px-3 py-2 text-end tnum" :class="iv.age_days > 90 ? 'text-sale font-bold' : 'text-ink-3'">{{ iv.age_days }} {{ L("d","ي","j") }}</td>
+                <td class="px-3 py-2 text-end tnum text-ink-3">{{ fmt(iv.total) }}</td>
+                <td class="px-4 py-2 text-end tnum font-semibold">{{ fmt(iv.outstanding) }}</td>
+              </tr>
+              <tr v-if="!partyRows.length && !partyLoading"><td colspan="6" class="px-4 py-8 text-center text-ink-muted">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 </template>
 
 <script setup>
@@ -168,11 +208,30 @@ async function load() {
 }
 watch(entityId, load, { immediate: true });
 
+const today = new Date().toISOString().slice(0, 10);
+const asOn = ref(today);
 const agingKind = ref("ap"), agingRows = ref([]), agingTotals = ref(null);
+// Per-invoice drill: "which invoice is 90+ days old" was unanswerable before.
+const partyDrill = ref(null);
+const partyRows = ref([]);
+const partyLoading = ref(false);
+async function openParty(p) {
+  partyDrill.value = p; partyRows.value = []; partyLoading.value = true;
+  try {
+    const res = await api.call("accounting_portal.api.reports.aging_invoices",
+      { company: currentCompany(), kind: agingKind.value, party: p.party, as_on: asOn.value });
+    partyRows.value = res?.rows || [];
+  } catch { partyRows.value = []; }
+  finally { partyLoading.value = false; }
+}
+function openInvoice(iv) {
+  const path = agingKind.value === "ap" ? "/accounting/purchases/bills" : "/accounting/sales/invoices";
+  router.push({ path, query: { id: iv.name } });
+}
 async function loadAging(kind) {
   agingKind.value = kind;
   try {
-    const res = await api.call("accounting_portal.api.reports.aging_by_party", { company: currentCompany(), kind });
+    const res = await api.call("accounting_portal.api.reports.aging_by_party", { company: currentCompany(), kind, as_on: asOn.value });
     agingRows.value = res?.rows || []; agingTotals.value = res?.totals || null;
   } catch { agingRows.value = []; agingTotals.value = null; }
 }

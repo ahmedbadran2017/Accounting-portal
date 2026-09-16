@@ -106,59 +106,67 @@ def balance_sheet(company=None, as_on=None):
     return out
 
 
-def _aging(doctype, company):
+def _aging(doctype, company, as_on=None):
+    as_on = as_on or nowdate()
     return frappe.db.sql(
         f"""SELECT
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) <= 0 THEN outstanding_amount ELSE 0 END)) AS cur,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 1 AND 30 THEN outstanding_amount ELSE 0 END)) AS d1_30,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 31 AND 60 THEN outstanding_amount ELSE 0 END)) AS d31_60,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 61 AND 90 THEN outstanding_amount ELSE 0 END)) AS d61_90,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) > 90 THEN outstanding_amount ELSE 0 END)) AS d90p,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) <= 0 THEN outstanding_amount ELSE 0 END)) AS cur,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) BETWEEN 1 AND 30 THEN outstanding_amount ELSE 0 END)) AS d1_30,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) BETWEEN 31 AND 60 THEN outstanding_amount ELSE 0 END)) AS d31_60,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) BETWEEN 61 AND 90 THEN outstanding_amount ELSE 0 END)) AS d61_90,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) > 90 THEN outstanding_amount ELSE 0 END)) AS d90p,
               ROUND(SUM(outstanding_amount)) AS total, COUNT(*) AS n
-           FROM `tab{doctype}` WHERE company=%s AND docstatus=1 AND outstanding_amount<>0""",
-        (company,), as_dict=True)[0]
+           FROM `tab{doctype}` WHERE company=%(c)s AND docstatus=1 AND outstanding_amount<>0
+             AND posting_date <= %(as_on)s""",
+        {"c": company, "as_on": as_on}, as_dict=True)[0]
 
 
 @frappe.whitelist()
-def ar_aging(company=None):
-    """Receivables aging by due date — current / 1-30 / 31-60 / 61-90 / 90+."""
+def ar_aging(company=None, as_on=None):
+    """Receivables aging by due date — current / 1-30 / 31-60 / 61-90 / 90+,
+    as of `as_on` (default today). Closing the books on the 5th needs the 31st."""
     assert_portal_access()
     target = _target(company)
     if not target:
         return {}
-    out = _aging("Sales Invoice", target)
+    out = _aging("Sales Invoice", target, as_on)
     out["company"] = target
+    out["as_on"] = as_on or nowdate()
     return out
 
 
 @frappe.whitelist()
-def ap_aging(company=None):
-    """Payables aging by due date — current / 1-30 / 31-60 / 61-90 / 90+."""
+def ap_aging(company=None, as_on=None):
+    """Payables aging by due date — current / 1-30 / 31-60 / 61-90 / 90+,
+    as of `as_on` (default today)."""
     assert_portal_access()
     target = _target(company)
     if not target:
         return {}
-    out = _aging("Purchase Invoice", target)
+    out = _aging("Purchase Invoice", target, as_on)
     out["company"] = target
+    out["as_on"] = as_on or nowdate()
     return out
 
 
-def _aging_by_party(doctype, party_field, company, name_field):
+def _aging_by_party(doctype, party_field, company, name_field, as_on=None):
+    as_on = as_on or nowdate()
     return frappe.db.sql(
         f"""SELECT {party_field} party, IFNULL(MAX({name_field}), {party_field}) party_name,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) <= 0 THEN outstanding_amount ELSE 0 END)) cur,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 1 AND 30 THEN outstanding_amount ELSE 0 END)) d1_30,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 31 AND 60 THEN outstanding_amount ELSE 0 END)) d31_60,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) BETWEEN 61 AND 90 THEN outstanding_amount ELSE 0 END)) d61_90,
-              ROUND(SUM(CASE WHEN DATEDIFF(CURDATE(), IFNULL(due_date,posting_date)) > 90 THEN outstanding_amount ELSE 0 END)) d90p,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) <= 0 THEN outstanding_amount ELSE 0 END)) cur,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) BETWEEN 1 AND 30 THEN outstanding_amount ELSE 0 END)) d1_30,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) BETWEEN 31 AND 60 THEN outstanding_amount ELSE 0 END)) d31_60,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) BETWEEN 61 AND 90 THEN outstanding_amount ELSE 0 END)) d61_90,
+              ROUND(SUM(CASE WHEN DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date)) > 90 THEN outstanding_amount ELSE 0 END)) d90p,
               ROUND(SUM(outstanding_amount)) total, COUNT(*) n
-           FROM `tab{doctype}` t WHERE company=%s AND docstatus=1 AND outstanding_amount<>0
+           FROM `tab{doctype}` t WHERE company=%(c)s AND docstatus=1 AND outstanding_amount<>0
+             AND posting_date <= %(as_on)s
            GROUP BY {party_field} HAVING ABS(SUM(outstanding_amount)) > 0.5
-           ORDER BY total DESC LIMIT 400""", (company,), as_dict=True)
+           ORDER BY total DESC LIMIT 400""", {"c": company, "as_on": as_on}, as_dict=True)
 
 
 @frappe.whitelist()
-def aging_by_party(company=None, kind="ar"):
+def aging_by_party(company=None, kind="ar", as_on=None):
     """Aged trial balance BY PARTY — each customer/supplier across the buckets,
     the listing an auditor expects (the totals-only aging isn't enough)."""
     assert_portal_access()
@@ -166,11 +174,11 @@ def aging_by_party(company=None, kind="ar"):
     if not target:
         return {"rows": [], "kind": kind}
     if kind == "ap":
-        rows = _aging_by_party("Purchase Invoice", "supplier", target, "supplier_name")
+        rows = _aging_by_party("Purchase Invoice", "supplier", target, "supplier_name", as_on)
     else:
-        rows = _aging_by_party("Sales Invoice", "customer", target, "customer_name")
+        rows = _aging_by_party("Sales Invoice", "customer", target, "customer_name", as_on)
     tot = {k: sum(flt(r[k]) for r in rows) for k in ("cur", "d1_30", "d31_60", "d61_90", "d90p", "total")}
-    return {"company": target, "kind": kind, "rows": rows, "totals": tot,
+    return {"company": target, "kind": kind, "as_on": as_on or nowdate(), "rows": rows, "totals": tot,
             "currency": frappe.db.get_value("Company", target, "default_currency") or "MAD"}
 
 
@@ -1470,3 +1478,38 @@ def report_pdf(report=None, company=None, from_date=None, to_date=None,
                         "content": pdf, "decode": False})
     f.insert(ignore_permissions=True)
     return {"file_url": f.file_url, "file_name": fname}
+
+
+@frappe.whitelist()
+def aging_invoices(company=None, kind="ar", party=None, bucket=None, as_on=None):
+    """The invoices behind an aging bucket — which document is 90+ days old, not
+    just how much. `bucket` ∈ cur / d1_30 / d31_60 / d61_90 / d90p."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": []}
+    as_on = as_on or nowdate()
+    dt = "Purchase Invoice" if kind == "ap" else "Sales Invoice"
+    party_field = "supplier" if kind == "ap" else "customer"
+    name_field = "supplier_name" if kind == "ap" else "customer_name"
+    conds = ["company=%(c)s", "docstatus=1", "outstanding_amount<>0", "posting_date <= %(as_on)s"]
+    params = {"c": target, "as_on": as_on}
+    if party:
+        conds.append(f"{party_field}=%(p)s"); params["p"] = party
+    age = "DATEDIFF(%(as_on)s, IFNULL(due_date,posting_date))"
+    rng = {"cur": f"{age} <= 0", "d1_30": f"{age} BETWEEN 1 AND 30", "d31_60": f"{age} BETWEEN 31 AND 60",
+           "d61_90": f"{age} BETWEEN 61 AND 90", "d90p": f"{age} > 90"}.get(bucket or "")
+    if rng:
+        conds.append(rng)
+    rows = frappe.db.sql(
+        f"""SELECT name, posting_date AS date, due_date, {party_field} AS party,
+                   IFNULL({name_field}, {party_field}) AS party_name, currency,
+                   ROUND(grand_total,2) AS total, ROUND(outstanding_amount,2) AS outstanding,
+                   {age} AS age_days
+            FROM `tab{dt}` WHERE {' AND '.join(conds)}
+            ORDER BY {age} DESC, outstanding_amount DESC LIMIT 1000""", params, as_dict=True)
+    for r in rows:
+        r["date"] = str(r["date"] or ""); r["due_date"] = str(r["due_date"] or "")
+    return {"company": target, "kind": kind, "as_on": as_on, "bucket": bucket or "all",
+            "doctype": dt, "rows": rows,
+            "total": round(sum(flt(r["outstanding"]) for r in rows), 2)}

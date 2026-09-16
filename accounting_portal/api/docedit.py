@@ -52,7 +52,7 @@ _SCHEMA = {
                    _H("paid_amount", "Currency"), _H("received_amount", "Currency"),
                    _H("source_exchange_rate", "Float"), _H("target_exchange_rate", "Float"),
                    _H("reference_no", "Data"), _H("reference_date", "Date"), _H("remarks", "Text")],
-        "child": {"field": "references", "can_add": False, "can_remove": True,
+        "child": {"field": "references", "can_add": False, "can_remove": True, "fill": "outstanding",
                   "columns": [_H("reference_doctype", "Data", ro=True), _H("reference_name", "Data", ro=True),
                               _H("total_amount", "Currency", ro=True), _H("outstanding_amount", "Currency", ro=True),
                               _H("allocated_amount", "Currency")]},
@@ -457,3 +457,67 @@ def redate(doctype=None, name=None, posting_date=None, company=None):
         payload={"doctype": doctype, "name": name, "posting_date": new_date},
         amount=amt, reference_doctype=doctype, reference_name=name,
         notes=f"Redate {doctype} {name} → {new_date}")
+
+
+# ── "Get outstanding invoices" for a draft Payment Entry ───────────────────────
+
+@frappe.whitelist()
+def outstanding_for_payment(name=None):
+    """Open invoices of the payment's party that this draft could settle, oldest
+    first. The Desk's "Get outstanding invoices" — receipts had no allocation UI
+    at all, so cash landed on the wrong invoice and could only be re-pointed in
+    the Desk."""
+    assert_portal_access()
+    if not name or not frappe.db.exists("Payment Entry", name):
+        frappe.throw("Payment not found")
+    pe = frappe.get_doc("Payment Entry", name)
+    if pe.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+    dt = "Sales Invoice" if pe.party_type == "Customer" else "Purchase Invoice"
+    if not pe.party:
+        return {"rows": [], "doctype": dt, "unallocated": 0}
+    taken = {r.reference_name for r in pe.references if r.reference_name}
+    party_col = "customer" if dt == "Sales Invoice" else "supplier"
+    rows = frappe.db.sql(
+        f"""SELECT name, posting_date AS date, due_date, ROUND(grand_total,2) AS total,
+                   ROUND(outstanding_amount,2) AS outstanding, currency
+            FROM `tab{dt}` WHERE company=%s AND {party_col}=%s AND docstatus=1
+              AND IFNULL(is_return,0)=0 AND outstanding_amount > 0
+            ORDER BY posting_date, name""", (pe.company, pe.party), as_dict=True)
+    rows = [r for r in rows if r.name not in taken]
+    for r in rows:
+        r["date"] = str(r["date"] or "")
+        r["due_date"] = str(r["due_date"] or "")
+    allocated = sum(flt(r.allocated_amount) for r in pe.references)
+    return {"rows": rows, "doctype": dt, "party": pe.party,
+            "paid_amount": flt(pe.paid_amount), "allocated": allocated,
+            "unallocated": round(flt(pe.paid_amount) - allocated, 2)}
+
+
+@frappe.whitelist()
+def allocate_payment(name=None, rows=None):
+    """Append chosen invoices to a DRAFT payment's references with the amounts the
+    user set (auto-filled oldest-first against the unallocated balance)."""
+    assert_can_write()
+    if not name or not frappe.db.exists("Payment Entry", name):
+        frappe.throw("Payment not found")
+    pe = frappe.get_doc("Payment Entry", name)
+    if pe.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+    if pe.docstatus != 0:
+        frappe.throw("Only a draft payment can be re-allocated — amend it first")
+    rows = rows if isinstance(rows, list) else json.loads(rows or "[]")
+    dt = "Sales Invoice" if pe.party_type == "Customer" else "Purchase Invoice"
+    added = 0
+    for r in rows:
+        amt = flt(r.get("amount"))
+        if not r.get("name") or amt <= 0:
+            continue
+        pe.append("references", {"reference_doctype": r.get("doctype") or dt,
+                                 "reference_name": r["name"], "allocated_amount": amt})
+        added += 1
+    if not added:
+        frappe.throw("Nothing to allocate")
+    pe.flags.ignore_permissions = True
+    pe.save()
+    return get_draft("Payment Entry", name)

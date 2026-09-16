@@ -72,6 +72,11 @@
                     <button v-if="!needsParty(ln)" type="button" class="text-ink-muted hover:text-sale" @click="ln.showParty = false; ln.party_type = ''; ln.party = ''"><Icon name="close" :size="11" /></button>
                   </div>
                   <button v-else-if="ln.account && !needsParty(ln)" type="button" class="mt-0.5 text-[9.5px] text-ink-muted hover:text-accent-dark" @click="ln.showParty = true">+ {{ L("party","طرف","tiers") }}</button>
+                  <!-- cost centre: the books are split Official / Non-Official on every line -->
+                  <select v-if="costCenters.length" v-model="ln.cost_center" class="mt-0.5 w-full text-[10px] bg-app-warm/40 border border-line-2 rounded-chip px-1.5 py-0.5 focus:outline-none">
+                    <option value="">{{ L("cost centre…","مركز التكلفة…","centre de coût…") }}</option>
+                    <option v-for="c in costCenters" :key="c.name" :value="c.name">{{ c.cost_center_name || c.name }}</option>
+                  </select>
                 </td>
                 <td class="px-2 py-1.5"><input type="number" min="0" v-model.number="ln.debit" class="w-full text-end tnum bg-transparent py-1 focus:outline-none" placeholder="0" /></td>
                 <td class="px-2 py-1.5"><input type="number" min="0" v-model.number="ln.credit" class="w-full text-end tnum bg-transparent py-1 focus:outline-none" placeholder="0" /></td>
@@ -145,7 +150,11 @@ const clientKey = newClientKey();
 const autoReverse = ref(false);
 const postingDate = ref(new Date().toISOString().slice(0, 10));
 const remark = ref("");
-const newLine = () => ({ account: "", q: "", debit: null, credit: null, party_type: "", party: "", pq: "", showParty: false, _parties: [] });
+const newLine = () => ({ account: "", q: "", debit: null, credit: null, party_type: "", party: "", pq: "", showParty: false, cost_center: "", _parties: [] });
+const costCenters = ref([]);
+(async () => {
+  try { costCenters.value = (await api.call("accounting_portal.api.accountant.cost_center_options", { company: currentCompany() })) || []; } catch { costCenters.value = []; }
+})();
 const lines = ref([newLine(), newLine()]);
 const accounts = ref([]);
 const posting = ref(false);
@@ -211,7 +220,7 @@ async function post(draft = false) {
     const method = props.opening ? "create_opening_entry" : "create_journal_entry";
     const res = await api.call(`accounting_portal.api.accountant.${method}`, {
       company: currentCompany(), client_key: clientKey, posting_date: postingDate.value, draft: (draft && !props.opening) ? 1 : undefined, auto_reverse: (autoReverse.value && !props.opening && !draft) ? 1 : undefined,
-      lines: clean.map((l) => ({ account: l.account, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0,
+      lines: clean.map((l) => ({ account: l.account, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0, cost_center: l.cost_center || undefined,
         party_type: (l.party && l.party_type) || undefined, party: l.party || undefined })),
       remark: remark.value,
     });

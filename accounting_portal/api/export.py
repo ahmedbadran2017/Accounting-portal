@@ -99,3 +99,75 @@ def gl_xlsx(company=None, account=None, party=None, voucher_no=None, from_date=N
     tag = (account or "all").split(" ")[0]
     _send(f"general-ledger-{tag}-{from_date or ''}-{to_date or ''}.xlsx", "General ledger", data,
           [12, 16, 20, 40, 12, 28, 14, 14, 10, 16, 16, 24, 30, 40, 9, 16])
+
+
+# ── Generic list export ────────────────────────────────────────────────────────
+# Every transaction list is already a server-paginated endpoint returning
+# {rows, total}. The export just walks that same endpoint with its own filters,
+# so what lands in Excel is exactly what the accountant filtered on screen —
+# not the 25 rows that happened to be on the page.
+
+_LIST_EXPORTS = {
+    "bills": ("accounting_portal.api.purchases.list_bills", "Bills",
+              [("id", "Bill"), ("date", "Date"), ("vendor", "Supplier"), ("bill_no", "Supplier invoice"),
+               ("currency", "Currency"), ("amount", "Amount"), ("base_amount", "Amount (company ccy)"),
+               ("status_norm", "Status"), ("match", "3-way match"), ("docstatus", "Docstatus")]),
+    "invoices": ("accounting_portal.api.sales.list_invoices", "Sales invoices",
+                 [("id", "Invoice"), ("date", "Date"), ("customer", "Customer"), ("net", "Net"),
+                  ("vat", "VAT"), ("gross", "Gross"), ("outstanding", "Outstanding"), ("status", "Status")]),
+    "orders": ("accounting_portal.api.sales.list_orders", "Sales orders",
+               [("id", "Order"), ("date", "Date"), ("customer", "Customer"), ("city", "City"),
+                ("value", "Value"), ("state", "State"), ("carrier", "Carrier"), ("tracking", "Tracking")]),
+    "journals": ("accounting_portal.api.accountant.list_journals", "Journals",
+                 [("name", "Entry"), ("date", "Date"), ("type", "Type"), ("amount", "Debit total"),
+                  ("reference", "Cheque / ref"), ("remark", "Remark"), ("status", "Status")]),
+    "payments_in": ("accounting_portal.api.sales.list_receipts", "Payments received",
+                    [("name", "Payment"), ("date", "Date"), ("customer", "Party"), ("method", "Method"),
+                     ("ref", "Reference"), ("collected", "Amount")]),
+    "payments_out": ("accounting_portal.api.payments.list_payments_made", "Payments made",
+                     [("name", "Payment"), ("date", "Date"), ("party_name", "Supplier"), ("method", "Method"),
+                      ("reference_no", "Reference"), ("currency", "Currency"), ("amount", "Amount"),
+                      ("unallocated", "Unallocated")]),
+    "challans": ("accounting_portal.api.sales.list_challans", "Delivery notes",
+                 [("name", "Delivery note"), ("date", "Date"), ("customer", "Customer"),
+                  ("carrier", "Carrier"), ("tracking", "Tracking"), ("status", "Status")]),
+}
+
+
+@frappe.whitelist()
+def list_xlsx(key=None, **filters):
+    """Excel of a whole filtered list. `key` picks the list; every other query
+    parameter is passed through to that list's own endpoint (company, search,
+    from_date, to_date, sort…), so the workbook matches the screen."""
+    assert_portal_access()
+    spec = _LIST_EXPORTS.get(key)
+    if not spec:
+        frappe.throw("Unknown list")
+    method, sheet, cols = spec
+    fn = frappe.get_attr(method)
+    filters.pop("cmd", None)
+    for junk in ("start", "page_size", "limit"):
+        filters.pop(junk, None)
+    filters = {k: v for k, v in filters.items() if v not in (None, "", "undefined")}
+
+    rows, start, page = [], 0, 200
+    total = None
+    while True:
+        res = fn(start=start, page_size=page, **filters) or {}
+        got = res.get("rows") or []
+        if total is None:
+            total = int(res.get("total") or len(got))
+        rows.extend(got)
+        start += page
+        if len(got) < page or start >= min(total, _MAX_ROWS):
+            break
+    data = [
+        [sheet, filters.get("company") or "", "Rows", len(rows)],
+        ["Filters", ", ".join(f"{k}={v}" for k, v in sorted(filters.items()) if k != "company") or "(none)"],
+        [],
+        [label for _f, label in cols],
+    ]
+    numeric = {"amount", "base_amount", "net", "vat", "gross", "outstanding", "value", "collected", "unallocated"}
+    for r in rows:
+        data.append([_num(r.get(f)) if f in numeric else (r.get(f) if r.get(f) is not None else "") for f, _l in cols])
+    _send(f"{key}-{frappe.utils.nowdate()}.xlsx", sheet, data, [18] * len(cols))

@@ -16,7 +16,19 @@
       <div class="ms-auto flex items-center gap-1.5">
         <button @click="openEdit" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="gear" :size="12" />{{ L("Edit", "تعديل", "Modifier") }}</button>
         <button v-if="canEmail" @click="openEmail" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="send" :size="12" />{{ L("Email", "إيميل", "E-mail") }}</button>
-        <a :href="printUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-ink hover:opacity-90"><Icon name="doc" :size="12" color="#fff" />{{ L("Print / PDF", "طباعة", "PDF") }}</a>
+        <div class="relative inline-flex">
+          <a :href="printUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 h-7 ps-2.5 pe-2 rounded-s-chip text-[11px] font-semibold text-white bg-ink hover:opacity-90"><Icon name="doc" :size="12" color="#fff" />{{ L("Print / PDF", "طباعة", "PDF") }}</a>
+          <button @click="openPrintOpts" class="h-7 px-1.5 rounded-e-chip text-[11px] font-semibold text-white bg-ink hover:opacity-90 border-s border-white/20" :title="L('Print options','خيارات الطباعة','Options')">▾</button>
+          <div v-if="printOpen" class="absolute z-30 end-0 top-8 w-64 bg-white border border-line rounded-[10px] shadow-pop p-3 space-y-2">
+            <div><label class="block text-[10.5px] font-bold text-ink-3 mb-1">{{ L("Format", "النموذج", "Format") }}</label>
+              <select v-model="printFmt" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[11.5px] bg-white"><option value="">{{ L("Standard", "القياسي", "Standard") }}</option><option v-for="f in printOpts.formats" :key="f" :value="f">{{ f }}</option></select></div>
+            <div><label class="block text-[10.5px] font-bold text-ink-3 mb-1">{{ L("Letterhead", "الترويسة", "En-tête") }}</label>
+              <select v-model="printLh" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[11.5px] bg-white"><option value="">{{ L("None", "بدون", "Aucune") }}</option><option v-for="l in printOpts.letterheads" :key="l" :value="l">{{ l }}</option></select></div>
+            <div><label class="block text-[10.5px] font-bold text-ink-3 mb-1">{{ L("Language", "اللغة", "Langue") }}</label>
+              <select v-model="printLang" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[11.5px] bg-white"><option value="">{{ L("Default", "الافتراضي", "Défaut") }}</option><option value="en">English</option><option value="ar">العربية</option><option value="fr">Français</option></select></div>
+            <a :href="printUrl" target="_blank" rel="noopener" class="block text-center h-8 leading-8 rounded-chip text-[11.5px] font-bold text-white bg-ink" @click="printOpen = false">{{ L("Open PDF", "افتح PDF", "Ouvrir le PDF") }}</a>
+          </div>
+        </div>
       </div>
     </div>
       </div>
@@ -54,13 +66,15 @@
     </div>
 
     <!-- Attachments -->
-    <div v-else-if="tab === 'attachments'" class="p-4">
+    <div v-else-if="tab === 'attachments'" class="p-4 transition" :class="dragOver ? 'bg-accent-soft/40 ring-2 ring-inset ring-accent/40' : ''"
+         @dragover.prevent="dragOver = true" @dragenter.prevent="dragOver = true" @dragleave.prevent="dragOver = false" @drop.prevent="onDrop">
       <div class="flex items-center gap-2 mb-3">
         <label class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark cursor-pointer" :class="uploading ? 'opacity-60 pointer-events-none' : ''">
           <Icon name="plus" :size="13" color="#fff" />{{ uploading ? L("Uploading…", "جارٍ الرفع…", "…") : L("Upload file", "ارفع ملف", "Téléverser") }}
-          <input type="file" class="hidden" @change="onFile" />
+          <input type="file" multiple class="hidden" @change="onFile" />
         </label>
         <span class="text-[11px] text-ink-muted">{{ files.length }} {{ L("files", "ملف", "fichiers") }}</span>
+        <span class="text-[11px] text-ink-muted hidden sm:inline">· {{ L("or drop files here", "أو أفلت الملفات هنا", "ou déposez ici") }}</span>
       </div>
       <div v-if="loadingFiles" class="py-3"><TableLoading :rows="2" /></div>
       <div v-else-if="!files.length" class="py-5 text-center text-[12px] text-ink-muted">{{ L("No attachments.", "لا مرفقات.", "Aucune pièce jointe.") }}</div>
@@ -190,18 +204,34 @@ async function loadFiles() {
 }
 function fileHref(f) { return f.file_url; }
 
-function onFile(e) {
-  const file = e.target.files[0]; if (!file) return;
-  if (file.size > 10 * 1024 * 1024) { toast.error(L("Max 10 MB", "الحد 10 ميجا", "Max 10 Mo")); return; }
-  uploading.value = true;
-  const reader = new FileReader();
-  reader.onload = async () => {
-    try { await api.call("accounting_portal.api.docmeta.add_attachment", { doctype: props.doctype, name: props.name, filename: file.name, content: reader.result }); toast.success(L("Uploaded", "تم الرفع", "Téléversé")); loadFiles(); }
-    catch (err) { toast.error(String((err && err.message) || L("Upload failed", "فشل الرفع", "Échec")).slice(0, 140)); }
-    finally { uploading.value = false; e.target.value = ""; }
-  };
-  reader.readAsDataURL(file);
+// Attachments are the most-used document action (1,664 files in six months), so
+// the page takes a dropped scan as readily as a picked one.
+function uploadOne(file) {
+  return new Promise((resolve) => {
+    if (!file) return resolve();
+    if (file.size > 10 * 1024 * 1024) { toast.error(L(`${file.name}: max 10 MB`, `${file.name}: الحد 10 ميجا`, `${file.name} : max 10 Mo`)); return resolve(); }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try { await api.call("accounting_portal.api.docmeta.add_attachment", { doctype: props.doctype, name: props.name, filename: file.name, content: reader.result }); }
+      catch (err) { toast.error(String((err && err.message) || L("Upload failed", "فشل الرفع", "Échec")).slice(0, 140)); }
+      finally { resolve(); }
+    };
+    reader.onerror = () => resolve();
+    reader.readAsDataURL(file);
+  });
 }
+async function uploadMany(list) {
+  const files = Array.from(list || []).slice(0, 10);
+  if (!files.length) return;
+  uploading.value = true;
+  for (const f of files) await uploadOne(f);
+  uploading.value = false;
+  toast.success(files.length > 1 ? L(`${files.length} files uploaded`, `تم رفع ${files.length} ملفات`, `${files.length} fichiers`) : L("Uploaded", "تم الرفع", "Téléversé"));
+  loadFiles();
+}
+async function onFile(e) { await uploadMany(e.target.files); e.target.value = ""; }
+const dragOver = ref(false);
+async function onDrop(e) { dragOver.value = false; await uploadMany(e.dataTransfer?.files); }
 async function remove(f) {
   if (!window.confirm(L(`Delete ${f.file_name}?`, `حذف ${f.file_name}؟`, `Supprimer ${f.file_name} ?`))) return;
   try { await api.call("accounting_portal.api.docmeta.remove_attachment", { file: f.name }); loadFiles(); }
@@ -232,7 +262,26 @@ async function removeTag(tg) {
 }
 
 // ── Print / PDF (Frappe's native renderer) ──
-const printUrl = computed(() => `/api/method/frappe.utils.print_format.download_pdf?doctype=${encodeURIComponent(props.doctype)}&name=${encodeURIComponent(props.name)}&no_letterhead=0`);
+const printOpen = ref(false);
+const printOpts = ref({ formats: [], letterheads: [], default: "" });
+const printFmt = ref("");
+const printLh = ref("");
+const printLang = ref("");
+async function openPrintOpts() {
+  printOpen.value = !printOpen.value;
+  if (!printOpen.value || printOpts.value.formats.length) return;
+  try {
+    printOpts.value = (await api.call("accounting_portal.api.docmeta.print_options", { doctype: props.doctype })) || printOpts.value;
+    if (!printFmt.value) printFmt.value = printOpts.value.default || "";
+  } catch { /* the plain Print link still works */ }
+}
+const printUrl = computed(() => {
+  const q = new URLSearchParams({ doctype: props.doctype, name: props.name, no_letterhead: printLh.value ? "0" : "1" });
+  if (printFmt.value) q.set("format", printFmt.value);
+  if (printLh.value) q.set("letterhead", printLh.value);
+  if (printLang.value) q.set("_lang", printLang.value);
+  return `/api/method/frappe.utils.print_format.download_pdf?${q.toString()}`;
+});
 
 // ── Edit fields ──
 const editOpen = ref(false);

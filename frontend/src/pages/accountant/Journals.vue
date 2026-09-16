@@ -50,6 +50,7 @@
       </table>
     </div>
     <div v-if="!st.loading.value && !displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No journals match your filters.", "لا قيود مطابقة.", "Aucune écriture.") }}</div>
+    <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" :total="st.total.value" export-key="journals" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
     <ServerPager :t="st" />
     <BulkBar :t="st" :actions="bulkActions" filename="journals" />
     </div>
@@ -59,12 +60,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import ListToolbar from "@/components/ListToolbar.vue";
 import BulkBar from "@/components/BulkBar.vue";
 import { useBulkDocs } from "@/composables/useBulkDocs";
 import JournalEntryForm from "@/components/JournalEntryForm.vue";
@@ -111,8 +113,15 @@ const df = useDateFilter("journals", (f) => st.setFilters(f));
 const { actions: bulkActions } = useBulkDocs("Journal Entry", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.accountant.list_journals", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },  { storeKey: "journals" },
 );
+// Status chips + page size + full-list Excel (ListToolbar).
+const listStatus = usePersistedRef("ap_ls_journals", "open");
+const listPageSize = usePersistedRef("ap_lps_journals", 25);
+const extraStatuses = [];
+const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
+watch([listStatus, listPageSize], () => { st.pageSize.value = listPageSize.value; st.setFilters({ status: listStatus.value }); }, { immediate: true });
+
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });
 

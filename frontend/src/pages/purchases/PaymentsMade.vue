@@ -55,18 +55,20 @@
       </table>
     </div>
     <div v-if="!st.loading.value && !displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No payments in this period.", "لا مدفوعات في هذه الفترة.", "Aucun paiement.") }}</div>
+    <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" :total="st.total.value" export-key="payments_out" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
     <ServerPager :t="st" />
     <BulkBar :t="st" :actions="bulkActions" filename="payments-made" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import ListToolbar from "@/components/ListToolbar.vue";
 import BulkBar from "@/components/BulkBar.vue";
 import { useBulkDocs } from "@/composables/useBulkDocs";
 import api from "@/services/api";
@@ -120,8 +122,15 @@ const [fd0, td0] = bounds();
 const { actions: bulkActions } = useBulkDocs("Payment Entry", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.payments.list_payments_made", { company: currentCompany(), ...params }).then((r) => { live.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: { from_date: fd0 || undefined, to_date: td0 || undefined } },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: { from_date: fd0 || undefined, to_date: td0 || undefined } },  { storeKey: "pay_out" },
 );
+// Status chips + page size + full-list Excel (ListToolbar).
+const listStatus = usePersistedRef("ap_ls_payments_out", "open");
+const listPageSize = usePersistedRef("ap_lps_payments_out", 25);
+const extraStatuses = [];
+const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
+watch([listStatus, listPageSize], () => { st.pageSize.value = listPageSize.value; st.setFilters({ status: listStatus.value }); }, { immediate: true });
+
 // Arriving from a supplier page (?supplier=…) narrows the list to that supplier.
 watch(() => route.query.supplier, (v) => { if (v) st.search.value = String(v); }, { immediate: true });
 

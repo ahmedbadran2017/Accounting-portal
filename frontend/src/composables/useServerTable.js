@@ -5,17 +5,22 @@ import { ref, computed, watch } from "vue";
 // each refetch from the server (one page at a time) instead of pulling everything
 // and paginating in the browser — so a list of 100k+ rows stays fast.
 export function useServerTable(fetcher, opts = {}) {
-  const pageSize = ref(opts.pageSize || 25);
-  const page = ref(1);
+  // Opening a document unmounts the list; without this the accountant came back
+  // to page 1 with the search cleared after every single document.
+  const memKey = opts.storeKey ? `ap_tbl:${opts.storeKey}` : null;
+  let mem = {};
+  if (memKey) { try { mem = JSON.parse(sessionStorage.getItem(memKey) || "{}"); } catch { mem = {}; } }
+  const pageSize = ref(mem.pageSize || opts.pageSize || 25);
+  const page = ref(mem.page || 1);
   const rows = ref([]);
   const total = ref(0);
   const extra = ref({}); // full payload (e.g. state_counts)
   const loading = ref(true);
   const error = ref(""); // set when a fetch throws — callers must NOT render empty-success on error
-  const search = ref("");
-  const sortField = ref(opts.sortField || "date");
-  const sortDir = ref(opts.sortDir || "desc");
-  const filters = ref({ ...(opts.filters || {}) });
+  const search = ref(mem.search || "");
+  const sortField = ref(mem.sortField || opts.sortField || "date");
+  const sortDir = ref(mem.sortDir || opts.sortDir || "desc");
+  const filters = ref({ ...(opts.filters || {}), ...(mem.filters || {}) });
 
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
   const rangeStart = computed(() => (total.value ? (page.value - 1) * pageSize.value + 1 : 0));
@@ -56,6 +61,18 @@ export function useServerTable(fetcher, opts = {}) {
     else { sortField.value = field; sortDir.value = "desc"; }
     page.value = 1;
     load();
+  }
+
+  // Remember where the user was, per list, for this browser session.
+  if (memKey) {
+    watch([page, pageSize, search, sortField, sortDir, filters], () => {
+      try {
+        sessionStorage.setItem(memKey, JSON.stringify({
+          page: page.value, pageSize: pageSize.value, search: search.value,
+          sortField: sortField.value, sortDir: sortDir.value, filters: filters.value,
+        }));
+      } catch { /* private mode */ }
+    }, { deep: true });
   }
 
   let t = null;

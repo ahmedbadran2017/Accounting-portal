@@ -44,17 +44,19 @@
       </div>
       <TableLoading v-if="st.loading.value" :rows="8" />
       <div v-else-if="!st.rows.value.length" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No delivery notes.","لا توجد سندات تسليم.","Aucun bon.") }}</div>
-      <ServerPager :t="st" />
+      <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" :total="st.total.value" export-key="challans" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
+    <ServerPager :t="st" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import ListToolbar from "@/components/ListToolbar.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import api from "@/services/api";
@@ -82,8 +84,15 @@ const ins = ref(null);
 const df = useDateFilter("challans", (f) => st.setFilters(f));
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_challans", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },  { storeKey: "challans" },
 );
+// Status chips + page size + full-list Excel (ListToolbar).
+const listStatus = usePersistedRef("ap_ls_challans", "open");
+const listPageSize = usePersistedRef("ap_lps_challans", 25);
+const extraStatuses = [];
+const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
+watch([listStatus, listPageSize], () => { st.pageSize.value = listPageSize.value; st.setFilters({ status: listStatus.value }); }, { immediate: true });
+
 st.load();
 async function loadIns() { try { ins.value = await api.call("accounting_portal.api.sales.challans_summary", { company: currentCompany() }); } catch { ins.value = null; } }
 loadIns();

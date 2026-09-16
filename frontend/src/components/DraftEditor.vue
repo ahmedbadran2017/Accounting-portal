@@ -74,6 +74,30 @@
                 </tbody>
               </table>
             </div>
+            <div v-if="d.child.fill === 'outstanding'" class="px-3 py-2 border-t border-line-hair flex items-center gap-2 flex-wrap">
+              <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark h-7 px-2.5 rounded-chip disabled:opacity-50" :disabled="outLoading" @click="loadOutstanding">
+                <Icon name="search" :size="12" color="#fff" />{{ outLoading ? "…" : L("Get outstanding invoices", "جلب الفواتير المستحقة", "Factures en attente") }}
+              </button>
+              <span v-if="out.unallocated" class="text-[11.5px] text-ink-3">{{ L("Unallocated", "غير مخصّص", "Non affecté") }} <b class="tnum">{{ fmt(out.unallocated) }}</b></span>
+            </div>
+            <div v-if="outRows.length" class="border-t border-line-hair bg-app-warm/20 max-h-[220px] overflow-auto">
+              <table class="w-full text-[11.5px]">
+                <thead><tr class="text-[10px] font-bold uppercase tracking-wider text-ink-muted"><th class="px-3 py-1.5 w-8"></th><th class="px-3 py-1.5 text-start">{{ L("Invoice","الفاتورة","Facture") }}</th><th class="px-3 py-1.5 text-start">{{ L("Date","التاريخ","Date") }}</th><th class="px-3 py-1.5 text-end">{{ L("Outstanding","المستحق","Restant") }}</th><th class="px-3 py-1.5 text-end w-28">{{ L("Allocate","المخصّص","Affecter") }}</th></tr></thead>
+                <tbody>
+                  <tr v-for="o in outRows" :key="o.name" class="border-t border-line-hair/60">
+                    <td class="px-3 py-1"><input type="checkbox" v-model="o._on" @change="autoFill" /></td>
+                    <td class="px-3 py-1 font-mono">{{ o.name }}</td>
+                    <td class="px-3 py-1 text-ink-3">{{ o.date }}</td>
+                    <td class="px-3 py-1 text-end tnum">{{ fmt(o.outstanding) }}</td>
+                    <td class="px-3 py-1"><input type="number" step="any" min="0" v-model="o._amt" :disabled="!o._on" dir="ltr" class="h-7 w-full rounded-[7px] border border-line-2 px-1.5 text-[11.5px] text-end tnum bg-white disabled:bg-app-warm" /></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="px-3 py-2 flex items-center gap-2 border-t border-line-hair">
+                <span class="text-[11.5px] text-ink-3">{{ L("Selected", "المحدّد", "Sélection") }} <b class="tnum">{{ fmt(selectedAlloc) }}</b></span>
+                <button type="button" class="ms-auto h-7 px-3 rounded-chip text-[11.5px] font-bold text-white bg-ink disabled:opacity-50" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</button>
+              </div>
+            </div>
             <div v-if="d.child.can_add" class="px-3 py-2 border-t border-line-hair">
               <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="addRow"><Icon name="plus" :size="12" />{{ L("Add row", "إضافة سطر", "Ajouter une ligne") }}</button>
             </div>
@@ -139,6 +163,46 @@ function addRow() {
   const row = {};
   for (const c of d.value.child?.columns || []) row[c.field] = "";
   rv.value.push(row);
+}
+
+// ── Allocation against open invoices (Payment Entry drafts) ──
+const out = ref({ unallocated: 0 });
+const outRows = ref([]);
+const outLoading = ref(false);
+const allocating = ref(false);
+const selectedAlloc = computed(() => outRows.value.filter((o) => o._on).reduce((s2, o) => s2 + (Number(o._amt) || 0), 0));
+async function loadOutstanding() {
+  outLoading.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.docedit.outstanding_for_payment", { name: props.name }, { fresh: true });
+    out.value = r || {};
+    outRows.value = (r?.rows || []).map((o) => ({ ...o, _on: false, _amt: 0 }));
+    autoFillInitial();
+  } catch (e) { error.value = String(e?.message || e).slice(0, 180); }
+  finally { outLoading.value = false; }
+}
+// Oldest first against the unallocated balance — the Desk's default behaviour.
+function autoFillInitial() {
+  let left = Number(out.value.unallocated) || 0;
+  for (const o of outRows.value) {
+    if (left <= 0) break;
+    const take = Math.min(left, Number(o.outstanding) || 0);
+    o._on = take > 0; o._amt = Math.round(take * 100) / 100; left -= take;
+  }
+}
+function autoFill() {
+  for (const o of outRows.value) if (o._on && !Number(o._amt)) o._amt = Number(o.outstanding) || 0;
+}
+async function allocate() {
+  allocating.value = true; error.value = "";
+  try {
+    const rows2 = outRows.value.filter((o) => o._on && Number(o._amt) > 0).map((o) => ({ name: o.name, doctype: out.value.doctype, amount: Number(o._amt) }));
+    const r = await api.call("accounting_portal.api.docedit.allocate_payment", { name: props.name, rows: rows2 });
+    d.value = r || d.value;
+    rv.value = (d.value.child?.rows || []).map((x) => ({ ...x }));
+    outRows.value = []; out.value = {};
+  } catch (e) { error.value = String(e?.message || e).slice(0, 200); }
+  finally { allocating.value = false; }
 }
 
 async function save() {

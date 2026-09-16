@@ -30,7 +30,8 @@ _BILL_SORT = {"date": "pi.posting_date", "amount": "pi.grand_total", "supplier":
 
 
 @frappe.whitelist()
-def list_bills(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25, sort_field="date", sort_dir="desc"):
+def list_bills(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25,
+               sort_field="date", sort_dir="desc", status=None):
     """Bills for one company with a derived 3-way-match flag, server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
@@ -40,8 +41,24 @@ def list_bills(company=None, search=None, from_date=None, to_date=None, start=0,
     currency = frappe.db.get_value("Company", target, "default_currency")
     # docstatus < 2: drafts must be visible (38 draft bills were invisible while
     # the bulk bar offered "Submit"); cancelled stay out until a status filter exists.
-    conds = ["pi.company = %(company)s", "pi.docstatus < 2"]
+    conds = ["pi.company = %(company)s"]
     params = {"company": target}
+    # status: draft / submitted / cancelled / overdue / paid / ret — "all" shows every state.
+    st = (status or "open").lower()
+    if st == "draft":
+        conds.append("pi.docstatus = 0")
+    elif st == "cancelled":
+        conds.append("pi.docstatus = 2")
+    elif st == "submitted":
+        conds.append("pi.docstatus = 1")
+    elif st == "overdue":
+        conds.append("pi.docstatus = 1 AND pi.status IN ('Overdue','Unpaid')")
+    elif st == "paid":
+        conds.append("pi.docstatus = 1 AND pi.status = 'Paid'")
+    elif st == "ret":
+        conds.append("pi.docstatus < 2 AND IFNULL(pi.is_return,0) = 1")
+    elif st != "all":
+        conds.append("pi.docstatus < 2")
     if from_date:
         conds.append("pi.posting_date >= %(fd)s"); params["fd"] = from_date
     if to_date:
@@ -57,7 +74,7 @@ def list_bills(company=None, search=None, from_date=None, to_date=None, start=0,
         "pi.is_return, pi.status, pi.docstatus, pi.posting_date AS date, pi.bill_no, "
         "(SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name) AS n_items, "
         "(SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name AND IFNULL(it.purchase_order,'')<>'') AS n_po",
-        f"{col} {d}, pi.creation {d}", start, page_size)
+        f"{col} {d}, pi.creation {d}", start, page_size, max_ps=200)
     for r in rows:
         # Each bill shows its OWN transaction currency (USD/TRY suppliers), not the
         # company default — otherwise a USD bill reads as "MAD <usd amount>".

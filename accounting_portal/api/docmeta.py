@@ -302,3 +302,23 @@ def email_document(doctype=None, name=None, recipients=None, subject=None, messa
         "comment_email": frappe.session.user, "comment_by": frappe.session.user,
     }).insert(ignore_permissions=True)
     return {"ok": True, "sent_to": to}
+
+
+@frappe.whitelist()
+def print_options(doctype=None):
+    """Print formats, letterheads and languages available for this doctype — the
+    team keeps custom vouchers (Bank & Cash Payment, Purchase/Journal Auditing,
+    Salary Slip) that the portal could not select."""
+    assert_portal_access()
+    if not doctype:
+        return {"formats": [], "letterheads": [], "languages": []}
+    formats = frappe.get_all("Print Format", filters={"doc_type": doctype, "disabled": 0},
+                             fields=["name", "print_format_type"], order_by="name", pluck="name")
+    default = frappe.db.get_value("Property Setter",
+                                  {"doc_type": doctype, "property": "default_print_format"}, "value")
+    return {
+        "formats": formats,
+        "default": default or "",
+        "letterheads": frappe.get_all("Letter Head", filters={"disabled": 0}, pluck="name", order_by="name"),
+        "languages": ["", "en", "ar", "fr"],
+    }

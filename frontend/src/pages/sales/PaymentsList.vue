@@ -55,7 +55,8 @@
       </div>
       <TableLoading v-if="st.loading.value" />
       <div v-else-if="!displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No payments match your filters.","لا توجد مدفوعات مطابقة.","Aucun paiement.") }}</div>
-      <ServerPager :t="st" />
+      <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" :total="st.total.value" export-key="payments_in" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
+    <ServerPager :t="st" />
     <BulkBar :t="st" :actions="bulkActions" filename="payments-received" />
     </div>
   </div>
@@ -63,13 +64,14 @@
 
 <script setup>
 import { fmtAmount } from "@/utils/helpers";
-import { ref, computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import StatCard from "@/components/StatCard.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import ListToolbar from "@/components/ListToolbar.vue";
 import BulkBar from "@/components/BulkBar.vue";
 import { useBulkDocs } from "@/composables/useBulkDocs";
 import { currentCompany } from "@/composables/useLive";
@@ -101,8 +103,15 @@ const df = useDateFilter("receipts", (f) => st.setFilters(f));
 const { actions: bulkActions } = useBulkDocs("Payment Entry", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_receipts", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
-  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
+  { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },  { storeKey: "pay_in" },
 );
+// Status chips + page size + full-list Excel (ListToolbar).
+const listStatus = usePersistedRef("ap_ls_payments_in", "open");
+const listPageSize = usePersistedRef("ap_lps_payments_in", 25);
+const extraStatuses = [];
+const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
+watch([listStatus, listPageSize], () => { st.pageSize.value = listPageSize.value; st.setFilters({ status: listStatus.value }); }, { immediate: true });
+
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });
 
