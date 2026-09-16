@@ -1,4 +1,4 @@
-import api from "@/services/api";
+import api, { apiHealth } from "@/services/api";
 import { useUi } from "@/composables/useUi";
 
 // The ERPNext company for the entity currently selected in the switcher.
@@ -17,6 +17,10 @@ export async function liveOrSample(method, args, fallback, normalize) {
     const r = await api.call(method, args || {});
     return { live: true, data: normalize ? normalize(r) : r };
   } catch {
+    // Never silent: the header shows an amber "sample data" chip while any screen
+    // is rendering a fallback, so a fabricated figure can't pass as a real one.
+    apiHealth.samples++;
+    if (!apiHealth.sampleMethods.includes(method)) apiHealth.sampleMethods.push(method);
     return { live: false, data: fallback() };
   }
 }

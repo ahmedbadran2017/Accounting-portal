@@ -1,6 +1,11 @@
 <template>
   <div class="space-y-3.5">
     <div v-if="loading"><TableLoading :rows="8" /></div>
+    <div v-else-if="loadError" class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-10 text-center">
+      <p class="text-[13px] font-bold text-rose-700">{{ L("Couldn't load the receivables / payables reconciliation.","تعذّر تحميل مطابقة الذمم.","Impossible de charger le rapprochement.") }}</p>
+      <p class="text-[12px] text-ink-muted mt-1 font-mono">{{ loadError }}</p>
+      <button class="mt-3 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-brand" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+    </div>
     <template v-else>
       <!-- Toolbar: net working capital + export -->
       <div class="flex items-center gap-3 flex-wrap">
@@ -152,19 +157,13 @@ const ar = computed(() => r.value.ar || {});
 const ap = computed(() => r.value.ap || {});
 const wc = computed(() => Number(r.value.working_capital) || 0);
 
-const SAMPLE = {
-  working_capital: -2803650,
-  ar: { carrier_float: 981370, si_outstanding: 0, operational: 981370, gl_debtors: -2851136, wrong_sign: true },
-  ap: { pi_unpaid: 7560155, advances: 3775135, net_invoice: 3785020, gl_creditors: 4046355, invoice_gap: -261335, grni: 4376059, gl_grni: 3136293, grni_gap: 1239766, reconciled: false },
-  top_creditors: [{ party: "BISFOR", name: "BISFOR LOGISTIC SARL", owed: 3356108 }, { party: "Meta", name: "Meta / Facebook Ads", owed: 734812 }, { party: "China", name: "Justyol China", owed: 248305 }],
-  top_advances: [{ party: "Maslak", name: "Maslak LTD", n: 5, adv: 800462 }, { party: "BISFOR", name: "BISFOR LOGISTIC SARL", n: 15, adv: 689579 }, { party: "Aramex", name: "ARAMEX", n: 7, adv: 473699 }],
-  ar_aging: { cur: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90p: 0, total: 0 },
-  ap_aging: { cur: 257180, d1_30: 800000, d31_60: 900000, d61_90: 600000, d90p: 640000, total: 3198528 },
-};
+// No sample fallback: a reconciliation figure is either real or absent.
+const loadError = ref("");
 async function load() {
   loading.value = true;
-  try { r.value = await api.call("accounting_portal.api.reports.ar_ap_reconciliation", { company: currentCompany() }) || SAMPLE; }
-  catch { r.value = SAMPLE; }
+  loadError.value = "";
+  try { r.value = (await api.call("accounting_portal.api.reports.ar_ap_reconciliation", { company: currentCompany() })) || {}; }
+  catch (e) { r.value = {}; loadError.value = String(e?.message || e).slice(0, 200); }
   finally { loading.value = false; }
 }
 watch(entityId, load, { immediate: true });

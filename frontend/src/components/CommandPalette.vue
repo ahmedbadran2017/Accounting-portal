@@ -53,8 +53,10 @@ const list = ref(null);
 const index = computed(() => {
   const out = [];
   out.push({ key: "create-customer", create: true, icon: "user", label: L("Create customer", "إنشاء عميل", "Créer un client"), action: "customer" });
-  out.push({ key: "create-order", create: true, icon: "receipt", label: L("Create sales order", "إنشاء أمر بيع", "Créer une commande"), action: "order" });
-  out.push({ key: "create-invoice", create: true, icon: "receipt", label: L("Create invoice", "إنشاء فاتورة", "Créer une facture"), action: "invoice" });
+  out.push({ key: "create-order", create: true, icon: "receipt", label: L("New sales order", "أمر بيع جديد", "Nouvelle commande"), action: "order" });
+  out.push({ key: "create-journal", create: true, icon: "ledger", label: L("New journal entry", "قيد يومية جديد", "Nouvelle écriture"), action: "journal" });
+  out.push({ key: "create-expense", create: true, icon: "doc", label: L("New expense / supplier bill", "مصروف / فاتورة مورد جديدة", "Nouvelle dépense / facture"), action: "expense" });
+  out.push({ key: "create-payment", create: true, icon: "coins", label: L("Record a payment received", "تسجيل دفعة محصّلة", "Enregistrer un encaissement"), action: "payment" });
   for (const g of NAV_GROUPS) {
     for (const m of g.items) {
       out.push({ key: "m-" + m.id, icon: m.icon, label: t("nav." + m.id), to: `/accounting/${m.id}` });

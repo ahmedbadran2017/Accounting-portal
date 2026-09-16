@@ -13,7 +13,7 @@
           <div class="text-[12.5px] text-ink-3">{{ b.vendor }}<span v-if="b.date"> · {{ b.date }}</span><span v-if="b.bill_no" class="text-ink-muted"> · {{ b.bill_no }}</span></div>
         </div>
         <div class="ms-auto text-end">
-          <div class="text-[22px] font-bold tnum" :class="b.amount.includes('-') ? 'text-sale' : ''">{{ b.amount }}</div>
+          <div class="text-[22px] font-bold tnum" :class="b.amount.includes('-') ? 'text-sale' : ''">{{ b.amount }} <span class="text-[12px] text-ink-muted font-normal">{{ b.currency }}</span></div>
           <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border mt-1"
                 :style="{ background: BILL_STATUS[b.status].bg, color: BILL_STATUS[b.status].fg, borderColor: BILL_STATUS[b.status].bd }">
             {{ billStatusLabel(b.status, locale) }}
@@ -95,8 +95,8 @@
     <div class="bg-white rounded-card border border-line p-4">
       <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="layers" :size="13" color="#7c3aed" /></span><span class="text-[12.5px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
       <div v-if="related.orders.length || related.receipts.length || related.payments.length" class="flex flex-wrap gap-2">
-        <button v-for="po in related.orders" :key="po" @click="openDoc('pos', po)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="12" color="#b45309" />{{ po }}</button>
-        <button v-for="gr in related.receipts" :key="gr" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm"><Icon name="truck" :size="12" color="#c2410c" />{{ gr }}</button>
+        <button v-for="po in related.orders" :key="po" @click="openDoc('tobuy', po)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="12" color="#b45309" />{{ po }}</button>
+        <button v-for="gr in related.receipts" :key="gr" @click="openDoc('received', gr)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm"><Icon name="truck" :size="12" color="#c2410c" />{{ gr }}</button>
         <button v-for="pe in related.payments" :key="pe" @click="openDoc('payments', pe)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="12" color="#047857" />{{ pe }}</button>
       </div>
       <div v-else class="text-[11.5px] text-ink-muted">{{ L("No linked PO, receipt or payment.","لا أمر شراء أو استلام أو دفعة مرتبطة.","Aucun document lié.") }}</div>

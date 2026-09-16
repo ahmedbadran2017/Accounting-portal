@@ -46,7 +46,7 @@
           <button v-for="o in d.connections.orders" :key="o" @click="open('tobuy', o)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="11" color="#0369a1" />{{ o }}</button>
           <button v-for="r in d.connections.receipts" :key="r" @click="open('received', r)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="box" :size="11" color="#b45309" />{{ r }}</button>
           <button v-for="i in d.connections.invoices" :key="i" @click="open('topay', i)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="doc" :size="11" color="#0891b2" />{{ i }}</button>
-          <span v-for="p in d.connections.payments" :key="p" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm"><Icon name="coins" :size="11" color="#047857" />{{ p }}</span>
+          <button v-for="p in d.connections.payments" :key="p" @click="open('payments', p)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="11" color="#047857" />{{ p }}</button>
         </div>
       </div>
 

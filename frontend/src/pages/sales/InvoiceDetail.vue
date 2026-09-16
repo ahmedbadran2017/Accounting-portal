@@ -131,7 +131,7 @@
           <tfoot class="text-[12px]">
             <tr><td colspan="2"></td><td class="px-4 py-1.5 text-end text-ink-3">{{ L("Subtotal (ex-VAT)","المجموع قبل الضريبة","Sous-total HT") }}</td><td class="px-4 py-1.5 text-end tnum">{{ fmt2(inv.net) }}</td></tr>
             <tr><td colspan="2"></td><td class="px-4 py-1.5 text-end text-ink-3">{{ L("VAT 20%","ضريبة 20%","TVA 20%") }}</td><td class="px-4 py-1.5 text-end tnum">{{ fmt2(inv.vat) }}</td></tr>
-            <tr class="border-t border-line-2"><td colspan="2"></td><td class="px-4 py-2 text-end font-bold">{{ L("Total","الإجمالي","Total") }}</td><td class="px-4 py-2 text-end tnum font-bold text-[14px]">{{ fmt2(inv.gross) }}</td></tr>
+            <tr class="border-t border-line-2"><td colspan="2"></td><td class="px-4 py-2 text-end font-bold">{{ L("Total","الإجمالي","Total") }} <span class="text-[11px] text-ink-muted font-normal">{{ inv.currency }}</span></td><td class="px-4 py-2 text-end tnum font-bold text-[14px]">{{ fmt2(inv.gross) }}</td></tr>
           </tfoot>
         </table>
       </div>

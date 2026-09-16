@@ -297,6 +297,7 @@ def get_journal(name=None):
         frappe.throw("Journal not found")
     if je.company not in resolve_companies():
         frappe.throw("Not permitted", frappe.PermissionError)
+    je["currency"] = frappe.get_cached_value("Company", je.company, "default_currency")
     accounts = frappe.db.sql(
         """SELECT jea.account, IFNULL(a.account_name, jea.account) AS account_name,
                   jea.party_type, jea.party, ROUND(jea.debit, 2) AS debit, ROUND(jea.credit, 2) AS credit,

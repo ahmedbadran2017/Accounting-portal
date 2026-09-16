@@ -61,7 +61,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
@@ -77,6 +77,7 @@ import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 
 const { locale } = useI18n();
+const route = useRoute();
 const router = useRouter();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -98,6 +99,9 @@ const st = useServerTable(
   (params) => api.call("accounting_portal.api.purchases.list_bills", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
   { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
 );
+// Arriving from a supplier page (?supplier=…) narrows the list to that supplier.
+watch(() => route.query.supplier, (v) => { if (v) st.search.value = String(v); }, { immediate: true });
+
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });
 

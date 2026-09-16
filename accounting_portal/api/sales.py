@@ -213,7 +213,7 @@ def list_challans(company=None, search=None, from_date=None, to_date=None,
     if not companies:
         return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    conds = ["dn.company=%(c)s", "dn.docstatus=1"]
+    conds = ["dn.company=%(c)s", "dn.docstatus<2"]
     params = {"c": target}
     if search:
         conds.append("(dn.name LIKE %(s)s OR dn.customer LIKE %(s)s OR IFNULL(dn.custom_tracking_number,'') LIKE %(s)s)")
@@ -227,7 +227,7 @@ def list_challans(company=None, search=None, from_date=None, to_date=None,
     d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
     rows, total, s, ps = _paginate.page_query(
         "`tabDelivery Note` dn", " AND ".join(conds), params,
-        "dn.name, dn.customer, dn.posting_date AS date, "
+        "dn.name, dn.docstatus, dn.customer, dn.posting_date AS date, "
         "IFNULL(NULLIF(dn.custom_tracking_company,''),'—') AS carrier, "
         "IFNULL(NULLIF(dn.custom_tracking_number,''),'—') AS tracking, "
         "IFNULL(NULLIF(dn.custom_track_shipment_status,''), IFNULL(dn.custom_logistics_status, dn.status)) AS status, "
@@ -271,7 +271,7 @@ def list_receipts(company=None, search=None, from_date=None, to_date=None, start
     if not companies:
         return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
-    conds = ["pe.company=%(c)s", "pe.docstatus=1", "pe.payment_type='Receive'"]
+    conds = ["pe.company=%(c)s", "pe.docstatus<2", "pe.payment_type='Receive'"]
     params = {"c": target}
     if from_date:
         conds.append("pe.posting_date >= %(fd)s"); params["fd"] = from_date
@@ -286,7 +286,7 @@ def list_receipts(company=None, search=None, from_date=None, to_date=None, start
     where = " AND ".join(conds)
     rows, total, s, ps = _paginate.page_query(
         "`tabPayment Entry` pe", where, params,
-        "pe.name, pe.party AS customer, IFNULL(NULLIF(pe.reference_no,''),'—') AS ref, "
+        "pe.name, pe.docstatus, pe.party AS customer, IFNULL(NULLIF(pe.reference_no,''),'—') AS ref, "
         "IFNULL(NULLIF(pe.mode_of_payment,''),'—') AS method, pe.paid_amount AS collected, pe.posting_date AS date",
         f"{col} {d}, pe.creation {d}", start, page_size)
     # KPI totals over the WHOLE filtered set — page-invariant, cache per filter sig.
@@ -349,7 +349,7 @@ def get_order(name):
     assert_portal_access()
     so = frappe.db.get_value(
         "Sales Order", name,
-        ["name", "customer", "company", "grand_total", "net_total",
+        ["name", "customer", "company", "grand_total", "net_total", "currency",
          "total_taxes_and_charges", "status", "transaction_date",
          "custom_sales_status", "custom_logistics_status",
          "custom_track_shipment_status", "custom_tracking_company",
@@ -559,7 +559,7 @@ def get_challan(name):
     assert_portal_access()
     dn = frappe.db.get_value(
         "Delivery Note", name,
-        ["name", "customer", "company", "posting_date", "grand_total", "status",
+        ["name", "customer", "company", "posting_date", "grand_total", "currency", "status",
          "custom_tracking_company", "custom_tracking_number", "custom_tracking_url",
          "custom_track_shipment_status", "custom_logistics_status"], as_dict=True)
     if not dn:

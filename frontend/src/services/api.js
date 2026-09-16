@@ -13,7 +13,13 @@
  *     aggregate. ANY write flushes the whole cache, so a read after a write is
  *     always fresh. Only clearly-read methods are ever cached.
  */
+import { reactive } from "vue";
 import { frappeApi, extractApiError } from "@/utils/helpers";
+
+// Real connectivity signal for the header chip (it used to be a hardcoded green
+// "synced" dot). ok flips false on a network/5xx failure and back on the next
+// success; `samples` counts screens that fell back to sample data this session.
+export const apiHealth = reactive({ ok: true, lastOk: 0, lastFail: 0, fails: 0, samples: 0, sampleMethods: [] });
 
 const READ_TTL_MS = 12000;
 // A method is a cacheable read if its function name starts with a read verb or
@@ -38,8 +44,10 @@ async function _fetch(method, args) {
     const err = new Error(extractApiError(body) || `HTTP ${res.status}`);
     err.status = res.status;
     err._body = body;
+    if (res.status >= 500 || res.status === 0) { apiHealth.ok = false; apiHealth.lastFail = Date.now(); apiHealth.fails++; }
     throw err;
   }
+  apiHealth.ok = true; apiHealth.lastOk = Date.now();
   return body && "message" in body ? body.message : body;
 }
 

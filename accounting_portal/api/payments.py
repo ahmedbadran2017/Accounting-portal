@@ -31,6 +31,8 @@ def get_receipt(name=None, company=None):
     if not name or not frappe.db.exists("Payment Entry", name):
         return None
     pe = frappe.get_doc("Payment Entry", name)
+    if pe.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
     refs = [{
         "doctype": r.reference_doctype, "name": r.reference_name,
         "allocated": flt(r.allocated_amount), "total": flt(r.total_amount),
@@ -116,13 +118,18 @@ def _pe_poster(action):
         "party": p["party"],
         "paid_amount": amt,
         "received_amount": amt,
-        "source_exchange_rate": 1,
-        "target_exchange_rate": 1,
+        # Exchange rates are NOT pinned to 1: ERPNext's set_exchange_rate() fetches
+        # the day's rate for a foreign-currency account (392 payments in 2026 had a
+        # rate ≠ 1 and were posting at the wrong base value from here). An explicit
+        # `exchange_rate` in the payload overrides the lookup.
         "reference_no": ref_no,
         "reference_date": posting_date,
         "paid_from": party_acct if is_receive else bank,
         "paid_to": bank if is_receive else party_acct,
     })
+    if flt(p.get("exchange_rate")):
+        pe.source_exchange_rate = flt(p.get("exchange_rate"))
+        pe.target_exchange_rate = flt(p.get("exchange_rate"))
     ref_dt = "Sales Invoice" if party_type == "Customer" else "Purchase Invoice"
     for ref in (p.get("references") or []):
         pe.append("references", {
@@ -260,7 +267,7 @@ def list_payments_made(company=None, search=None, from_date=None, to_date=None,
     target = _target(company)
     if not target:
         return {"rows": [], "total": 0}
-    conds = ["pe.company=%(c)s", "pe.docstatus=1", "pe.payment_type='Pay'", "pe.party_type='Supplier'"]
+    conds = ["pe.company=%(c)s", "pe.docstatus<2", "pe.payment_type='Pay'", "pe.party_type='Supplier'"]
     params = {"c": target}
     if int(advances_only or 0):
         conds.append("pe.unallocated_amount > 0")
@@ -276,7 +283,7 @@ def list_payments_made(company=None, search=None, from_date=None, to_date=None,
     d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
     rows, total, s, ps = _paginate.page_query(
         "`tabPayment Entry` pe LEFT JOIN `tabSupplier` s ON s.name=pe.party", " AND ".join(conds), params,
-        "pe.name, pe.party, IFNULL(s.supplier_name, pe.party) AS party_name, pe.posting_date AS date, "
+        "pe.name, pe.docstatus, pe.party, IFNULL(s.supplier_name, pe.party) AS party_name, pe.posting_date AS date, "
         "IFNULL(pe.mode_of_payment,'—') AS method, pe.paid_amount AS amount, pe.paid_from_account_currency AS currency, "
         "IFNULL(pe.reference_no,'') AS reference_no, ROUND(pe.unallocated_amount,2) AS unallocated, "
         "(SELECT COUNT(*) FROM `tabPayment Entry Reference` per WHERE per.parent=pe.name AND per.reference_doctype='Purchase Invoice') AS n_bills",

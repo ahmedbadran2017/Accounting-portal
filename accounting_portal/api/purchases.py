@@ -16,6 +16,8 @@ from accounting_portal.api.sales import _voucher_journal
 
 def _bill_status(row):
     """Normalise ERPNext Purchase Invoice status → portal vocabulary."""
+    if int(row.get("docstatus") or 0) == 0:
+        return "draft"
     if row.get("is_return"):
         return "ret"
     s = (row.get("status") or "").strip()
@@ -36,7 +38,9 @@ def list_bills(company=None, search=None, from_date=None, to_date=None, start=0,
         return {"rows": [], "total": 0}
     target = company if (company and company in companies) else companies[0]
     currency = frappe.db.get_value("Company", target, "default_currency")
-    conds = ["pi.company = %(company)s", "pi.docstatus = 1"]
+    # docstatus < 2: drafts must be visible (38 draft bills were invisible while
+    # the bulk bar offered "Submit"); cancelled stay out until a status filter exists.
+    conds = ["pi.company = %(company)s", "pi.docstatus < 2"]
     params = {"company": target}
     if from_date:
         conds.append("pi.posting_date >= %(fd)s"); params["fd"] = from_date
@@ -50,7 +54,7 @@ def list_bills(company=None, search=None, from_date=None, to_date=None, start=0,
     rows, total, s, ps = _paginate.page_query(
         "`tabPurchase Invoice` pi", " AND ".join(conds), params,
         "pi.name, pi.supplier, pi.grand_total, pi.base_grand_total, pi.currency AS doc_currency, "
-        "pi.is_return, pi.status, pi.posting_date AS date, pi.bill_no, "
+        "pi.is_return, pi.status, pi.docstatus, pi.posting_date AS date, pi.bill_no, "
         "(SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name) AS n_items, "
         "(SELECT COUNT(*) FROM `tabPurchase Invoice Item` it WHERE it.parent = pi.name AND IFNULL(it.purchase_order,'')<>'') AS n_po",
         f"{col} {d}, pi.creation {d}", start, page_size)
@@ -329,6 +333,8 @@ def get_purchase_doc(name=None, doctype=None):
     if not dt or not name or not frappe.db.exists(dt, name):
         return None
     doc = frappe.get_doc(dt, name)
+    if doc.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
     codes = list({it.item_code for it in doc.items if it.item_code})
     imeta = {}
     if codes:

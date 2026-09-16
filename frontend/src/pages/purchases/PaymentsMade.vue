@@ -41,7 +41,7 @@
         <tbody>
           <tr v-for="o in displayRows" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.name)">
             <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(o.name)" @change="st.toggle(o.name)" /></td>
-            <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}</td>
+            <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}<span v-if="o.docstatus === 0" class="ms-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
             <td class="px-4 py-2.5 truncate max-w-[220px]">{{ o.party_name }}</td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
             <td class="px-4 py-2.5 whitespace-nowrap">
@@ -62,7 +62,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
@@ -77,6 +77,7 @@ import { usePersistedRef } from "@/composables/usePersistedRef";
 
 const router = useRouter();
 const { locale } = useI18n();
+const route = useRoute();
 const { entityId } = useUi();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -121,6 +122,9 @@ const st = useServerTable(
   (params) => api.call("accounting_portal.api.payments.list_payments_made", { company: currentCompany(), ...params }).then((r) => { live.value = true; return r; }),
   { pageSize: 25, sortField: "date", sortDir: "desc", filters: { from_date: fd0 || undefined, to_date: td0 || undefined } },
 );
+// Arriving from a supplier page (?supplier=…) narrows the list to that supplier.
+watch(() => route.query.supplier, (v) => { if (v) st.search.value = String(v); }, { immediate: true });
+
 // initial load is triggered by the immediate entityId watch below (loadAdv + setFilters)
 
 const displayRows = computed(() => (st.rows.value || []).map((r) => ({

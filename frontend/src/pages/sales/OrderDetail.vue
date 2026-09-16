@@ -38,7 +38,7 @@
         </div>
         <div class="text-end">
           <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Order total (gross)","إجمالي الطلب","Total commande (TTC)") }}</div>
-          <div class="text-[24px] font-bold tnum">{{ o.value }} <span class="text-[13px] text-ink-3">MAD</span></div>
+          <div class="text-[24px] font-bold tnum">{{ o.value }} <span class="text-[13px] text-ink-3">{{ o.currency }}</span></div>
         </div>
       </div>
       <!-- Dimensions -->
@@ -64,9 +64,9 @@
           <span v-else class="w-14 h-14 rounded-[10px] grid place-items-center bg-app-warm border border-line flex-shrink-0"><Icon name="box" :size="20" color="#a8a29e" /></span>
           <div class="flex-1 min-w-0">
             <div class="text-[12.5px] font-semibold leading-snug">{{ it.name }}</div>
-            <div class="text-[11px] text-ink-3 mt-0.5">{{ it.qty }} × {{ it.rate }} <span class="text-ink-muted">MAD</span></div>
+            <div class="text-[11px] text-ink-3 mt-0.5">{{ it.qty }} × {{ it.rate }} <span class="text-ink-muted">{{ o.currency }}</span></div>
           </div>
-          <div class="text-[13.5px] font-bold tnum whitespace-nowrap">{{ it.amount }} <span class="text-[11px] text-ink-muted">MAD</span></div>
+          <div class="text-[13.5px] font-bold tnum whitespace-nowrap">{{ it.amount }} <span class="text-[11px] text-ink-muted">{{ o.currency }}</span></div>
         </div>
       </div>
     </div>

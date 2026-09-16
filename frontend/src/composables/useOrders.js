@@ -39,7 +39,7 @@ function liveVM(d, l) {
     o: {
       id: d.name, customer: d.customer, av: "accent", initials: iniOf(d.customer),
       city: d.custom_shipping_city || "—", carrier: d.custom_tracking_company || "—",
-      date: String(d.transaction_date || ""), value: intFmt(d.grand_total), state: d.state,
+      date: String(d.transaction_date || ""), value: intFmt(d.grand_total), currency: d.currency || "MAD", state: d.state,
     },
     dims: [
       { k: L(l, "Sales", "المبيعات", "Ventes"), v: d.custom_sales_status || "—" },

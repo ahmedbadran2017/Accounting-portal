@@ -39,7 +39,7 @@
           <tbody>
             <tr v-for="p in displayRows" :key="p.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(p.name)">
               <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(p.name)" @change="st.toggle(p.name)" /></td>
-              <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ p.name }}</td>
+              <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ p.name }}<span v-if="p.docstatus === 0" class="ms-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
               <td class="px-4 py-2.5 truncate max-w-[200px]">{{ p.customer }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ p.date }}</td>
               <td class="px-4 py-2.5 whitespace-nowrap">

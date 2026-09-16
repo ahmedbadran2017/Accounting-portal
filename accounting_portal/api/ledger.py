@@ -22,32 +22,45 @@ def _target(company):
 
 @frappe.whitelist()
 def general_ledger(company=None, account=None, party=None, voucher_no=None,
-                   from_date=None, to_date=None, limit=200):
+                   from_date=None, to_date=None, limit=200, start=0, page_size=None,
+                   include_cancelled=0):
     """GL entries for one company, filterable by account / party / voucher / date
-    range — the portal's replacement for the ERPNext General Ledger report. When a
-    single account is filtered, an opening balance and a running balance are
-    returned so it reads like a true account statement."""
+    range — the portal's replacement for the ERPNext General Ledger report.
+
+    Server-paginated: `total` is the row count of the WHOLE filtered set and
+    `total_dr` / `total_cr` are sums over the whole set (they used to be sums of a
+    truncated 1,000-row page, which made the footer lie on any busy account —
+    120.01 Debtors alone carries 140k rows in 2026). When a single account is
+    filtered, `opening` and a per-row running `balance` are returned so it reads
+    like a true account statement; the running balance is correct on every page.
+    `limit` is kept for older callers as an alias of page_size."""
     assert_portal_access()
     target = _target(company)
     if not target:
-        return {"rows": [], "opening": 0.0}
-    limit = min(int(limit or 200), 1000)
-    ck = f"ap_gl:{target}:{account or ''}:{party or ''}:{voucher_no or ''}:{from_date or ''}:{to_date or ''}:{limit}"
+        return {"rows": [], "opening": 0.0, "total": 0}
+    ps = min(int(page_size or limit or 100), 500)
+    st = max(int(start or 0), 0)
+    inc = str(include_cancelled) in ("1", "true", "True")
+    ck = f"ap_gl:{target}:{account or ''}:{party or ''}:{voucher_no or ''}:{from_date or ''}:{to_date or ''}:{st}:{ps}:{int(inc)}"
     cached_hit = frappe.cache().get_value(ck)
     if cached_hit is not None:
         return cached_hit
-    conds = ["gl.company = %(company)s", "gl.is_cancelled = 0"]
-    params = {"company": target, "limit": limit}
+    conds = ["gl.company = %(company)s"]
+    if not inc:
+        conds.append("gl.is_cancelled = 0")
+    params = {"company": target, "lim": ps, "off": st}
     if account:
         conds.append("gl.account = %(account)s"); params["account"] = account
     if party:
-        conds.append("gl.party = %(party)s"); params["party"] = party
+        conds.append("(gl.party = %(party)s OR gl.party LIKE %(party_like)s)")
+        params["party"] = party; params["party_like"] = f"%{party}%"
     if voucher_no:
         conds.append("gl.voucher_no LIKE %(vno)s"); params["vno"] = f"%{voucher_no}%"
     if from_date:
         conds.append("gl.posting_date >= %(fd)s"); params["fd"] = from_date
     if to_date:
         conds.append("gl.posting_date <= %(td)s"); params["td"] = to_date
+    where = " AND ".join(conds)
 
     # Opening balance (debit−credit before from_date) for a single-account view.
     opening = 0.0
@@ -57,26 +70,46 @@ def general_ledger(company=None, account=None, party=None, voucher_no=None,
                WHERE company=%s AND account=%s AND is_cancelled=0 AND posting_date < %s""",
             (target, account, from_date))[0][0])
 
+    agg = frappe.db.sql(
+        f"SELECT COUNT(*) n, COALESCE(SUM(gl.debit),0) dr, COALESCE(SUM(gl.credit),0) cr "
+        f"FROM `tabGL Entry` gl WHERE {where}", params, as_dict=True)[0]
+    total, total_dr, total_cr = int(agg.n or 0), flt(agg.dr), flt(agg.cr)
+
     rows = frappe.db.sql(
         f"""
         SELECT gl.posting_date AS date, gl.voucher_type, gl.voucher_no AS ref,
-               gl.account, gl.party, gl.debit AS dr, gl.credit AS cr, gl.remarks
+               gl.account, gl.party, gl.party_type, gl.debit AS dr, gl.credit AS cr, gl.remarks,
+               gl.debit_in_account_currency AS dr_acc, gl.credit_in_account_currency AS cr_acc,
+               gl.account_currency, gl.cost_center, gl.is_cancelled, gl.against
         FROM `tabGL Entry` gl
-        WHERE {' AND '.join(conds)}
+        WHERE {where}
         ORDER BY gl.posting_date DESC, gl.creation DESC
-        LIMIT %(limit)s
+        LIMIT %(lim)s OFFSET %(off)s
         """,
         params, as_dict=True,
     )
-    # Running balance only makes sense for a single account; compute oldest→newest.
+    # Running balance for a single account (newest first): the balance shown on the
+    # first row of this page = closing − net of the rows that are newer than it.
     if account:
-        run = opening + sum(flt(r["dr"]) - flt(r["cr"]) for r in rows)
+        closing = opening + total_dr - total_cr
+        newer = 0.0
+        if st:
+            newer = flt(frappe.db.sql(
+                f"""SELECT COALESCE(SUM(t.debit - t.credit),0) FROM (
+                        SELECT gl.debit, gl.credit FROM `tabGL Entry` gl WHERE {where}
+                        ORDER BY gl.posting_date DESC, gl.creation DESC LIMIT %(off)s) t""",
+                params)[0][0])
+        run = closing - newer
         for r in rows:
             r["balance"] = round(run, 2)
             run -= (flt(r["dr"]) - flt(r["cr"]))
-    result = {"rows": rows, "opening": round(opening, 2),
-              "total_dr": round(sum(flt(r["dr"]) for r in rows), 2),
-              "total_cr": round(sum(flt(r["cr"]) for r in rows), 2)}
+    for r in rows:
+        r["date"] = str(r["date"])
+    result = {"rows": rows, "opening": round(opening, 2), "total": total, "start": st, "page_size": ps,
+              "total_dr": round(total_dr, 2), "total_cr": round(total_cr, 2),
+              "closing": round(opening + total_dr - total_cr, 2) if account else None,
+              "include_cancelled": inc, "company": target,
+              "currency": frappe.get_cached_value("Company", target, "default_currency")}
     try:
         frappe.cache().set_value(ck, result, expires_in_sec=120)
     except Exception:

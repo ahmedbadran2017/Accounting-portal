@@ -28,6 +28,7 @@ export const BILL_STATUS = {
   paid:    { bg: "#ecfdf5", fg: "#047857", bd: "#a7f3d0", en: "Paid", ar: "مدفوعة", fr: "Payée" },
   overdue: { bg: "#fef2f2", fg: "#be123c", bd: "#fecaca", en: "Overdue", ar: "متأخرة", fr: "En retard" },
   ret:     { bg: "#f1f5f9", fg: "#64748b", bd: "#cbd5e1", en: "Return", ar: "مرتجع", fr: "Retour" },
+  draft:   { bg: "#fffbeb", fg: "#b45309", bd: "#fde68a", en: "Draft", ar: "مسودة", fr: "Brouillon" },
 };
 
 export const BILLS = [

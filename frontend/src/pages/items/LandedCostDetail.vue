@@ -18,7 +18,7 @@
             </div>
             <div class="text-[11px] text-ink-muted mt-0.5">{{ d.posting_date }} · {{ L("distributed by","التوزيع حسب","réparti par") }} {{ d.basis }}</div>
           </div>
-          <div class="text-end"><div class="text-[22px] font-extrabold tnum">{{ fmt(d.total) }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div><div class="text-[10.5px] text-ink-muted">{{ L("total charges","إجمالي الرسوم","charges") }}</div></div>
+          <div class="text-end"><div class="text-[22px] font-extrabold tnum">{{ fmt(d.total) }}<span class="text-[12px] text-ink-muted ms-1">{{ d.currency || "" }}</span></div><div class="text-[10.5px] text-ink-muted">{{ L("total charges","إجمالي الرسوم","charges") }}</div></div>
         </div>
         <!-- charges -->
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line-hair">

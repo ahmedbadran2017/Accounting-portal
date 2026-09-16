@@ -328,6 +328,19 @@ def revertable_types():
 
 
 @frappe.whitelist()
+def pending_count():
+    """Proposed (awaiting approval) actions in the user's company scope — the
+    header bell. Cheap: one COUNT."""
+    assert_portal_access()
+    from accounting_portal.api.permissions import resolve_companies
+    comps = resolve_companies(None)
+    if not comps:
+        return {"count": 0}
+    n = frappe.db.count(APA, {"status": "Proposed", "company": ["in", comps]})
+    return {"count": int(n or 0), "can_approve": can_manage_users() or "Accounting Admin" in frappe.get_roles()}
+
+
+@frappe.whitelist()
 def list_actions(company=None, status=None, limit=50):
     """The audit feed for Settings → Activity."""
     assert_portal_access()

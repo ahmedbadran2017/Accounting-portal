@@ -117,8 +117,18 @@
         <!-- Spacer pins the controls to the right edge -->
         <div class="flex-1"></div>
 
-        <span class="hidden md:inline-flex items-center gap-1.5 text-[11px] font-semibold text-success-dark bg-success/10 px-2.5 py-1.5 rounded-chip">
-          <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>{{ t("header.synced") }}
+        <!-- Pending approvals bell: Proposed actions waiting for a second person -->
+        <router-link v-if="approvals" to="/accounting/settings/activity" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-chip" style="background:#fffbeb;color:#92400e" :title="L('Actions waiting for approval','أكشنات بانتظار الموافقة','Actions en attente')">
+          <Icon name="bell" :size="13" color="#92400e" /><span class="tnum">{{ approvals }}</span>
+        </router-link>
+        <!-- Connectivity: bound to real API results, not a decorative dot -->
+        <span class="hidden md:inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-chip"
+              :class="healthy ? 'text-success-dark bg-success/10' : 'text-rose-700 bg-rose-50'"
+              :title="healthy ? L('Connected to ERPNext','متصل بـ ERPNext','Connecté') : L('Connection problem — data may be stale','مشكلة اتصال، البيانات قد تكون قديمة','Problème de connexion')">
+          <span class="w-1.5 h-1.5 rounded-full" :class="healthy ? 'bg-success' : 'bg-rose-500 animate-pulse'"></span>{{ healthy ? L("Connected", "متصل", "Connecté") : L("Offline", "غير متصل", "Hors ligne") }}
+        </span>
+        <span v-if="apiHealth.samples" class="hidden md:inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-chip" style="background:#fffbeb;color:#92400e" :title="apiHealth.sampleMethods.join(', ')">
+          {{ L("Sample data on screen", "بيانات عيّنة على الشاشة", "Données d'exemple affichées") }}
         </span>
 
         <div class="relative" v-click-outside="() => (langOpen = false)">
@@ -157,6 +167,10 @@
 
     <CommandPalette :open="paletteOpen" @close="paletteOpen = false" @create="openCreate" />
     <CreateModal :type="createType" @close="createType = null" />
+    <JournalEntryForm v-if="formOpen === 'journal'" @close="formOpen = null" @posted="(r) => onFormPosted('journal', r)" />
+    <NewExpenseModal v-if="formOpen === 'expense'" @close="formOpen = null" @posted="(r) => onFormPosted('expense', r)" />
+    <PaymentEntryForm v-if="formOpen === 'payment'" @close="formOpen = null" @posted="(r) => onFormPosted('payment', r)" />
+    <SalesOrderForm v-if="formOpen === 'order'" @close="formOpen = null" @posted="(r) => onFormPosted('order', r)" />
   </div>
 </template>
 
@@ -165,9 +179,13 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
-import api from "@/services/api";
+import api, { apiHealth } from "@/services/api";
 import CommandPalette from "@/components/CommandPalette.vue";
 import CreateModal from "@/components/CreateModal.vue";
+import JournalEntryForm from "@/components/JournalEntryForm.vue";
+import NewExpenseModal from "@/components/NewExpenseModal.vue";
+import PaymentEntryForm from "@/components/PaymentEntryForm.vue";
+import SalesOrderForm from "@/components/SalesOrderForm.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useUi } from "@/composables/useUi";
 import { applyLocale, LOCALES, LOCALE_LABEL, RTL_LOCALES } from "@/i18n";
@@ -198,17 +216,48 @@ function badgeFor(m) {
   if (m.id === "mywork") return workCount.value > 0 ? String(workCount.value) : "";
   return m.badge || "";
 }
-onMounted(loadWorkCount);
-watch(() => route.path, loadWorkCount);
+onMounted(() => { loadWorkCount(); loadApprovals(); window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline); });
+onUnmounted(() => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); });
+watch(() => route.path, () => { loadWorkCount(); loadApprovals(); });
 
+// Every entry here opens a REAL form that posts to ERPNext. (The old "order" and
+// "invoice" entries wrote a fake document to memory and toasted success.)
 const createOptions = computed(() => [
-  { type: "customer", icon: "user", label: L("Customer", "عميل", "Client") },
+  { type: "journal", icon: "ledger", label: L("Journal entry", "قيد يومية", "Écriture") },
+  { type: "expense", icon: "doc", label: L("Expense / supplier bill", "مصروف / فاتورة مورد", "Dépense / facture") },
+  { type: "payment", icon: "coins", label: L("Payment received", "دفعة محصّلة", "Encaissement") },
   { type: "order", icon: "receipt", label: L("Sales order", "أمر بيع", "Commande") },
-  { type: "invoice", icon: "receipt", label: L("Invoice", "فاتورة", "Facture") },
+  { type: "customer", icon: "user", label: L("Customer", "عميل", "Client") },
 ]);
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
-function openCreate(type) { createMenuOpen.value = false; paletteOpen.value = false; createType.value = type; }
+// Which real form is open: journal / expense / payment / order render their own
+// modal components; customer keeps the small CreateModal.
+const formOpen = ref(null);
+function openCreate(type) {
+  createMenuOpen.value = false; paletteOpen.value = false;
+  if (type === "customer") { createType.value = "customer"; return; }
+  if (["journal", "expense", "payment", "order"].includes(type)) { formOpen.value = type; return; }
+  createType.value = null;
+}
+function onFormPosted(type, res) {
+  formOpen.value = null;
+  const v = res && (res.voucher_no || res.name);
+  if (type === "journal") router.push({ path: "/accounting/accountant/journals", query: v ? { id: v } : {} });
+  else if (type === "expense") router.push("/accounting/expenses");
+  else if (type === "payment") router.push({ path: "/accounting/sales/payments", query: v ? { id: v } : {} });
+  else if (type === "order") router.push({ path: "/accounting/sales/orders", query: v ? { id: v } : {} });
+}
+
+// ── Header signals: real connectivity + pending approvals ──
+const online = ref(typeof navigator === "undefined" ? true : navigator.onLine);
+const onOnline = () => { online.value = true; }; const onOffline = () => { online.value = false; };
+const healthy = computed(() => online.value && apiHealth.ok);
+const approvals = ref(0);
+async function loadApprovals() {
+  try { const r = await api.call("accounting_portal.api._actions.pending_count", {}, { fresh: true }); approvals.value = r?.count || 0; }
+  catch { approvals.value = 0; }
+}
 
 // Global ⌘K / Ctrl+K opens the command palette; Esc closes overlays.
 function onKey(e) {

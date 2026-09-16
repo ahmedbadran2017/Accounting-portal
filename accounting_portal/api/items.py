@@ -366,6 +366,7 @@ def get_landed_cost(name=None):
         frappe.throw("Voucher not found")
     if lcv.company not in resolve_companies():
         frappe.throw("Not permitted", frappe.PermissionError)
+    lcv["currency"] = frappe.get_cached_value("Company", lcv.company, "default_currency")
     charges = frappe.db.sql(
         """SELECT expense_account AS account, description, base_amount AS amount
            FROM `tabLanded Cost Taxes and Charges` WHERE parent=%s ORDER BY base_amount DESC""", (name,), as_dict=True)

@@ -21,7 +21,7 @@
             <div class="text-[11px] text-ink-muted mt-0.5">{{ d.posting_date }} · {{ L("carrier", "الناقل", "transporteur") }}: {{ d.carrier }}<span v-if="d.tracking && d.tracking !== '—'"> · {{ d.tracking }}</span></div>
           </div>
           <div class="text-end">
-            <div class="text-[22px] font-extrabold tnum">{{ fmt(d.grand_total) }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
+            <div class="text-[22px] font-extrabold tnum">{{ fmt(d.grand_total) }}<span class="text-[12px] text-ink-muted ms-1">{{ d.currency || "" }}</span></div>
             <a v-if="d.tracking_url" :href="d.tracking_url" target="_blank" rel="noopener" class="text-[11px] font-semibold text-accent-dark hover:underline inline-flex items-center gap-1 mt-1"><Icon name="truck" :size="12" />{{ L("Track shipment", "تتبّع الشحنة", "Suivre") }}</a>
           </div>
         </div>

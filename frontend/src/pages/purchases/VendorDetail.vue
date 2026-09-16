@@ -148,7 +148,7 @@ const connections = computed(() => {
   const c = d.value?.connections || {};
   return [
     { label: L("Bills", "الفواتير", "Factures"), value: String(c.bills || 0), sub: "bills" },
-    { label: L("Purchase orders", "أوامر الشراء", "Bons de commande"), value: String(c.pos || 0), sub: "pos" },
+    { label: L("Purchase orders", "أوامر الشراء", "Bons de commande"), value: String(c.pos || 0), sub: "tobuy" },
     { label: L("Goods receipts", "سندات الاستلام", "Réceptions"), value: String(c.receipts || 0), sub: "received" },
     { label: L("Payments", "المدفوعات", "Paiements"), value: String(c.payments || 0), sub: "payments" },
   ];
@@ -161,7 +161,7 @@ const ledger = computed(() => (d.value?.ledger || []).map((e) => ({
   go: e.type === "Purchase Invoice" ? { path: "/accounting/purchases/bills", query: { id: e.doc } } : null,
 })));
 
-function go(sub) { router.push(`/accounting/purchases/${sub}`); }
+function go(sub) { router.push({ path: `/accounting/purchases/${sub}`, query: { supplier: d.value?.name || route.query.id } }); }
 function openVoucher(l) { if (l.go) router.push(l.go); }
 function back() { router.push({ path: "/accounting/purchases/vendors" }); }
 

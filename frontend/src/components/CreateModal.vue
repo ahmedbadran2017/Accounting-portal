@@ -18,12 +18,6 @@
                  class="w-full rounded-chip border border-line-2 bg-app-warm px-3 py-2 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
 
-        <!-- Order derives net + VAT from gross -->
-        <div v-if="type === 'order' && grossNum > 0" class="flex items-center justify-between text-[11.5px] bg-app-warm/60 rounded-lg px-3 py-2">
-          <span class="text-ink-3">{{ L('Net (ex-VAT)','الصافي قبل الضريبة','HT') }} <b class="text-ink tnum">{{ net }}</b></span>
-          <span class="text-ink-3">{{ L('VAT 20%','ضريبة 20%','TVA 20%') }} <b class="text-ink tnum">{{ vat }}</b></span>
-        </div>
-
         <div class="flex items-center gap-2 pt-1">
           <button type="submit" class="flex-1 inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark py-2.5 rounded-chip shadow-brand">
             <Icon name="check" :size="15" />{{ cfg.cta }}
@@ -41,7 +35,6 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { useToast } from "@/composables/useToast";
-import { useCreated } from "@/composables/useCreated";
 import { useCustomers } from "@/composables/useCustomers";
 
 const props = defineProps({ type: { type: String, default: null } });
@@ -49,7 +42,6 @@ const emit = defineEmits(["close"]);
 const { locale } = useI18n();
 const router = useRouter();
 const toast = useToast();
-const { addOrder } = useCreated();
 const { createCustomer } = useCustomers();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
@@ -67,50 +59,14 @@ const CONFIG = computed(() => ({
       { key: "email", label: L("Email", "البريد", "E-mail"), type: "email" },
     ],
   },
-  order: {
-    icon: "receipt", title: L("New sales order", "أمر بيع جديد", "Nouvelle commande"), sub: L("COD order — posts on delivery", "طلب COD — يُحتسب عند التسليم", "Commande COD"),
-    cta: L("Create order", "إنشاء الطلب", "Créer la commande"),
-    fields: [
-      { key: "customer", label: L("Customer", "العميل", "Client"), req: true },
-      { key: "value", label: L("Value (incl. VAT)", "القيمة شاملة الضريبة", "Valeur (TTC)"), type: "number", req: true },
-      { key: "city", label: L("City", "المدينة", "Ville") },
-      { key: "item", label: L("Item", "الصنف", "Article") },
-    ],
-  },
-  invoice: {
-    icon: "receipt", title: L("New invoice", "فاتورة جديدة", "Nouvelle facture"), sub: L("Recognised on delivery · VAT 20%", "تُحتسب عند التسليم · ضريبة 20%", "Reconnu à la livraison · TVA 20%"),
-    cta: L("Create invoice", "إنشاء الفاتورة", "Créer la facture"),
-    fields: [
-      { key: "customer", label: L("Customer", "العميل", "Client"), req: true },
-      { key: "net", label: L("Net (ex-VAT)", "الصافي قبل الضريبة", "HT"), type: "number", req: true },
-      { key: "order", label: L("Linked order", "الطلب المرتبط", "Commande liée") },
-      { key: "item", label: L("Item", "الصنف", "Article") },
-    ],
-  },
 }));
 const cfg = computed(() => CONFIG.value[props.type] || CONFIG.value.customer);
 
-const grossNum = computed(() => Number(form.value) || 0);
-const net = computed(() => (Math.round((grossNum.value / 1.2) * 100) / 100).toLocaleString());
-const vat = computed(() => (Math.round((grossNum.value - grossNum.value / 1.2) * 100) / 100).toLocaleString());
 
 // Reset form when the modal opens for a new type.
 watch(() => props.type, () => { Object.keys(form).forEach((k) => delete form[k]); });
 
 async function save() {
-  if (props.type === "order") {
-    const o = addOrder({ customer: form.customer, value: form.value, city: form.city, item: form.item });
-    toast.success(L(`Order ${o.id} created`, `أُنشئ الطلب ${o.id}`, `Commande ${o.id} créée`));
-    emit("close");
-    router.push({ path: "/accounting/sales/orders", query: { id: o.id } });
-    return;
-  }
-  if (props.type === "invoice") {
-    toast.success(L("Invoice created", "أُنشئت الفاتورة", "Facture créée"));
-    emit("close");
-    router.push("/accounting/sales/invoices");
-    return;
-  }
   // Customer — create on ERPNext. Surface the real error so a failure is visible
   // (don't fake success: that routed to a customer that didn't exist).
   if (saving.value) return;

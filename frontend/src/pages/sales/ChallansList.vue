@@ -33,7 +33,7 @@
           </tr></thead>
           <tbody>
             <tr v-for="r in st.rows.value" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="open(r.name)">
-              <td class="px-4 py-2.5 font-mono text-[11.5px] font-semibold">{{ r.name }}</td>
+              <td class="px-4 py-2.5 font-mono text-[11.5px] font-semibold">{{ r.name }}<span v-if="r.docstatus === 0" class="ms-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
               <td class="px-4 py-2.5 truncate max-w-[200px]">{{ r.customer }}</td>
               <td class="px-4 py-2.5 text-ink-3">{{ r.carrier }}<span v-if="r.tracking && r.tracking !== '—'" class="text-ink-muted"> · {{ r.tracking }}</span></td>
               <td class="px-4 py-2.5"><span class="inline-flex text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="statusBadge(r.status)">{{ r.status }}</span></td>

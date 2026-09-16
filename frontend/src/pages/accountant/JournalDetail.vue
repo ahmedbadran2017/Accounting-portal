@@ -25,7 +25,7 @@
             <div class="text-[11px] text-ink-muted mt-0.5">{{ j.posting_date }}<span v-if="j.cheque_no"> · {{ L("ref", "مرجع", "réf") }} {{ j.cheque_no }}</span></div>
           </div>
           <div class="text-end">
-            <div class="text-[24px] font-extrabold tnum">{{ fmt(j.total_debit) }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
+            <div class="text-[24px] font-extrabold tnum">{{ fmt(j.total_debit) }}<span class="text-[12px] text-ink-muted ms-1">{{ j.currency || "" }}</span></div>
             <div class="text-[10.5px] text-ink-muted">{{ L("total", "الإجمالي", "total") }}</div>
           </div>
         </div>
