@@ -3,6 +3,8 @@
     <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-3 hover:text-ink" @click="back">
       <Icon name="arrow" :size="14" class="rotate-180" />{{ L("Payments received","المدفوعات المُحصّلة","Encaissements") }}
     </button>
+    <!-- document action bar (DocHub teleports Create / status / submit / edit / print here) -->
+    <div id="doc-toolbar" class="empty:hidden"></div>
 
     <div v-if="loading" class="bg-white rounded-card border border-line shadow-card"><TableLoading :rows="4" /></div>
     <div v-else-if="!d" class="bg-white rounded-card border border-line shadow-card py-16 text-center text-[12px] text-ink-muted">{{ L("Payment not found.","الدفعة غير موجودة.","Introuvable.") }}</div>

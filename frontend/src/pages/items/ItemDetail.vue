@@ -3,6 +3,8 @@
     <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-3 hover:text-ink" @click="back">
       <Icon name="arrow" :size="14" class="rtl:rotate-180 rotate-180" />{{ L("Back to items","العودة للأصناف","Retour aux articles") }}
     </button>
+    <!-- document action bar (DocHub teleports Create / status / submit / edit / print here) -->
+    <div id="doc-toolbar" class="empty:hidden"></div>
 
     <div v-if="loading" class="bg-white rounded-card border border-line shadow-card"><TableLoading :rows="4" /></div>
     <template v-else-if="d">

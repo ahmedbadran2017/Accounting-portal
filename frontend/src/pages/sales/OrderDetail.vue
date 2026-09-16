@@ -3,6 +3,8 @@
     <button class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-3 hover:text-ink" @click="back">
       <span class="rtl:rotate-180"><Icon name="arrow" :size="15" /></span>{{ L("Back to orders","العودة للطلبات","Retour aux commandes") }}
     </button>
+    <!-- document action bar (DocHub teleports Create / status / submit / edit / print here) -->
+    <div id="doc-toolbar" class="empty:hidden"></div>
 
     <!-- PE-only: carrier ref is on the payment but not the order → shows as Delivered -->
     <div v-if="fixable.fixable" class="flex items-center gap-3 px-4 py-2.5 rounded-card border border-amber-200 bg-amber-50/70">
