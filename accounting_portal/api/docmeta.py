@@ -217,7 +217,8 @@ _EDITABLE = {
     # allow_on_submit; the portal simply never offered them, so Edit on a
     # submitted delivery note opened a modal with nothing in it.
     "Delivery Note": ["custom_tracking_company", "custom_tracking_number",
-                      "custom_tracking_url", "custom_awb", "custom_logistics_status", "po_no"],
+                      "custom_tracking_url", "custom_awb", "custom_logistics_status",
+                      "custom_customs_value", "po_no"],
     "Additional Salary": ["disabled"],
     "Customer": ["customer_name", "email_id", "mobile_no"],
     "Supplier": ["supplier_name", "email_id", "mobile_no"],

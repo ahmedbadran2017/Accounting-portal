@@ -112,8 +112,14 @@
           ? L("This document is submitted — ERPNext locks every field the portal can reach here. Amend it to change anything else.", "المستند مرحّل — ERPNext بيقفل كل الحقول اللي المحرر ده بيوصلها. اعمل تعديل (Amend) لو محتاج تغيّر حاجة تانية.", "Document soumis — modifiez-le (Amend) pour changer autre chose.")
           : L("No editable fields here.", "لا حقول قابلة للتعديل.", "Aucun champ modifiable.") }}</div>
         <div v-for="f in editFields" :key="f.field">
-          <label class="text-[11px] font-bold text-ink-3">{{ f.label }}</label>
-          <input v-model="f.value" :type="f.type === 'Date' ? 'date' : 'text'" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+          <label v-if="f.type === 'Check'" class="inline-flex items-center gap-2 text-[12.5px] font-semibold py-1">
+            <input type="checkbox" :checked="f.value === '1' || f.value === 1" @change="f.value = $event.target.checked ? 1 : 0" />{{ f.label }}
+          </label>
+          <template v-else>
+            <label class="text-[11px] font-bold text-ink-3">{{ f.label }}</label>
+            <textarea v-if="f.type === 'Small Text' || f.type === 'Text'" v-model="f.value" rows="2" class="w-full mt-1 border border-line-2 rounded-[9px] px-2 py-1.5 text-[12.5px] focus:outline-none focus:border-accent/40"></textarea>
+            <input v-else v-model="f.value" :type="f.type === 'Date' ? 'date' : 'text'" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+          </template>
         </div>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
