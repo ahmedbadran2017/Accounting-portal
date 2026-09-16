@@ -37,17 +37,40 @@ function handleAuthExpiry() {
 }
 
 /** Authenticated Frappe API call with CSRF + JSON. Returns the raw Response. */
+// A request with no timeout can hang for as long as the browser will hold it.
+// When that happened the screen kept its loading skeleton forever: the activity
+// panel span spinning and the document action bar simply never appeared, with
+// nothing on screen or in the log to say why. Every call now gives up and
+// reports instead of waiting silently.
+const REQUEST_TIMEOUT_MS = 45000;
+
 export async function frappeApi(url, body = null, options = {}) {
-  const { method = "POST", ...rest } = options;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Frappe-CSRF-Token": getCsrfToken(),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    ...rest,
-  });
+  const { method = "POST", timeout = REQUEST_TIMEOUT_MS, ...rest } = options;
+  const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = ctl && timeout ? setTimeout(() => ctl.abort(), timeout) : null;
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Frappe-CSRF-Token": getCsrfToken(),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctl ? ctl.signal : undefined,
+      ...rest,
+    });
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      const err = new Error(`The server did not answer within ${Math.round(timeout / 1000)}s.`);
+      err.status = 0;
+      err.timeout = true;
+      throw err;
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   // 401 = expired session → bounce to login. 403 may be a legit per-action
   // permission error, so don't log the user out for it.
   if (res.status === 401) handleAuthExpiry();

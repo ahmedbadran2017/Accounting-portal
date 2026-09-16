@@ -82,7 +82,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
 
 const props = defineProps({ doctype: { type: String, required: true }, name: { type: String, required: true } });
-const emit = defineEmits(["changed", "open"]);
+const emit = defineEmits(["changed", "open", "failed"]);
 const { locale } = useI18n();
 const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -152,7 +152,13 @@ async function loadState() {
   try {
     const s = await api.call("accounting_portal.api.docops.doc_state", { doctype: props.doctype, name: props.name });
     Object.assign(state, s);
-  } catch { state.exists = false; }
+    emit("failed", false);
+  } catch (e) {
+    // The whole bar is hidden when nothing loads, which reads exactly like a
+    // document that simply has no actions. Tell the parent so it can say so.
+    state.exists = false;
+    emit("failed", true);
+  }
   try { assignList.value = await api.call("accounting_portal.api.docops.assignees", { doctype: props.doctype, name: props.name }) || []; } catch { /* */ }
   loadFlow();
 }

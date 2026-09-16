@@ -98,7 +98,10 @@
         <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#ecfdf5"><Icon name="coins" :size="13" color="#047857" /></span><span class="text-[12.5px] font-bold">{{ L("Financial","المالي","Financier") }}</span></div>
         <dl class="space-y-1.5 text-[12px]">
           <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("Net","الصافي","Net") }}</dt><dd class="font-medium tnum">{{ financial.net }}</dd></div>
-          <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("VAT 20%","ض.ق.م","TVA") }}</dt><dd class="font-medium tnum">{{ financial.vat }}</dd></div>
+          <!-- The label used to read "VAT 20%" beside a zero, which asserts a rate the
+             order does not carry. Nine percent of 2026 orders have no tax rows at all;
+             say that rather than implying twenty percent produced nothing. -->
+        <div class="flex justify-between gap-2"><dt class="text-ink-muted">{{ L("VAT","ض.ق.م","TVA") }}</dt><dd class="font-medium tnum">{{ financial.vat }}<span v-if="!Number(o?.total_taxes_and_charges)" class="ms-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("no tax on this order","بدون ضريبة على هذا الطلب","aucune taxe") }}</span></dd></div>
           <div class="flex justify-between gap-2 pt-1 border-t border-line-hair"><dt class="font-semibold">{{ L("Gross","الإجمالي","TTC") }}</dt><dd class="font-bold tnum">{{ financial.gross }}</dd></div>
           <div class="flex items-center gap-2 pt-1"><dt class="text-ink-muted flex-1">{{ L("Billed / delivered","مفوتر / مُسلّم","Facturé / livré") }}</dt><dd class="font-medium tnum">{{ financial.billed }}% / {{ financial.delivered }}%</dd></div>
         </dl>

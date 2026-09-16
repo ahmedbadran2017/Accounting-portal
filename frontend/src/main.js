@@ -32,9 +32,33 @@ window.addEventListener("vite:preloadError", (e) => {
 
 const app = createApp(App);
 
+// Every deploy renames the JavaScript chunks and deletes the old files, so a tab
+// left open across one asks for a file that is gone. The router already recovers
+// when that happens during navigation; this catches the other half — a chunk
+// imported by a component that is already on screen. The symptom was a piece of
+// the page quietly missing, most often a document's action bar, with nothing in
+// the console the accountant would ever see and nothing in the server log at all.
+const CHUNK_RE = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload/i;
+const RELOAD_ONCE = "ap_chunk_reload_global";
+function recoverFromStaleBundle(err) {
+  if (!CHUNK_RE.test(String((err && (err.message || err)) || ""))) return false;
+  let seen = "";
+  try { seen = sessionStorage.getItem(RELOAD_ONCE) || ""; } catch { /* private mode */ }
+  // Once per page, so a genuinely missing file cannot put us in a reload loop.
+  if (seen === location.pathname) return false;
+  try { sessionStorage.setItem(RELOAD_ONCE, location.pathname); } catch { /* ignore */ }
+  window.location.reload();
+  return true;
+}
+
 app.config.errorHandler = (err, vm, info) => {
+  if (recoverFromStaleBundle(err)) return;
   console.error(`[Accounting Portal] ${info}:`, err);
 };
+
+window.addEventListener("unhandledrejection", (ev) => {
+  if (recoverFromStaleBundle(ev.reason)) ev.preventDefault();
+});
 
 app.use(i18n);
 app.use(router);

@@ -7,7 +7,14 @@
     <Teleport to="#doc-toolbar" :disabled="!toolbarUp">
       <div :class="toolbarUp ? 'bg-white rounded-card border border-line shadow-card overflow-hidden' : ''">
     <!-- Document actions: create / status / submit / cancel / amend / assign -->
-    <DocActions :doctype="doctype" :name="name" @changed="onChanged" @open="goto" />
+    <DocActions :doctype="doctype" :name="name" @changed="onChanged" @open="goto" @failed="actionsFailed = $event" />
+    <!-- An empty toolbar used to be indistinguishable from a document that has
+         no actions. Say which one it is. -->
+    <div v-if="actionsFailed" class="flex items-center gap-2 px-3 py-2 text-[11.5px] border-b" style="background:#fef2f2;border-color:#fecaca;color:#b91c1c">
+      <Icon name="alert" :size="13" color="#b91c1c" />
+      <span>{{ L("The actions for this document could not be loaded.","تعذّر تحميل إجراءات هذا المستند.","Actions du document non chargées.") }}</span>
+      <button class="ms-auto h-6 px-2 rounded-[7px] font-bold border" style="border-color:#fecaca" @click="hardReload">{{ L("Reload","إعادة التحميل","Recharger") }}</button>
+    </div>
     <!-- Toolbar: tags + print + edit -->
     <div class="flex items-center gap-2 px-3 py-2.5 flex-wrap" :class="toolbarUp ? '' : 'border-b border-line-hair'">
       <Icon name="filter" :size="13" color="#a8a29e" />
@@ -159,6 +166,8 @@ const toast = useToast();
 function onChanged() { loadActivity(); emit("changed"); }
 // Lift the action bar to the page's #doc-toolbar slot when the page offers one.
 const toolbarUp = ref(false);
+const actionsFailed = ref(false);
+function hardReload() { window.location.reload(); }
 onMounted(async () => { await nextTick(); toolbarUp.value = !!document.getElementById("doc-toolbar"); });
 // Navigate to a related document (e.g. the new draft created by Amend).
 function goto(name) { router.replace({ path: route.path, query: { ...route.query, id: name } }); }
