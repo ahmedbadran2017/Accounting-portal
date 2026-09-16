@@ -4,3 +4,4 @@
 accounting_portal.patches.v1_add_gl_trial_index
 accounting_portal.patches.v1_add_list_indexes
 accounting_portal.patches.v1_add_amended_from_index
+accounting_portal.patches.v1_add_payment_reference_index
