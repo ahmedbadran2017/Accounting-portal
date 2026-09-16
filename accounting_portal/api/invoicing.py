@@ -75,6 +75,20 @@ def _lines(items):
     return out
 
 
+def _party_address(party_type, party):
+    """This book marks `customer_address` mandatory on Sales Invoice (a Property
+    Setter — all 70k existing invoices carry one), so a standalone invoice must
+    resolve the party's address or the insert fails with ERPNext's generic error."""
+    rows = frappe.db.sql(
+        """SELECT dl.parent AS name, a.is_primary_address
+           FROM `tabDynamic Link` dl JOIN `tabAddress` a ON a.name = dl.parent
+           WHERE dl.link_doctype=%s AND dl.link_name=%s AND dl.parenttype='Address'
+             AND IFNULL(a.disabled,0)=0
+           ORDER BY a.is_primary_address DESC, a.modified DESC LIMIT 1""",
+        (party_type, party), as_dict=True)
+    return rows[0].name if rows else None
+
+
 def _build(doctype, action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     sales = doctype == "Sales Invoice"
@@ -88,7 +102,11 @@ def _build(doctype, action):
         "due_date": p.get("due_date") or None,
         "remarks": p.get("remarks") or None,
     })
-    if not sales:
+    if sales:
+        addr = p.get("customer_address") or _party_address("Customer", p["party"])
+        if addr:
+            doc.customer_address = addr
+    else:
         doc.bill_no = p.get("bill_no") or None
         doc.bill_date = p.get("bill_date") or None
     if p.get("exchange_rate"):
@@ -116,12 +134,22 @@ _actions.register_poster(SI_ACTION, lambda a: _build("Sales Invoice", a))
 _actions.register_poster(PI_ACTION, lambda a: _build("Purchase Invoice", a))
 
 
+def _address_required():
+    v = frappe.db.get_value("Property Setter",
+                            {"doc_type": "Sales Invoice", "field_name": "customer_address", "property": "reqd"},
+                            "value")
+    return str(v) == "1"
+
+
 def _create(doctype, action_type, company, party, items, **kw):
     assert_can_write()
     target = _target(company)
     if not party:
         frappe.throw("Select a customer" if doctype == "Sales Invoice" else "Select a supplier")
     lines = _lines(items)
+    if doctype == "Sales Invoice" and _address_required() and not (kw.get("customer_address") or _party_address("Customer", party)):
+        frappe.throw(f"{party} has no address on file, and this company requires one on a sales invoice. "
+                     "Add an address to the customer first.")
     net = sum(ln["qty"] * ln["rate"] for ln in lines)
     posting = kw.get("posting_date") or nowdate()
     key = f"{action_type}:{target}:{party}:{posting}:{round(net, 2)}:{kw.get('client_key') or ''}"
@@ -129,6 +157,7 @@ def _create(doctype, action_type, company, party, items, **kw):
                "due_date": kw.get("due_date"), "remarks": kw.get("remarks"),
                "currency": kw.get("currency"), "exchange_rate": kw.get("exchange_rate"),
                "tax_template": kw.get("tax_template"), "bill_no": kw.get("bill_no"),
+               "customer_address": kw.get("customer_address"),
                "bill_date": kw.get("bill_date"),
                "submit": int(str(kw.get("submit") or 0) in ("1", "true", "True"))}
     return _actions.execute(action_type, target, key, payload=payload, amount=net,
@@ -138,12 +167,13 @@ def _create(doctype, action_type, company, party, items, **kw):
 @frappe.whitelist()
 def create_sales_invoice(company=None, customer=None, items=None, posting_date=None, due_date=None,
                          tax_template=None, currency=None, exchange_rate=None, remarks=None,
-                         submit=0, client_key=None):
+                         customer_address=None, submit=0, client_key=None):
     """A Sales Invoice raised directly — a service or one-off sale with no order
     or delivery note behind it."""
     return _create("Sales Invoice", SI_ACTION, company, customer, items, posting_date=posting_date,
                    due_date=due_date, tax_template=tax_template, currency=currency,
-                   exchange_rate=exchange_rate, remarks=remarks, submit=submit, client_key=client_key)
+                   exchange_rate=exchange_rate, remarks=remarks, customer_address=customer_address,
+                   submit=submit, client_key=client_key)
 
 
 @frappe.whitelist()
