@@ -109,6 +109,29 @@
               <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="addRow"><Icon name="plus" :size="12" />{{ L("Add row", "إضافة سطر", "Ajouter une ligne") }}</button>
             </div>
           </div>
+
+          <!-- tax rows: the account each tax line posts to, editable after submit -->
+          <div v-if="d.tax && d.tax.rows.length" class="bg-white border border-line rounded-[12px] overflow-hidden">
+            <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[12px] font-bold">
+              <Icon name="percent" :size="13" color="#0b5c4f" />{{ d.tax.label }}
+              <span class="text-[10.5px] text-ink-muted font-normal">{{ d.tax.rows.length }}</span>
+            </div>
+            <div class="overflow-auto">
+              <table class="w-full text-[12px]">
+                <thead><tr class="bg-app-warm/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                  <th v-for="c in d.tax.columns" :key="c.field" class="px-2 py-2 text-start whitespace-nowrap" :class="c.type === 'Currency' ? 'text-end' : ''">{{ c.label }}</th>
+                </tr></thead>
+                <tbody>
+                  <tr v-for="r in txv" :key="r.name" class="border-t border-line-hair align-top">
+                    <td v-for="c in d.tax.columns" :key="c.field" class="px-1.5 py-1">
+                      <span v-if="c.ro" class="block px-1 py-1.5 text-ink-2 truncate max-w-[280px]" :class="c.type === 'Currency' ? 'text-end tnum' : ''">{{ c.type === 'Currency' ? fmt(r[c.field]) : (r[c.field] || "—") }}</span>
+                      <SearchSelect v-else v-model="r[c.field]" :items="d.options[c.options] || []" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white min-w-[220px]" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </template>
       </div>
 
@@ -143,6 +166,7 @@ const fmt = (n) => fmtAmount(Number(n) || 0);
 const d = ref({ supported: false, header: [], child: null, options: {} });
 const hv = reactive({});
 const rv = ref([]);
+const txv = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 const error = ref("");
@@ -161,6 +185,7 @@ async function load() {
     for (const k of Object.keys(hv)) delete hv[k];
     for (const f of d.value.header || []) hv[f.field] = f.value;
     rv.value = (d.value.child?.rows || []).map((r) => ({ ...r }));
+    txv.value = (d.value.tax?.rows || []).map((r) => ({ ...r }));
   } catch (e) { d.value = { supported: false }; error.value = String(e?.message || e).slice(0, 160); }
   finally { loading.value = false; }
 }
@@ -219,6 +244,7 @@ async function allocate() {
     const r = await api.call("accounting_portal.api.docedit.allocate_payment", { name: props.name, rows: rows2 });
     d.value = r || d.value;
     rv.value = (d.value.child?.rows || []).map((x) => ({ ...x }));
+    txv.value = (d.value.tax?.rows || []).map((x) => ({ ...x }));
     outRows.value = []; out.value = {};
   } catch (e) { error.value = String(e?.message || e).slice(0, 200); }
   finally { allocating.value = false; }
@@ -237,7 +263,8 @@ async function save() {
     const header = {};
     for (const f of d.value.header || []) if (!f.ro) header[f.field] = hv[f.field];
     const rows = d.value.child ? rv.value : null;
-    await api.call("accounting_portal.api.docedit.save_draft", { doctype: props.doctype, name: props.name, header, rows });
+    const tax = d.value.tax ? txv.value : null;
+    await api.call("accounting_portal.api.docedit.save_draft", { doctype: props.doctype, name: props.name, header, rows, tax });
     toast.success(L("Draft saved", "تم حفظ المسودة", "Brouillon enregistré"));
     emit("saved");
   } catch (e) { error.value = String(e?.message || e).slice(0, 220); }

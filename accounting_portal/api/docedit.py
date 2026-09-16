@@ -80,6 +80,13 @@ _SCHEMA = {
         "submitted": {"columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
                                   _H("amount", "Currency", ro=True), _H("expense_account", "Link", "accounts"),
                                   _H("cost_center", "Link", "cost_centers")]},
+        # The tax rows carry their own account, and it is the one that goes wrong:
+        # a bill booked to the wrong VAT account posts the whole tax line to the
+        # wrong place. ERPNext leaves account_head open after submit for exactly
+        # this, and the repost below makes the ledger follow.
+        "submitted_tax": {"field": "taxes",
+                          "columns": [_H("description", "Data", ro=True), _H("tax_amount", "Currency", ro=True),
+                                      _H("account_head", "Link", "accounts"), _H("cost_center", "Link", "cost_centers")]},
     },
     "Sales Invoice": {
         # po_no is the one header field ERPNext leaves open after submit, and the
@@ -91,6 +98,13 @@ _SCHEMA = {
         "submitted": {"columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
                                   _H("amount", "Currency", ro=True), _H("income_account", "Link", "accounts"),
                                   _H("cost_center", "Link", "cost_centers")]},
+        # The tax rows carry their own account, and it is the one that goes wrong:
+        # a bill booked to the wrong VAT account posts the whole tax line to the
+        # wrong place. ERPNext leaves account_head open after submit for exactly
+        # this, and the repost below makes the ledger follow.
+        "submitted_tax": {"field": "taxes",
+                          "columns": [_H("description", "Data", ro=True), _H("tax_amount", "Currency", ro=True),
+                                      _H("account_head", "Link", "accounts"), _H("cost_center", "Link", "cost_centers")]},
     },
     "Additional Salary": {
         "header": [_H("employee", "Party"), _H("salary_component", "Link", "components"),
@@ -257,7 +271,17 @@ def get_draft(doctype=None, name=None):
                  # Drives the "Get outstanding invoices" picker on a Payment Entry;
                  # without it the allocation endpoints are unreachable from the UI.
                  "fill": spec["child"].get("fill")}
-    return {"supported": True, "doctype": doctype, "name": name, "company": doc.company,
+    tax = None
+    ts = spec.get("submitted_tax")
+    if submitted_mode and ts and meta.has_field(ts["field"]):
+        tmeta = frappe.get_meta(meta.get_field(ts["field"]).options)
+        tcols = [{**c, "label": (tmeta.get_field(c["field"]).label or c["field"])}
+                 for c in ts["columns"] if tmeta.has_field(c["field"])]
+        tax = {"field": ts["field"], "label": meta.get_field(ts["field"]).label or ts["field"],
+               "columns": tcols,
+               "rows": [{"name": r.name, "idx": r.idx, **{c["field"]: _val(r.get(c["field"])) for c in tcols}}
+                        for r in (doc.get(ts["field"]) or [])]}
+    return {"supported": True, "doctype": doctype, "name": name, "company": doc.company, "tax": tax,
             "docstatus": doc.docstatus, "submitted_mode": bool(submitted_mode),
             "submitted_kind": ("reaccount" if spec.get("submitted") else "update_items") if submitted_mode else None,
             "is_return": bool(doc.get("is_return")),
@@ -278,7 +302,7 @@ def _cast(spec_type, v):
 
 
 @frappe.whitelist()
-def save_draft(doctype=None, name=None, header=None, rows=None):
+def save_draft(doctype=None, name=None, header=None, rows=None, tax=None):
     """Apply edits to a draft and save it through ERPNext's validate. `header` is
     {field: value}; `rows` is the full child table as the user left it — rows
     with a `name` are updated, rows without one are appended (where allowed),
@@ -290,11 +314,12 @@ def save_draft(doctype=None, name=None, header=None, rows=None):
     _company_ok(doc)
     header = header if isinstance(header, dict) else json.loads(header or "{}")
     rows = rows if isinstance(rows, list) else json.loads(rows or "null")
+    tax = tax if isinstance(tax, list) else json.loads(tax or "null")
     spec = _SCHEMA[doctype]
     if doc.docstatus == 1 and spec.get("submitted_ok"):
         return _update_submitted_items(doc, spec, header, rows)
     if doc.docstatus == 1 and spec.get("submitted"):
-        return _reaccount_submitted(doc, spec, header, rows)
+        return _reaccount_submitted(doc, spec, header, rows, tax)
     if doc.docstatus != 0:
         frappe.throw("Only a draft can be edited. Amend the document first.")
     before = {}
@@ -480,7 +505,7 @@ def _make_repost(company, doctype, name):
     return r.name
 
 
-def _reaccount_submitted(doc, spec, header, rows):
+def _reaccount_submitted(doc, spec, header, rows, tax=None):
     before, after = _submitted_header_changes(doc, spec, header)
     rows = rows or []
     cols = [c for c in spec["submitted"]["columns"] if not c["ro"]]
@@ -495,6 +520,20 @@ def _reaccount_submitted(doc, spec, header, rows):
             if f in r and _val(r[f]) != _val(row.get(f)):
                 diff.append({"row": row.idx, "item": row.item_code, "field": f, "from": _val(row.get(f)), "to": _val(r[f])})
                 row.set(f, r[f] or None)
+    ts = spec.get("submitted_tax")
+    if ts and tax:
+        tcols = [c for c in ts["columns"] if not c["ro"]]
+        by_tax = {r.get("name"): r for r in tax if r.get("name")}
+        for row in doc.get(ts["field"]) or []:
+            r = by_tax.get(row.name)
+            if not r:
+                continue
+            for c in tcols:
+                f = c["field"]
+                if f in r and _val(r[f]) != _val(row.get(f)):
+                    diff.append({"row": row.idx, "tax": row.description, "field": f,
+                                 "from": _val(row.get(f)), "to": _val(r[f])})
+                    row.set(f, r[f] or None)
     if not diff and not after:
         frappe.throw("Nothing changed")
     doc.flags.ignore_permissions = True
