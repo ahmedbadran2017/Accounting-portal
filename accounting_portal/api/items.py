@@ -392,3 +392,117 @@ def get_landed_cost(name=None):
         "basis": lcv.distribute_charges_based_on, "total": float(lcv.total_taxes_and_charges or 0),
         "charges": charges, "receipts": receipts, "items": items, "journal": journal,
     }
+
+
+# ── Service / expense items (the Desk trail: 30 hand-made "Service" items — taxes,
+#    insurance, subscriptions — plus 13 is_stock_item flips) ─────────────────────
+
+SVC_ITEM_ACTION = "Create service item"
+STOCK_FLAG_ACTION = "Set item stock flag"
+
+
+@frappe.whitelist()
+def service_item_options():
+    from accounting_portal.api.permissions import assert_portal_access, resolve_companies
+    assert_portal_access()
+    groups = frappe.get_all("Item Group", filters={"is_group": 0}, pluck="name", order_by="name")
+    uoms = frappe.get_all("UOM", filters={"enabled": 1}, pluck="name", order_by="name", limit=60)
+    comps = resolve_companies(None)
+    accounts = {}
+    for c in comps:
+        accounts[c] = frappe.db.sql(
+            "SELECT name AS value, name AS label FROM `tabAccount` WHERE company=%s AND is_group=0 AND disabled=0 "
+            "AND root_type='Expense' ORDER BY name", (c,), as_dict=True)
+    return {"groups": groups, "uoms": uoms, "companies": comps, "expense_accounts": accounts}
+
+
+def _svc_item_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    doc = frappe.get_doc({
+        "doctype": "Item", "item_code": p["item_code"], "item_name": p.get("item_name") or p["item_code"],
+        "item_group": p["item_group"], "stock_uom": p.get("uom") or "Nos", "is_stock_item": 0,
+        "include_item_in_manufacturing": 0, "is_purchase_item": 1, "is_sales_item": 0,
+        "description": p.get("description") or p.get("item_name") or p["item_code"],
+        "item_defaults": [{"company": c, "expense_account": a} for c, a in (p.get("defaults") or {}).items() if a],
+    })
+    doc.flags.ignore_permissions = True
+    doc.insert()
+    return {"voucher_type": "Item", "voucher_no": doc.name, "result": {"item": doc.name}}
+
+
+def _svc_item_reverter(action):
+    res = action.result if isinstance(action.result, dict) else json.loads(action.result or "{}")
+    name = res.get("item")
+    if name and frappe.db.exists("Item", name) and not frappe.db.exists("Purchase Invoice Item", {"item_code": name}):
+        frappe.delete_doc("Item", name, ignore_permissions=True)
+        return {"deleted": name}
+    return {"noop": True}
+
+
+def _stock_flag_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    doc = frappe.get_doc("Item", p["item_code"])
+    doc.is_stock_item = int(p["is_stock_item"])
+    doc.flags.ignore_permissions = True
+    doc.save()
+    return {"voucher_type": "Item", "voucher_no": doc.name, "result": {"item": doc.name, "is_stock_item": doc.is_stock_item}}
+
+
+def _stock_flag_reverter(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    doc = frappe.get_doc("Item", p["item_code"])
+    doc.is_stock_item = int(p.get("was", 0))
+    doc.flags.ignore_permissions = True
+    doc.save()
+    return {"restored": doc.name}
+
+
+from accounting_portal.api import _actions as _act  # noqa: E402
+_act.register_poster(SVC_ITEM_ACTION, _svc_item_poster)
+_act.register_reverter(SVC_ITEM_ACTION, _svc_item_reverter)
+_act.register_poster(STOCK_FLAG_ACTION, _stock_flag_poster)
+_act.register_reverter(STOCK_FLAG_ACTION, _stock_flag_reverter)
+_act._NO_GATE.add(SVC_ITEM_ACTION)
+_act._NO_GATE.add(STOCK_FLAG_ACTION)
+
+
+@frappe.whitelist()
+def create_service_item(item_code=None, item_name=None, item_group=None, uom=None, description=None, defaults=None):
+    """A non-stock item for bills (fees, taxes, subscriptions, insurance) with an
+    optional default expense account per company. Audited; reversible while unused."""
+    from accounting_portal.api.permissions import assert_can_write, resolve_companies
+    assert_can_write()
+    item_code = (item_code or "").strip()
+    if not item_code or not item_group:
+        frappe.throw("Item code and item group are required")
+    if frappe.db.exists("Item", item_code):
+        frappe.throw(f"Item {item_code} already exists")
+    if not frappe.db.exists("Item Group", item_group):
+        frappe.throw("Unknown item group")
+    defaults = defaults if isinstance(defaults, dict) else (json.loads(defaults) if defaults else {})
+    comps = set(resolve_companies(None))
+    defaults = {c: a for c, a in defaults.items() if c in comps and a}
+    company = next(iter(comps), None)
+    return _act.execute(SVC_ITEM_ACTION, company, f"svc-item:{item_code}",
+                        payload={"item_code": item_code, "item_name": item_name, "item_group": item_group,
+                                 "uom": uom or "Nos", "description": description, "defaults": defaults},
+                        amount=0, notes=f"Create service item {item_code}")
+
+
+@frappe.whitelist()
+def set_stock_item(item_code=None, is_stock_item=None):
+    """Flip is_stock_item (refused when the item already has stock ledger history)."""
+    from accounting_portal.api.permissions import assert_can_write, resolve_companies
+    assert_can_write()
+    if not item_code or not frappe.db.exists("Item", item_code):
+        frappe.throw("Item not found")
+    flag = 1 if str(is_stock_item) in ("1", "true", "True") else 0
+    cur = int(frappe.db.get_value("Item", item_code, "is_stock_item") or 0)
+    if cur == flag:
+        frappe.throw("Already set")
+    if cur and frappe.db.exists("Stock Ledger Entry", {"item_code": item_code, "is_cancelled": 0}):
+        frappe.throw("This item has stock movements — it must stay a stock item")
+    company = (resolve_companies(None) or [None])[0]
+    return _act.execute(STOCK_FLAG_ACTION, company, f"stock-flag:{item_code}:{flag}:{frappe.utils.now_datetime()}",
+                        payload={"item_code": item_code, "is_stock_item": flag, "was": cur},
+                        amount=0, notes=f"{'Stock' if flag else 'Non-stock'} item {item_code}")

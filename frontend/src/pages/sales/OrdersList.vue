@@ -57,6 +57,7 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
+              <th class="w-8 px-3"><input type="checkbox" :checked="st.allSelected.value" @change="st.toggleAll()" /></th>
               <th v-for="c in cols" :key="c.key" class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none" :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                   <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
@@ -65,6 +66,7 @@
           </thead>
           <tbody>
             <tr v-for="o in displayRows" :key="o.id" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.id)">
+              <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(o.id)" @change="st.toggle(o.id)" /></td>
               <td class="px-4 py-2.5 font-mono font-semibold text-ink whitespace-nowrap">{{ o.id }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date || "—" }}</td>
               <td class="px-4 py-2.5"><span class="flex items-center gap-2"><span class="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold flex-shrink-0" :style="{ background: AV[o.av] }">{{ o.initials }}</span><span class="truncate max-w-[160px]">{{ o.customer }}</span></span></td>
@@ -77,6 +79,7 @@
             </tr>
           </tbody>
         </table>
+        <BulkBar :t="st" :actions="bulkActions" filename="orders" />
       </div>
       <TableLoading v-if="st.loading.value" />
       <div v-else-if="!displayRows.length" class="py-14 text-center text-[12px] text-ink-muted">{{ lbl("No orders match your filters.", "لا توجد طلبات مطابقة.", "Aucune commande.") }}</div>
@@ -107,6 +110,8 @@ import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
 import TableLoading from "@/components/TableLoading.vue";
+import BulkBar from "@/components/BulkBar.vue";
+import { useBulkDocs } from "@/composables/useBulkDocs";
 import StatCard from "@/components/StatCard.vue";
 
 defineEmits(["new"]);
@@ -149,6 +154,7 @@ function dateBounds(key) {
 function dateFilter() { const [fd, td] = dateBounds(datePreset.value); return { from_date: fd || undefined, to_date: td || undefined }; }
 
 // Server-side paginated orders.
+const { actions: bulkActions } = useBulkDocs("Sales Order", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_orders", { company: currentCompany(), customer: customerFilter.value || undefined, active: activeOnly.value ? 1 : 0, state: filterState.value || undefined, ...params }).then((r) => { isLive.value = true; return r; }),
   { pageSize: 25, sortField: "date", sortDir: "desc", filters: dateFilter() },

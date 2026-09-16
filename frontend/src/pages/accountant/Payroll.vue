@@ -185,6 +185,9 @@
     <!-- ── ATTENDANCE PUNCHES & EMPLOYEE ADVANCES (were Desk-only) ── -->
     <HrQuick v-else-if="view==='hr'" />
 
+    <!-- ── SALARY STRUCTURES (were Desk-only: 13 created, 156 line edits in 6 months) ── -->
+    <SalaryStructures v-else-if="view==='structures'" />
+
     <!-- ── EMPLOYEES ── -->
     <div v-else-if="view==='employees'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2.5 flex-wrap">
@@ -331,6 +334,7 @@ import AssignStructureModal from "@/components/AssignStructureModal.vue";
 import EmployeeEditModal from "@/components/EmployeeEditModal.vue";
 import PayAdjustments from "@/pages/accountant/PayAdjustments.vue";
 import HrQuick from "@/pages/accountant/HrQuick.vue";
+import SalaryStructures from "@/pages/accountant/SalaryStructures.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -358,7 +362,7 @@ Kpi.props = ["label", "value", "sub", "icon", "color"];
 
 // The active tab lives in the URL (?t=…) so browser Back / reload return you to
 // the same tab instead of resetting to the cockpit or bouncing you out.
-const TABS = ["cockpit", "close", "adjustments", "hr", "employees", "runs", "components", "accounting"];
+const TABS = ["cockpit", "close", "adjustments", "hr", "employees", "structures", "runs", "components", "accounting"];
 const view = ref(TABS.includes(route.query.t) ? route.query.t : "cockpit");
 watch(view, (v) => { if (route.query.t !== v) router.replace({ query: { ...route.query, t: v } }); });
 const VIEWS = [
@@ -367,6 +371,7 @@ const VIEWS = [
   { k: "adjustments", icon: "coins", label: () => L("Adjustments", "الحوافز والخصومات", "Ajustements") },
   { k: "hr", icon: "clock", label: () => L("Attendance & advances", "الحضور والسلف", "Présence & avances") },
   { k: "employees", icon: "layers", label: () => L("Employees", "الموظفون", "Employés") },
+  { k: "structures", icon: "scale", label: () => L("Structures", "هياكل المرتبات", "Structures") },
   { k: "runs", icon: "list", label: () => L("Runs", "التشغيلات", "Exécutions") },
   { k: "components", icon: "scale", label: () => L("Components", "المكوّنات", "Composants") },
   { k: "accounting", icon: "check", label: () => L("Accounting", "المحاسبة", "Compta") },

@@ -64,12 +64,21 @@ _SCHEMA = {
                   "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency"), _H("expense_account", "Link", "accounts"),
                               _H("cost_center", "Link", "cost_centers")]},
+        # After submit: the account a line hit can still change (allow_on_submit) —
+        # the clean-fix doctrine (edit the line, repost the ledger; no correction JE).
+        # The Desk trail showed 203 Purchase Invoices reposted this way in 6 months.
+        "submitted": {"columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                                  _H("amount", "Currency", ro=True), _H("expense_account", "Link", "accounts"),
+                                  _H("cost_center", "Link", "cost_centers")]},
     },
     "Sales Invoice": {
         "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("remarks", "Text")],
         "child": {"field": "items", "can_add": False, "can_remove": True,
                   "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency")]},
+        "submitted": {"columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                                  _H("amount", "Currency", ro=True), _H("income_account", "Link", "accounts"),
+                                  _H("cost_center", "Link", "cost_centers")]},
     },
     "Additional Salary": {
         "header": [_H("employee", "Party"), _H("salary_component", "Link", "components"),
@@ -161,7 +170,7 @@ def get_draft(doctype=None, name=None):
     doc = frappe.get_doc(doctype, name)
     _company_ok(doc)
     spec = _SCHEMA[doctype]
-    submitted_mode = doc.docstatus == 1 and spec.get("submitted_ok")
+    submitted_mode = doc.docstatus == 1 and (spec.get("submitted_ok") or spec.get("submitted"))
     if doc.docstatus != 0 and not submitted_mode:
         return {"supported": False, "reason": "not_draft", "docstatus": doc.docstatus}
     meta = frappe.get_meta(doctype)
@@ -178,7 +187,8 @@ def get_draft(doctype=None, name=None):
         cf = spec["child"]["field"]
         cmeta = frappe.get_meta(meta.get_field(cf).options)
         cols = []
-        for c in spec["child"]["columns"]:
+        col_spec = spec["submitted"]["columns"] if (submitted_mode and spec.get("submitted")) else spec["child"]["columns"]
+        for c in col_spec:
             if not cmeta.has_field(c["field"]):
                 continue
             df = cmeta.get_field(c["field"])
@@ -194,6 +204,7 @@ def get_draft(doctype=None, name=None):
                  "can_remove": spec["child"]["can_remove"] and not submitted_mode}
     return {"supported": True, "doctype": doctype, "name": name, "company": doc.company,
             "docstatus": doc.docstatus, "submitted_mode": bool(submitted_mode),
+            "submitted_kind": ("reaccount" if spec.get("submitted") else "update_items") if submitted_mode else None,
             "currency": doc.get("currency") or doc.get("paid_from_account_currency") or frappe.get_cached_value("Company", doc.company, "default_currency"),
             "party_type_fixed": _PARTY_FIXED.get(doctype), "header": header, "child": child,
             "options": _options(doctype, doc.company)}
@@ -222,6 +233,8 @@ def save_draft(doctype=None, name=None, header=None, rows=None):
     spec = _SCHEMA[doctype]
     if doc.docstatus == 1 and spec.get("submitted_ok"):
         return _update_submitted_items(doc, rows)
+    if doc.docstatus == 1 and spec.get("submitted"):
+        return _reaccount_submitted(doc, spec, rows)
     if doc.docstatus != 0:
         frappe.throw("Only a draft can be edited. Amend the document first.")
     before = {}
@@ -318,6 +331,77 @@ def _update_submitted_items(doc, rows):
         "notes": f"Updated {len(diff)} line(s) on submitted {doc.doctype} {doc.name}",
     }).insert(ignore_permissions=True)
     return get_draft(doc.doctype, doc.name)
+
+
+# ── Clean fix on a posted invoice: change the line's account, repost the ledger ─
+
+REPOST_ACTION = "Repost ledger"
+_GL_DOCTYPES = ("Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Delivery Note", "Purchase Receipt")
+
+
+def _make_repost(company, doctype, name):
+    r = frappe.get_doc({"doctype": "Repost Accounting Ledger", "company": company, "delete_cancelled_entries": 0,
+                        "vouchers": [{"voucher_type": doctype, "voucher_no": name}]})
+    r.flags.ignore_permissions = True
+    r.insert()
+    r.submit()
+    return r.name
+
+
+def _reaccount_submitted(doc, spec, rows):
+    if rows is None:
+        frappe.throw("Nothing to update")
+    cols = [c for c in spec["submitted"]["columns"] if not c["ro"]]
+    by_name = {r.get("name"): r for r in rows if r.get("name")}
+    diff = []
+    for row in doc.get("items") or []:
+        r = by_name.get(row.name)
+        if not r:
+            continue
+        for c in cols:
+            f = c["field"]
+            if f in r and _val(r[f]) != _val(row.get(f)):
+                diff.append({"row": row.idx, "item": row.item_code, "field": f, "from": _val(row.get(f)), "to": _val(r[f])})
+                row.set(f, r[f] or None)
+    if not diff:
+        frappe.throw("No account changed")
+    doc.flags.ignore_permissions = True
+    doc.save()                                   # only allow_on_submit fields — ERPNext enforces it
+    repost = _make_repost(doc.company, doc.doctype, doc.name)
+    frappe.get_doc({
+        "doctype": "Accounting Portal Action", "action_type": REPOST_ACTION, "status": "Posted",
+        "company": doc.company, "reference_doctype": doc.doctype, "reference_name": doc.name,
+        "voucher_type": "Repost Accounting Ledger", "voucher_no": repost, "proposed_by": frappe.session.user,
+        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
+        "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
+        "payload": json.dumps({"changes": diff}), "result": json.dumps({"repost": repost}),
+        "notes": f"Re-accounted {len(diff)} line(s) on {doc.doctype} {doc.name} and reposted",
+    }).insert(ignore_permissions=True)
+    return get_draft(doc.doctype, doc.name)
+
+
+@frappe.whitelist()
+def repost_ledger(doctype=None, name=None, company=None):
+    """Repost one submitted voucher's GL (Repost Accounting Ledger) — after an
+    after-submit field change, or when the ledger and the document disagree."""
+    assert_can_write()
+    if doctype not in _GL_DOCTYPES or not name or not frappe.db.exists(doctype, name):
+        frappe.throw("Repost is not available for this document")
+    d = frappe.db.get_value(doctype, name, ["company", "docstatus"], as_dict=True)
+    if d.company not in resolve_companies(company):
+        frappe.throw("Not permitted", frappe.PermissionError)
+    if d.docstatus != 1:
+        frappe.throw("Only a submitted document can be reposted")
+    repost = _make_repost(d.company, doctype, name)
+    frappe.get_doc({
+        "doctype": "Accounting Portal Action", "action_type": REPOST_ACTION, "status": "Posted",
+        "company": d.company, "reference_doctype": doctype, "reference_name": name,
+        "voucher_type": "Repost Accounting Ledger", "voucher_no": repost, "proposed_by": frappe.session.user,
+        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(), "amount": 0,
+        "payload": json.dumps({"doctype": doctype, "name": name}), "result": json.dumps({"repost": repost}),
+        "notes": f"Repost ledger of {doctype} {name}",
+    }).insert(ignore_permissions=True)
+    return {"repost": repost}
 
 
 # ── Redate: cancel → copy → new date → submit, one click ───────────────────────

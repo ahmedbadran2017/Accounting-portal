@@ -29,6 +29,7 @@
       <table class="w-full text-[12px]">
         <thead>
           <tr style="background:#fafaf9">
+            <th class="w-8 px-3"><input type="checkbox" :checked="st.allSelected.value" @change="st.toggleAll()" /></th>
             <th v-for="c in cols" :key="c.key"
                 class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
                 :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
@@ -39,6 +40,7 @@
         </thead>
         <tbody>
           <tr v-for="o in displayRows" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.name)">
+            <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(o.name)" @change="st.toggle(o.name)" /></td>
             <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}</td>
             <td class="px-4 py-2.5 truncate max-w-[220px]">{{ o.party_name }}</td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
@@ -54,6 +56,7 @@
     </div>
     <div v-if="!st.loading.value && !displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No payments in this period.", "لا مدفوعات في هذه الفترة.", "Aucun paiement.") }}</div>
     <ServerPager :t="st" />
+    <BulkBar :t="st" :actions="bulkActions" filename="payments-made" />
   </div>
 </template>
 
@@ -64,6 +67,8 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import BulkBar from "@/components/BulkBar.vue";
+import { useBulkDocs } from "@/composables/useBulkDocs";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
@@ -111,6 +116,7 @@ function bounds() {
   return [null, null];
 }
 const [fd0, td0] = bounds();
+const { actions: bulkActions } = useBulkDocs("Payment Entry", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.payments.list_payments_made", { company: currentCompany(), ...params }).then((r) => { live.value = true; return r; }),
   { pageSize: 25, sortField: "date", sortDir: "desc", filters: { from_date: fd0 || undefined, to_date: td0 || undefined } },

@@ -1246,6 +1246,139 @@ def _adv_poster(doc):
             "result": {"advance": a.name, "amount": flt(p["amount"])}}
 
 
+
+# ── Salary structures (Desk trail: 13 created + 156 line edits in 6 months) ─────
+
+SS_ACTION = "Save salary structure"
+SS_ACTIVE_ACTION = "Toggle salary structure"
+
+
+@frappe.whitelist()
+def structure_options(company=None):
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    comps = frappe.db.sql("SELECT name AS value, CONCAT(name, ' (', type, ')') AS label, type FROM `tabSalary Component` "
+                          "WHERE IFNULL(disabled,0)=0 ORDER BY type, name", as_dict=True)
+    modes = [r[0] for r in frappe.db.sql("SELECT name FROM `tabMode of Payment` WHERE enabled=1 ORDER BY name")]
+    banks = _bank_accounts(target) if "_bank_accounts" in globals() else []
+    return {"company": target, "currency": _ccy(target), "components": comps, "modes": modes, "banks": banks,
+            "frequencies": ["Monthly", "Fortnightly", "Bimonthly", "Weekly", "Daily"]}
+
+
+@frappe.whitelist()
+def list_salary_structures(company=None):
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": []}
+    rows = frappe.db.sql(
+        """SELECT s.name, s.currency, s.payroll_frequency, s.docstatus, s.is_active, s.modified,
+                  (SELECT COUNT(*) FROM `tabSalary Structure Assignment` a WHERE a.salary_structure=s.name AND a.docstatus=1) assigned,
+                  (SELECT SUM(d.amount) FROM `tabSalary Detail` d WHERE d.parent=s.name AND d.parentfield='earnings') earn,
+                  (SELECT SUM(d.amount) FROM `tabSalary Detail` d WHERE d.parent=s.name AND d.parentfield='deductions') ded
+           FROM `tabSalary Structure` s WHERE s.company=%s AND s.docstatus<2 ORDER BY s.is_active DESC, s.modified DESC""",
+        (target,), as_dict=True)
+    for r in rows:
+        r["earn"], r["ded"] = _m(r.get("earn")), _m(r.get("ded"))
+        r["modified"] = str(r["modified"])[:10]
+    return {"company": target, "currency": _ccy(target), "rows": rows}
+
+
+@frappe.whitelist()
+def get_salary_structure(name=None):
+    assert_portal_access()
+    if not name or not frappe.db.exists("Salary Structure", name):
+        frappe.throw("Structure not found")
+    s = frappe.get_doc("Salary Structure", name)
+    if s.company not in resolve_companies():
+        frappe.throw("Not permitted", frappe.PermissionError)
+    rows = lambda f: [{"salary_component": d.salary_component, "amount": _m(d.amount),  # noqa: E731
+                       "formula": d.formula or "", "amount_based_on_formula": int(d.amount_based_on_formula or 0)}
+                      for d in s.get(f) or []]
+    return {"name": s.name, "company": s.company, "currency": s.currency, "payroll_frequency": s.payroll_frequency,
+            "docstatus": s.docstatus, "is_active": s.is_active, "mode_of_payment": s.mode_of_payment,
+            "payment_account": s.payment_account, "earnings": rows("earnings"), "deductions": rows("deductions")}
+
+
+def _ss_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    if p.get("name") and frappe.db.exists("Salary Structure", p["name"]):
+        s = frappe.get_doc("Salary Structure", p["name"])
+        if s.docstatus != 0:
+            frappe.throw("Only a draft structure can be edited — create a new one and re-assign")
+        s.set("earnings", []); s.set("deductions", [])
+    else:
+        s = frappe.new_doc("Salary Structure")
+        s.name = p["structure_name"]
+        s.company = doc.company
+    s.currency = p.get("currency") or _ccy(doc.company)
+    s.payroll_frequency = p.get("payroll_frequency") or "Monthly"
+    s.is_active = "Yes"
+    s.mode_of_payment = p.get("mode_of_payment") or None
+    s.payment_account = p.get("payment_account") or None
+    for f in ("earnings", "deductions"):
+        for r in p.get(f) or []:
+            if not r.get("salary_component"):
+                continue
+            s.append(f, {"salary_component": r["salary_component"], "amount": flt(r.get("amount")),
+                         "amount_based_on_formula": 1 if r.get("formula") else 0, "formula": r.get("formula") or None})
+    s.flags.ignore_permissions = True
+    s.save()
+    if int(p.get("submit") or 0):
+        s.submit()
+    return {"voucher_type": "Salary Structure", "voucher_no": s.name,
+            "result": {"structure": s.name, "docstatus": s.docstatus}}
+
+
+def _ss_active_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    frappe.db.set_value("Salary Structure", p["name"], "is_active", "Yes" if p["active"] else "No")
+    return {"voucher_type": "Salary Structure", "voucher_no": p["name"], "result": {"is_active": p["active"]}}
+
+
+@frappe.whitelist()
+def save_salary_structure(company=None, name=None, structure_name=None, currency=None, payroll_frequency=None,
+                          earnings=None, deductions=None, mode_of_payment=None, payment_account=None, submit=0):
+    """Create (or edit a draft) salary structure: fixed-amount earnings/deductions.
+    Submitted structures are immutable in ERPNext — make a new one and re-assign."""
+    assert_can_write()
+    target = _target(company)
+    if not target:
+        frappe.throw("No company in scope")
+    earnings = earnings if isinstance(earnings, list) else json.loads(earnings or "[]")
+    deductions = deductions if isinstance(deductions, list) else json.loads(deductions or "[]")
+    structure_name = (structure_name or "").strip()
+    if not name and not structure_name:
+        frappe.throw("Structure name is required")
+    if not name and frappe.db.exists("Salary Structure", structure_name):
+        frappe.throw(f"A structure named '{structure_name}' already exists")
+    if not any(r.get("salary_component") for r in earnings):
+        frappe.throw("At least one earning component is required")
+    from accounting_portal.api import _actions
+    key = "ss:" + frappe.generate_hash(f"{target}:{name or structure_name}:{str(frappe.utils.now_datetime())[:19]}", 14)
+    return _actions.execute(SS_ACTION, target, key,
+                            payload={"name": name, "structure_name": structure_name, "currency": currency,
+                                     "payroll_frequency": payroll_frequency, "earnings": earnings, "deductions": deductions,
+                                     "mode_of_payment": mode_of_payment, "payment_account": payment_account,
+                                     "submit": int(str(submit) in ("1", "true", "True"))},
+                            amount=0, notes=f"{'Edit' if name else 'Create'} salary structure {name or structure_name}")
+
+
+@frappe.whitelist()
+def set_structure_active(company=None, name=None, active=None):
+    assert_can_write()
+    target = _target(company)
+    if not (name and frappe.db.exists("Salary Structure", {"name": name, "company": target})):
+        frappe.throw("Structure not found")
+    flag = 1 if str(active) in ("1", "true", "True", "Yes") else 0
+    from accounting_portal.api import _actions
+    return _actions.execute(SS_ACTIVE_ACTION, target, f"ss-active:{name}:{flag}:{str(frappe.utils.now_datetime())[:19]}",
+                            payload={"name": name, "active": flag}, amount=0,
+                            notes=f"{'Activate' if flag else 'Deactivate'} salary structure {name}")
+
+
 # Generate/pay register via the shared cancel-voucher undo where applicable.
 def _register():
     from accounting_portal.api import _actions
@@ -1273,6 +1406,10 @@ def _register():
     _actions._NO_GATE.add(EMP_CREATE_ACTION)
     _actions.register_poster(ADV_ACTION, _adv_poster)
     _actions.register_reverter(ADV_ACTION, _actions._cancel_voucher_reverter)
+    _actions.register_poster(SS_ACTION, _ss_poster)
+    _actions._NO_GATE.add(SS_ACTION)
+    _actions.register_poster(SS_ACTIVE_ACTION, _ss_active_poster)
+    _actions._NO_GATE.add(SS_ACTIVE_ACTION)
 
 
 _register()

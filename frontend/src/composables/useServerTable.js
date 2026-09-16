@@ -61,8 +61,34 @@ export function useServerTable(fetcher, opts = {}) {
   let t = null;
   watch(search, () => { clearTimeout(t); t = setTimeout(() => { page.value = 1; load(); }, 300); });
 
+  // ── Row selection (BulkBar contract: selected · selectedRows · clearSelection · exportSelectedCSV) ──
+  // Keys survive paging so a batch can be picked across pages; selectedRows only
+  // resolves the rows on the current page (callers send `selected` keys to the server).
+  const keyOf = (r) => (opts.key ? r[opts.key] : (r.name ?? r.id));
+  const selected = ref(new Set());
+  const selectedRows = computed(() => rows.value.filter((r) => selected.value.has(keyOf(r))));
+  const allSelected = computed(() => rows.value.length > 0 && rows.value.every((r) => selected.value.has(keyOf(r))));
+  function toggle(k) { const s = new Set(selected.value); if (s.has(k)) s.delete(k); else s.add(k); selected.value = s; }
+  function toggleAll() {
+    const s = new Set(selected.value);
+    if (allSelected.value) rows.value.forEach((r) => s.delete(keyOf(r))); else rows.value.forEach((r) => s.add(keyOf(r)));
+    selected.value = s;
+  }
+  function clearSelection() { selected.value = new Set(); }
+  function exportSelectedCSV(filename = "selection") {
+    const rs = selectedRows.value.length ? selectedRows.value : rows.value;
+    if (!rs.length) return;
+    const cols = Object.keys(rs[0]).filter((c) => typeof rs[0][c] !== "object");
+    const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [cols.join(","), ...rs.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `${filename}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  }
+
   return {
     page, pageSize, rows, total, extra, loading, error, search, sortField, sortDir, filters,
     totalPages, rangeStart, rangeEnd, load, go, next, prev, setFilters, setSort,
+    selected, selectedRows, allSelected, toggle, toggleAll, clearSelection, exportSelectedCSV, keyOf,
   };
 }

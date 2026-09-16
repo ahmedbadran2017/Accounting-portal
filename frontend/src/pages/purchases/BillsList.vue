@@ -19,6 +19,7 @@
       <table class="w-full text-[12px]">
         <thead>
           <tr style="background:#fafaf9">
+            <th class="w-8 px-3"><input type="checkbox" :checked="st.allSelected.value" @change="st.toggleAll()" /></th>
             <th v-for="c in cols" :key="c.key"
                 class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
                 :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
@@ -29,6 +30,7 @@
         </thead>
         <tbody>
           <tr v-for="b in displayRows" :key="b.id" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(b.id)">
+            <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(b.id)" @change="st.toggle(b.id)" /></td>
             <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ b.id }}</td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ b.date || "—" }}</td>
             <td class="px-4 py-2.5 truncate max-w-[200px]">{{ b.vendor }}</td>
@@ -52,6 +54,7 @@
     <TableLoading v-if="st.loading.value" />
     <div v-else-if="!displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No bills match your filters.","لا توجد فواتير مطابقة.","Aucune facture.") }}</div>
     <ServerPager :t="st" />
+    <BulkBar :t="st" :actions="bulkActions" filename="bills" />
     </div>
   </div>
 </template>
@@ -63,6 +66,8 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import BulkBar from "@/components/BulkBar.vue";
+import { useBulkDocs } from "@/composables/useBulkDocs";
 import { MATCH_META, BILL_STATUS, matchLabel, billStatusLabel } from "@/data/purchases";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
@@ -88,6 +93,7 @@ const cols = [
 
 const isLive = ref(null);
 const df = useDateFilter("bills", (f) => st.setFilters(f));
+const { actions: bulkActions } = useBulkDocs("Purchase Invoice", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.purchases.list_bills", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
   { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },

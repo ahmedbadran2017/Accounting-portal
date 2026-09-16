@@ -99,3 +99,53 @@ def bulk_cancel(doctype=None, names=None, company=None):
     """Cancel the selected submitted documents — reverses their GL. Gated by the
     batch total like any material posting."""
     return _run("cancel", doctype, names, company)
+
+
+# ── Bulk delete of drafts (the Desk list's Delete on a selection) ───────────────
+
+DELETE_ACTION = "Bulk Delete Drafts"
+
+
+def _bulk_delete_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    dt, names = p["doctype"], p["names"]
+    done, failed = [], []
+    for n in names:
+        try:
+            if frappe.db.get_value(dt, n, "docstatus") != 0:
+                failed.append({"name": n, "error": "not a draft"}); continue
+            frappe.delete_doc(dt, n, ignore_permissions=True)
+            done.append(n)
+        except Exception as e:
+            failed.append({"name": n, "error": str(e)[:140]})
+    return {"voucher_type": dt, "voucher_no": None,
+            "result": {"op": "delete", "doctype": dt, "done": done, "failed": failed, "ok": len(done), "fail": len(failed)}}
+
+
+_actions.register_poster(DELETE_ACTION, _bulk_delete_poster)
+_actions._NO_GATE.add(DELETE_ACTION)
+
+
+@frappe.whitelist()
+def bulk_delete(doctype=None, names=None, company=None):
+    """Delete up to 200 DRAFTS of one doctype in one audited action. Submitted or
+    cancelled rows are refused (cancel them instead)."""
+    assert_can_write()
+    if doctype not in _ALLOWED:
+        frappe.throw(f"Bulk actions are not allowed for {doctype}")
+    names = names if isinstance(names, list) else json.loads(names or "[]")
+    names = [n for n in names if n][:200]
+    if not names:
+        frappe.throw("No rows selected")
+    companies = resolve_companies(company)
+    rows = frappe.db.sql(f"SELECT name, company, docstatus FROM `tab{doctype}` WHERE name IN %(n)s",
+                         {"n": tuple(names)}, as_dict=True)
+    for r in rows:
+        if r.company not in companies:
+            frappe.throw(f"{r.name} belongs to another company")
+        if r.docstatus != 0:
+            frappe.throw(f"{r.name} is not a draft")
+    target = rows[0].company if rows else (companies[0] if companies else None)
+    key = f"bulk-delete:{doctype}:{frappe.generate_hash(','.join(sorted(names)), 12)}"
+    return _actions.execute(DELETE_ACTION, target, key, payload={"doctype": doctype, "names": names, "op": "delete"},
+                            amount=0, notes=f"Delete {len(names)} draft {doctype}(s)")

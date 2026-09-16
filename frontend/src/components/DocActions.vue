@@ -34,6 +34,7 @@
       <button v-for="s in flow.statuses" :key="s.key" :disabled="busy" @click="setStatus(s)" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold border disabled:opacity-50" :class="s.key === 'close' || s.key === 'hold' ? 'text-amber-800 bg-amber-50 border-amber-200 hover:bg-amber-100' : 'text-ink-2 bg-white border-line-2 hover:bg-app-warm'">
         <Icon :name="s.key === 'close' || s.key === 'hold' ? 'lock' : 'refresh'" :size="11" />{{ statusLabel(s) }}
       </button>
+      <button v-if="state.docstatus === 1 && GL_DOCTYPES.includes(props.doctype)" :disabled="busy" @click="confirm = 'repost'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50" :title="L('Rebuild this document\'s ledger entries from the document','إعادة بناء قيود هذا المستند من المستند نفسه','Reconstruire les écritures')"><Icon name="ledger" :size="12" />{{ L("Repost ledger","إعادة ترحيل القيود","Reposter") }}</button>
       <button v-if="state.exists" :disabled="busy" @click="run('duplicate')" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50" :title="L('Copy into a new draft','نسخ كمسودة جديدة','Copier en brouillon')"><Icon name="copy" :size="12" />{{ L("Duplicate","نسخ","Dupliquer") }}</button>
       <button v-if="state.exists && state.docstatus === 0" :disabled="busy" @click="confirm = 'delete'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 disabled:opacity-50"><Icon name="close" :size="12" />{{ L("Delete draft","حذف المسودة","Supprimer") }}</button>
       <button v-if="state.can_submit" :disabled="busy" @click="run('submit')" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-success-dark hover:opacity-90 disabled:opacity-50"><Icon name="check" :size="12" color="#fff" />{{ L("Submit","ترحيل","Soumettre") }}</button>
@@ -46,12 +47,14 @@
     <!-- confirm dialog -->
     <div v-if="confirm" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 px-4" @click.self="confirm = ''">
       <div class="bg-white rounded-card shadow-pop w-full max-w-sm p-5">
-        <div class="text-[14px] font-bold">{{ confirm === 'cancel' ? L("Cancel this document?","إلغاء هذا المستند؟","Annuler ?") : confirm === 'delete' ? L("Delete this draft?","حذف هذه المسودة؟","Supprimer ce brouillon ?") : confirm === 'redate' ? L("Move this document to another date","نقل المستند لتاريخ آخر","Changer la date") : L("Amend this document?","تعديل ونسخ؟","Amender ?") }}</div>
+        <div class="text-[14px] font-bold">{{ confirm === 'cancel' ? L("Cancel this document?","إلغاء هذا المستند؟","Annuler ?") : confirm === 'delete' ? L("Delete this draft?","حذف هذه المسودة؟","Supprimer ce brouillon ?") : confirm === 'repost' ? L("Repost this document's ledger?","إعادة ترحيل قيود هذا المستند؟","Reposter les écritures ?") : confirm === 'redate' ? L("Move this document to another date","نقل المستند لتاريخ آخر","Changer la date") : L("Amend this document?","تعديل ونسخ؟","Amender ?") }}</div>
         <div class="text-[12px] text-ink-3 mt-1.5">
           {{ confirm === 'cancel'
             ? L("This reverses its ledger entries. It can be reopened by amending.","سيعكس قيوده. يمكن إعادته بالتعديل.","Annule ses écritures.")
             : confirm === 'delete'
             ? L("The draft is removed for good. Nothing was posted, so nothing reverses.","المسودة هتتحذف نهائيًا. مفيش حاجة اترحّلت فمفيش حاجة تتعكس.","Le brouillon est supprimé définitivement.")
+            : confirm === 'repost'
+            ? L("ERPNext deletes and rebuilds this voucher's GL entries from the document as it stands now (Repost Accounting Ledger). Use after an after-submit account change.","ERPNext بيمسح قيود المستند ويعيد بناءها من المستند بوضعه الحالي (Repost Accounting Ledger). استخدمه بعد تغيير حساب بعد الترحيل.","Reconstruit les écritures du document.")
             : confirm === 'redate'
             ? L("Cancels it, re-creates it as an amendment with the new date and submits — same lines, same amounts. Posts above 10,000 need approval.","يلغيه وينشئه من جديد كتعديل بالتاريخ الجديد ويرحّله، بنفس السطور والمبالغ. ما فوق 10٬000 يحتاج موافقة.","Annule, recrée avec la nouvelle date et soumet.")
             : L("Cancels this document and opens an editable copy (a new draft linked to it). Posts above 10,000 need approval.","يلغي المستند ويفتح نسخة قابلة للتعديل. ما فوق 10٬000 يحتاج موافقة.","Annule et ouvre une copie modifiable.") }}
@@ -92,6 +95,7 @@ const confirm = ref("");
 const assignOpen = ref(false);
 const newDate = ref("");
 const REDATE_OK = ["Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Additional Salary"];
+const GL_DOCTYPES = ["Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Delivery Note", "Purchase Receipt"];
 const router = useRouter();
 
 // ── Create-from / status actions (api/docflow) ──
@@ -168,7 +172,13 @@ async function run(op) {
     const fn = { submit: "doc_submit", cancel: "doc_cancel", amend: "doc_amend", duplicate: "doc_duplicate", delete: "doc_delete" }[op];
     const r = op === "redate"
       ? await api.call("accounting_portal.api.docedit.redate", { doctype: props.doctype, name: props.name, posting_date: newDate.value, company: currentCompany() })
+      : op === "repost"
+      ? await api.call("accounting_portal.api.docedit.repost_ledger", { doctype: props.doctype, name: props.name, company: currentCompany() })
       : await api.call(`accounting_portal.api.docops.${fn}`, { doctype: props.doctype, name: props.name, company: currentCompany() });
+    if (op === "repost") {
+      toast.success(L("Ledger repost queued", "تم طلب إعادة الترحيل", "Repost lancé") + (r?.repost ? " · " + r.repost : ""));
+      confirm.value = ""; emit("changed"); return;
+    }
     if (r && r.status && r.status !== "Posted") {
       toast.success(L("Queued for approval (over 10,000)", "بانتظار الموافقة (فوق 10٬000)", "En attente d'approbation"));
     } else if (op === "amend" || op === "redate" || op === "duplicate") {

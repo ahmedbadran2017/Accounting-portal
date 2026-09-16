@@ -3,6 +3,9 @@
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div class="flex items-center gap-2 ms-auto">
+          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip" @click="showSvc = true">
+            <Icon name="plus" :size="14" />{{ L("Service item","صنف خدمة","Article de service") }}
+          </button>
           <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showPrice = true">
             <Icon name="plus" :size="14" />{{ L("Set price","تعيين سعر","Définir prix") }}
           </button>
@@ -42,6 +45,7 @@
 
     <InventoryCorrectionModal :open="showFix" @close="showFix = false" @done="loadHealth" />
     <SetPriceModal :open="showPrice" :preset-list="activeSub === 'pricelists' ? route.query.id : ''" @close="showPrice = false" />
+    <NewServiceItemModal :open="showSvc" @close="showSvc = false" />
 
     <ItemDetail v-if="activeSub === 'items' && route.query.id" />
     <ItemsList v-else-if="activeSub === 'items'" />
@@ -90,6 +94,7 @@ import ShipmentPipeline from "@/pages/items/ShipmentPipeline.vue";
 import LandedCockpit from "@/pages/items/LandedCockpit.vue";
 import InventoryCorrectionModal from "@/components/InventoryCorrectionModal.vue";
 import SetPriceModal from "@/components/SetPriceModal.vue";
+import NewServiceItemModal from "@/components/NewServiceItemModal.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
@@ -119,6 +124,7 @@ async function loadHealth() {
 }
 const showFix = ref(false);
 const showPrice = ref(false);
+const showSvc = ref(false);
 function proposeFix() { showFix.value = true; }
 onMounted(loadHealth);
 watch(entityId, loadHealth);

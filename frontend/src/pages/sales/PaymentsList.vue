@@ -27,7 +27,8 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
-              <th v-for="c in cols" :key="c.key"
+              <th class="w-8 px-3"><input type="checkbox" :checked="st.allSelected.value" @change="st.toggleAll()" /></th>
+            <th v-for="c in cols" :key="c.key"
                   class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
                   :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
@@ -37,6 +38,7 @@
           </thead>
           <tbody>
             <tr v-for="p in displayRows" :key="p.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(p.name)">
+              <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(p.name)" @change="st.toggle(p.name)" /></td>
               <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ p.name }}</td>
               <td class="px-4 py-2.5 truncate max-w-[200px]">{{ p.customer }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ p.date }}</td>
@@ -54,6 +56,7 @@
       <TableLoading v-if="st.loading.value" />
       <div v-else-if="!displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No payments match your filters.","لا توجد مدفوعات مطابقة.","Aucun paiement.") }}</div>
       <ServerPager :t="st" />
+    <BulkBar :t="st" :actions="bulkActions" filename="payments-received" />
     </div>
   </div>
 </template>
@@ -67,6 +70,8 @@ import Icon from "@/components/Icon.vue";
 import StatCard from "@/components/StatCard.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import ServerPager from "@/components/ServerPager.vue";
+import BulkBar from "@/components/BulkBar.vue";
+import { useBulkDocs } from "@/composables/useBulkDocs";
 import { currentCompany } from "@/composables/useLive";
 import { useServerTable } from "@/composables/useServerTable";
 import { useDateFilter } from "@/composables/useDateFilter";
@@ -93,6 +98,7 @@ const cols = [
 
 const isLive = ref(null);
 const df = useDateFilter("receipts", (f) => st.setFilters(f));
+const { actions: bulkActions } = useBulkDocs("Payment Entry", () => st);
 const st = useServerTable(
   (params) => api.call("accounting_portal.api.sales.list_receipts", { company: currentCompany(), ...params }).then((r) => { isLive.value = true; return r; }),
   { pageSize: 25, sortField: "date", sortDir: "desc", filters: df.filterValue() },
