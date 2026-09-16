@@ -15,6 +15,7 @@ status functions the same way.
 import json
 
 import frappe
+from frappe.model.document import Document
 from frappe.utils import flt, now_datetime
 
 from accounting_portal.api import _actions
@@ -164,10 +165,93 @@ def _safe(rule, d):
 def _as_doc(res):
     if res is None:
         frappe.throw("ERPNext returned nothing for this action")
-    if isinstance(res, dict) and not hasattr(res, "insert"):
+    # `hasattr` is the wrong test here: some ERPNext makers return frappe._dict,
+    # whose __getattr__ answers None for any missing key, so `hasattr(res,
+    # "insert")` is True and the raw dict was handed on as if it were a document.
+    # Every landed-cost voucher died on the next line with "'NoneType' object has
+    # no attribute 'ignore_permissions'". Test for a real Document instead.
+    if not isinstance(res, Document) and isinstance(res, dict):
         res = frappe.get_doc(res)
     return res
 
+
+def _prepare_new(new, src_doctype, src_name):
+    """Everything ERPNext's own form does for you in the Desk and its mapper does
+    not do on the server. Each line below is one create path that failed when the
+    whole matrix was run against production."""
+    today = frappe.utils.nowdate()
+
+    # A return is a new document, not an amendment. `make_sales_return` and
+    # friends leave `amended_from` pointing at a live, uncancelled invoice, and
+    # the save is rejected with "cannot be amended because it is not cancelled".
+    if new.get("is_return") and new.get("amended_from"):
+        new.amended_from = None
+
+    # Returns also keep the original posting date, which can fall before the last
+    # stock movement ("Posting timestamp must be after ..."). Book them today.
+    if new.get("is_return") and new.meta.has_field("posting_date"):
+        new.posting_date = today
+        if new.meta.has_field("set_posting_time"):
+            new.set_posting_time = 1
+
+    # make_reverse_journal_entry returns an entry with no posting date at all.
+    if new.doctype == "Journal Entry" and not new.get("posting_date"):
+        new.posting_date = today
+
+    # An invoice mapped from a Delivery Note must not move stock again — the
+    # delivery already did. ERPNext throws "Stock cannot be updated against
+    # Delivery Note".
+    if new.doctype == "Sales Invoice" and src_doctype == "Delivery Note" and new.get("update_stock"):
+        new.update_stock = 0
+
+    # This book makes `taxes` mandatory on a Sales Invoice (a Property Setter, the
+    # same family as the mandatory customer address), and a mapped invoice arrives
+    # with none. Apply the company default so the draft saves with the VAT the
+    # accountant expects instead of refusing to exist.
+    if new.doctype == "Sales Invoice" and not (new.get("taxes") or []):
+        tpl = frappe.db.get_value("Sales Taxes and Charges Template",
+                                  {"company": new.company, "is_default": 1}, "name")
+        if tpl:
+            new.taxes_and_charges = tpl
+            new.set_taxes()
+
+    # Same shape of problem: a Sales Invoice here also requires an address.
+    if new.doctype == "Sales Invoice" and new.meta.has_field("customer_address") and not new.get("customer_address"):
+        from accounting_portal.api.invoicing import _party_address
+        addr = _party_address("Customer", new.get("customer"))
+        if addr:
+            new.customer_address = addr
+
+    # A Landed Cost Voucher cannot be saved with an empty charges table. Seed one
+    # zero row on the account this book capitalises freight to, so the draft opens
+    # ready for the accountant to type the amount.
+    if new.doctype == "Landed Cost Voucher" and not (new.get("taxes") or []):
+        acc = frappe.db.get_value("Company", new.company, "expenses_included_in_valuation")
+        if acc:
+            new.append("taxes", {"expense_account": acc, "description": "Landed cost", "amount": 0})
+
+    # Orders raised from the storefront carry no warehouse, and ERPNext then
+    # refuses with "Warehouse required for stock Item". This book has around
+    # seven hundred warehouses, almost all of them bin locations, so guessing one
+    # is not a convenience — on a document that moves stock it would relieve the
+    # wrong bin and corrupt the count. Fill it only where nothing moves, and say
+    # so plainly everywhere else.
+    if new.meta.has_field("set_warehouse") and not new.get("set_warehouse"):
+        need = [r for r in (new.get("items") or [])
+                if r.meta.has_field("warehouse") and not r.get("warehouse")]
+        if need:
+            moves_stock = new.doctype in ("Delivery Note", "Purchase Receipt", "Stock Entry") or bool(new.get("update_stock"))
+            if moves_stock:
+                frappe.throw(
+                    f"{src_doctype} {src_name} carries no warehouse on its lines, and this "
+                    f"{new.doctype.lower()} moves stock — picking one automatically would "
+                    "relieve the wrong location. Set the warehouse on the source document first.")
+            wh = frappe.db.get_value("Warehouse", {"company": new.company, "is_group": 0, "disabled": 0}, "name")
+            if wh:
+                # Nothing moves here, so the warehouse is only a label on the line.
+                new.set_warehouse = wh
+                for r in need:
+                    r.warehouse = wh
 
 def _flow_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
@@ -196,6 +280,7 @@ def _flow_poster(action):
         frappe.flags.ignore_permissions = False
     new = _as_doc(new)
     new.flags.ignore_permissions = True
+    _prepare_new(new, doctype, name)
     # A Payment Entry whose mode of payment is a Bank type cannot be saved without
     # a reference number and date — ERPNext throws "Reference No and Reference Date
     # is mandatory for Bank transaction". Three payments failed on this today. The
