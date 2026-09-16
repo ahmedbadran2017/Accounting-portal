@@ -38,7 +38,14 @@ def general_ledger(company=None, account=None, party=None, voucher_no=None,
     target = _target(company)
     if not target:
         return {"rows": [], "opening": 0.0, "total": 0}
-    ps = min(int(page_size or limit or 100), 500)
+    # The Excel export walks this endpoint to build a whole month in one file.
+    # Capped at 500 it needed twenty round trips, each re-running the COUNT/SUM
+    # over the entire filtered set: 19.8s for one account-month. An internal
+    # caller may take bigger pages and skip the aggregate it already has.
+    # Set by export.gl_xlsx only. Not a parameter: a whitelisted argument would
+    # let anyone pull 5,000 rows a page straight off the HTTP endpoint.
+    internal = bool(frappe.flags.get("ap_gl_bulk"))
+    ps = min(int(page_size or limit or 100), 5000 if internal else 500)
     st = max(int(start or 0), 0)
     inc = str(include_cancelled) in ("1", "true", "True")
     grp = (group_by or "").lower() == "voucher"
@@ -71,10 +78,13 @@ def general_ledger(company=None, account=None, party=None, voucher_no=None,
                WHERE company=%s AND account=%s AND is_cancelled=0 AND posting_date < %s""",
             (target, account, from_date))[0][0])
 
-    agg = frappe.db.sql(
-        f"SELECT COUNT(*) n, COALESCE(SUM(gl.debit),0) dr, COALESCE(SUM(gl.credit),0) cr "
-        f"FROM `tabGL Entry` gl WHERE {where}", params, as_dict=True)[0]
-    total, total_dr, total_cr = int(agg.n or 0), flt(agg.dr), flt(agg.cr)
+    if internal and frappe.flags.get("ap_gl_skip_totals"):
+        total, total_dr, total_cr = 0, 0.0, 0.0
+    else:
+        agg = frappe.db.sql(
+            f"SELECT COUNT(*) n, COALESCE(SUM(gl.debit),0) dr, COALESCE(SUM(gl.credit),0) cr "
+            f"FROM `tabGL Entry` gl WHERE {where}", params, as_dict=True)[0]
+        total, total_dr, total_cr = int(agg.n or 0), flt(agg.dr), flt(agg.cr)
 
     if grp:
         # "Group by Voucher (Consolidated)" — one line per document, the view the

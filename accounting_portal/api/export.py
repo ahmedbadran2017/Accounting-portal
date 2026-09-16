@@ -61,19 +61,31 @@ def gl_xlsx(company=None, account=None, party=None, voucher_no=None, from_date=N
     identical to the screen."""
     assert_portal_access()
     from accounting_portal.api.ledger import general_ledger
-    rows, start, page = [], 0, 500
+    # Walk in big pages and compute the whole-set totals once. Paging at 500 with
+    # the aggregate re-run every time took 19.8s for a single account-month.
+    rows, start, page = [], 0, 5000
     first = None
-    while True:
-        r = general_ledger(company=company, account=account or None, party=party or None, voucher_no=voucher_no or None,
-                           from_date=from_date or None, to_date=to_date or None, start=start, page_size=page,
-                           include_cancelled=include_cancelled, group_by=group_by or None)
-        if first is None:
-            first = r
-        got = r.get("rows") or []
-        rows.extend(got)
-        start += page
-        if len(got) < page or start >= min(int(r.get("total") or 0), _MAX_ROWS):
-            break
+    frappe.flags.ap_gl_bulk = True
+    try:
+        while True:
+            frappe.flags.ap_gl_skip_totals = first is not None
+            r = general_ledger(company=company, account=account or None, party=party or None, voucher_no=voucher_no or None,
+                               from_date=from_date or None, to_date=to_date or None, start=start, page_size=page,
+                               include_cancelled=include_cancelled, group_by=group_by or None)
+            if first is None:
+                first = r
+            got = r.get("rows") or []
+            rows.extend(got)
+            # Step by the page size the endpoint ACTUALLY used, not the one asked
+            # for. If it clamps the request, stepping by the request would skip
+            # rows or stop early and hand over a silently truncated workbook.
+            served = int(r.get("page_size") or 0) or len(got) or page
+            start += served
+            if len(got) < served or start >= min(int(first.get("total") or 0), _MAX_ROWS):
+                break
+    finally:
+        frappe.flags.ap_gl_bulk = False
+        frappe.flags.ap_gl_skip_totals = False
     rows.reverse()   # newest-first on screen → oldest-first in the workbook
     single = bool(account) and not (first or {}).get('grouped')
     head = ["Date", "Voucher type", "Voucher", "Account", "Party type", "Party", "Debit", "Credit",
