@@ -13,6 +13,8 @@
 
     <PaymentEntryForm v-if="showPayment" @close="showPayment = false" @posted="onPaid" />
     <SalesOrderForm v-if="showOrder" @close="showOrder = false" @posted="onOrdered" />
+    <NewInvoiceModal v-if="showInvoice" kind="sales" @close="showInvoice = false" @posted="onInvoiced" />
+    <CreateModal :type="showCustomer ? 'customer' : null" @close="showCustomer = false" />
 
         <!-- The sub-tab pill row that used to sit here rendered the same array the
          sidebar renders, with the same labels, so every destination in the
@@ -48,6 +50,8 @@ import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import PaymentEntryForm from "@/components/PaymentEntryForm.vue";
 import SalesOrderForm from "@/components/SalesOrderForm.vue";
+import NewInvoiceModal from "@/components/NewInvoiceModal.vue";
+import CreateModal from "@/components/CreateModal.vue";
 import CodBucket from "@/pages/sales/CodBucket.vue";
 import { useToast } from "@/composables/useToast";
 import OrdersList from "@/pages/sales/OrdersList.vue";
@@ -74,17 +78,36 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 
 const showPayment = ref(false);
 const showOrder = ref(false);
+const showInvoice = ref(false);
+const showCustomer = ref(false);
+// The header's create button names the thing this screen lists, the way the
+// Desk's "Add <doctype>" does. It used to name one thing per module regardless
+// of the tab, so the invoice list offered "New order" and the customer list
+// offered nothing at all.
 const canRecordPayment = computed(() => activeSub.value === "payments");
 const canCreateOrder = computed(() => activeSub.value === "orders");
+const canCreateInvoice = computed(() => activeSub.value === "invoices");
+const canCreateCustomer = computed(() => activeSub.value === "customers");
 // Only show "+New" where it actually does something — the COD bucket tabs use
 // "Reconcile" as their action, customers/invoices have their own create paths.
-const showNew = computed(() => canRecordPayment.value || canCreateOrder.value);
-const newLabel = computed(() => canRecordPayment.value
-  ? L("Record receipt", "تسجيل دفعة", "Encaissement")
-  : canCreateOrder.value ? L("New order", "أمر جديد", "Nouvelle commande") : t("module.new"));
+const showNew = computed(() => canRecordPayment.value || canCreateOrder.value
+  || canCreateInvoice.value || canCreateCustomer.value);
+const newLabel = computed(() =>
+  canRecordPayment.value ? L("Record receipt", "تسجيل دفعة", "Encaissement")
+  : canCreateOrder.value ? L("New order", "أمر جديد", "Nouvelle commande")
+  : canCreateInvoice.value ? L("New invoice", "فاتورة جديدة", "Nouvelle facture")
+  : canCreateCustomer.value ? L("New customer", "عميل جديد", "Nouveau client")
+  : t("module.new"));
 function onNew() {
   if (canRecordPayment.value) showPayment.value = true;
   else if (canCreateOrder.value) showOrder.value = true;
+  else if (canCreateInvoice.value) showInvoice.value = true;
+  else if (canCreateCustomer.value) showCustomer.value = true;
+}
+function onInvoiced(res) {
+  showInvoice.value = false;
+  const v = res && (res.voucher_no || res.name);
+  if (v) router.push({ path: "/accounting/sales/invoices", query: { id: v } });
 }
 function onPaid(res) {
   if (res && res.status === "Posted") {

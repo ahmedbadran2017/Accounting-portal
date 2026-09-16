@@ -202,6 +202,7 @@
     <JournalEntryForm v-if="formOpen === 'journal'" @close="formOpen = null" @posted="(r) => onFormPosted('journal', r)" />
     <NewExpenseModal v-if="formOpen === 'expense'" @close="formOpen = null" @posted="(r) => onFormPosted('expense', r)" />
     <PaymentEntryForm v-if="formOpen === 'payment'" @close="formOpen = null" @posted="(r) => onFormPosted('payment', r)" />
+    <PaymentEntryForm v-if="formOpen === 'payment_out'" direction="out" @close="formOpen = null" @posted="(r) => onFormPosted('payment_out', r)" />
     <SalesOrderForm v-if="formOpen === 'order'" @close="formOpen = null" @posted="(r) => onFormPosted('order', r)" />
     <NewInvoiceModal v-if="formOpen === 'sales_invoice'" kind="sales" @close="formOpen = null" @posted="formOpen = null" />
     <NewInvoiceModal v-if="formOpen === 'purchase_invoice'" kind="purchase" @close="formOpen = null" @posted="formOpen = null" />
@@ -270,6 +271,7 @@ const createOptions = computed(() => [
   { type: "journal", icon: "ledger", label: L("Journal entry", "قيد يومية", "Écriture") },
   { type: "expense", icon: "doc", label: L("Expense / supplier bill", "مصروف / فاتورة مورد", "Dépense / facture") },
   { type: "payment", icon: "coins", label: L("Payment received", "دفعة محصّلة", "Encaissement") },
+  { type: "payment_out", icon: "coins", label: L("Payment made", "دفعة مصروفة", "Paiement") },
   { type: "order", icon: "receipt", label: L("Sales order", "أمر بيع", "Commande") },
   { type: "sales_invoice", icon: "receipt", label: L("Sales invoice", "فاتورة بيع", "Facture de vente") },
   { type: "purchase_invoice", icon: "cart", label: L("Supplier invoice (items)", "فاتورة شراء بأصناف", "Facture d'achat") },
@@ -283,7 +285,7 @@ const formOpen = ref(null);
 function openCreate(type) {
   createMenuOpen.value = false; paletteOpen.value = false;
   if (type === "customer") { createType.value = "customer"; return; }
-  if (["journal", "expense", "payment", "order", "sales_invoice", "purchase_invoice"].includes(type)) { formOpen.value = type; return; }
+  if (["journal", "expense", "payment", "payment_out", "order", "sales_invoice", "purchase_invoice"].includes(type)) { formOpen.value = type; return; }
   createType.value = null;
 }
 function hardReload() { window.location.reload(true); }
@@ -293,6 +295,7 @@ function onFormPosted(type, res) {
   if (type === "journal") router.push({ path: "/accounting/accountant/journals", query: v ? { id: v } : {} });
   else if (type === "expense") router.push("/accounting/expenses");
   else if (type === "payment") router.push({ path: "/accounting/sales/payments", query: v ? { id: v } : {} });
+  else if (type === "payment_out") router.push({ path: "/accounting/purchases/payments", query: v ? { id: v } : {} });
   else if (type === "order") router.push({ path: "/accounting/sales/orders", query: v ? { id: v } : {} });
 }
 

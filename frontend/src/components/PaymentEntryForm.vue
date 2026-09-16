@@ -2,9 +2,9 @@
   <div class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:p-8 overflow-y-auto" style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
     <div class="bg-white rounded-[18px] shadow-cardHover w-full max-w-lg my-6 overflow-hidden">
       <div class="flex items-center gap-2.5 px-5 py-4 border-b border-line">
-        <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#ecfdf5"><Icon name="coins" :size="16" color="#047857" /></span>
+        <span class="w-8 h-8 rounded-[10px] grid place-items-center" :style="{ background: out ? '#fef2f2' : '#ecfdf5' }"><Icon name="coins" :size="16" :color="out ? '#b91c1c' : '#047857'" /></span>
         <div class="flex-1 min-w-0">
-          <div class="text-[14px] font-bold">{{ L("Record a receipt", "تسجيل دفعة", "Enregistrer un encaissement") }}</div>
+          <div class="text-[14px] font-bold">{{ out ? L("Record a payment made", "تسجيل دفعة مصروفة", "Enregistrer un paiement") : L("Record a receipt", "تسجيل دفعة", "Enregistrer un encaissement") }}</div>
           <div class="text-[11px] text-ink-muted">{{ entityName }} · {{ L("posts a Payment Entry via the audit gateway", "يُرحّل سند قبض عبر بوابة التدقيق", "passe via la passerelle d'audit") }}</div>
         </div>
         <button class="text-ink-3 hover:text-ink" @click="$emit('close')"><Icon name="close" :size="18" /></button>
@@ -13,10 +13,10 @@
       <div class="p-5 space-y-3.5">
         <!-- Party search -->
         <label class="block relative">
-          <span class="text-[11px] font-semibold text-ink-3">{{ L("Customer", "العميل", "Client") }}</span>
+          <span class="text-[11px] font-semibold text-ink-3">{{ out ? L("Supplier", "المورد", "Fournisseur") : L("Customer", "العميل", "Client") }}</span>
           <div class="mt-1 flex items-center gap-2 border rounded-chip px-3 py-2" :class="party ? 'border-success/40 bg-success-soft/30' : 'border-line-2'">
             <Icon name="user" :size="14" :color="party ? '#047857' : '#a8a29e'" />
-            <input v-model="partyQuery" :placeholder="L('Search customer…','ابحث عن عميل…','Rechercher…')"
+            <input v-model="partyQuery" :placeholder="out ? L('Search supplier…','ابحث عن مورد…','Rechercher…') : L('Search customer…','ابحث عن عميل…','Rechercher…')"
                    class="flex-1 bg-transparent text-[12px] focus:outline-none" @input="onSearch" @focus="open=true" />
             <button v-if="party" class="text-ink-muted hover:text-sale" @click="clearParty"><Icon name="close" :size="13" /></button>
           </div>
@@ -38,13 +38,13 @@
         </div>
 
         <label class="block">
-          <span class="text-[11px] font-semibold text-ink-3">{{ L("Deposit to", "إيداع في", "Déposé sur") }}</span>
+          <span class="text-[11px] font-semibold text-ink-3">{{ out ? L("Paid from", "مصروفة من", "Payé depuis") : L("Deposit to", "إيداع في", "Déposé sur") }}</span>
           <div class="mt-1"><SearchSelect v-model="account" :items="accountItems" :placeholder="L('Search bank / cash account…', 'ابحث عن حساب بنك / نقدية…', 'Rechercher…')" :empty-text="L('No account', 'لا حساب', 'Aucun')" /></div>
         </label>
 
         <label class="block">
           <span class="text-[11px] font-semibold text-ink-3">{{ L("Reference no.", "رقم المرجع", "Référence") }} <span class="text-ink-muted font-normal">{{ L("(optional)", "(اختياري)", "(facultatif)") }}</span></span>
-          <input v-model="referenceNo" :placeholder="L('Carrier remittance / receipt no.', 'رقم تحويل الناقل / الإيصال', 'N° de versement')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+          <input v-model="referenceNo" :placeholder="out ? L('Cheque / transfer no.', 'رقم الشيك / التحويل', 'N° de chèque / virement') : L('Carrier remittance / receipt no.', 'رقم تحويل الناقل / الإيصال', 'N° de versement')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
         </label>
 
         <div v-if="amount >= 10000" class="text-[11px] text-amber-700 inline-flex items-center gap-1"><Icon name="shield" :size="12" />{{ L("≥ 10,000 — recorded as proposed, needs an approver", "≥ 10,000 — يُسجَّل كمقترح ويحتاج موافِق", "≥ 10 000 — proposé, approbation requise") }}</div>
@@ -54,7 +54,7 @@
       <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
         <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
         <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canPost || posting" @click="post">
-          {{ posting ? L("Recording…", "جارٍ…", "…") : L("Record receipt", "تسجيل الدفعة", "Enregistrer") }}
+          {{ posting ? L("Recording…", "جارٍ…", "…") : out ? L("Record payment", "تسجيل الدفعة", "Enregistrer") : L("Record receipt", "تسجيل الدفعة", "Enregistrer") }}
         </button>
       </div>
     </div>
@@ -71,6 +71,11 @@ import { newClientKey } from "@/utils/helpers";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
+// The same form books money in and money out. It used to be receipts only, so
+// "Payments made" — a screen of 2,129 supplier payments — had no way to add one,
+// and the header offered "New PO" instead.
+const props = defineProps({ direction: { type: String, default: "in" } });   // "in" | "out"
+const out = computed(() => props.direction === "out");
 const emit = defineEmits(["close", "posted"]);
 const { locale } = useI18n();
 const { entityId, entities } = useUi();
@@ -104,7 +109,7 @@ function onSearch() {
   timer = setTimeout(async () => {
     const q = partyQuery.value.trim();
     if (q.length < 2) { results.value = []; return; }
-    try { results.value = await api.call("accounting_portal.api.payments.party_options", { company: currentCompany(), party_type: "Customer", search: q }) || []; } catch { results.value = []; }
+    try { results.value = await api.call("accounting_portal.api.payments.party_options", { company: currentCompany(), party_type: out.value ? "Supplier" : "Customer", search: q }) || []; } catch { results.value = []; }
   }, 220);
 }
 function pick(r) { party.value = r.name; partyQuery.value = r.label || r.name; open.value = false; results.value = []; }
@@ -116,15 +121,15 @@ async function post() {
   posting.value = true;
   try {
     const res = await api.call("accounting_portal.api.payments.create_payment_entry", {
-      client_key: clientKey,
       company: currentCompany(), party: party.value, amount: Number(amount.value),
       account: account.value, reference_no: referenceNo.value, posting_date: postingDate.value,
-      payment_type: "Receive",
+      payment_type: out.value ? "Pay" : "Receive", party_type: out.value ? "Supplier" : "Customer",
+      dedupe_key: clientKey,
     });
     emit("posted", res);
     emit("close");
   } catch (e) {
-    error.value = (e && e.message) || L("Failed to record.", "فشل التسجيل.", "Échec.");
+    error.value = String((e && e.message) || L("Failed to record.", "فشل التسجيل.", "Échec.")).slice(0, 200);
   } finally {
     posting.value = false;
   }
