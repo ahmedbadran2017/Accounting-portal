@@ -589,12 +589,25 @@ def payment_modes(company=None):
     for the Pay Bill dialog."""
     assert_portal_access()
     target = _target(company)
+    # Only modes that can actually pay a supplier from this company. The dialog
+    # used to offer all 29 enabled modes: 18 had no account mapped for this
+    # company at all, and 2 pointed at a RECEIVABLE account. Picking one of those
+    # 20 submitted a Payment Entry and then failed validation — which is how a
+    # 60,000 MAD payment ended up live against an action marked "Failed".
     rows = frappe.db.sql(
-        """SELECT mop.name AS mode, mopa.default_account AS account
+        """SELECT mop.name AS mode, mopa.default_account AS account,
+                  acc.account_type AS account_type, acc.account_currency AS currency
            FROM `tabMode of Payment` mop
-           LEFT JOIN `tabMode of Payment Account` mopa
+           JOIN `tabMode of Payment Account` mopa
              ON mopa.parent=mop.name AND mopa.company=%s
-           WHERE mop.enabled=1 ORDER BY mop.name""", target, as_dict=True)
+           JOIN `tabAccount` acc
+             ON acc.name = mopa.default_account
+            AND acc.company = %s
+            AND acc.is_group = 0
+            AND IFNULL(acc.disabled, 0) = 0
+            AND acc.account_type IN ('Bank', 'Cash')
+           WHERE mop.enabled = 1
+           ORDER BY acc.account_type, mop.name""", (target, target), as_dict=True)
     return rows
 
 

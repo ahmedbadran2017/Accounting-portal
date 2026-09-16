@@ -136,6 +136,21 @@ def _existing(dedupe_key):
     return frappe.get_doc(APA, name) if name else None
 
 
+
+def _stranded_docs():
+    """Documents this request submitted before the poster threw.
+
+    `frappe.db.rollback()` cannot reach anything a poster already committed —
+    ERPNext commits inside several of its own submit paths — so the names are
+    captured and written into the failure, rather than lost.
+    """
+    try:
+        names = []
+        for d in list(getattr(frappe.local, "flags", {}).get("_ap_submitted", []) or []):
+            names.append(d)
+        return names
+    except Exception:
+        return []
 def _post(doc):
     """Run the registered poster, link the voucher, mark Posted. Internal."""
     poster = _POSTERS.get(doc.action_type)
@@ -147,8 +162,23 @@ def _post(doc):
     try:
         out = poster(doc) or {}
     except Exception:
+        # A poster that submitted a document and then threw leaves that document
+        # behind, submitted, while the action says Failed — the accountant reads
+        # "Failed", tries again, and pays twice. Found live: a pay_bill attempt
+        # against a mis-mapped payment mode submitted a 60,000 MAD payment and
+        # then failed validation; the payment was real and the action said Failed.
+        #
+        # Roll back whatever the poster left uncommitted BEFORE recording the
+        # failure, and record what it managed to submit so it can be traced.
+        stranded = _stranded_docs()
+        frappe.db.rollback()
+        doc.reload()
         doc.db_set("status", "Failed")
-        doc.db_set("result", frappe.get_traceback()[:4000])
+        tb = frappe.get_traceback()
+        if stranded:
+            tb = ("SUBMITTED BEFORE FAILING — check and cancel these: "
+                  + ", ".join(stranded) + "\n\n" + tb)
+        doc.db_set("result", tb[:4000])
         frappe.db.commit()
         raise
     doc.db_set("voucher_type", out.get("voucher_type"))

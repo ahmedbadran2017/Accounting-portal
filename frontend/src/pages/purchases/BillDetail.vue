@@ -6,6 +6,9 @@
     <!-- document action bar (DocHub teleports Create / status / submit / edit / print here) -->
     <div id="doc-toolbar" class="empty:hidden"></div>
 
+    <PayBillModal v-if="payOpen" :invoice="b.id" :outstanding="Number(b.outstanding) || 0" :currency="b.currency"
+                  @close="payOpen = false" @paid="onPaid" />
+
     <div class="bg-white rounded-card border border-line p-5">
       <div class="flex flex-wrap items-start gap-3">
         <div class="min-w-0">
@@ -21,6 +24,13 @@
         </div>
       </div>
       <div v-if="b.status !== 'ret'" class="flex justify-end flex-wrap gap-2 mt-3 pt-3 border-t border-line-hair">
+        <!-- A Purchase Invoice had two detail screens at four URLs, and the one
+             the bill list and the vendor ledger both link to was the one that
+             could not pay it. Pay lives on the bill now, and it is the primary
+             action because it is what an AP clerk opens a bill to do. -->
+        <button v-if="b.outstanding > 0 && !b.on_hold" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white px-3 py-1.5 rounded-chip disabled:opacity-50" style="background:#047857" :disabled="busy" @click="payOpen = true">
+          <Icon name="wallet" :size="13" color="#fff" />{{ L("Pay","دفع","Payer") }} {{ fmt2(b.outstanding) }}
+        </button>
         <button v-if="b.outstanding > 0" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="toggleHold">
           <Icon name="clock" :size="13" />{{ b.on_hold ? L("Release hold","رفع التعليق","Libérer") : L("Hold","تعليق","Suspendre") }}
         </button>
@@ -126,6 +136,7 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import PayBillModal from "@/components/PayBillModal.vue";
 import DocHub from "@/components/DocHub.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -141,6 +152,12 @@ const { loadDetail } = useBills();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const DOCTYPE = "Purchase Invoice";
 const busy = ref(false);
+const payOpen = ref(false);
+function onPaid(res) {
+  let r = res && res.result; r = typeof r === "string" ? JSON.parse(r) : r;
+  toast.success(L("Payment recorded", "تم تسجيل الدفعة", "Paiement enregistré") + (r?.payment ? " · " + r.payment : ""));
+  load();
+}
 const confirmDebit = ref(false);
 async function makeDebit() {
   busy.value = true;
