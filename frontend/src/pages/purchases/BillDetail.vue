@@ -10,7 +10,7 @@
          false the whole bar rendered at the bottom instead, and when the target
          was not reachable it rendered nowhere at all. The page draws it now. -->
     <DocActions v-if="route.query.id" :doctype="DOCTYPE" :name="route.query.id"
-                class="bg-white rounded-card border border-line shadow-card overflow-hidden"
+                class="relative z-20 bg-white rounded-card border border-line shadow-card"
                 @changed="load" @open="(n) => router.push({ query: { id: n } })" />
 
     <PayBillModal v-if="payOpen" :invoice="b.id" :outstanding="Number(b.outstanding) || 0" :currency="b.currency"

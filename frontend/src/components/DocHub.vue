@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+  <div class="relative bg-white rounded-card border border-line shadow-card">
     <!-- full draft editor (header + lines) for JE / PE / bills / invoices / pay adjustments -->
     <DraftEditor v-if="draftOpen" :doctype="doctype" :name="name" @close="draftOpen = false" @saved="draftOpen = false; onChanged()" />
     <!-- The action bar moved to the page itself. This panel keeps what belongs
