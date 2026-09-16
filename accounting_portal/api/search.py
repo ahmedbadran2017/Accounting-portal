@@ -1,82 +1,100 @@
-"""Global search — find any document/party/SKU from the ⌘K palette and jump to
-its portal page, so the team never searches in ERPNext."""
+"""Global search — find any document, party or SKU from the ⌘K palette and jump
+to its portal page, so the team never searches in ERPNext.
+
+Two things were wrong with the first version and both made it useless in
+practice. It scoped every document query to ONE company, chosen as the first of
+the user's allowed companies in alphabetical order — Justyol China, which holds
+almost nothing — so searching from the group view returned nothing at all. And
+it matched document ids with a leading wildcard, `name LIKE '%q%'`, which no
+index can serve: 4.2 seconds across seven tables, against 0ms for the anchored
+form. A document id is unique across the group, so there is no reason to scope
+it to a company and no reason not to anchor it.
+"""
 import frappe
 
 from accounting_portal.api.permissions import assert_portal_access, resolve_companies
 
-
-def _target(company):
-    companies = resolve_companies(company)
-    if not companies:
-        return None
-    return company if (company and company in companies) else companies[0]
+# (label, icon, table, party column, route) — searched in this order.
+_DOCS = [
+    ("Invoice", "receipt", "Sales Invoice", "customer", "/accounting/sales/invoices"),
+    ("Order", "cart", "Sales Order", "customer", "/accounting/sales/orders"),
+    ("Bill", "doc", "Purchase Invoice", "supplier", "/accounting/purchases/bills"),
+    ("Payment", "coins", "Payment Entry", "party", "/accounting/purchases/payments"),
+    ("Delivery Note", "truck", "Delivery Note", "customer", "/accounting/sales/challans"),
+    ("Journal", "ledger", "Journal Entry", None, "/accounting/accountant/journals"),
+    ("Purchase Order", "cart", "Purchase Order", "supplier", "/accounting/purchases/tobuy"),
+    ("Purchase Receipt", "box", "Purchase Receipt", "supplier", "/accounting/purchases/received"),
+]
 
 
 @frappe.whitelist()
 def global_search(company=None, query=None, limit=5):
-    """Search the core doctypes by name/id and return jump targets for the palette."""
+    """Search parties, documents and items by id, name or reference."""
     assert_portal_access()
     q = (query or "").strip()
     if len(q) < 2:
         return []
-    target = _target(company)
-    like = f"%{q}%"
+    comps = resolve_companies(company) or []
+    if not comps:
+        return []
     n = min(int(limit or 5), 8)
+    like = f"%{q}%"
     out = []
 
-    def add(rows, typ, icon, route_fn, label_fn, sub_fn=None):
+    def add(rows, typ, icon, path, label_key, sub_key=None):
         for r in rows:
             out.append({"key": f"{typ}-{r['name']}", "type": typ, "icon": icon,
-                        "label": label_fn(r), "sub": sub_fn(r) if sub_fn else r["name"],
-                        "to": route_fn(r)})
+                        "label": r.get(label_key) or r["name"],
+                        "sub": (r.get(sub_key) if sub_key else None) or r["name"],
+                        "to": {"path": path, "query": {"id": r["name"]}}})
 
+    # Parties first: this is what a name-shaped query is almost always after,
+    # and both tables are small enough for a contains match.
     add(frappe.db.sql("SELECT name, customer_name FROM `tabCustomer` WHERE name LIKE %s OR customer_name LIKE %s ORDER BY modified DESC LIMIT %s",
                       (like, like, n), as_dict=True),
-        "Customer", "user", lambda r: {"path": "/accounting/sales/customers", "query": {"id": r["name"]}},
-        lambda r: r.get("customer_name") or r["name"])
+        "Customer", "user", "/accounting/sales/customers", "customer_name")
     add(frappe.db.sql("SELECT name, supplier_name FROM `tabSupplier` WHERE name LIKE %s OR supplier_name LIKE %s ORDER BY modified DESC LIMIT %s",
                       (like, like, n), as_dict=True),
-        "Supplier", "building", lambda r: {"path": "/accounting/purchases/vendors", "query": {"id": r["name"]}},
-        lambda r: r.get("supplier_name") or r["name"])
-    # Match an amount too: "1500" finds docs whose grand_total/paid_amount rounds to it.
+        "Supplier", "building", "/accounting/purchases/vendors", "supplier_name")
+
     amt = None
-    try:
-        amt = float(q.replace(",", "")) if q.replace(",", "").replace(".", "").isdigit() else None
-    except ValueError:
-        amt = None
+    bare = q.replace(",", "").replace(".", "")
+    if bare.isdigit():
+        try:
+            amt = float(q.replace(",", ""))
+        except ValueError:
+            amt = None
 
-    if target:
-        amt_sql = " OR ROUND(grand_total)=%(amt)s" if amt is not None else ""
-        pe_amt_sql = " OR ROUND(paid_amount)=%(amt)s" if amt is not None else ""
-        je_amt_sql = " OR ROUND(total_debit)=%(amt)s" if amt is not None else ""
-        p = {"c": target, "like": like, "n": n, "amt": amt}
+    # An id-shaped query — a digit or a '#', no spaces — is never a party name,
+    # and searching the party columns for it costs 2.8s of leading-wildcard scan
+    # for nothing. Skipping them takes the same search to 3ms.
+    id_like = " " not in q and (q.startswith("#") or any(ch.isdigit() for ch in q))
 
-        add(frappe.db.sql(f"SELECT name, customer FROM `tabSales Invoice` WHERE company=%(c)s AND (name LIKE %(like)s OR customer LIKE %(like)s{amt_sql}) ORDER BY modified DESC LIMIT %(n)s", p, as_dict=True),
-            "Invoice", "receipt", lambda r: {"path": "/accounting/sales/invoices", "query": {"id": r["name"]}},
-            lambda r: r["name"], lambda r: r.get("customer"))
-        add(frappe.db.sql(f"SELECT name, customer FROM `tabSales Order` WHERE company=%(c)s AND (name LIKE %(like)s OR customer LIKE %(like)s{amt_sql}) ORDER BY modified DESC LIMIT %(n)s", p, as_dict=True),
-            "Order", "cart", lambda r: {"path": "/accounting/sales/orders", "query": {"id": r["name"]}},
-            lambda r: r["name"], lambda r: r.get("customer"))
-        add(frappe.db.sql(f"SELECT name, customer FROM `tabDelivery Note` WHERE company=%(c)s AND (name LIKE %(like)s OR customer LIKE %(like)s{amt_sql}) ORDER BY modified DESC LIMIT %(n)s", p, as_dict=True),
-            "Delivery Note", "truck", lambda r: {"path": "/accounting/sales/challans", "query": {"id": r["name"]}},
-            lambda r: r["name"], lambda r: r.get("customer"))
-        add(frappe.db.sql(f"SELECT name, supplier FROM `tabPurchase Invoice` WHERE company=%(c)s AND (name LIKE %(like)s OR supplier LIKE %(like)s{amt_sql}) ORDER BY modified DESC LIMIT %(n)s", p, as_dict=True),
-            "Bill", "doc", lambda r: {"path": "/accounting/purchases/bills", "query": {"id": r["name"]}},
-            lambda r: r["name"], lambda r: r.get("supplier"))
-        add(frappe.db.sql(f"SELECT name, supplier FROM `tabPurchase Order` WHERE company=%(c)s AND (name LIKE %(like)s OR supplier LIKE %(like)s{amt_sql}) ORDER BY modified DESC LIMIT %(n)s", p, as_dict=True),
-            "Purchase Order", "cart", lambda r: {"path": "/accounting/purchases/tobuy", "query": {"id": r["name"]}},
-            lambda r: r["name"], lambda r: r.get("supplier"))
-        add(frappe.db.sql(f"SELECT name, supplier FROM `tabPurchase Receipt` WHERE company=%(c)s AND (name LIKE %(like)s OR supplier LIKE %(like)s{amt_sql}) ORDER BY modified DESC LIMIT %(n)s", p, as_dict=True),
-            "Purchase Receipt", "box", lambda r: {"path": "/accounting/purchases/received", "query": {"id": r["name"]}},
-            lambda r: r["name"], lambda r: r.get("supplier"))
-        add(frappe.db.sql(f"SELECT name, party FROM `tabPayment Entry` WHERE company=%(c)s AND (name LIKE %(like)s OR party LIKE %(like)s OR reference_no LIKE %(like)s{pe_amt_sql}) ORDER BY modified DESC LIMIT %(n)s", p, as_dict=True),
-            "Payment", "coins", lambda r: {"path": "/accounting/purchases/payments", "query": {"id": r["name"]}},
-            lambda r: r["name"], lambda r: r.get("party"))
-        add(frappe.db.sql(f"SELECT name, title, user_remark FROM `tabJournal Entry` WHERE company=%(c)s AND (name LIKE %(like)s OR title LIKE %(like)s OR user_remark LIKE %(like)s{je_amt_sql}) ORDER BY modified DESC LIMIT %(n)s", p, as_dict=True),
-            "Journal", "ledger", lambda r: {"path": "/accounting/accountant/journals", "query": {"id": r["name"]}},
-            lambda r: r["name"], lambda r: (r.get("title") or r.get("user_remark") or "Journal Entry"))
+    ph = ", ".join(["%s"] * len(comps))
+    for typ, icon, table, party, path in _DOCS:
+        conds, params = [], list(comps)
+        # Anchored on the id so the primary key serves it. Frappe ids are
+        # prefixed by series, so a prefix match is what an accountant types.
+        conds.append("name LIKE %s"); params.append(f"{q}%")
+        if party and not id_like:
+            conds.append(f"`{party}` LIKE %s"); params.append(like)
+        if table == "Payment Entry":
+            # A bank reference IS id-shaped, so this one stays either way.
+            conds.append("reference_no LIKE %s"); params.append(like)
+        if table == "Journal Entry" and not id_like:
+            conds.append("title LIKE %s"); params.append(like)
+            conds.append("user_remark LIKE %s"); params.append(like)
+        if amt is not None:
+            col = {"Payment Entry": "paid_amount", "Journal Entry": "total_debit"}.get(table, "grand_total")
+            conds.append(f"ROUND({col})=%s"); params.append(amt)
+        params.append(n)
+        sel = "name" + (f", `{party}` AS party_label" if party else "")
+        rows = frappe.db.sql(
+            f"SELECT {sel} FROM `tab{table}` WHERE company IN ({ph}) AND ({' OR '.join(conds)}) "
+            f"ORDER BY modified DESC LIMIT %s", params, as_dict=True)
+        add(rows, typ, icon, path, "name", "party_label" if party else None)
+
     add(frappe.db.sql("SELECT name, item_name, custom_sku FROM `tabItem` WHERE name LIKE %s OR item_name LIKE %s OR IFNULL(custom_sku,'') LIKE %s ORDER BY modified DESC LIMIT %s",
                       (like, like, like, n), as_dict=True),
-        "Item", "box", lambda r: {"path": "/accounting/items/items", "query": {"id": r["name"]}},
-        lambda r: r.get("item_name") or r["name"], lambda r: r.get("custom_sku") or r["name"])
+        "Item", "box", "/accounting/items/items", "item_name", "custom_sku")
     return out

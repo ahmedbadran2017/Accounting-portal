@@ -20,6 +20,8 @@ import io
 import re
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, getdate, nowdate
 
 from accounting_portal.api import _actions, _paginate
@@ -705,7 +707,7 @@ def backfill_pe_refs(company=None, orders=None, dry_run=1):
     # Dedupe key hashes the FULL (order|invoice) set — never truncate the identifying
     # set, or two different batches sharing a prefix would collide and be skipped.
     sig = ",".join(sorted(f"{p['so']}|{p['si']}" for p in pairs))
-    key = f"stamp_pe_ref:{target}:{frappe.generate_hash(sig, 16)}"
+    key = f"stamp_pe_ref:{target}:{_digest(sig, 16)}"
     res = _actions.execute(
         STAMP_PE_REF_ACTION, target, key,
         payload={"pairs": [{"so": p["so"], "si": p["si"], "ref": p["ref"]} for p in pairs]},

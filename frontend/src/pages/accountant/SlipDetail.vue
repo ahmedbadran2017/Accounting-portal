@@ -45,12 +45,14 @@ import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import { useToast } from "@/composables/useToast";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 
 const { locale } = useI18n();
+const toast = useToast();
 const { entityId } = useUi();
 const route = useRoute();
 const router = useRouter();
@@ -77,7 +79,11 @@ function back() { router.back(); }
 
 // Render a clean payslip in a new window and open the print dialog (→ Save as PDF).
 function printPayslip() {
+  // `d` is a ref. The template auto-unwraps it; this script block does not, so
+  // `d.earnings` was undefined and `.map` threw before window.open ever ran —
+  // the button did nothing at all, silently, for every employee.
   const sl = s.value, cur = ccy.value, comp = d.value.company || "";
+  if (!sl) { toast.error(L("Nothing to print.", "لا يوجد ما يُطبع.", "Rien à imprimer.")); return; }
   const rows = (arr, sign) => arr.map((r) => `<tr><td>${esc(r.component)}</td><td class="n">${sign}${money(r.amount)}</td></tr>`).join("");
   const ar = locale.value === "ar";
   const t = (en, arT) => (ar ? arT : en);
@@ -104,8 +110,8 @@ function printPayslip() {
     <div><b>${t("Bank", "البنك")}:</b> ${esc(sl.bank_name || "—")} ${esc(sl.bank_account_no || "")}</div>
   </div>
   <div class="cols">
-    <div class="box"><h4><span>${t("Earnings", "الاستحقاقات")}</span><span class="n">${money(sl.gross_pay)}</span></h4><table>${rows(d.earnings, "")}</table></div>
-    <div class="box"><h4><span>${t("Deductions", "الخصومات")}</span><span class="n">−${money(sl.total_deduction)}</span></h4><table>${d.deductions.length ? rows(d.deductions, "−") : `<tr><td colspan=2 style="text-align:center;color:#a8a29e">${t("None", "لا شيء")}</td></tr>`}</table></div>
+    <div class="box"><h4><span>${t("Earnings", "الاستحقاقات")}</span><span class="n">${money(sl.gross_pay)}</span></h4><table>${rows(d.value.earnings || [], "")}</table></div>
+    <div class="box"><h4><span>${t("Deductions", "الخصومات")}</span><span class="n">−${money(sl.total_deduction)}</span></h4><table>${(d.value.deductions || []).length ? rows(d.value.deductions, "−") : `<tr><td colspan=2 style="text-align:center;color:#a8a29e">${t("None", "لا شيء")}</td></tr>`}</table></div>
   </div>
   <div class="net"><span class="lbl">${t("Net pay", "صافي الراتب")}</span><span class="v">${money(sl.net_pay)} ${esc(cur)}</span></div>
   <div class="ft">${t("Generated from Justyol Accounting Portal", "صادر من بوابة حسابات Justyol")} · ${new Date().toLocaleDateString()}</div>

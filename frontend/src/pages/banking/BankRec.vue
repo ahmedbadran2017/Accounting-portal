@@ -183,6 +183,7 @@ async function loadAccounts() {
   if (accounts.value.length && !sel.value) pick(accounts.value[0]);
 }
 const loadErr = ref("");
+const clearDate = ref("");
 const carryover = ref({ n: 0, v: 0 });
 function showAllTime() { fyc.selected.value = "all"; }
 
@@ -251,9 +252,24 @@ const bulkActions = computed(() => [{
   key: "clear", label: L("Mark reconciled", "علّم مُسوّى", "Rapprocher"), icon: "check", color: "#047857",
   confirm: (r) => L(`Mark ${r.length} entr(ies) reconciled?`, `علّم ${r.length} قيد كمُسوّى؟`, `Rapprocher ${r.length} ?`),
   run: async (r) => {
+    // The clearance date is the statement's date, not today's. Sending none
+    // stamped every item with the day the reconciliation happened, which put a
+    // June statement reconciled in September into the September period.
+    const guess = clearDate.value || (r[0] && r[0].date) || "";
+    const d = window.prompt(L("Statement date for these entries (YYYY-MM-DD)",
+                              "تاريخ كشف الحساب لهذه القيود (YYYY-MM-DD)",
+                              "Date du relevé (AAAA-MM-JJ)"), guess);
+    if (!d) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
+      toast.error(L("Use the form YYYY-MM-DD.", "استخدم الصيغة YYYY-MM-DD.", "Format AAAA-MM-JJ."));
+      return;
+    }
     try {
-      await api.call("accounting_portal.api.reconciliation.mark_bank_cleared", { company: currentCompany(), entries: r.map((x) => ({ doctype: x.doctype, name: x.voucher })) });
-      toast.success(L("Reconciled", "تمت التسوية", "Rapproché"));
+      const res = await api.call("accounting_portal.api.reconciliation.mark_bank_cleared", { company: currentCompany(), clearance_date: d.trim(), entries: r.map((x) => ({ doctype: x.doctype, name: x.voucher })) });
+      let out = res && res.result; out = typeof out === "string" ? JSON.parse(out) : out;
+      const skipped = (out && out.skipped) || [];
+      if (skipped.length) toast.info(L(`${skipped.length} already reconciled on another date — left alone`, `${skipped.length} مُسوّى بتاريخ آخر — لم تُمس`, `${skipped.length} déjà rapproché(s)`));
+      toast.success(L("Reconciled", "تمت التسوية", "Rapproché") + " · " + d.trim());
       tt.clearSelection(); loadAccounts(); loadRows();
     } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
   },

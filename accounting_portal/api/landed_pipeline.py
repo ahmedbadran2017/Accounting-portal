@@ -19,6 +19,8 @@ import json
 import re
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, nowdate, money_in_words
 
 # Charge bills carry the shipment in their remark/description, e.g.
@@ -516,7 +518,7 @@ def post_lcv(company=None, receipts=None, charges=None, distribute_by="Amount", 
     # two different charge sets with the same sum over the same receipts must NOT
     # collide (the second would silently vanish behind the first).
     charge_sig = sorted((c.get("expense_account"), round(flt(c.get("amount")), 2), c.get("source")) for c in charges)
-    key = "lcv:" + frappe.generate_hash(f"{target}:{sorted(receipts)}:{charge_sig}:{distribute_by}", 12)
+    key = "lcv:" + _digest(f"{target}:{sorted(receipts)}:{charge_sig}:{distribute_by}", 12)
     return _actions.execute(
         LCV_ACTION, target, key,
         payload={"mode": "create", "receipts": receipts, "charges": charges,
@@ -737,7 +739,7 @@ def fix_receipt_totals(company=None, receipt=None, notes=None):
     new["base_in_words"] = money_in_words(new_bgt, ccy)
     old["base_in_words"] = row.base_in_words
     old_bgt = flt(row.base_grand_total)
-    key = "fixtot:" + frappe.generate_hash(f"{receipt}:{round(new_bgt,2)}", 12)
+    key = "fixtot:" + _digest(f"{receipt}:{round(new_bgt,2)}", 12)
     return _actions.execute(
         FIX_TOTALS_ACTION, target, key,
         payload={"receipt": receipt, "new": new, "old": old},

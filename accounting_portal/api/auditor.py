@@ -499,6 +499,12 @@ def remediation_board(company=None):
 def close_task(task=None):
     """Mark an audit task done."""
     assert_can_write()
+    # This closed ANY ToDo in the instance by name — another entity's audit task,
+    # or an unrelated ERPNext assignment. Only tasks this board created carry the
+    # ⟦AUDIT:…⟧ marker, and that is the only thing it may close.
+    desc = frappe.db.get_value("ToDo", task, "description") or ""
+    if "⟦AUDIT:" not in desc:
+        frappe.throw("That task was not raised by the auditor board.")
     todo = frappe.get_doc("ToDo", task)
     todo.status = "Closed"
     todo.flags.ignore_permissions = True

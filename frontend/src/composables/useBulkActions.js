@@ -12,13 +12,20 @@ export function useBulkDocActions(doctype, { keyField = "name", onDone, L, ops =
   async function run(fn, rows, okMsg) {
     try {
       const res = await api.call(fn, { doctype, names: names(rows), company: currentCompany() });
-      const r = res && res.result ? res.result : null;
+      // The gateway stores the poster's result with json.dumps, so this arrives
+      // as a STRING. Reading `.ok` off a string gave undefined, which fell back
+      // to rows.length — so twelve bills that all failed reported "Submitted · 12".
+      let r = res && res.result ? res.result : null;
+      if (typeof r === "string") { try { r = JSON.parse(r); } catch { r = null; } }
       if (res && res.status === "Proposed") {
         toast.info(L("Sent for approval (material total)", "أُرسل للموافقة (مبلغ كبير)", "Approbation requise"));
       } else {
         const ok = r && r.ok != null ? r.ok : rows.length;
-        const fail = r && r.fail ? r.fail : 0;
-        toast.success(okMsg + ` · ${ok}` + (fail ? ` · ${fail} ${L("failed", "فشل", "échec")}` : ""));
+        const fail = (r && r.fail) || 0;
+        const msg = okMsg + ` · ${ok}` + (fail ? ` · ${fail} ${L("failed", "فشل", "échec")}` : "");
+        if (fail && !ok) toast.error(msg);
+        else if (fail) toast.info(msg);
+        else toast.success(msg);
         onDone && onDone();
       }
     } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }

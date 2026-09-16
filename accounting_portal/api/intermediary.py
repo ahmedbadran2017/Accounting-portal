@@ -11,6 +11,8 @@ and the open foreign-currency payables, and lets the team:
     "paid from" account, so ERPNext computes the FX gain/loss reliably.
 """
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, nowdate
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
@@ -135,7 +137,7 @@ def fund_intermediary(company=None, intermediary=None, bank=None, amount=None, p
         lines=[{"account": intermediary, "debit": amt, "credit": 0},
                {"account": bank, "debit": 0, "credit": amt}],
         remark=notes or f"Fund intermediary {intermediary}",
-        dedupe_key="fundinter:" + frappe.generate_hash(f"{target}:{intermediary}:{bank}:{amt}:{posting_date or nowdate()}", 12))
+        dedupe_key="fundinter:" + _digest(f"{target}:{intermediary}:{bank}:{amt}:{posting_date or nowdate()}", 12))
 
 
 ACCT_ACTION = "Create intermediary account"
@@ -227,4 +229,4 @@ def settle_via_intermediary(company=None, invoice=None, intermediary=None, refer
     from accounting_portal.api.purchases import pay_bill
     return pay_bill(company=company, invoice=invoice, paid_from=intermediary,
                     reference_no=reference_no, reference_date=posting_date,
-                    dedupe_key="settleinter:" + frappe.generate_hash(f"{invoice}:{intermediary}", 12))
+                    dedupe_key="settleinter:" + _digest(f"{invoice}:{intermediary}", 12))

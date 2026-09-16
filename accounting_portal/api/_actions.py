@@ -13,8 +13,25 @@ The gateway runs the poster, links the resulting voucher, and stamps the audit.
 """
 import json
 
+import hashlib
+
 import frappe
 from frappe.utils import flt, now_datetime
+
+def digest(text, n=14):
+    """A stable fingerprint of `text`, for building dedupe keys.
+
+    This exists because `frappe.generate_hash(txt, n)` looks like a digest and is
+    not: it ignores its argument and returns `secrets.token_hex`, a fresh random
+    string on every call. Thirty-one dedupe keys across ten modules were built
+    with it, which meant `execute()` never saw the same key twice and the
+    idempotency this whole gateway rests on did not exist. Two clicks on "Pay
+    salaries" were two different keys, so both posted: a month of wages paid
+    twice. Same for bank-to-bank transfers.
+
+    sha1 is right here — this is a cache key, not a credential.
+    """
+    return hashlib.sha1(str(text).encode("utf-8")).hexdigest()[: max(4, int(n))]
 
 from accounting_portal.api.permissions import (
     assert_can_write, assert_portal_access, can_manage_users, can_write,

@@ -7,6 +7,8 @@ whether every line is linked to a Purchase Order (and a receipt).
 import json
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, nowdate
 
 from accounting_portal.api import _actions, _paginate
@@ -662,7 +664,7 @@ def pay_bills_group(company=None, invoices=None, mode=None, paid_from=None,
         if flt(r.outstanding_amount) <= 0:
             frappe.throw(f"{r.name} is already settled")
     total = sum(flt(r.outstanding_amount) for r in rows)
-    key = dedupe_key or "paygrp:" + frappe.generate_hash("".join(sorted(names)), 16)
+    key = dedupe_key or "paygrp:" + _digest("".join(sorted(names)), 16)
     res = _actions.execute(
         GRP_PAY_ACTION, target, key,
         payload={"invoices": sorted(names), "mode": mode, "paid_from": paid_from,
@@ -722,7 +724,7 @@ def make_invoice_group(company=None, receipts=None, dedupe_key=None):
         if flt(r.per_billed) >= 100:
             frappe.throw(f"{r.name} is already billed")
     total = sum(flt(r.grand_total) for r in rows)
-    key = dedupe_key or "billgrp:" + frappe.generate_hash("".join(sorted(names)), 16)
+    key = dedupe_key or "billgrp:" + _digest("".join(sorted(names)), 16)
     res = _actions.execute(
         GRP_BILL_ACTION, target, key, payload={"receipts": sorted(names)},
         amount=total, reference_doctype="Purchase Receipt", reference_name=sorted(names)[0],
@@ -882,7 +884,7 @@ def mark_cheques_cleared(company=None, names=None, clearance_date=None, dates=No
     date = clearance_date or nowdate()
     dates = {n: d for n, d in dates.items() if n in names and d}
     sig = "".join(f"{n}:{dates.get(n, date)}" for n in sorted(names))
-    key = "clrchq:" + frappe.generate_hash(sig, 16)
+    key = "clrchq:" + _digest(sig, 16)
     res = _actions.execute(CLEAR_CHQ_ACTION, target, key,
                            payload={"names": sorted(names), "date": date, "dates": dates}, amount=0,
                            notes=f"Cleared {len(names)} cheque(s)")
@@ -964,7 +966,7 @@ def apply_advance(company=None, payment=None, invoices=None, dedupe_key=None):
     for r in rows:
         if r.company != target or r.supplier != pe.party:
             frappe.throw(f"{r.name} is not an open bill for this supplier")
-    key = dedupe_key or "matchadv:" + frappe.generate_hash(payment + "".join(sorted(names)), 16)
+    key = dedupe_key or "matchadv:" + _digest(payment + "".join(sorted(names)), 16)
     res = _actions.execute(
         MATCH_ADV_ACTION, target, key, payload={"payment": payment, "invoices": sorted(names)},
         amount=flt(pe.unallocated_amount), reference_doctype="Payment Entry", reference_name=payment,
@@ -1105,7 +1107,7 @@ def create_purchase_order(company=None, supplier=None, items=None, transaction_d
     if not items:
         frappe.throw("Add at least one line item")
     amount = sum(flt(it.get("qty")) * flt(it.get("rate") or 0) for it in items)
-    key = dedupe_key or f"po:create:{target}:{supplier}:" + frappe.generate_hash(
+    key = dedupe_key or f"po:create:{target}:{supplier}:" + _digest(
         json.dumps(items, sort_keys=True, default=str), 12)
     payload = {"company": target, "supplier": supplier, "items": items,
                "transaction_date": transaction_date, "schedule_date": schedule_date,

@@ -9,6 +9,8 @@ write gateway (one Accounting Portal Action, material-amount approval gate).
 import json
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt
 
 from accounting_portal.api import _actions
@@ -80,7 +82,7 @@ def _run(op, doctype, names, company):
             frappe.throw(f"{r.name} is not {'a draft' if op == 'submit' else 'submitted'}")
     total = sum(flt(r.amt) for r in rows)
     action_type = SUBMIT_ACTION if op == "submit" else CANCEL_ACTION
-    key = f"bulk:{op}:{doctype}:" + frappe.generate_hash("".join(sorted(names)), 16)
+    key = f"bulk:{op}:{doctype}:" + _digest("".join(sorted(names)), 16)
     return _actions.execute(
         action_type, target or rows[0].company, key,
         payload={"doctype": doctype, "names": sorted(names), "op": op},
@@ -146,6 +148,6 @@ def bulk_delete(doctype=None, names=None, company=None):
         if r.docstatus != 0:
             frappe.throw(f"{r.name} is not a draft")
     target = rows[0].company if rows else (companies[0] if companies else None)
-    key = f"bulk-delete:{doctype}:{frappe.generate_hash(','.join(sorted(names)), 12)}"
+    key = f"bulk-delete:{doctype}:{_digest(','.join(sorted(names)), 12)}"
     return _actions.execute(DELETE_ACTION, target, key, payload={"doctype": doctype, "names": names, "op": "delete"},
                             amount=0, notes=f"Delete {len(names)} draft {doctype}(s)")

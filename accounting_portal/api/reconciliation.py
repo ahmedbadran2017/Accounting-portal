@@ -11,6 +11,8 @@ flagged. The allocation WRITE is posted through accounting_portal.api._actions
 import json
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, nowdate
 
 from accounting_portal.api import _actions, _paginate
@@ -224,7 +226,7 @@ def internal_transfer(company=None, from_account=None, to_account=None, amount=N
             frappe.throw(f"{a} is not a bank/cash account of {target}")
     pd = str(posting_date or nowdate())[:10]
     recv = flt(received_amount) if received_amount not in (None, "") else amt
-    key = "xfer:" + frappe.generate_hash(f"{target}:{from_account}:{to_account}:{amt}:{pd}:{reference_no or ''}", 12)
+    key = "xfer:" + _digest(f"{target}:{from_account}:{to_account}:{amt}:{pd}:{reference_no or ''}", 12)
     return _actions.execute(
         TRANSFER_ACTION, target, key,
         payload={"from": from_account, "to": to_account, "amount": amt, "received": recv,
@@ -472,12 +474,20 @@ def bank_uncleared(company=None, account=None, from_date=None, to_date=None, sea
 def _clear_bank_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     date = p.get("date") or nowdate()
+    skipped = []
     for e in p["entries"]:
+        # Never silently re-date something already reconciled: the reverter
+        # matches on the date it wrote, so an overwrite makes the undo impossible.
+        prev = frappe.db.get_value(e["doctype"], e["name"], "clearance_date")
+        if prev and str(prev) != str(date):
+            skipped.append(f"{e['name']} (already cleared {prev})")
+            continue
         frappe.db.set_value(e["doctype"], e["name"], "clearance_date", date)
     frappe.db.commit()
     first = p["entries"][0] if p["entries"] else {}
     return {"voucher_type": first.get("doctype"), "voucher_no": first.get("name"),
-            "result": {"cleared": len(p["entries"]), "date": date}}
+            "result": {"cleared": len(p["entries"]) - len(skipped), "date": date,
+                       "skipped": skipped}}
 
 
 def _clear_bank_reverter(action):
@@ -513,8 +523,16 @@ def mark_bank_cleared(company=None, entries=None, clearance_date=None):
     for e in ents:
         if frappe.db.get_value(e["doctype"], e["name"], "company") != target:
             frappe.throw(f"{e['name']} belongs to another company")
-    date = clearance_date or nowdate()
-    key = "clrbank:" + frappe.generate_hash("".join(sorted(e["name"] for e in ents)) + date, 16)
+    # The screen sends no date, so this quietly stamped today on everything. An
+    # accountant reconciling the June statement in September dated every June
+    # item 2026-09-16, which throws off the reconciliation cut-off and the
+    # year-end. Refuse rather than guess: the statement date is the whole point
+    # of a clearance date.
+    date = (clearance_date or "").strip()
+    if not date:
+        frappe.throw("Pick the statement date — a clearance date stamped with today "
+                     "would put these entries in the wrong reconciliation period.")
+    key = "clrbank:" + _digest("".join(sorted(e["name"] for e in ents)) + date, 16)
     res = _actions.execute(CLEAR_BANK_ACTION, target, key,
                            payload={"entries": ents, "date": date}, amount=0,
                            notes=f"Reconciled {len(ents)} bank entr(ies) on {date}")

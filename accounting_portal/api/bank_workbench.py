@@ -18,6 +18,8 @@ Line lifecycle:
 import json
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, nowdate
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
@@ -181,7 +183,7 @@ def bulk_register(company=None, name=None, idxs=None, account=None):
         company=target, posting_date=max(l["date"] for l in sel if l.get("date")) or nowdate(),
         lines=je_lines,
         remark=f"Bank batch · {len(sel)} × {(sel[0].get('description') or '')[:60]} · {doc.name}",
-        dedupe_key="bsibulk:" + frappe.generate_hash(f"{doc.name}:{sorted(idxs)}:{account}", 12))
+        dedupe_key="bsibulk:" + _digest(f"{doc.name}:{sorted(idxs)}:{account}", 12))
     if res.get("status") == "Proposed":
         return {"proposed": True, "n": len(sel), "total": total, **_stats(doc)}
     vno = res.get("voucher_no")

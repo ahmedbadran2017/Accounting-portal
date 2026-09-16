@@ -11,6 +11,8 @@ plain constant here (Phase 1); making it user-editable is a later phase.
 import json
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, nowdate, add_days
 
 from accounting_portal.api import _actions, _paginate
@@ -442,7 +444,7 @@ def create_expense(company=None, expense_account=None, amount=None, posting_date
     if int(dry_run or 0):
         return {"preview": True, "lines": lines, "amount": gross, "posting_date": str(pd),
                 "gated": gross >= _actions.MATERIAL_THRESHOLD}
-    key = "expense:" + frappe.generate_hash(
+    key = "expense:" + _digest(
         f"{target}|{expense_account}|{pay_account}|{amt}|{tax}|{ccy}|{pd}|{description or ''}|{party or ''}", 14)
     remark = (description or "Operating expense") + (f" ({amt + tax:,.0f} {ccy} @ {rate})" if ccy != base else "")
     return _actions.execute(
@@ -496,7 +498,7 @@ def create_supplier_bill(company=None, supplier=None, expense_account=None, amou
         rate = 1.0
     gross = round(amt + tax, 2)           # in the bill currency
     gross_base = round(gross * rate, 2)   # what hits the books / the gate
-    key = "suppbill:" + frappe.generate_hash(
+    key = "suppbill:" + _digest(
         f"{target}|{supplier}|{expense_account}|{amt}|{tax}|{ccy}|{pd}|{bill_no or ''}", 14)
     return _actions.execute(
         BILL_ACTION, target, key,

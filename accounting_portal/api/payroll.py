@@ -10,6 +10,8 @@ so figures are exact, never rounded to thousands.
 import json
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, add_months, nowdate, getdate, get_last_day
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
@@ -56,6 +58,18 @@ def _salary_payable(target):
                   OR a.account_name LIKE '%%Wages Payable%%')""", (target,))[0][0]
     return _m(v)
 
+
+def _as_privileged(doc):
+    """Run an HRMS document method as the portal, not as the signed-in user.
+
+    An `Accountant` may post payroll by the portal's own model, but that role
+    carries no HRMS DocType permissions, and `submit_salary_slips()` opens with
+    `check_permission("write")`. Generate would succeed and Submit slips would
+    die with a bare "Not permitted", leaving the accrual unposted. The flag has
+    to be set on the freshly fetched document, not inherited from an earlier one.
+    """
+    doc.flags.ignore_permissions = True
+    return doc
 
 @frappe.whitelist()
 def payroll_cockpit(company=None, from_date=None, to_date=None):
@@ -629,7 +643,7 @@ def payroll_generate(company=None, month=None, notes=None):
             frappe.throw(f"{month} is already run: {len(done)} submitted slips"
                          f"{' (' + ', '.join(runs[:4]) + ('…' if len(runs) > 4 else '') + ')' if runs else ''}. "
                          "Nothing left to generate — see Runs.")
-    key = "payroll-run:" + frappe.generate_hash(f"{target}:{month}", 14)
+    key = "payroll-run:" + _digest(f"{target}:{month}", 14)
     return _actions.execute(RUN_ACTION, target, key, payload={"month": month},
                             amount=0, notes=notes or f"Generate payroll slips {month}")
 
@@ -676,7 +690,7 @@ def _run_reverter(doc):
     for s in frappe.get_all("Salary Slip", {"payroll_entry": pe, "docstatus": 0}, pluck="name"):
         frappe.delete_doc("Salary Slip", s, force=1, ignore_permissions=True)
     if frappe.db.get_value("Payroll Entry", pe, "docstatus") == 1:
-        frappe.get_doc("Payroll Entry", pe).cancel()
+        _as_privileged(frappe.get_doc("Payroll Entry", pe)).cancel()
     return {"cancelled_run": pe}
 
 
@@ -693,7 +707,7 @@ def payroll_submit_slips(company=None, month=None, notes=None):
            WHERE company=%s AND docstatus=0 AND DATE_FORMAT(start_date,'%%Y-%%m')=%s""",
         (target, month))[0][0])
     from accounting_portal.api import _actions
-    key = "payroll-submit:" + frappe.generate_hash(f"{target}:{month}", 14)
+    key = "payroll-submit:" + _digest(f"{target}:{month}", 14)
     return _actions.execute(SUBMIT_SLIPS_ACTION, target, key, payload={"month": month},
                             amount=net, notes=notes or f"Submit payroll slips {month}")
 
@@ -708,13 +722,13 @@ def _submit_poster(doc):
             and frappe.db.exists("Salary Slip", {"payroll_entry": r.name, "docstatus": 0})]
     done = []
     for r in runs:
-        frappe.get_doc("Payroll Entry", r.name).submit_salary_slips()
+        _as_privileged(frappe.get_doc("Payroll Entry", r.name)).submit_salary_slips()
         done.append(r.name)
     # Any stray draft slips not tied to a run — submit directly.
     for s in frappe.get_all("Salary Slip",
                             {"company": target, "docstatus": 0}, ["name", "start_date"]):
         if str(s.start_date)[:7] == month:
-            frappe.get_doc("Salary Slip", s.name).submit()
+            _as_privileged(frappe.get_doc("Salary Slip", s.name)).submit()
     return {"voucher_type": "Payroll Entry", "voucher_no": ",".join(done) or None,
             "result": {"runs_submitted": done, "month": month}}
 
@@ -727,7 +741,7 @@ def _submit_reverter(doc):
     for s in frappe.get_all("Salary Slip",
                             {"company": target, "docstatus": 1}, ["name", "start_date"]):
         if str(s.start_date)[:7] == month:
-            frappe.get_doc("Salary Slip", s.name).cancel()
+            _as_privileged(frappe.get_doc("Salary Slip", s.name)).cancel()
             cancelled += 1
     return {"cancelled_slips": cancelled, "month": month}
 
@@ -771,7 +785,7 @@ def payroll_pay(company=None, month=None, bank_account=None, notes=None):
         frappe.throw("Nothing to pay — salaries for this month are already settled.")
     total = _m(sum(p["amount"] for p in plan))
     from accounting_portal.api import _actions
-    key = "payroll-pay:" + frappe.generate_hash(f"{target}:{month}:{bank_account}:{total}", 14)
+    key = "payroll-pay:" + _digest(f"{target}:{month}:{bank_account}:{total}", 14)
     return _actions.execute(PAY_ACTION, target, key,
                             payload={"month": month, "bank_account": bank_account},
                             amount=total, notes=notes or f"Pay salaries {month}")
@@ -840,7 +854,7 @@ def assign_structure(company=None, employee=None, salary_structure=None, from_da
     payable, _cc = _payroll_defaults(target)
     fd = from_date or str(get_last_day(nowdate()).replace(day=1))
     from accounting_portal.api import _actions
-    key = "assign-ssa:" + frappe.generate_hash(f"{target}:{employee}:{salary_structure}:{fd}", 14)
+    key = "assign-ssa:" + _digest(f"{target}:{employee}:{salary_structure}:{fd}", 14)
     return _actions.execute(
         ASSIGN_ACTION, target, key,
         payload={"employee": employee, "salary_structure": salary_structure, "from_date": fd,
@@ -926,7 +940,7 @@ def add_adjustment(company=None, employee=None, salary_component=None, amount=No
     if not frappe.db.exists("Employee", {"name": employee, "company": target}):
         frappe.throw("Employee not found in this company")
     from accounting_portal.api import _actions
-    key = "payadj:" + frappe.generate_hash(f"{target}:{employee}:{salary_component}:{amt}:{month}", 14)
+    key = "payadj:" + _digest(f"{target}:{employee}:{salary_component}:{amt}:{month}", 14)
     return _actions.execute(
         ADJ_ACTION, target, key,
         payload={"employee": employee, "salary_component": salary_component, "amount": amt, "month": month},
@@ -1018,7 +1032,7 @@ def update_employee(company=None, employee=None, fields=None, notes=None):
         frappe.throw("Nothing to update")
     prior = {k: frappe.db.get_value("Employee", employee, k) for k in fields}
     from accounting_portal.api import _actions
-    key = "empupd:" + frappe.generate_hash(f"{employee}:{json.dumps(fields, sort_keys=True, default=str)}", 14)
+    key = "empupd:" + _digest(f"{employee}:{json.dumps(fields, sort_keys=True, default=str)}", 14)
     return _actions.execute(
         EMP_UPDATE_ACTION, target, key,
         payload={"employee": employee, "fields": fields,
@@ -1062,7 +1076,7 @@ def create_employee(company=None, first_name=None, last_name=None, gender=None, 
                "cell_number": cell_number, "company_email": company_email,
                "bank_name": bank_name, "bank_ac_no": bank_ac_no, "iban": iban}
     from accounting_portal.api import _actions
-    key = "empnew:" + frappe.generate_hash(f"{target}:{first_name}:{last_name}:{date_of_joining}:{date_of_birth}", 14)
+    key = "empnew:" + _digest(f"{target}:{first_name}:{last_name}:{date_of_joining}:{date_of_birth}", 14)
     return _actions.execute(EMP_CREATE_ACTION, target, key, payload=payload, amount=0,
                             notes=notes or f"New employee {first_name} {last_name or ''}".strip())
 
@@ -1220,7 +1234,7 @@ def create_employee_advance(company=None, employee=None, amount=None, purpose=No
         frappe.throw("Employee not found in this company")
     from accounting_portal.api import _actions
     pd = str(getdate(posting_date or nowdate()))
-    key = "empadv:" + frappe.generate_hash(f"{target}:{employee}:{amt}:{pd}:{purpose[:30]}", 14)
+    key = "empadv:" + _digest(f"{target}:{employee}:{amt}:{pd}:{purpose[:30]}", 14)
     return _actions.execute(
         ADV_ACTION, target, key,
         payload={"employee": employee, "amount": amt, "purpose": purpose, "posting_date": pd,
@@ -1357,7 +1371,7 @@ def save_salary_structure(company=None, name=None, structure_name=None, currency
     if not any(r.get("salary_component") for r in earnings):
         frappe.throw("At least one earning component is required")
     from accounting_portal.api import _actions
-    key = "ss:" + frappe.generate_hash(f"{target}:{name or structure_name}:{str(frappe.utils.now_datetime())[:19]}", 14)
+    key = "ss:" + _digest(f"{target}:{name or structure_name}:{str(frappe.utils.now_datetime())[:19]}", 14)
     return _actions.execute(SS_ACTION, target, key,
                             payload={"name": name, "structure_name": structure_name, "currency": currency,
                                      "payroll_frequency": payroll_frequency, "earnings": earnings, "deductions": deductions,

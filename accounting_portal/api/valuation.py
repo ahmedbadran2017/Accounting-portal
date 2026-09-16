@@ -22,6 +22,8 @@ expose and push them from the portal.
 import json
 
 import frappe
+
+from accounting_portal.api._actions import digest as _digest
 from frappe.utils import flt, nowdate, now_datetime
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
@@ -349,7 +351,7 @@ def revalue_bins(company=None, bins=None, effective_date=None, dry_run=1, notes=
         frappe.throw("Nothing to revalue (no benchmark, no stock on that date, or already correct)")
     if int(dry_run or 0):
         return {"dry_run": 1, "date": date, "rows": rows, "n": len(rows), "impact": impact}
-    key = "reval:" + frappe.generate_hash(f"{target}:{date}:{sorted((r['item_code'], r['warehouse']) for r in rows)}:{impact}", 14)
+    key = "reval:" + _digest(f"{target}:{date}:{sorted((r['item_code'], r['warehouse']) for r in rows)}:{impact}", 14)
     return _actions.execute(
         REVAL_ACTION, target, key,
         payload={"date": date, "rows": [{"item_code": r["item_code"], "warehouse": r["warehouse"], "rate": r["rate"]} for r in rows]},
@@ -1130,7 +1132,7 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
         if src:
             return _actions.execute(
                 SOURCE_ACTION, target,
-                f"srcfix:{item_code}:{r}:" + frappe.generate_hash(
+                f"srcfix:{item_code}:{r}:" + _digest(
                     ",".join(sorted(x.row_name for x in src)), 8),
                 payload={"item_code": item_code, "rate": r, "company": target},
                 amount=sum(abs((r - flt(x.rate)) * flt(x.qty)) for x in src),
@@ -1143,11 +1145,11 @@ def fix_item_cost(company=None, item_code=None, rate=None, note=None, full_rate=
     # content-aware dedupe key: if the postable row-set changes (a reservation
     # cleared, a warehouse toggled), the retry gets a FRESH action instead of
     # replaying a stale Failed payload under the same key.
-    wh_sig = frappe.generate_hash(",".join(sorted(x["warehouse"] for x in rows)), 8)
+    wh_sig = _digest(",".join(sorted(x["warehouse"] for x in rows)), 8)
     # retro: the pin plan is part of the identity — new pollution since the last
     # run means a DIFFERENT fix, not a dedupe hit on the old Posted action
     if retro and retro_pins:
-        wh_sig += "-" + frappe.generate_hash(json.dumps(retro_pins, sort_keys=True), 8)
+        wh_sig += "-" + _digest(json.dumps(retro_pins, sort_keys=True), 8)
     res = _actions.execute(
         REVAL_ACTION, target, f"itemfix:{item_code}:{r}:{date}:{wh_sig}",
         # basis_on stamps WHICH frozen basis this fix used — an unfreeze/refreeze
@@ -1459,7 +1461,7 @@ def reprice_zero_cost(company=None, item_code=None, dry_run=1, rate=None, note=N
         return {"dry_run": 1, "date": date, "item_code": item_code,
                 "target_rate": round(target_rate, 2), "rows": rows,
                 "n": len(rows), "impact": impact}
-    key = "zc-reprice:" + frappe.generate_hash(f"{target}:{item_code}:{date}:{target_rate}", 14)
+    key = "zc-reprice:" + _digest(f"{target}:{item_code}:{date}:{target_rate}", 14)
     return _actions.execute(
         REVAL_ACTION, target, key,
         payload={"date": date, "rows": [{"item_code": r["item_code"], "warehouse": r["warehouse"],

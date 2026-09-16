@@ -168,6 +168,7 @@ def set_pool_include(company=None, year=None, account=None, included=None):
 @frappe.whitelist()
 def get_basis(year=None):
     """The frozen landed basis for the year, or None."""
+    assert_portal_access()
     try:
         b = json.loads(frappe.db.get_default(_basis_key(_year(year))) or "null")
         return b or None
