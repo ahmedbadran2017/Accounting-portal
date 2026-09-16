@@ -1,6 +1,18 @@
 <template>
   <BankStatementWorkbench v-if="route.query.imp" :key="route.query.imp" :import-name="String(route.query.imp)" @back="closeWorkbench" />
   <div v-else class="space-y-3.5">
+    <!-- Reconciling and reading the book movements were two destinations in the
+         navigation that never linked to each other, so you had to know which of
+         them you wanted before you set off. One screen, two views. -->
+    <div class="flex gap-0.5 bg-app-warm rounded-chip p-0.5 w-fit">
+      <button v-for="v in [['rec', L('Reconcile','التسوية','Rapprocher')], ['book', L('Book movements','حركات الدفاتر','Écritures')]]" :key="v[0]"
+              class="px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+              :class="view === v[0] ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'"
+              @click="view = v[0]">{{ v[1] }}</button>
+    </div>
+
+    <BankTransactions v-if="view === 'book'" />
+    <template v-else>
     <!-- Account picker -->
     <div class="flex gap-3 overflow-x-auto pb-1">
       <button v-for="a in accounts" :key="a.name" @click="pick(a)"
@@ -115,6 +127,7 @@
 
     <BulkBar :t="tt" filename="bankrec-selected" :note="bulkNote" :actions="bulkActions" />
     <StatementImportModal v-if="showImport && sel" :account="sel" :account-name="selName" @close="showImport = false" @done="onImported" @workbench="openWorkbench" />
+    </template>
   </div>
 </template>
 
@@ -138,6 +151,7 @@ import { useTableTools } from "@/composables/useTableTools";
 import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useFiscalYear } from "@/composables/useFiscalYear";
 import BankStatementWorkbench from "@/pages/banking/BankStatementWorkbench.vue";
+import BankTransactions from "@/pages/banking/BankTransactions.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
@@ -184,6 +198,7 @@ async function loadAccounts() {
   if (accounts.value.length && !sel.value) pick(accounts.value[0]);
 }
 const loadErr = ref("");
+const view = ref("rec");
 const clearDate = ref("");
 const carryover = ref({ n: 0, v: 0 });
 function showAllTime() { fyc.selected.value = "all"; }

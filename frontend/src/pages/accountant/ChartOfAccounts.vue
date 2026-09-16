@@ -7,6 +7,9 @@
     </div>
 
     <AccountCleanup v-if="coaView === 'cleanup'" />
+    <!-- The health audit was a separate destination in the navigation, so
+         "is my chart clean?" had three addresses. It is a third view here. -->
+    <CoaAudit v-else-if="coaView === 'health'" />
     <template v-else>
     <!-- New account modal: one form, mirrored into the sister companies under the same group -->
     <div v-if="newOpen" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" @click.self="newOpen = false">
@@ -139,6 +142,7 @@ import Icon from "@/components/Icon.vue";
 import LiveBadge from "@/components/LiveBadge.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import AccountCleanup from "@/pages/accountant/AccountCleanup.vue";
+import CoaAudit from "@/pages/accountant/CoaAudit.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -180,6 +184,7 @@ const coaView = ref("balances");
 const VIEWS = [
   { k: "balances", icon: "scale", label: () => L("Balances", "الأرصدة", "Soldes") },
   { k: "cleanup", icon: "grid", label: () => L("Cleanup", "تنظيف", "Nettoyage") },
+  { k: "health", icon: "shield", label: () => L("Health", "الصحة", "Santé") },
 ];
 const money = (n) => fmtAmount(n);
 
