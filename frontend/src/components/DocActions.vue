@@ -1,5 +1,5 @@
 <template>
-  <div v-if="state.exists" class="flex items-center gap-2 px-3 py-2.5 border-b border-line-hair flex-wrap bg-app-warm/30">
+  <div v-if="state.exists || flow.creates.length" class="flex items-center gap-2 px-3 py-2.5 border-b border-line-hair flex-wrap bg-app-warm/30">
     <!-- docstatus pill -->
     <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="pill.style">
       <span class="w-1.5 h-1.5 rounded-full" :style="{ background: pill.dot }"></span>{{ pill.label }}
@@ -22,6 +22,18 @@
     </div>
 
     <div class="ms-auto flex items-center gap-1.5">
+      <!-- Create → : every linked document the Desk offers, as a portal draft -->
+      <div v-if="flow.creates.length" class="relative">
+        <button :disabled="busy" @click="createOpen = !createOpen" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"><Icon name="plus" :size="12" color="#fff" />{{ L("Create","إنشاء","Créer") }} ▾</button>
+        <div v-if="createOpen" class="absolute z-20 mt-1 end-0 w-56 bg-white border border-line rounded-[10px] shadow-pop py-1">
+          <button v-for="c in flow.creates" :key="c.key" @click="createFrom(c)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm flex items-center gap-2">
+            <Icon name="doc" :size="12" color="#0b5c4f" /><span>{{ flowLabel(c) }}</span>
+          </button>
+        </div>
+      </div>
+      <button v-for="s in flow.statuses" :key="s.key" :disabled="busy" @click="setStatus(s)" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold border disabled:opacity-50" :class="s.key === 'close' || s.key === 'hold' ? 'text-amber-800 bg-amber-50 border-amber-200 hover:bg-amber-100' : 'text-ink-2 bg-white border-line-2 hover:bg-app-warm'">
+        <Icon :name="s.key === 'close' || s.key === 'hold' ? 'lock' : 'refresh'" :size="11" />{{ statusLabel(s) }}
+      </button>
       <button v-if="state.can_submit" :disabled="busy" @click="run('submit')" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-success-dark hover:opacity-90 disabled:opacity-50"><Icon name="check" :size="12" color="#fff" />{{ L("Submit","ترحيل","Soumettre") }}</button>
       <button v-if="state.can_cancel" :disabled="busy" @click="confirm = 'cancel'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 disabled:opacity-50"><Icon name="x" :size="12" />{{ L("Cancel doc","إلغاء المستند","Annuler") }}</button>
       <button v-if="state.can_amend" :disabled="busy" @click="confirm = 'amend'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50"><Icon name="refresh" :size="12" />{{ L("Amend","تعديل ونسخ","Amender") }}</button>
@@ -56,6 +68,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -75,6 +88,57 @@ const confirm = ref("");
 const assignOpen = ref(false);
 const newDate = ref("");
 const REDATE_OK = ["Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Additional Salary"];
+const router = useRouter();
+
+// ── Create-from / status actions (api/docflow) ──
+const flow = reactive({ creates: [], statuses: [] });
+const createOpen = ref(false);
+const FLOW_LABELS = {
+  sales_invoice: ["Sales invoice", "فاتورة بيع", "Facture de vente"], delivery_note: ["Delivery note", "إذن تسليم", "Bon de livraison"],
+  payment: ["Payment", "دفعة", "Paiement"], credit_note: ["Credit note (return)", "إشعار دائن (مرتجع)", "Avoir (retour)"],
+  sales_return: ["Sales return", "مرتجع بيع", "Retour de vente"], purchase_receipt: ["Purchase receipt", "إيصال استلام", "Réception"],
+  purchase_invoice: ["Purchase invoice", "فاتورة شراء", "Facture d'achat"], purchase_return: ["Purchase return", "مرتجع شراء", "Retour d'achat"],
+  lcv: ["Landed cost voucher", "قسيمة تكلفة الشحن", "Coûts d'approche"], debit_note: ["Debit note (return)", "إشعار مدين (مرتجع)", "Note de débit"],
+  reverse: ["Reverse entry", "قيد عكسي", "Écriture inverse"], pay: ["Pay advance", "صرف السلفة", "Payer l'avance"], return: ["Return balance", "رد الباقي", "Retour du solde"],
+};
+const STATUS_LABELS = { close: ["Close", "إقفال", "Clôturer"], reopen: ["Reopen", "إعادة فتح", "Rouvrir"], hold: ["Put on hold", "تعليق", "Suspendre"], unhold: ["Release hold", "إلغاء التعليق", "Lever"] };
+const flowLabel = (c) => { const l = FLOW_LABELS[c.key]; return l ? L(...l) : c.label; };
+const statusLabel = (s) => { const l = STATUS_LABELS[s.key]; return l ? L(...l) : s.label; };
+const ROUTE = {
+  "Sales Order": "/accounting/sales/orders", "Sales Invoice": "/accounting/sales/invoices", "Delivery Note": "/accounting/sales/challans",
+  "Purchase Order": "/accounting/purchases/tobuy", "Purchase Receipt": "/accounting/purchases/received", "Purchase Invoice": "/accounting/purchases/bills",
+  "Journal Entry": "/accounting/accountant/journals", "Landed Cost Voucher": "/accounting/items/landed",
+};
+function routeFor(res) {
+  if (res.doctype === "Payment Entry") return res.payment_type === "Receive" ? "/accounting/sales/payments" : "/accounting/purchases/payments";
+  return ROUTE[res.doctype] || null;
+}
+async function loadFlow() {
+  try { Object.assign(flow, (await api.call("accounting_portal.api.docflow.options", { doctype: props.doctype, name: props.name }, { fresh: true })) || { creates: [], statuses: [] }); }
+  catch { flow.creates = []; flow.statuses = []; }
+}
+async function createFrom(c) {
+  createOpen.value = false; busy.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.docflow.create", { doctype: props.doctype, name: props.name, key: c.key, company: currentCompany() });
+    let res = r && r.result; res = typeof res === "string" ? JSON.parse(res) : res;
+    if (!res || !res.new_doc) { toast.success(L("Created", "تم الإنشاء", "Créé")); return; }
+    toast.success(`${flowLabel(c)} · ${res.new_doc} — ${L("draft, review then submit", "مسودة، راجعها ثم رحّل", "brouillon, vérifier puis soumettre")}`);
+    const path = routeFor(res);
+    if (path) router.push({ path, query: { id: res.new_doc } });
+    emit("changed");
+  } catch (err) { toast.error(String((err && err.message) || L("Failed", "فشل", "Échec")).slice(0, 200)); }
+  finally { busy.value = false; }
+}
+async function setStatus(s) {
+  busy.value = true;
+  try {
+    await api.call("accounting_portal.api.docflow.set_status", { doctype: props.doctype, name: props.name, key: s.key, company: currentCompany() });
+    toast.success(statusLabel(s));
+    await loadState(); emit("changed");
+  } catch (err) { toast.error(String((err && err.message) || L("Failed", "فشل", "Échec")).slice(0, 200)); }
+  finally { busy.value = false; }
+}
 
 async function loadState() {
   try {
@@ -82,6 +146,7 @@ async function loadState() {
     Object.assign(state, s);
   } catch { state.exists = false; }
   try { assignList.value = await api.call("accounting_portal.api.docops.assignees", { doctype: props.doctype, name: props.name }) || []; } catch { /* */ }
+  loadFlow();
 }
 async function loadUsers() { try { users.value = await api.call("accounting_portal.api.docops.assignable_users", {}) || []; } catch { /* */ } }
 onMounted(() => { loadState(); loadUsers(); });

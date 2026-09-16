@@ -70,7 +70,11 @@
               <td class="px-2 py-1.5 tnum text-ink-2 whitespace-nowrap">{{ r.posting_date }}</td>
               <td class="px-2 py-1.5 text-end tnum">{{ money(r.advance_amount) }}</td>
               <td class="px-2 py-1.5 text-end tnum" :class="r.open > 0 ? 'text-amber-700 font-semibold' : 'text-ink-muted'">{{ money(r.open) }}</td>
-              <td class="px-3 py-1.5 text-end"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="r.docstatus === 0 ? 'bg-amber-50 text-amber-700' : r.status === 'Claimed' || r.status === 'Returned' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-3'">{{ r.docstatus === 0 ? L("Draft", "مسودة", "Brouillon") : r.status }}</span></td>
+              <td class="px-3 py-1.5 text-end whitespace-nowrap">
+                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="r.docstatus === 0 ? 'bg-amber-50 text-amber-700' : r.status === 'Claimed' || r.status === 'Returned' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-3'">{{ r.docstatus === 0 ? L("Draft", "مسودة", "Brouillon") : r.status }}</span>
+                <button v-if="canWrite && r.docstatus === 1 && r.paid_amount < r.advance_amount" type="button" :disabled="busy" class="ms-1 text-[10px] font-bold px-1.5 py-0.5 rounded border border-line-2 hover:bg-app-warm" @click="advFlow(r, 'pay')">{{ L("Pay", "صرف", "Payer") }}</button>
+                <button v-if="canWrite && r.docstatus === 1 && r.paid_amount > 0 && r.open > 0" type="button" :disabled="busy" class="ms-1 text-[10px] font-bold px-1.5 py-0.5 rounded border border-line-2 hover:bg-app-warm" @click="advFlow(r, 'return')">{{ L("Return", "رد", "Retour") }}</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -83,6 +87,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import TableLoading from "@/components/TableLoading.vue";
@@ -161,6 +166,19 @@ async function createAdvance() {
     advOpen.value = false; Object.assign(advForm, { employee: "", amount: "", purpose: "" });
     loadAdvances();
   } catch (e) { advErr.value = String(e?.message || e).slice(0, 200); }
+  finally { busy.value = false; }
+}
+
+// Pay (→ Payment Entry draft) / Return (→ Journal Entry draft) through docflow, then open the draft.
+const router = useRouter();
+async function advFlow(r, key) {
+  busy.value = true;
+  try {
+    const res0 = await api.call("accounting_portal.api.docflow.create", { doctype: "Employee Advance", name: r.name, key, company: currentCompany() });
+    let res = res0 && res0.result; res = typeof res === "string" ? JSON.parse(res) : res;
+    toast.success((key === "pay" ? L("Payment draft created", "تم إنشاء مسودة الدفع", "Brouillon de paiement créé") : L("Return entry drafted", "تم إنشاء قيد الرد", "Écriture de retour créée")) + (res?.new_doc ? " · " + res.new_doc : ""));
+    if (res?.new_doc) router.push({ path: key === "pay" ? "/accounting/purchases/payments" : "/accounting/accountant/journals", query: { id: res.new_doc } });
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 200)); }
   finally { busy.value = false; }
 }
 

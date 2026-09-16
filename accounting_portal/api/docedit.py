@@ -77,6 +77,34 @@ _SCHEMA = {
                    _H("overwrite_salary_structure_amount", "Check")],
         "child": None,
     },
+    "Delivery Note": {
+        "header": [_H("posting_date", "Date"), _H("remarks", "Text")],
+        "child": {"field": "items", "can_add": False, "can_remove": True,
+                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency")]},
+    },
+    "Purchase Receipt": {
+        "header": [_H("posting_date", "Date"), _H("supplier_delivery_note", "Data"), _H("remarks", "Text")],
+        "child": {"field": "items", "can_add": False, "can_remove": True,
+                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency")]},
+    },
+    # Orders: editable as drafts AND as submitted documents ("Update Items" on the
+    # Desk — qty/rate only, through ERPNext's update_child_qty_rate).
+    "Sales Order": {
+        "header": [_H("delivery_date", "Date"), _H("po_no", "Data")],
+        "child": {"field": "items", "can_add": False, "can_remove": False,
+                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency")]},
+        "submitted_ok": True,
+    },
+    "Purchase Order": {
+        "header": [_H("schedule_date", "Date")],
+        "child": {"field": "items", "can_add": False, "can_remove": False,
+                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency")]},
+        "submitted_ok": True,
+    },
 }
 # Additional Salary has no party_type field; the Party picker searches Employees.
 _PARTY_FIXED = {"Additional Salary": "Employee"}
@@ -132,12 +160,15 @@ def get_draft(doctype=None, name=None):
         return {"supported": False, "reason": "unsupported"}
     doc = frappe.get_doc(doctype, name)
     _company_ok(doc)
-    if doc.docstatus != 0:
+    spec = _SCHEMA[doctype]
+    submitted_mode = doc.docstatus == 1 and spec.get("submitted_ok")
+    if doc.docstatus != 0 and not submitted_mode:
         return {"supported": False, "reason": "not_draft", "docstatus": doc.docstatus}
     meta = frappe.get_meta(doctype)
-    spec = _SCHEMA[doctype]
     header = []
     for h in spec["header"]:
+        if submitted_mode:
+            continue   # a submitted order only takes line qty/rate changes
         if not meta.has_field(h["field"]):
             continue
         df = meta.get_field(h["field"])
@@ -159,8 +190,10 @@ def get_draft(doctype=None, name=None):
                 row[c["field"]] = _val(r.get(c["field"]))
             rows.append(row)
         child = {"field": cf, "label": meta.get_field(cf).label or cf, "columns": cols, "rows": rows,
-                 "can_add": spec["child"]["can_add"], "can_remove": spec["child"]["can_remove"]}
+                 "can_add": spec["child"]["can_add"] and not submitted_mode,
+                 "can_remove": spec["child"]["can_remove"] and not submitted_mode}
     return {"supported": True, "doctype": doctype, "name": name, "company": doc.company,
+            "docstatus": doc.docstatus, "submitted_mode": bool(submitted_mode),
             "currency": doc.get("currency") or doc.get("paid_from_account_currency") or frappe.get_cached_value("Company", doc.company, "default_currency"),
             "party_type_fixed": _PARTY_FIXED.get(doctype), "header": header, "child": child,
             "options": _options(doctype, doc.company)}
@@ -184,11 +217,13 @@ def save_draft(doctype=None, name=None, header=None, rows=None):
         frappe.throw("Not editable")
     doc = frappe.get_doc(doctype, name)
     _company_ok(doc)
-    if doc.docstatus != 0:
-        frappe.throw("Only a draft can be edited. Amend the document first.")
     header = header if isinstance(header, dict) else json.loads(header or "{}")
     rows = rows if isinstance(rows, list) else json.loads(rows or "null")
     spec = _SCHEMA[doctype]
+    if doc.docstatus == 1 and spec.get("submitted_ok"):
+        return _update_submitted_items(doc, rows)
+    if doc.docstatus != 0:
+        frappe.throw("Only a draft can be edited. Amend the document first.")
     before = {}
     changed = {}
     for h in spec["header"]:
@@ -245,6 +280,44 @@ def save_draft(doctype=None, name=None, header=None, rows=None):
         "result": json.dumps({"saved": name}), "notes": f"Edited draft {name}",
     }).insert(ignore_permissions=True)
     return get_draft(doctype, name)
+
+
+def _update_submitted_items(doc, rows):
+    """'Update Items' on a submitted order: qty/rate per existing line, through
+    ERPNext's own update_child_qty_rate (which reposts the order's totals,
+    reservations and status). Audited as 'Edit draft' with the diff."""
+    if rows is None:
+        frappe.throw("Nothing to update")
+    by_name = {r.get("name"): r for r in rows if r.get("name")}
+    trans, diff = [], []
+    date_field = "delivery_date" if doc.doctype == "Sales Order" else "schedule_date"
+    for row in doc.get("items") or []:
+        r = by_name.get(row.name) or {}
+        qty = flt(r.get("qty")) if r.get("qty") not in (None, "") else flt(row.qty)
+        rate = flt(r.get("rate")) if r.get("rate") not in (None, "") else flt(row.rate)
+        if qty != flt(row.qty) or rate != flt(row.rate):
+            diff.append({"item": row.item_code, "qty": [flt(row.qty), qty], "rate": [flt(row.rate), rate]})
+        trans.append({"docname": row.name, "name": row.name, "item_code": row.item_code, "qty": qty, "rate": rate,
+                      "uom": row.uom, "conversion_factor": row.conversion_factor or 1,
+                      date_field: str(row.get(date_field) or doc.get(date_field) or "")})
+    if not diff:
+        frappe.throw("No quantity or rate changed")
+    frappe.flags.ignore_permissions = True
+    try:
+        frappe.get_attr("erpnext.controllers.accounts_controller.update_child_qty_rate")(
+            doc.doctype, json.dumps(trans), doc.name)
+    finally:
+        frappe.flags.ignore_permissions = False
+    frappe.get_doc({
+        "doctype": "Accounting Portal Action", "action_type": EDIT_ACTION, "status": "Posted",
+        "company": doc.company, "reference_doctype": doc.doctype, "reference_name": doc.name,
+        "voucher_type": doc.doctype, "voucher_no": doc.name, "proposed_by": frappe.session.user,
+        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
+        "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
+        "payload": json.dumps({"update_items": diff}), "result": json.dumps({"saved": doc.name}),
+        "notes": f"Updated {len(diff)} line(s) on submitted {doc.doctype} {doc.name}",
+    }).insert(ignore_permissions=True)
+    return get_draft(doc.doctype, doc.name)
 
 
 # ── Redate: cancel → copy → new date → submit, one click ───────────────────────

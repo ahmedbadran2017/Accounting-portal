@@ -230,7 +230,8 @@ const editOpen = ref(false);
 const editFields = ref([]);
 const savingEdit = ref(false);
 const draftOpen = ref(false);
-const DRAFT_DOCTYPES = ["Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Additional Salary"];
+const DRAFT_DOCTYPES = ["Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Additional Salary",
+  "Delivery Note", "Purchase Receipt", "Sales Order", "Purchase Order"];
 async function openEdit() {
   // A draft of an editable doctype gets the full editor (header + lines); anything
   // else keeps the small after-submit field editor.

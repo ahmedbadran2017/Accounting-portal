@@ -15,6 +15,9 @@
           {{ d.reason === 'not_draft' ? L("Only a draft can be edited here. Use Amend or Change date on a posted document.", "التعديل هنا للمسودات فقط. للمستند المرحّل استخدم «تعديل ونسخ» أو «تغيير التاريخ».", "Seul un brouillon est modifiable ici.") : L("This document type has no editor yet.", "لا يوجد محرر لهذا النوع بعد.", "Pas d'éditeur pour ce type.") }}
         </div>
         <template v-else>
+          <div v-if="d.submitted_mode" class="rounded-[10px] px-3 py-2 text-[12px]" style="background:#fffbeb;color:#92400e">
+            {{ L("This order is submitted: only line quantities and rates can change here (ERPNext 'Update Items'). Totals, reservations and status are recomputed on save.", "الأمر مرحّل: هنا بتتعدل الكميات والأسعار بس (Update Items). الإجماليات والحجز والحالة بتتعاد حسابها عند الحفظ.", "Commande soumise : seules les quantités et prix des lignes sont modifiables.") }}
+          </div>
           <!-- header fields -->
           <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div v-for="f in d.header" :key="f.field" :class="f.type === 'Text' ? 'sm:col-span-2 lg:col-span-3' : ''">
@@ -81,7 +84,7 @@
         <span v-else class="text-[10.5px] text-ink-muted">{{ L("Saving runs ERPNext's own checks; totals and taxes recompute. Submit afterwards from the document.", "الحفظ بيمر على فحوصات ERPNext وبيعيد حساب الإجماليات. رحّل بعدها من المستند.", "L'enregistrement applique les contrôles ERPNext.") }}</span>
         <div class="ms-auto flex gap-2">
           <button class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button class="h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="saving || !d.supported || (isJE && !balanced)" @click="save">{{ saving ? L("Saving…", "حفظ…", "…") : L("Save draft", "حفظ المسودة", "Enregistrer") }}</button>
+          <button class="h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="saving || !d.supported || (isJE && !balanced)" @click="save">{{ saving ? L("Saving…", "حفظ…", "…") : d.submitted_mode ? L("Update items", "تحديث السطور", "Mettre à jour") : L("Save draft", "حفظ المسودة", "Enregistrer") }}</button>
         </div>
       </div>
     </div>
