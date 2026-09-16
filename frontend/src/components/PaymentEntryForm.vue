@@ -124,7 +124,12 @@ async function post() {
       company: currentCompany(), party: party.value, amount: Number(amount.value),
       account: account.value, reference_no: referenceNo.value, posting_date: postingDate.value,
       payment_type: out.value ? "Pay" : "Receive", party_type: out.value ? "Supplier" : "Customer",
-      dedupe_key: clientKey,
+      // `client_key` is not a parameter of create_payment_entry and does not need
+      // to be: _actions.execute reads it off form_dict and suffixes the key with
+      // it, so one open form deduplicates a double-click while a second, genuine
+      // identical payment gets a new form and posts. Every create form in the
+      // portal sends it this way.
+      client_key: clientKey,
     });
     emit("posted", res);
     emit("close");

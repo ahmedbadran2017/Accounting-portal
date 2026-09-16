@@ -151,3 +151,69 @@ def bulk_delete(doctype=None, names=None, company=None):
     key = f"bulk-delete:{doctype}:{_digest(','.join(sorted(names)), 12)}"
     return _actions.execute(DELETE_ACTION, target, key, payload={"doctype": doctype, "names": names, "op": "delete"},
                             amount=0, notes=f"Delete {len(names)} draft {doctype}(s)")
+
+
+# ── Assign and tag a selection ────────────────────────────────────────────────
+#
+# The three actions above post to the ledger, so they run through the write
+# gateway. These two do not: an assignment is a ToDo and a tag is a label. They
+# touch no GL row, nothing to reverse, nothing to approve — so they are audited
+# by Frappe's own trail and kept out of the action log, which exists to record
+# what moved money.
+#
+# The Desk's list view offers both, and they are the reason the team still had a
+# Desk tab open: sixty invoices to split across three people meant sixty clicks
+# in the portal, or one in the Desk.
+
+def _scoped_names(doctype, names, company, limit=200):
+    if doctype not in _ALLOWED:
+        frappe.throw(f"Bulk actions are not allowed for {doctype}")
+    names = names if isinstance(names, list) else json.loads(names or "[]")
+    names = [n for n in names if n][:limit]
+    if not names:
+        frappe.throw("No rows selected")
+    companies = resolve_companies(company)
+    rows = frappe.db.sql(f"SELECT name, company FROM `tab{doctype}` WHERE name IN %(n)s",
+                         {"n": tuple(names)}, as_dict=True)
+    for r in rows:
+        if r.company not in companies:
+            frappe.throw(f"{r.name} belongs to another company")
+    return [r.name for r in rows]
+
+
+@frappe.whitelist()
+def bulk_assign(doctype=None, names=None, to_user=None, company=None, description=None):
+    """Assign up to 200 selected documents to one user, in one call."""
+    assert_can_write()
+    if not to_user or not frappe.db.exists("User", to_user):
+        frappe.throw("Pick someone to assign to")
+    names = _scoped_names(doctype, names, company)
+    from frappe.desk.form.assign_to import add
+    done, already = 0, 0
+    for n in names:
+        try:
+            add({"doctype": doctype, "name": n, "assign_to": [to_user],
+                 "description": (description or "").strip() or f"{doctype} {n}"})
+            done += 1
+        except frappe.ValidationError:
+            # Frappe refuses a duplicate assignment; that is the desired end state.
+            already += 1
+    return {"assigned": done, "already": already, "total": len(names), "user": to_user}
+
+
+@frappe.whitelist()
+def bulk_tag(doctype=None, names=None, tag=None, company=None):
+    """Put one tag on up to 200 selected documents."""
+    assert_can_write()
+    tag = (tag or "").strip()
+    if not tag:
+        frappe.throw("Type a tag")
+    names = _scoped_names(doctype, names, company)
+    done = 0
+    for n in names:
+        try:
+            frappe.get_doc(doctype, n).add_tag(tag)
+            done += 1
+        except Exception:
+            pass
+    return {"tagged": done, "total": len(names), "tag": tag}
