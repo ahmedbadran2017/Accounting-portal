@@ -314,7 +314,12 @@ def _status_poster(action):
             frappe.get_attr(_PR + "update_purchase_receipt_status")(name, {"close": "Closed", "reopen": "Submitted"}[key])
         elif doctype == "Purchase Invoice":
             if key == "hold":
-                frappe.get_attr(_PI + "block_invoice")(name, p.get("comment") or "Held from portal", p.get("release_date") or None)
+                # ERPNext's signature is block_invoice(name, release_date, hold_comment).
+                # These were passed the other way round, so the comment text was
+                # written into the release_date DATE column and MariaDB rejected
+                # the whole action with "Incorrect date value".
+                frappe.get_attr(_PI + "block_invoice")(
+                    name, p.get("release_date") or None, p.get("comment") or "Held from portal")
             else:
                 frappe.get_attr(_PI + "unblock_invoice")(name)
         else:
