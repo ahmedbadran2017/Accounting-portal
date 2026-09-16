@@ -108,7 +108,9 @@
     <div v-if="editOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="editOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
         <div class="text-[14px] font-bold">{{ L("Edit document", "تعديل المستند", "Modifier") }}</div>
-        <div v-if="!editFields.length" class="text-[12px] text-ink-muted py-4 text-center">{{ L("No editable fields here.", "لا حقول قابلة للتعديل.", "Aucun champ modifiable.") }}</div>
+        <div v-if="!editFields.length" class="text-[12px] text-ink-muted py-4 text-center">{{ editReason === "submitted"
+          ? L("This document is submitted — ERPNext locks every field the portal can reach here. Amend it to change anything else.", "المستند مرحّل — ERPNext بيقفل كل الحقول اللي المحرر ده بيوصلها. اعمل تعديل (Amend) لو محتاج تغيّر حاجة تانية.", "Document soumis — modifiez-le (Amend) pour changer autre chose.")
+          : L("No editable fields here.", "لا حقول قابلة للتعديل.", "Aucun champ modifiable.") }}</div>
         <div v-for="f in editFields" :key="f.field">
           <label class="text-[11px] font-bold text-ink-3">{{ f.label }}</label>
           <input v-model="f.value" :type="f.type === 'Date' ? 'date' : 'text'" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
@@ -298,6 +300,7 @@ const printUrl = computed(() => {
 // ── Edit fields ──
 const editOpen = ref(false);
 const editFields = ref([]);
+const editReason = ref("");
 const savingEdit = ref(false);
 const draftOpen = ref(false);
 const DRAFT_DOCTYPES = ["Journal Entry", "Payment Entry", "Purchase Invoice", "Sales Invoice", "Additional Salary",
@@ -316,9 +319,12 @@ async function openEdit() {
       return;
     }
   }
-  editOpen.value = true; editFields.value = [];
-  try { editFields.value = (await api.call("accounting_portal.api.docmeta.editable_fields", { doctype: props.doctype, name: props.name })).fields || []; }
-  catch { editFields.value = []; }
+  editOpen.value = true; editFields.value = []; editReason.value = "";
+  try {
+    const r = await api.call("accounting_portal.api.docmeta.editable_fields", { doctype: props.doctype, name: props.name });
+    editFields.value = r.fields || [];
+    editReason.value = r.reason || "";
+  } catch { editFields.value = []; }
 }
 async function saveEdit() {
   savingEdit.value = true;

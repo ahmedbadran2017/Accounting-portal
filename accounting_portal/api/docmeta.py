@@ -212,6 +212,13 @@ _EDITABLE = {
     "Purchase Order": ["schedule_date"],
     "Payment Entry": ["reference_no", "reference_date", "remarks"],
     "Journal Entry": ["user_remark", "cheque_no", "cheque_date"],
+    # A delivered note's carrier details change after submit all the time — a
+    # reprinted label, a switched courier. ERPNext flags all of these
+    # allow_on_submit; the portal simply never offered them, so Edit on a
+    # submitted delivery note opened a modal with nothing in it.
+    "Delivery Note": ["custom_tracking_company", "custom_tracking_number",
+                      "custom_tracking_url", "custom_awb", "custom_logistics_status", "po_no"],
+    "Additional Salary": ["disabled"],
     "Customer": ["customer_name", "email_id", "mobile_no"],
     "Supplier": ["supplier_name", "email_id", "mobile_no"],
 }
@@ -222,11 +229,19 @@ def editable_fields(doctype=None, name=None):
     """Which fields the portal may edit on this doctype + their current values."""
     assert_portal_access()
     _check(doctype, name)
-    flds = [f for f in _EDITABLE.get(doctype, []) if frappe.get_meta(doctype).has_field(f)]
-    if not flds:
-        return {"fields": []}
-    cur = frappe.db.get_value(doctype, name, flds, as_dict=True) or {}
     meta = frappe.get_meta(doctype)
+    flds = [f for f in _EDITABLE.get(doctype, []) if meta.has_field(f)]
+    # On a submitted document ERPNext only lets allow_on_submit fields through, and
+    # throws on the rest. Offering them anyway produced a form that looked editable
+    # and failed on save, so they are filtered out here instead.
+    docstatus = frappe.db.get_value(doctype, name, "docstatus") if meta.is_submittable else 0
+    if docstatus == 1:
+        flds = [f for f in flds if meta.get_field(f).allow_on_submit]
+    if not flds:
+        # An empty list rendered as an empty box with no Save button and no
+        # explanation — a dead end. Say why there is nothing here.
+        return {"fields": [], "reason": "submitted" if docstatus == 1 else "none"}
+    cur = frappe.db.get_value(doctype, name, flds, as_dict=True) or {}
     out = []
     for f in flds:
         df = meta.get_field(f)

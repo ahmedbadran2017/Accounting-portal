@@ -76,7 +76,9 @@ _SCHEMA = {
                                   _H("cost_center", "Link", "cost_centers")]},
     },
     "Sales Invoice": {
-        "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("remarks", "Text")],
+        # po_no is the one header field ERPNext leaves open after submit, and the
+        # customer's PO number is exactly what arrives late.
+        "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("po_no", "Data"), _H("remarks", "Text")],
         "child": {"field": "items", "can_add": True, "can_remove": True,
                   "columns": [_H("item_code", "Item"), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency")]},
@@ -106,17 +108,25 @@ _SCHEMA = {
     # Desk — qty/rate only, through ERPNext's update_child_qty_rate).
     "Sales Order": {
         "header": [_H("delivery_date", "Date"), _H("po_no", "Data")],
-        "child": {"field": "items", "can_add": False, "can_remove": False,
-                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+        # A draft order takes lines like any other draft — the Desk allows it and
+        # the portal used to refuse, which is why an order that arrived with the
+        # wrong item had to be opened in the Desk to fix one row.
+        "child": {"field": "items", "can_add": True, "can_remove": True,
+                  "columns": [_H("item_code", "Item"), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency")]},
+        # Once submitted only qty and rate move, through update_child_qty_rate.
         "submitted_ok": True,
+        "submitted_columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency")],
     },
     "Purchase Order": {
         "header": [_H("schedule_date", "Date")],
-        "child": {"field": "items", "can_add": False, "can_remove": False,
-                  "columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+        "child": {"field": "items", "can_add": True, "can_remove": True,
+                  "columns": [_H("item_code", "Item"), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency")]},
         "submitted_ok": True,
+        "submitted_columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency")],
     },
 }
 # Additional Salary has no party_type field; the Party picker searches Employees.
@@ -180,18 +190,25 @@ def get_draft(doctype=None, name=None):
     meta = frappe.get_meta(doctype)
     header = []
     for h in spec["header"]:
-        if submitted_mode:
-            continue   # a submitted order only takes line qty/rate changes
         if not meta.has_field(h["field"]):
             continue
         df = meta.get_field(h["field"])
+        # A submitted document still takes the fields ERPNext marks editable after
+        # submit — the customer PO number on an invoice, the promised date on an
+        # order. The editor used to drop the whole header the moment a document was
+        # submitted, so those became unreachable from the portal even though our own
+        # allow-list named them and the Desk edits them in place.
+        if submitted_mode and not df.allow_on_submit:
+            continue
         header.append({**h, "label": df.label if df else h["field"], "value": _val(doc.get(h["field"]))})
     child = None
     if spec["child"]:
         cf = spec["child"]["field"]
         cmeta = frappe.get_meta(meta.get_field(cf).options)
         cols = []
-        col_spec = spec["submitted"]["columns"] if (submitted_mode and spec.get("submitted")) else spec["child"]["columns"]
+        col_spec = spec["child"]["columns"]
+        if submitted_mode:
+            col_spec = (spec.get("submitted") or {}).get("columns") or spec.get("submitted_columns") or col_spec
         for c in col_spec:
             if not cmeta.has_field(c["field"]):
                 continue
@@ -240,9 +257,9 @@ def save_draft(doctype=None, name=None, header=None, rows=None):
     rows = rows if isinstance(rows, list) else json.loads(rows or "null")
     spec = _SCHEMA[doctype]
     if doc.docstatus == 1 and spec.get("submitted_ok"):
-        return _update_submitted_items(doc, rows)
+        return _update_submitted_items(doc, spec, header, rows)
     if doc.docstatus == 1 and spec.get("submitted"):
-        return _reaccount_submitted(doc, spec, rows)
+        return _reaccount_submitted(doc, spec, header, rows)
     if doc.docstatus != 0:
         frappe.throw("Only a draft can be edited. Amend the document first.")
     before = {}
@@ -286,6 +303,12 @@ def save_draft(doctype=None, name=None, header=None, rows=None):
                         row.set(dep, None)
                 if row.meta.has_field("qty") and not flt(row.get("qty")):
                     row.set("qty", 1)
+            # An order line carries its own promised date, and ERPNext refuses the
+            # save without one. A row typed into the portal has no way to supply it,
+            # so it inherits the order's — which is what the Desk grid pre-fills too.
+            for df in ("delivery_date", "schedule_date"):
+                if row.meta.has_field(df) and not row.get(df):
+                    row.set(df, doc.get(df) or doc.get("transaction_date") or frappe.utils.nowdate())
             # A credit/debit note carries negative quantities; ERPNext rejects the
             # save otherwise ("quantity must be negative number").
             if doc.get("is_return") and row.meta.has_field("qty") and flt(row.get("qty")) > 0:
@@ -317,12 +340,36 @@ def save_draft(doctype=None, name=None, header=None, rows=None):
     return get_draft(doctype, name)
 
 
-def _update_submitted_items(doc, rows):
+def _submitted_header_changes(doc, spec, header):
+    """Apply the header fields ERPNext marks editable-after-submit, and report the
+    diff. Anything not flagged allow_on_submit is left alone — ERPNext would throw
+    on save, and a field the portal cannot actually change should never be offered.
+    The caller saves; it knows whether the ledger has to be reposted too."""
+    before, after = {}, {}
+    for h in spec["header"]:
+        f = h["field"]
+        if h["ro"] or f not in (header or {}) or not doc.meta.has_field(f):
+            continue
+        if not doc.meta.get_field(f).allow_on_submit:
+            continue
+        new = _cast(h["type"], header[f])
+        if _val(doc.get(f)) != _val(new):
+            before[f] = _val(doc.get(f))
+            after[f] = _val(new)
+            doc.set(f, new)
+    return before, after
+
+
+def _update_submitted_items(doc, spec, header, rows):
     """'Update Items' on a submitted order: qty/rate per existing line, through
     ERPNext's own update_child_qty_rate (which reposts the order's totals,
-    reservations and status). Audited as 'Edit draft' with the diff."""
-    if rows is None:
-        frappe.throw("Nothing to update")
+    reservations and status), plus any after-submit header field. Audited as
+    'Edit draft' with the diff."""
+    before, after = _submitted_header_changes(doc, spec, header)
+    if after:
+        doc.flags.ignore_permissions = True
+        doc.save()
+    rows = rows or []
     by_name = {r.get("name"): r for r in rows if r.get("name")}
     trans, diff = [], []
     date_field = "delivery_date" if doc.doctype == "Sales Order" else "schedule_date"
@@ -335,22 +382,24 @@ def _update_submitted_items(doc, rows):
         trans.append({"docname": row.name, "name": row.name, "item_code": row.item_code, "qty": qty, "rate": rate,
                       "uom": row.uom, "conversion_factor": row.conversion_factor or 1,
                       date_field: str(row.get(date_field) or doc.get(date_field) or "")})
-    if not diff:
-        frappe.throw("No quantity or rate changed")
-    frappe.flags.ignore_permissions = True
-    try:
-        frappe.get_attr("erpnext.controllers.accounts_controller.update_child_qty_rate")(
-            doc.doctype, json.dumps(trans), doc.name)
-    finally:
-        frappe.flags.ignore_permissions = False
+    if not diff and not after:
+        frappe.throw("Nothing changed")
+    if diff:
+        frappe.flags.ignore_permissions = True
+        try:
+            frappe.get_attr("erpnext.controllers.accounts_controller.update_child_qty_rate")(
+                doc.doctype, json.dumps(trans), doc.name)
+        finally:
+            frappe.flags.ignore_permissions = False
     frappe.get_doc({
         "doctype": "Accounting Portal Action", "action_type": EDIT_ACTION, "status": "Posted",
         "company": doc.company, "reference_doctype": doc.doctype, "reference_name": doc.name,
         "voucher_type": doc.doctype, "voucher_no": doc.name, "proposed_by": frappe.session.user,
         "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
         "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
-        "payload": json.dumps({"update_items": diff}), "result": json.dumps({"saved": doc.name}),
-        "notes": f"Updated {len(diff)} line(s) on submitted {doc.doctype} {doc.name}",
+        "payload": json.dumps({"update_items": diff, "before": before, "after": after}),
+        "result": json.dumps({"saved": doc.name}),
+        "notes": f"Updated {len(diff)} line(s) and {len(after)} field(s) on submitted {doc.doctype} {doc.name}",
     }).insert(ignore_permissions=True)
     return get_draft(doc.doctype, doc.name)
 
@@ -370,9 +419,9 @@ def _make_repost(company, doctype, name):
     return r.name
 
 
-def _reaccount_submitted(doc, spec, rows):
-    if rows is None:
-        frappe.throw("Nothing to update")
+def _reaccount_submitted(doc, spec, header, rows):
+    before, after = _submitted_header_changes(doc, spec, header)
+    rows = rows or []
     cols = [c for c in spec["submitted"]["columns"] if not c["ro"]]
     by_name = {r.get("name"): r for r in rows if r.get("name")}
     diff = []
@@ -385,10 +434,25 @@ def _reaccount_submitted(doc, spec, rows):
             if f in r and _val(r[f]) != _val(row.get(f)):
                 diff.append({"row": row.idx, "item": row.item_code, "field": f, "from": _val(row.get(f)), "to": _val(r[f])})
                 row.set(f, r[f] or None)
-    if not diff:
-        frappe.throw("No account changed")
+    if not diff and not after:
+        frappe.throw("Nothing changed")
     doc.flags.ignore_permissions = True
     doc.save()                                   # only allow_on_submit fields — ERPNext enforces it
+    # The ledger is rebuilt only when a line's account moved. A customer PO number
+    # or a promised date does not touch a single GL row, and reposting for one
+    # would delete and rewrite every entry on the voucher for nothing.
+    if not diff:
+        frappe.get_doc({
+            "doctype": "Accounting Portal Action", "action_type": EDIT_ACTION, "status": "Posted",
+            "company": doc.company, "reference_doctype": doc.doctype, "reference_name": doc.name,
+            "voucher_type": doc.doctype, "voucher_no": doc.name, "proposed_by": frappe.session.user,
+            "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
+            "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
+            "payload": json.dumps({"before": before, "after": after}),
+            "result": json.dumps({"saved": doc.name}),
+            "notes": f"Edited {len(after)} field(s) on submitted {doc.doctype} {doc.name}",
+        }).insert(ignore_permissions=True)
+        return get_draft(doc.doctype, doc.name)
     repost = _make_repost(doc.company, doc.doctype, doc.name)
     frappe.get_doc({
         "doctype": "Accounting Portal Action", "action_type": REPOST_ACTION, "status": "Posted",
@@ -396,7 +460,8 @@ def _reaccount_submitted(doc, spec, rows):
         "voucher_type": "Repost Accounting Ledger", "voucher_no": repost, "proposed_by": frappe.session.user,
         "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
         "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
-        "payload": json.dumps({"changes": diff}), "result": json.dumps({"repost": repost}),
+        "payload": json.dumps({"changes": diff, "before": before, "after": after}),
+        "result": json.dumps({"repost": repost}),
         "notes": f"Re-accounted {len(diff)} line(s) on {doc.doctype} {doc.name} and reposted",
     }).insert(ignore_permissions=True)
     return get_draft(doc.doctype, doc.name)
