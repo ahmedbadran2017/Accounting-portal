@@ -20,6 +20,12 @@
               ? L("This invoice is posted. Each line's account and cost centre can change, along with any field above — these are the ones ERPNext allows after submit. Changing an account reposts the ledger; changing a field above does not.", "الفاتورة مرحّلة. بيتعدل حساب كل سطر ومركز التكلفة، وكمان أي حقل فوق — دول اللي ERPNext بيسمح بيهم بعد الترحيل. تغيير الحساب بيعيد ترحيل القيود، أما الحقول اللي فوق فلأ.", "Facture comptabilisée. Le compte et le centre de coût des lignes, ainsi que les champs ci-dessus, restent modifiables.")
               : L("This order is submitted. Line quantities and rates change through ERPNext's 'Update Items'; the fields above are the ones it allows after submit. Totals, reservations and status are recomputed on save.", "الأمر مرحّل. الكميات والأسعار بتتعدل عن طريق Update Items، والحقول اللي فوق هي اللي مسموح بيها بعد الترحيل. الإجماليات والحجز والحالة بتتعاد حسابها عند الحفظ.", "Commande soumise. Quantités et prix via « Update Items » ; les champs ci-dessus restent modifiables.") }}
           </div>
+          <div v-if="d.child && d.child.locked" class="rounded-[10px] px-3 py-2 text-[12px]" style="background:#fef2f2;color:#9f1239">
+            {{ d.child.locked === "completed"
+              ? L("The lines are fixed: this order is fully received and billed.", "السطور ثابتة: الأمر مستلم ومفوتر بالكامل.", "Lignes figées : commande entièrement reçue et facturée.")
+              : L("The lines are fixed: this order is ", "السطور ثابتة: حالة الأمر ", "Lignes figées : commande ") + d.child.locked + "." }}
+          </div>
+
           <!-- header fields -->
           <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div v-for="f in d.header" :key="f.field" :class="f.type === 'Text' ? 'sm:col-span-2 lg:col-span-3' : ''">
@@ -59,14 +65,14 @@
                   <tr v-for="(r, i) in rv" :key="r.name || 'new' + i" class="border-t border-line-hair align-top">
                     <td class="px-2 py-1.5 text-ink-muted tnum">{{ i + 1 }}</td>
                     <td v-for="c in d.child.columns" :key="c.field" class="px-1.5 py-1" :style="cellWidth(c)">
-                      <span v-if="c.ro" class="block px-1 py-1.5 text-ink-2 truncate max-w-[220px]" :class="['Currency','Float'].includes(c.type) ? 'text-end tnum' : ''">{{ ['Currency','Float'].includes(c.type) ? fmt(r[c.field]) : (r[c.field] || "—") }}</span>
+                      <span v-if="c.ro || (c.ro_existing && r.name)" class="block px-1 py-1.5 text-ink-2 truncate max-w-[220px]" :class="['Currency','Float'].includes(c.type) ? 'text-end tnum' : ''">{{ ['Currency','Float'].includes(c.type) ? fmt(r[c.field]) : (r[c.field] || "—") }}</span>
                       <input v-else-if="['Currency','Float','Int'].includes(c.type)" type="number" step="any" v-model="r[c.field]" dir="ltr" class="h-8 w-full min-w-[96px] rounded-[8px] border border-line-2 px-2 text-[12px] text-end tnum bg-white focus:outline-none focus:border-accent/40" />
                       <select v-else-if="c.type === 'Select'" v-model="r[c.field]" class="h-8 w-full min-w-[110px] rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white focus:outline-none focus:border-accent/40">
                         <option v-for="o in (d.options[c.options] || [])" :key="o.value" :value="o.value">{{ o.label || o.value || "—" }}</option>
                       </select>
                       <SearchSelect v-else-if="c.type === 'Link'" v-model="r[c.field]" :items="d.options[c.options] || []" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white min-w-[220px]" />
                       <PartyPick v-else-if="c.type === 'Party'" v-model="r[c.field]" :party-type="r.party_type" :disabled="!r.party_type" small />
-                      <ItemPick v-else-if="c.type === 'Item'" v-model="r[c.field]" :side="d.doctype === 'Purchase Invoice' ? 'buying' : 'selling'" @picked="(o) => onItemPicked(r, o)" />
+                      <ItemPick v-else-if="c.type === 'Item'" v-model="r[c.field]" :side="BUYING.includes(d.doctype) ? 'buying' : 'selling'" @picked="(o) => onItemPicked(r, o)" />
                       <input v-else v-model="r[c.field]" class="h-8 w-full min-w-[120px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40" />
                     </td>
                     <td v-if="d.child.can_remove" class="px-1 py-1.5 text-center"><button type="button" class="text-ink-muted hover:text-sale" :title="L('Remove row','حذف السطر','Supprimer')" @click="rv.splice(i, 1)"><Icon name="close" :size="13" /></button></td>
@@ -142,6 +148,7 @@ const saving = ref(false);
 const error = ref("");
 
 const isJE = computed(() => props.doctype === "Journal Entry");
+const BUYING = ["Purchase Invoice", "Purchase Order", "Purchase Receipt"];
 const totDr = computed(() => rv.value.reduce((s, r) => s + (Number(r.debit_in_account_currency) || 0), 0));
 const totCr = computed(() => rv.value.reduce((s, r) => s + (Number(r.credit_in_account_currency) || 0), 0));
 const balanced = computed(() => Math.abs(totDr.value - totCr.value) < 0.005 && totDr.value > 0);
@@ -218,6 +225,13 @@ async function allocate() {
 }
 
 async function save() {
+  // Rewriting a reserved order's lines releases the reservation — stock someone
+  // has already set aside for this customer goes back to the free pool. The Desk
+  // asks first; a save that quietly unreserved would be the portal's to explain.
+  if (d.value.reserved_stock && !confirm(L(
+    "The stock reserved for this order will be released when the lines change. Continue?",
+    "المخزون المحجوز للأمر ده هيتفكّ لما السطور تتغير. نكمل؟",
+    "Le stock réservé sera libéré. Continuer ?"))) return;
   saving.value = true; error.value = "";
   try {
     const header = {};

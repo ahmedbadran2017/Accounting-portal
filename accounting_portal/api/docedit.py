@@ -33,7 +33,13 @@ EDIT_ACTION = "Edit draft"
 #   type ∈ Date · Data · Text · Currency · Float · Int · Check · Select · Link · Party
 #   options_key → a list in the `options` dict returned by get_draft (Select/Link)
 #   Party → the frontend searches accountant.party_options with the row/header party_type
-_H = lambda f, t, o=None, ro=False: {"field": f, "type": t, "options": o, "ro": ro}  # noqa: E731
+#   ro          → never editable
+#   roe         → editable only on a row the user is adding (an existing line's
+#                 item cannot change: ERPNext's update_child_qty_rate reads qty,
+#                 rate, uom and the date off an existing row and ignores a new
+#                 item_code, so offering it would be a control that does nothing)
+_H = lambda f, t, o=None, ro=False, roe=False: {  # noqa: E731
+    "field": f, "type": t, "options": o, "ro": ro, "ro_existing": roe}
 
 _SCHEMA = {
     "Journal Entry": {
@@ -116,8 +122,8 @@ _SCHEMA = {
                               _H("qty", "Float"), _H("rate", "Currency")]},
         # Once submitted only qty and rate move, through update_child_qty_rate.
         "submitted_ok": True,
-        "submitted_columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
-                              _H("qty", "Float"), _H("rate", "Currency")],
+        "submitted_columns": [_H("item_code", "Item", roe=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency"), _H("delivery_date", "Date")],
     },
     "Purchase Order": {
         "header": [_H("schedule_date", "Date")],
@@ -125,10 +131,24 @@ _SCHEMA = {
                   "columns": [_H("item_code", "Item"), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency")]},
         "submitted_ok": True,
-        "submitted_columns": [_H("item_code", "Data", ro=True), _H("item_name", "Data", ro=True),
-                              _H("qty", "Float"), _H("rate", "Currency")],
+        "submitted_columns": [_H("item_code", "Item", roe=True), _H("item_name", "Data", ro=True),
+                              _H("qty", "Float"), _H("rate", "Currency"), _H("schedule_date", "Date")],
     },
 }
+
+
+def _order_lines_locked(doc):
+    """Whether a submitted order's lines are past changing, and why — the same
+    three conditions the Desk uses to decide whether to offer Update Items at all.
+    The portal used to open the editor regardless and let the user type into a
+    document ERPNext would refuse on save."""
+    st = doc.get("status") or ""
+    if st in ("Closed", "Delivered"):
+        return st.lower()
+    received = flt(doc.get("per_delivered" if doc.doctype == "Sales Order" else "per_received"))
+    if received >= 100 or flt(doc.get("per_billed")) >= 100:
+        return "completed"
+    return ""
 # Additional Salary has no party_type field; the Party picker searches Employees.
 _PARTY_FIXED = {"Additional Salary": "Employee"}
 # Redate is the amend-and-resubmit shortcut; these carry a posting_date.
@@ -220,9 +240,20 @@ def get_draft(doctype=None, name=None):
             for c in cols:
                 row[c["field"]] = _val(r.get(c["field"]))
             rows.append(row)
+        # A draft takes whatever the doctype allows. A submitted order takes lines
+        # too — that is what the Desk's Update Items does — unless it is closed or
+        # fully received/billed. A submitted invoice never does: there the editor
+        # only moves a line's account and reposts.
+        locked = ""
+        if not submitted_mode:
+            can_add, can_remove = spec["child"]["can_add"], spec["child"]["can_remove"]
+        elif spec.get("submitted_ok"):
+            locked = _order_lines_locked(doc)
+            can_add = can_remove = not locked
+        else:
+            can_add = can_remove = False
         child = {"field": cf, "label": meta.get_field(cf).label or cf, "columns": cols, "rows": rows,
-                 "can_add": spec["child"]["can_add"] and not submitted_mode,
-                 "can_remove": spec["child"]["can_remove"] and not submitted_mode,
+                 "can_add": can_add, "can_remove": can_remove, "locked": locked,
                  # Drives the "Get outstanding invoices" picker on a Payment Entry;
                  # without it the allocation endpoints are unreachable from the UI.
                  "fill": spec["child"].get("fill")}
@@ -230,6 +261,10 @@ def get_draft(doctype=None, name=None):
             "docstatus": doc.docstatus, "submitted_mode": bool(submitted_mode),
             "submitted_kind": ("reaccount" if spec.get("submitted") else "update_items") if submitted_mode else None,
             "is_return": bool(doc.get("is_return")),
+            # Changing the lines of a reserved order releases the reservation. The
+            # Desk asks before it does that; so does the portal now.
+            "reserved_stock": bool(submitted_mode and doctype == "Sales Order" and frappe.db.exists(
+                "Stock Reservation Entry", {"voucher_no": name, "docstatus": 1})),
             "currency": doc.get("currency") or doc.get("paid_from_account_currency") or frappe.get_cached_value("Company", doc.company, "default_currency"),
             "party_type_fixed": _PARTY_FIXED.get(doctype), "header": header, "child": child,
             "options": _options(doctype, doc.company)}
@@ -361,27 +396,53 @@ def _submitted_header_changes(doc, spec, header):
 
 
 def _update_submitted_items(doc, spec, header, rows):
-    """'Update Items' on a submitted order: qty/rate per existing line, through
-    ERPNext's own update_child_qty_rate (which reposts the order's totals,
-    reservations and status), plus any after-submit header field. Audited as
-    'Edit draft' with the diff."""
+    """'Update Items' on a submitted order, through ERPNext's own
+    update_child_qty_rate — which recomputes the order's totals, reservations and
+    status, and refuses a line that has already been delivered, received or billed.
+    Lines can be changed, added, re-dated and removed, exactly as the Desk grid
+    allows; any after-submit header field is applied first. Audited with the diff."""
     before, after = _submitted_header_changes(doc, spec, header)
     if after:
         doc.flags.ignore_permissions = True
         doc.save()
-    rows = rows or []
-    by_name = {r.get("name"): r for r in rows if r.get("name")}
-    trans, diff = [], []
     date_field = "delivery_date" if doc.doctype == "Sales Order" else "schedule_date"
-    for row in doc.get("items") or []:
-        r = by_name.get(row.name) or {}
+    existing = {r.name: r for r in (doc.get("items") or [])}
+    # A save that carries no line list at all is a header-only save; echo the lines
+    # back unchanged so nothing is read as a deletion.
+    if not isinstance(rows, list):
+        rows = [{"name": n} for n in existing]
+    trans, diff = [], []
+    for r in rows:
+        row = existing.get(r.get("name"))
+        if row is None:
+            item = (r.get("item_code") or "").strip()
+            if not item:
+                continue                    # a blank line the user added and left empty
+            qty = flt(r.get("qty")) or 1
+            rate = flt(r.get("rate"))
+            when = _val(r.get(date_field)) or _val(doc.get(date_field)) or frappe.utils.nowdate()
+            # No docname: ERPNext builds the row from the item master — warehouse,
+            # UOM, conversion factor, item tax template and all.
+            trans.append({"item_code": item, "qty": qty, "rate": rate, date_field: when})
+            diff.append({"added": item, "qty": qty, "rate": rate})
+            continue
         qty = flt(r.get("qty")) if r.get("qty") not in (None, "") else flt(row.qty)
         rate = flt(r.get("rate")) if r.get("rate") not in (None, "") else flt(row.rate)
-        if qty != flt(row.qty) or rate != flt(row.rate):
-            diff.append({"item": row.item_code, "qty": [flt(row.qty), qty], "rate": [flt(row.rate), rate]})
+        when = _val(r.get(date_field)) or _val(row.get(date_field)) or _val(doc.get(date_field)) or ""
+        if qty != flt(row.qty) or rate != flt(row.rate) or when != _val(row.get(date_field)):
+            diff.append({"item": row.item_code, "qty": [flt(row.qty), qty], "rate": [flt(row.rate), rate],
+                         "date": [_val(row.get(date_field)), when]})
         trans.append({"docname": row.name, "name": row.name, "item_code": row.item_code, "qty": qty, "rate": rate,
-                      "uom": row.uom, "conversion_factor": row.conversion_factor or 1,
-                      date_field: str(row.get(date_field) or doc.get(date_field) or "")})
+                      "uom": row.uom, "conversion_factor": row.conversion_factor or 1, date_field: when})
+    # Anything ERPNext does not see in the list it deletes — and refuses to, for a
+    # line already delivered, received, billed or ordered against.
+    kept = {t.get("docname") for t in trans if t.get("docname")}
+    for name, row in existing.items():
+        if name not in kept:
+            diff.append({"removed": row.item_code, "qty": flt(row.qty)})
+    if diff and _order_lines_locked(doc):
+        frappe.throw("This order's lines can no longer change: it is "
+                     + (doc.get("status") or "").lower() + " or fully received and billed.")
     if not diff and not after:
         frappe.throw("Nothing changed")
     if diff:
@@ -399,7 +460,7 @@ def _update_submitted_items(doc, spec, header, rows):
         "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
         "payload": json.dumps({"update_items": diff, "before": before, "after": after}),
         "result": json.dumps({"saved": doc.name}),
-        "notes": f"Updated {len(diff)} line(s) and {len(after)} field(s) on submitted {doc.doctype} {doc.name}",
+        "notes": f"Updated {len(diff)} line change(s) and {len(after)} field(s) on submitted {doc.doctype} {doc.name}",
     }).insert(ignore_permissions=True)
     return get_draft(doc.doctype, doc.name)
 
