@@ -34,6 +34,7 @@
     "consolidation": "التوحيد"
   },
   "sub": {
+    "grouppnl": "أرباح وخسائر المجموعة",
     "customers": "العملاء",
     "orders": "أوامر البيع",
     "todeliver": "المسار",
