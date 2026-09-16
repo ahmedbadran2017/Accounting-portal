@@ -183,3 +183,74 @@ def my_work_count(user=None):
     assert_portal_access()
     u = user or frappe.session.user
     return {"count": frappe.db.count("ToDo", {"allocated_to": u, "status": "Open"})}
+
+
+# ── Duplicate / delete draft — the Desk's generic menu items ────────────────────
+
+DUP_ACTION = "Duplicate document"
+DEL_ACTION = "Delete draft"
+
+
+def _dup_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    dt, name = p["doctype"], p["name"]
+    src = frappe.get_doc(dt, name)
+    new = frappe.copy_doc(src)          # honours no_copy fields exactly like the Desk
+    new.amended_from = None
+    new.docstatus = 0
+    if new.meta.has_field("posting_date") and not new.meta.get_field("posting_date").no_copy:
+        new.posting_date = frappe.utils.nowdate()
+    if new.meta.has_field("set_posting_time"):
+        new.set_posting_time = 0
+    new.flags.ignore_permissions = True
+    new.insert()
+    return {"voucher_type": dt, "voucher_no": new.name, "result": {"new_doc": new.name, "from": name}}
+
+
+def _del_poster(action):
+    p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    dt, name = p["doctype"], p["name"]
+    if frappe.db.get_value(dt, name, "docstatus") != 0:
+        frappe.throw("Only a draft can be deleted — cancel a submitted document instead")
+    frappe.delete_doc(dt, name, ignore_permissions=True)
+    return {"voucher_type": dt, "voucher_no": name, "result": {"deleted": name}}
+
+
+_actions.register_poster(DUP_ACTION, _dup_poster)
+_actions.register_poster(DEL_ACTION, _del_poster)
+_actions._NO_GATE.add(DUP_ACTION)   # a draft posts nothing; submit is gated
+_actions._NO_GATE.add(DEL_ACTION)
+
+
+@frappe.whitelist()
+def doc_duplicate(doctype=None, name=None, company=None):
+    """Copy any document (draft, submitted or cancelled) into a fresh draft."""
+    assert_can_write()
+    if doctype not in bulk._ALLOWED or not name or not frappe.db.exists(doctype, name):
+        frappe.throw(f"Duplicate is not available for {doctype}")
+    companies = resolve_companies(company)
+    doc_company = frappe.db.get_value(doctype, name, "company")
+    if doc_company not in companies:
+        frappe.throw("Not permitted", frappe.PermissionError)
+    key = f"dup:{doctype}:{name}:{str(frappe.utils.now_datetime())[:19]}"
+    return _actions.execute(DUP_ACTION, doc_company, key, payload={"doctype": doctype, "name": name},
+                            amount=0, reference_doctype=doctype, reference_name=name,
+                            notes=f"Duplicate {doctype} {name}")
+
+
+@frappe.whitelist()
+def doc_delete(doctype=None, name=None, company=None):
+    """Delete a draft (docstatus 0) — never a posted document."""
+    assert_can_write()
+    if doctype not in bulk._ALLOWED or not name or not frappe.db.exists(doctype, name):
+        frappe.throw(f"Delete is not available for {doctype}")
+    companies = resolve_companies(company)
+    doc_company = frappe.db.get_value(doctype, name, "company")
+    if doc_company not in companies:
+        frappe.throw("Not permitted", frappe.PermissionError)
+    if frappe.db.get_value(doctype, name, "docstatus") != 0:
+        frappe.throw("Only a draft can be deleted — cancel a submitted document instead")
+    key = f"del:{doctype}:{name}"
+    return _actions.execute(DEL_ACTION, doc_company, key, payload={"doctype": doctype, "name": name},
+                            amount=0, reference_doctype=doctype, reference_name=name,
+                            notes=f"Delete draft {doctype} {name}")

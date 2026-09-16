@@ -34,6 +34,8 @@
       <button v-for="s in flow.statuses" :key="s.key" :disabled="busy" @click="setStatus(s)" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold border disabled:opacity-50" :class="s.key === 'close' || s.key === 'hold' ? 'text-amber-800 bg-amber-50 border-amber-200 hover:bg-amber-100' : 'text-ink-2 bg-white border-line-2 hover:bg-app-warm'">
         <Icon :name="s.key === 'close' || s.key === 'hold' ? 'lock' : 'refresh'" :size="11" />{{ statusLabel(s) }}
       </button>
+      <button v-if="state.exists" :disabled="busy" @click="run('duplicate')" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50" :title="L('Copy into a new draft','نسخ كمسودة جديدة','Copier en brouillon')"><Icon name="copy" :size="12" />{{ L("Duplicate","نسخ","Dupliquer") }}</button>
+      <button v-if="state.exists && state.docstatus === 0" :disabled="busy" @click="confirm = 'delete'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 disabled:opacity-50"><Icon name="close" :size="12" />{{ L("Delete draft","حذف المسودة","Supprimer") }}</button>
       <button v-if="state.can_submit" :disabled="busy" @click="run('submit')" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-success-dark hover:opacity-90 disabled:opacity-50"><Icon name="check" :size="12" color="#fff" />{{ L("Submit","ترحيل","Soumettre") }}</button>
       <button v-if="state.can_cancel" :disabled="busy" @click="confirm = 'cancel'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 disabled:opacity-50"><Icon name="x" :size="12" />{{ L("Cancel doc","إلغاء المستند","Annuler") }}</button>
       <button v-if="state.can_amend" :disabled="busy" @click="confirm = 'amend'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50"><Icon name="refresh" :size="12" />{{ L("Amend","تعديل ونسخ","Amender") }}</button>
@@ -44,10 +46,12 @@
     <!-- confirm dialog -->
     <div v-if="confirm" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 px-4" @click.self="confirm = ''">
       <div class="bg-white rounded-card shadow-pop w-full max-w-sm p-5">
-        <div class="text-[14px] font-bold">{{ confirm === 'cancel' ? L("Cancel this document?","إلغاء هذا المستند؟","Annuler ?") : confirm === 'redate' ? L("Move this document to another date","نقل المستند لتاريخ آخر","Changer la date") : L("Amend this document?","تعديل ونسخ؟","Amender ?") }}</div>
+        <div class="text-[14px] font-bold">{{ confirm === 'cancel' ? L("Cancel this document?","إلغاء هذا المستند؟","Annuler ?") : confirm === 'delete' ? L("Delete this draft?","حذف هذه المسودة؟","Supprimer ce brouillon ?") : confirm === 'redate' ? L("Move this document to another date","نقل المستند لتاريخ آخر","Changer la date") : L("Amend this document?","تعديل ونسخ؟","Amender ?") }}</div>
         <div class="text-[12px] text-ink-3 mt-1.5">
           {{ confirm === 'cancel'
             ? L("This reverses its ledger entries. It can be reopened by amending.","سيعكس قيوده. يمكن إعادته بالتعديل.","Annule ses écritures.")
+            : confirm === 'delete'
+            ? L("The draft is removed for good. Nothing was posted, so nothing reverses.","المسودة هتتحذف نهائيًا. مفيش حاجة اترحّلت فمفيش حاجة تتعكس.","Le brouillon est supprimé définitivement.")
             : confirm === 'redate'
             ? L("Cancels it, re-creates it as an amendment with the new date and submits — same lines, same amounts. Posts above 10,000 need approval.","يلغيه وينشئه من جديد كتعديل بالتاريخ الجديد ويرحّله، بنفس السطور والمبالغ. ما فوق 10٬000 يحتاج موافقة.","Annule, recrée avec la nouvelle date et soumet.")
             : L("Cancels this document and opens an editable copy (a new draft linked to it). Posts above 10,000 need approval.","يلغي المستند ويفتح نسخة قابلة للتعديل. ما فوق 10٬000 يحتاج موافقة.","Annule et ouvre une copie modifiable.") }}
@@ -161,17 +165,25 @@ const pill = computed(() => {
 async function run(op) {
   busy.value = true;
   try {
-    const fn = { submit: "doc_submit", cancel: "doc_cancel", amend: "doc_amend" }[op];
+    const fn = { submit: "doc_submit", cancel: "doc_cancel", amend: "doc_amend", duplicate: "doc_duplicate", delete: "doc_delete" }[op];
     const r = op === "redate"
       ? await api.call("accounting_portal.api.docedit.redate", { doctype: props.doctype, name: props.name, posting_date: newDate.value, company: currentCompany() })
       : await api.call(`accounting_portal.api.docops.${fn}`, { doctype: props.doctype, name: props.name, company: currentCompany() });
     if (r && r.status && r.status !== "Posted") {
       toast.success(L("Queued for approval (over 10,000)", "بانتظار الموافقة (فوق 10٬000)", "En attente d'approbation"));
-    } else if (op === "amend" || op === "redate") {
+    } else if (op === "amend" || op === "redate" || op === "duplicate") {
       let res = r && r.result; res = typeof res === "string" ? JSON.parse(res) : res;
       const nd = res && (res.new_draft || res.new_doc);
-      toast.success(op === "redate" ? L("Redated and submitted", "تم النقل والترحيل", "Redaté et soumis") : L("Amended — editable draft created", "تم — أنشئت مسودة", "Amendé — brouillon créé"));
+      toast.success(op === "redate" ? L("Redated and submitted", "تم النقل والترحيل", "Redaté et soumis")
+        : op === "duplicate" ? L("Copied — new draft opened", "تم النسخ، اتفتحت مسودة جديدة", "Copié — nouveau brouillon")
+        : L("Amended — editable draft created", "تم — أنشئت مسودة", "Amendé — brouillon créé"));
       if (nd) emit("open", nd);
+    } else if (op === "delete") {
+      toast.success(L("Draft deleted", "تم حذف المسودة", "Brouillon supprimé"));
+      confirm.value = "";
+      router.replace({ path: router.currentRoute.value.path, query: {} });
+      emit("changed");
+      return;
     } else {
       toast.success(op === "submit" ? L("Submitted", "تم الترحيل", "Soumis") : L("Cancelled", "تم الإلغاء", "Annulé"));
     }
