@@ -28,7 +28,10 @@ def after_install():
 def _create_portal_roles():
     """Create the 4 accounting portal roles. Idempotent — safe on every migrate."""
     created = []
-    for role_name in PORTAL_ROLES:
+    # "Portal Only" is a marker, not an access level: holders are bounced from the
+    # ERPNext Desk to the portal (api/deskguard.py). Created here so a fresh site
+    # has it; set_desk_locked() also creates it lazily on first use.
+    for role_name in PORTAL_ROLES + ["Portal Only"]:
         if not frappe.db.exists("Role", role_name):
             frappe.get_doc({
                 "doctype": "Role",

@@ -20,12 +20,16 @@ for (const [mod, subs] of Object.entries(SUBTABS)) {
 
 import AppLayout from "@/components/layout/AppLayout.vue";
 const Login = () => import("@/pages/auth/Login.vue");
+const DeskPass = () => import("@/pages/auth/DeskPass.vue");
 const Module = () => import("@/pages/Module.vue");
 
 const routes = [
   { path: "/", redirect: "/accounting/dashboard" },
   { path: "/accounting", redirect: "/accounting/dashboard" },
   { path: "/accounting/login", name: "Login", component: Login, meta: { guest: true } },
+  // Where a Desk-locked accountant lands when they open /app: explains the lock
+  // and hands out a logged one-hour pass. Standalone (no app shell) on purpose.
+  { path: "/accounting/desk-pass", name: "DeskPass", component: DeskPass, meta: { requiresAuth: true } },
   {
     path: "/accounting",
     component: AppLayout,

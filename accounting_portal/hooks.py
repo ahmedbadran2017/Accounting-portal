@@ -29,6 +29,10 @@ after_migrate = [
 # Whitelisted method overrides — none.
 override_whitelisted_methods = {}
 
+# Desk lock for `Portal Only` users: /app bounces to the portal's desk-pass page
+# unless they hold a logged one-hour pass. See api/deskguard.py (fail-open).
+before_request = ["accounting_portal.api.deskguard.block_desk_for_accountants"]
+
 # ── Server-side guards on core doctypes ──
 # FX guard: rejects purchase documents whose exchange rate is implausible vs the
 # books' Currency Exchange reference (the root cause of the ×4.5 inventory-cost

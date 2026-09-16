@@ -6,6 +6,7 @@ from accounting_portal.api.permissions import (
     PORTAL_ROLES_SET, ROLE_VIEWER, get_portal_role, can_manage_users,
     assert_portal_access,
 )
+from accounting_portal.api.deskguard import LOCK_ROLE, ensure_lock_role, is_locked
 
 _ASSIGNABLE = [
     {"role": "Accounting Super Admin", "label": "Super Admin", "desc": "Full access + manages users"},
@@ -39,10 +40,38 @@ def list_portal_users():
             "role": get_portal_role(r.user), "enabled": int(info.enabled or 0),
             "last_active": str(info.last_active) if info.last_active else None,
             "image": info.user_image,
+            # Desk lock marker (api/deskguard.py). Super Admins / System Managers are
+            # never actually locked even if ticked — surfaced as lockable=False.
+            "desk_locked": int(LOCK_ROLE in frappe.get_roles(r.user)),
+            "lockable": int(not (set(frappe.get_roles(r.user)) & {"Accounting Super Admin", "System Manager"})),
         })
     out.sort(key=lambda x: (not x["enabled"], x["full_name"].lower()))
     return {"users": out, "roles": _ASSIGNABLE, "can_manage": can_manage_users(),
             "me": frappe.session.user}
+
+
+@frappe.whitelist()
+def set_desk_locked(user=None, locked=None):
+    """Lock (or unlock) a teammate out of the ERPNext Desk. Roles and permissions
+    stay as they are; only /app is refused (they can still take a logged 1-hour
+    pass from the portal). You can't lock yourself or Administrator."""
+    _assert_manager()
+    if not user or not frappe.db.exists("User", user):
+        frappe.throw("User not found")
+    flag = 1 if str(locked) in ("1", "true", "True") else 0
+    if flag and user in (frappe.session.user, "Administrator"):
+        frappe.throw("You can't lock this account out of the Desk")
+    ensure_lock_role()
+    u = frappe.get_doc("User", user)
+    if flag:
+        u.add_roles(LOCK_ROLE)
+    else:
+        u.remove_roles(LOCK_ROLE)
+    try:
+        frappe.cache().hdel("roles", user)   # so the lock bites on the very next request
+    except Exception:
+        pass
+    return {"user": user, "desk_locked": flag, "effective": bool(flag and is_locked(user))}
 
 
 @frappe.whitelist()

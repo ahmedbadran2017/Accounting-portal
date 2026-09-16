@@ -16,6 +16,14 @@ from accounting_portal.api.permissions import (
 )
 
 
+def _desk_locked(user):
+    try:
+        from accounting_portal.api.deskguard import is_locked
+        return bool(is_locked(user))
+    except Exception:
+        return False
+
+
 @frappe.whitelist()
 def get_session_info():
     """Return the logged-in user's portal context.
@@ -45,5 +53,6 @@ def get_session_info():
         "capabilities": {
             "manage_users": can_manage_users(user),
             "post_entries": can_write(user),
+            "desk_locked": _desk_locked(user),
         },
     }

@@ -15,6 +15,7 @@
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("User","المستخدم","Utilisateur") }}</th>
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Role","الدور","Rôle") }}</th>
           <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Last active","آخر نشاط","Dernière activité") }}</th>
+          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted" :title="L('Locked = ERPNext Desk (/app) refused; they work in the portal and can take a logged 1-hour pass.','مقفول = الـ Desk مرفوض؛ يشتغل من البورتال ويقدر ياخد تصريح ساعة مسجَّل.','Verrouillé = Desk ERPNext refusé.')">{{ L("Desk","الـ Desk","Desk") }}</th>
           <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
         </tr></thead>
         <tbody>
@@ -34,6 +35,17 @@
               <span v-else class="inline-flex text-[11px] font-bold px-2 py-0.5 rounded-badge" style="background:#faf6f4;color:#0b5c4f">{{ roleLabel(u.role) }}</span>
             </td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ u.last_active ? when(u.last_active) : "—" }}</td>
+            <td class="px-4 py-2.5">
+              <span v-if="!u.lockable" class="text-[10.5px] text-ink-muted" :title="L('Super Admins are never locked','السوبر أدمن لا يُقفل عليه','Jamais verrouillé')">{{ L("Open · admin","مفتوح · أدمن","Ouvert · admin") }}</span>
+              <button v-else-if="canManage && u.user !== me && u.user !== 'Administrator'" @click="toggleDesk(u)" :disabled="busy"
+                      class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full border disabled:opacity-50"
+                      :style="u.desk_locked ? 'background:#fef3c7;color:#92400e;border-color:#fcd34d' : 'background:#f5f5f4;color:#57534e;border-color:#e7e5e4'">
+                <Icon name="lock" :size="10" :color="u.desk_locked ? '#92400e' : '#a8a29e'" />{{ u.desk_locked ? L("Locked","مقفول","Verrouillé") : L("Open","مفتوح","Ouvert") }}
+              </button>
+              <span v-else class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="u.desk_locked ? 'background:#fef3c7;color:#92400e' : 'background:#f5f5f4;color:#57534e'">
+                <Icon name="lock" :size="10" :color="u.desk_locked ? '#92400e' : '#a8a29e'" />{{ u.desk_locked ? L("Locked","مقفول","Verrouillé") : L("Open","مفتوح","Ouvert") }}
+              </span>
+            </td>
             <td class="px-4 py-2.5 text-end">
               <button v-if="canManage && u.user !== me && u.user !== 'Administrator'" @click="toggle(u)" :disabled="busy"
                       class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border disabled:opacity-50"
@@ -43,7 +55,7 @@
               <span v-else class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="u.enabled ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'">{{ u.enabled ? L("Active","نشط","Actif") : L("Disabled","معطّل","Désactivé") }}</span>
             </td>
           </tr>
-          <tr v-if="!users.length"><td colspan="4" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ L("No portal users.","لا مستخدمين.","Aucun utilisateur.") }}</td></tr>
+          <tr v-if="!users.length"><td colspan="5" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ L("No portal users.","لا مستخدمين.","Aucun utilisateur.") }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -103,6 +115,15 @@ async function changeRole(u, role) {
   busy.value = true;
   try { await api.call("accounting_portal.api.users.set_portal_role", { user: u.user, role }); toast.success(L("Role updated", "تم تحديث الدور", "Rôle mis à jour")); load(); }
   catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); load(); }
+  finally { busy.value = false; }
+}
+async function toggleDesk(u) {
+  busy.value = true;
+  try {
+    await api.call("accounting_portal.api.users.set_desk_locked", { user: u.user, locked: u.desk_locked ? 0 : 1 });
+    toast.success(u.desk_locked ? L("Desk reopened", "الـ Desk اتفتح", "Desk rouvert") : L("Desk locked — they work in the portal now", "الـ Desk اتقفل، الشغل من البورتال", "Desk verrouillé"));
+    load();
+  } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 140)); }
   finally { busy.value = false; }
 }
 async function toggle(u) {
