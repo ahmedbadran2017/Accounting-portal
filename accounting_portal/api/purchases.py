@@ -919,6 +919,13 @@ def _match_advance_poster(action):
     pr.get_unreconciled_entries()
     invs = [x.as_dict() for x in pr.invoices if x.invoice_number in inv_names]
     pays = [x.as_dict() for x in pr.payments if x.reference_name == p["payment"]]
+    if pays and not invs:
+        # The one case that is not "already applied": the bills live on another
+        # payable account, so this reconciliation cannot see them at all.
+        frappe.throw(
+            f"None of the selected bills sit on {pe.paid_to}, the payable account this "
+            "payment was booked to, so they cannot be reconciled against it. Move the "
+            "bill's account and repost, or amend the payment onto the bill's account.")
     if not invs or not pays:
         frappe.throw("Nothing left to reconcile (already applied?)")
     pr.allocate_entries({"invoices": invs, "payments": pays})
@@ -940,18 +947,38 @@ def advance_match_options(company=None, payment=None):
                               "payment_type", "party_type", "paid_from_account_currency"], as_dict=True)
     if not pe or pe.company != target or pe.payment_type != "Pay" or pe.party_type != "Supplier":
         frappe.throw("Not a supplier advance for this company")
+    # Only bills sitting on the SAME payable account can be reconciled against
+    # this payment. ERPNext's Payment Reconciliation works one account at a time,
+    # so a bill booked to a different Creditors account is not a candidate — it is
+    # a dead end. This screen used to list every open bill for the supplier, so an
+    # accountant could tick one, press Apply, and be told "nothing left to
+    # reconcile (already applied?)" about a payment with its full amount free.
+    # Justyol Morocco carries two accounts both named "Creditors MAD", 320.101 and
+    # 320.501, which is exactly how that happens.
     bills = frappe.db.sql(
         """SELECT name, posting_date AS date, due_date, ROUND(outstanding_amount,2) AS outstanding,
                   ROUND(grand_total,2) AS total
            FROM `tabPurchase Invoice`
-           WHERE company=%s AND supplier=%s AND docstatus=1 AND IFNULL(is_return,0)=0 AND outstanding_amount>0
-           ORDER BY due_date ASC, posting_date ASC LIMIT 100""", (target, pe.party), as_dict=True)
+           WHERE company=%s AND supplier=%s AND docstatus=1 AND IFNULL(is_return,0)=0
+             AND outstanding_amount>0 AND credit_to=%s
+           ORDER BY due_date ASC, posting_date ASC LIMIT 100""",
+        (target, pe.party, pe.paid_to), as_dict=True)
     for b in bills:
         b["outstanding"] = flt(b["outstanding"]); b["total"] = flt(b["total"])
         b["date"] = str(b.get("date") or ""); b["due_date"] = str(b.get("due_date") or "")
+    # What is out of reach, and on which account — so the screen can say why the
+    # list is short instead of just looking empty.
+    elsewhere = frappe.db.sql(
+        """SELECT credit_to AS account, COUNT(*) AS n, ROUND(SUM(outstanding_amount),2) AS outstanding
+           FROM `tabPurchase Invoice`
+           WHERE company=%s AND supplier=%s AND docstatus=1 AND IFNULL(is_return,0)=0
+             AND outstanding_amount>0 AND credit_to!=%s
+           GROUP BY credit_to""", (target, pe.party, pe.paid_to), as_dict=True)
+    for e in elsewhere:
+        e["outstanding"] = flt(e["outstanding"])
     return {"payment": payment, "party": pe.party, "party_name": pe.party_name or pe.party,
             "unallocated": flt(pe.unallocated_amount), "currency": pe.paid_from_account_currency or "MAD",
-            "bills": bills}
+            "account": pe.paid_to, "bills": bills, "elsewhere": elsewhere}
 
 
 @frappe.whitelist()
@@ -963,7 +990,8 @@ def apply_advance(company=None, payment=None, invoices=None, dedupe_key=None):
     names = invoices if isinstance(invoices, list) else json.loads(invoices or "[]")
     names = [n for n in names if n]
     pe = frappe.db.get_value("Payment Entry", payment,
-                             ["party", "company", "unallocated_amount", "payment_type", "party_type"], as_dict=True)
+                             ["party", "company", "unallocated_amount", "payment_type", "party_type",
+                              "paid_to"], as_dict=True)
     if not pe or pe.company != target:
         frappe.throw("Payment not found")
     if pe.payment_type != "Pay" or pe.party_type != "Supplier":
@@ -972,13 +1000,18 @@ def apply_advance(company=None, payment=None, invoices=None, dedupe_key=None):
         frappe.throw("This payment has nothing left to allocate")
     if not names:
         frappe.throw("Select at least one bill")
-    rows = frappe.db.sql("SELECT name, supplier, company FROM `tabPurchase Invoice` WHERE name IN %(n)s",
+    rows = frappe.db.sql("SELECT name, supplier, company, credit_to FROM `tabPurchase Invoice` WHERE name IN %(n)s",
                          {"n": tuple(names)}, as_dict=True)
     if len(rows) != len(names):
         frappe.throw("Some bills were not found")
     for r in rows:
         if r.company != target or r.supplier != pe.party:
             frappe.throw(f"{r.name} is not an open bill for this supplier")
+        if r.credit_to != pe.paid_to:
+            frappe.throw(
+                f"{r.name} is booked to {r.credit_to} and this payment sits on {pe.paid_to}. "
+                "A payment can only be matched to bills on the same payable account — "
+                "move one of them first (edit the bill's account and repost, or amend the payment).")
     key = dedupe_key or "matchadv:" + _digest(payment + "".join(sorted(names)), 16)
     res = _actions.execute(
         MATCH_ADV_ACTION, target, key, payload={"payment": payment, "invoices": sorted(names)},

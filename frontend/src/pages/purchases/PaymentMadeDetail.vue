@@ -93,11 +93,20 @@
           <span class="w-8 h-8 rounded-[9px] grid place-items-center" style="background:#ecfdf5"><Icon name="scale" :size="16" color="#0b5c4f" /></span>
           <div>
             <div class="text-[14px] font-bold">{{ L("Match advance to bills", "طابق المقدّم بالفواتير", "Affecter l'avance") }}</div>
-            <div class="text-[11px] text-ink-muted">{{ match.party_name }} · {{ L("available", "متاح", "dispo") }} <b class="text-accent-dark">{{ fmt(remaining) }} {{ match.currency }}</b></div>
+            <div class="text-[11px] text-ink-muted">{{ match.party_name }} · {{ L("left", "متبقٍ", "restant") }} <b class="text-accent-dark">{{ fmt(remaining) }} {{ match.currency }}</b> {{ L("of", "من", "sur") }} {{ fmt(match.unallocated) }}</div>
           </div>
         </div>
         <div v-if="matchLoading" class="py-6"><TableLoading :rows="4" /></div>
-        <div v-else-if="!match.bills.length" class="py-8 text-center text-[12px] text-ink-muted">{{ L("No open bills for this supplier.", "لا فواتير مفتوحة لهذا المورّد.", "Aucune facture ouverte.") }}</div>
+        <div v-else-if="!match.bills.length" class="py-8 px-3 text-center text-[12px] text-ink-muted">{{ L("No open bills for this supplier.", "لا فواتير مفتوحة لهذا المورّد.", "Aucune facture ouverte.") }}</div>
+        <!-- A bill on a different payable account cannot be reconciled against this
+             payment, so it is not listed. Saying so beats an empty box: Justyol
+             Morocco has two accounts both called "Creditors MAD". -->
+        <div v-if="match.elsewhere && match.elsewhere.length" class="rounded-[10px] px-3 py-2 text-[11.5px] flex-shrink-0" style="background:#fffbeb;color:#92400e">
+          {{ L("This payment sits on", "الدفعة دي على حساب", "Ce paiement est sur") }} <b>{{ shortAcct(match.account) }}</b>.
+          {{ L("Not listed:", "مش معروض:", "Non listé :") }}
+          <span v-for="(e, i) in match.elsewhere" :key="e.account">{{ i ? " · " : " " }}{{ e.n }} {{ L("bill(s)", "فاتورة", "facture(s)") }} {{ fmt(e.outstanding) }} {{ L("on", "على", "sur") }} <b>{{ shortAcct(e.account) }}</b></span>.
+          {{ L("A payment can only clear bills on its own payable account.", "الدفعة بتقفل الفواتير اللي على نفس حساب الدائنين بتاعها بس.", "Un paiement ne solde que les factures du même compte fournisseur.") }}
+        </div>
         <div v-else class="overflow-y-auto -mx-1 px-1 flex-1">
           <div v-for="b in match.bills" :key="b.name" class="flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] border mb-1.5 cursor-pointer" :class="picked.has(b.name) ? 'border-accent/40 bg-accent/5' : 'border-line-2 hover:bg-app-warm/50'" @click="togglePick(b)">
             <input type="checkbox" :checked="picked.has(b.name)" class="accent-accent w-3.5 h-3.5" @click.stop="togglePick(b)" />
@@ -148,7 +157,10 @@ const loading = ref(true);
 const matchOpen = ref(false);
 const matchLoading = ref(false);
 const posting = ref(false);
-const match = ref({ party_name: "", unallocated: 0, currency: "MAD", bills: [] });
+const match = ref({ party_name: "", unallocated: 0, currency: "MAD", bills: [], elsewhere: [], account: "" });
+// "320.501 - Creditors MAD - JM" reads as "320.501 - Creditors MAD" here; the
+// company suffix is the same on every account on this screen.
+const shortAcct = (a) => String(a || "").replace(/ - [A-Z]{2,4}$/, "");
 const picked = ref(new Set());
 const pickedTotal = computed(() => match.value.bills.filter((b) => picked.value.has(b.name)).reduce((a, b) => a + Number(b.outstanding || 0), 0));
 const remaining = computed(() => Math.max(0, Number(match.value.unallocated || 0) - pickedTotal.value));
@@ -156,7 +168,7 @@ function togglePick(b) { const s = new Set(picked.value); s.has(b.name) ? s.dele
 async function openMatch() {
   matchOpen.value = true; matchLoading.value = true; picked.value = new Set();
   try { match.value = await api.call("accounting_portal.api.purchases.advance_match_options", { company: currentCompany(), payment: d.value.name }); }
-  catch { match.value = { party_name: "", unallocated: 0, currency: "MAD", bills: [] }; }
+  catch { match.value = { party_name: "", unallocated: 0, currency: "MAD", bills: [], elsewhere: [], account: "" }; }
   finally { matchLoading.value = false; }
 }
 async function confirmMatch() {
