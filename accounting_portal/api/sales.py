@@ -619,20 +619,63 @@ def item_options(company=None, search=None, limit=20, side="selling"):
     default that looks exactly like a real one.
     """
     assert_portal_access()
-    like = f"%{(search or '').strip()}%"
+    q = (search or "").strip()
+    like = f"%{q}%"
+    n = min(int(limit or 20), 40)
     buying = str(side).lower() == "buying"
     rate_sql = ("(SELECT ip.price_list_rate FROM `tabItem Price` ip "
                 " WHERE ip.item_code=i.name AND ip.buying=1 ORDER BY ip.modified DESC LIMIT 1)"
                 if buying else
                 "(SELECT ip.price_list_rate FROM `tabItem Price` ip "
                 " WHERE ip.item_code=i.name AND ip.selling=1 ORDER BY ip.modified DESC LIMIT 1)")
-    return frappe.db.sql(
-        f"""SELECT i.name AS item_code, i.item_name, i.image,
-                   {rate_sql} AS rate
-            FROM `tabItem` i
-            WHERE i.disabled=0 AND (i.name LIKE %(s)s OR i.item_name LIKE %(s)s)
-            ORDER BY i.modified DESC LIMIT %(limit)s""",
-        {"s": like, "limit": min(int(limit or 20), 40)}, as_dict=True)
+    # The description comes back so the picker can show it. Two items can share a
+    # description and differ only in code; the Desk shows it next to the code for
+    # exactly that reason, and picking blind between them is how the wrong item
+    # gets onto a bill. It is stored as HTML, so the tags are stripped here.
+    select = f"""SELECT i.name AS item_code, i.item_name, i.image, IFNULL(i.custom_sku,'') AS sku,
+                        LEFT(REGEXP_REPLACE(IFNULL(i.description,''), '<[^>]*>', ''), 90) AS description,
+                        {rate_sql} AS rate
+                 FROM `tabItem` i
+                 WHERE i.disabled=0 AND """
+    tail = " ORDER BY i.modified DESC LIMIT %(limit)s"
+
+    def run(where, params):
+        return frappe.db.sql(select + where + tail, {**params, "limit": n}, as_dict=True)
+
+    # Pass 1 — code, name, SKU. This is what the picker has always done, and it
+    # already reads the whole table (177k items, no index an OR like this can
+    # use): 590ms measured. The passes below are the fallbacks, so the common
+    # case still costs what it costs today and nothing more.
+    rows = run("(i.name LIKE %(s)s OR i.item_name LIKE %(s)s OR IFNULL(i.custom_sku,'') LIKE %(s)s)",
+               {"s": like})
+    if rows or len(q) < 2:
+        return rows
+    # Pass 2 — the description too. An accountant reading a supplier's delivery
+    # note has the description in front of her, not our item code; searching it
+    # was the one thing that sent her back to the Desk. +180ms, and only here.
+    rows = run("(i.description LIKE %(s)s OR i.item_group LIKE %(s)s)", {"s": like})
+    if rows:
+        return rows
+    # Pass 3 — every word, anywhere, rather than the typed string as one lump.
+    words = [w for w in q.split() if len(w) > 1][:4]
+    if len(words) < 2:
+        return []
+    blob = "CONCAT_WS(' ', i.name, i.item_name, IFNULL(i.custom_sku,''), IFNULL(i.description,''))"
+
+    def by_words(ws):
+        where = " AND ".join(f"{blob} LIKE %(w{i})s" for i in range(len(ws)))
+        return run("(" + where + ")", {f"w{i}": f"%{w}%" for i, w in enumerate(ws)})
+
+    rows = by_words(words)
+    if rows:
+        return rows
+    # Still nothing, and it is usually a measurement that is written differently
+    # here than on the supplier's note: "RLX BULLE 0.5x100 M" against "RLX BULLE
+    # 0.50x100ml" — 0.5x100 is not inside 0.50x100ml and never will be. Drop the
+    # words carrying digits and keep the name, which finds both sizes and lets
+    # her pick the right one. That is what she does on the Desk anyway: type less.
+    letters = [w for w in words if not any(c.isdigit() for c in w)]
+    return by_words(letters) if len(letters) >= 1 and len(letters) < len(words) else []
 
 
 def _so_poster(action):

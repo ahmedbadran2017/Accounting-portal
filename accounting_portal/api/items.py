@@ -182,15 +182,16 @@ def list_items(company=None, search=None, group=None, limit=60, cod_rate=None):
 
 
 @frappe.whitelist()
-def item_options(search=None, limit=15):
-    """Item search for pickers — by SKU, code or name."""
+def item_options(search=None, limit=15, side="buying"):
+    """Item search for pickers — by SKU, code, name or description.
+
+    One search, so the invoice picker and the draft editor's picker find the same
+    items. This used to be its own narrower query, which meant an item findable
+    on one screen was not findable on the other."""
     assert_portal_access()
-    like = f"%{(search or '').strip()}%"
-    return frappe.db.sql(
-        """SELECT name AS item_code, item_name, custom_sku AS sku FROM `tabItem`
-           WHERE disabled=0 AND (name LIKE %s OR item_name LIKE %s OR IFNULL(custom_sku,'') LIKE %s)
-           ORDER BY modified DESC LIMIT %s""",
-        (like, like, like, min(int(limit or 15), 30)), as_dict=True)
+    from accounting_portal.api import sales
+    fn = getattr(sales.item_options, "__wrapped__", sales.item_options)
+    return fn(search=search, limit=limit, side=side)
 
 
 @frappe.whitelist()
