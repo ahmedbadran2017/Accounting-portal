@@ -105,8 +105,27 @@
                 <button type="button" class="ms-auto h-7 px-3 rounded-chip text-[11.5px] font-bold text-white bg-ink disabled:opacity-50" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</button>
               </div>
             </div>
-            <div v-if="d.child.can_add" class="px-3 py-2 border-t border-line-hair">
+            <div v-if="d.child.can_add" class="px-3 py-2 border-t border-line-hair flex items-center gap-4 flex-wrap">
               <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="addRow"><Icon name="plus" :size="12" />{{ L("Add row", "إضافة سطر", "Ajouter une ligne") }}</button>
+              <!-- The Desk's "Get Items From → Purchase Order", which takes several
+                   orders at once: one supplier, three deliveries, one monthly bill. -->
+              <button v-if="canPullPo" type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="openPo"><Icon name="cart" :size="12" />{{ L("Get items from purchase order", "اسحب الأصناف من أمر شراء", "Importer d'une commande") }}</button>
+            </div>
+            <div v-if="poOpen" class="border-t border-line-hair bg-app-warm/30 px-3 py-2.5 space-y-2">
+              <div class="text-[11.5px] font-bold">{{ L("Open purchase orders for", "أوامر الشراء المفتوحة لـ", "Commandes ouvertes de") }} {{ poSupplier }}</div>
+              <div v-if="poLoading" class="text-[11.5px] text-ink-muted py-2">…</div>
+              <div v-else-if="!pos.length" class="text-[11.5px] text-ink-muted py-2">{{ L("Nothing left to bill on this supplier's orders.", "مفيش حاجة متبقية للفوترة على أوامر المورّد ده.", "Rien à facturer.") }}</div>
+              <label v-for="o in pos" :key="o.name" class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-[9px] bg-white border border-line-2 cursor-pointer">
+                <input type="checkbox" :value="o.name" v-model="poPicked" class="accent-accent w-3.5 h-3.5" />
+                <span class="font-mono text-[11.5px] font-semibold flex-1 min-w-0 truncate">{{ o.name }}</span>
+                <span class="text-[10.5px] text-ink-muted">{{ o.date }}</span>
+                <span class="text-[10.5px] text-ink-muted tnum">{{ o.per_billed }}% {{ L("billed", "مفوتر", "facturé") }}</span>
+                <span class="tnum text-[11.5px] font-bold">{{ fmt(o.total) }}</span>
+              </label>
+              <div class="flex justify-end gap-2 pt-0.5">
+                <button type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-semibold text-ink-3 hover:bg-white" @click="poOpen = false">{{ L("Back", "رجوع", "Retour") }}</button>
+                <button type="button" class="h-8 px-3.5 rounded-chip text-[11.5px] font-bold text-white bg-ink disabled:opacity-40" :disabled="!poPicked.length || poBusy" @click="pullPo">{{ poBusy ? "…" : L("Add the lines", "أضف السطور", "Ajouter les lignes") }}</button>
+              </div>
             </div>
           </div>
 
@@ -154,6 +173,7 @@ import Icon from "@/components/Icon.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
+import { currentCompany } from "@/composables/useLive";
 import { fmtAmount } from "@/utils/helpers";
 
 const props = defineProps({ doctype: { type: String, required: true }, name: { type: String, required: true } });
@@ -173,6 +193,36 @@ const error = ref("");
 
 const isJE = computed(() => props.doctype === "Journal Entry");
 const BUYING = ["Purchase Invoice", "Purchase Order", "Purchase Receipt"];
+
+// ── Pull a supplier's open purchase orders into this draft bill ──
+const poOpen = ref(false);
+const poLoading = ref(false);
+const poBusy = ref(false);
+const pos = ref([]);
+const poPicked = ref([]);
+const poSupplier = ref("");
+const canPullPo = computed(() => props.doctype === "Purchase Invoice" && d.value.docstatus === 0);
+async function openPo() {
+  poOpen.value = true; poLoading.value = true; poPicked.value = []; pos.value = [];
+  try {
+    const r = await api.call("accounting_portal.api.purchases.open_pos_for_supplier",
+      { company: currentCompany(), invoice: props.name }) || {};
+    pos.value = r.orders || [];
+    poSupplier.value = r.supplier || "";
+  } catch (e) { error.value = String(e?.message || e).slice(0, 200); }
+  finally { poLoading.value = false; }
+}
+async function pullPo() {
+  poBusy.value = true; error.value = "";
+  try {
+    const r = await api.call("accounting_portal.api.purchases.pull_po_items",
+      { company: currentCompany(), invoice: props.name, orders: poPicked.value });
+    toast.success(L(`${r.added} line(s) added`, `اتضافت ${r.added} سطر`, `${r.added} ligne(s) ajoutée(s)`));
+    poOpen.value = false;
+    await load();                       // the server appended them; re-read the draft
+  } catch (e) { error.value = String(e?.message || e).slice(0, 220); }
+  finally { poBusy.value = false; }
+}
 const totDr = computed(() => rv.value.reduce((s, r) => s + (Number(r.debit_in_account_currency) || 0), 0));
 const totCr = computed(() => rv.value.reduce((s, r) => s + (Number(r.credit_in_account_currency) || 0), 0));
 const balanced = computed(() => Math.abs(totDr.value - totCr.value) < 0.005 && totDr.value > 0);

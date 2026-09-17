@@ -1238,3 +1238,96 @@ def make_debit_note(company=None, invoice=None, submit=1, dedupe_key=None):
                            reference_name=invoice, notes=f"Debit note against {invoice}")
     _bust_purch_cache()
     return res
+
+
+# ── Pull a supplier's open purchase orders into a draft bill ──────────────────
+PULL_PO_ACTION = "Bill from purchase order"
+
+
+@frappe.whitelist()
+def open_pos_for_supplier(company=None, supplier=None, invoice=None):
+    """The supplier's submitted purchase orders that still have something to bill."""
+    assert_portal_access()
+    target = _target(company)
+    if not supplier and invoice:
+        supplier = frappe.db.get_value("Purchase Invoice", invoice, "supplier")
+    if not target or not supplier:
+        return {"supplier": "", "orders": []}
+    rows = frappe.db.sql(
+        """SELECT name, transaction_date AS date, schedule_date, status,
+                  ROUND(grand_total,2) AS total, ROUND(IFNULL(per_billed,0),1) AS per_billed
+           FROM `tabPurchase Order`
+           WHERE company=%s AND supplier=%s AND docstatus=1
+             AND status NOT IN ('Closed','Delivered') AND IFNULL(per_billed,0) < 100
+           ORDER BY transaction_date DESC LIMIT 50""", (target, supplier), as_dict=True)
+    for r in rows:
+        r["total"] = flt(r["total"]); r["per_billed"] = flt(r["per_billed"])
+        r["date"] = str(r.get("date") or ""); r["schedule_date"] = str(r.get("schedule_date") or "")
+    return {"supplier": supplier, "orders": rows}
+
+
+@frappe.whitelist()
+def pull_po_items(company=None, invoice=None, orders=None):
+    """Append the un-billed lines of one or more purchase orders to a DRAFT bill.
+
+    The Desk calls this "Get Items From → Purchase Order", and it takes several
+    orders at once — one supplier, three deliveries, one monthly bill. The portal
+    could already go the other way (open the order, Create → Purchase invoice),
+    which handles one order and only before the bill exists.
+
+    The lines come from ERPNext's own make_purchase_invoice rather than from a
+    hand-written SELECT, so each one carries what ERPNext would give it: the
+    expense account, the cost centre, the tax template, the UOM and conversion
+    factor — and `purchase_order` / `po_detail`, without which the order's
+    per_billed never moves and it sits in "To Bill" forever.
+    """
+    assert_can_write()
+    target = _target(company)
+    names = orders if isinstance(orders, list) else json.loads(orders or "[]")
+    names = [n for n in names if n]
+    if not names:
+        frappe.throw("Select at least one purchase order")
+    doc = frappe.get_doc("Purchase Invoice", invoice)
+    if doc.company != target:
+        frappe.throw("Not permitted", frappe.PermissionError)
+    if doc.docstatus != 0:
+        frappe.throw("Only a draft bill can take lines from an order")
+    seen = {(r.purchase_order, r.po_detail) for r in (doc.get("items") or []) if r.get("po_detail")}
+    make_pi = frappe.get_attr("erpnext.buying.doctype.purchase_order.purchase_order.make_purchase_invoice")
+    added, skipped = 0, []
+    for po in sorted(set(names)):
+        head = frappe.db.get_value("Purchase Order", po, ["supplier", "company", "docstatus"], as_dict=True)
+        if not head or head.company != target:
+            frappe.throw(f"{po} was not found in this company")
+        if head.supplier != doc.supplier:
+            frappe.throw(f"{po} belongs to {head.supplier}, this bill is for {doc.supplier}")
+        if head.docstatus != 1:
+            frappe.throw(f"{po} is not submitted")
+        src = make_pi(po)
+        for row in (src.get("items") or []):
+            if not flt(row.qty):
+                continue                       # nothing left to bill on this line
+            if (row.purchase_order, row.po_detail) in seen:
+                skipped.append(row.item_code)  # already on this bill
+                continue
+            new = doc.append("items", {})
+            for f, v in row.as_dict().items():
+                if f in ("name", "parent", "parentfield", "parenttype", "idx",
+                         "owner", "creation", "modified", "modified_by", "docstatus"):
+                    continue
+                if new.meta.has_field(f):
+                    new.set(f, v)
+            seen.add((row.purchase_order, row.po_detail))
+            added += 1
+    if not added:
+        frappe.throw("Every line on those orders is already on this bill")
+    doc.flags.ignore_permissions = True
+    doc.save()
+    _actions.record(
+        PULL_PO_ACTION, target, reference_doctype="Purchase Invoice", reference_name=doc.name,
+        voucher_type="Purchase Invoice", voucher_no=doc.name,
+        amount=flt(doc.grand_total), payload=json.dumps({"orders": sorted(set(names)), "added": added}),
+        result=json.dumps({"added": added, "skipped": sorted(set(skipped))}),
+        notes=f"Pulled {added} line(s) from {len(set(names))} purchase order(s) into {doc.name}")
+    _bust_purch_cache()
+    return {"added": added, "skipped": sorted(set(skipped)), "invoice": doc.name}
