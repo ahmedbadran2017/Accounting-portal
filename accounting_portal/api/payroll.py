@@ -1148,14 +1148,12 @@ def add_checkin(company=None, employee=None, log_type=None, time=None):
     doc = frappe.get_doc({"doctype": "Employee Checkin", "employee": employee, "log_type": log_type,
                           "time": str(time).replace("T", " ")[:19], "device_id": "portal"})
     doc.insert(ignore_permissions=True)
-    frappe.get_doc({
-        "doctype": "Accounting Portal Action", "action_type": CHECKIN_ACTION, "status": "Posted",
-        "company": target, "reference_doctype": "Employee", "reference_name": employee,
-        "voucher_type": "Employee Checkin", "voucher_no": doc.name, "proposed_by": frappe.session.user,
-        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(), "amount": 0,
-        "payload": json.dumps({"employee": employee, "log_type": log_type, "time": str(doc.time)}),
-        "result": json.dumps({"name": doc.name}), "notes": f"{log_type} {employee} {str(doc.time)[:16]}",
-    }).insert(ignore_permissions=True)
+    from accounting_portal.api import _actions
+    _actions.record(
+        CHECKIN_ACTION, target, reference_doctype="Employee", reference_name=employee,
+        voucher_type="Employee Checkin", voucher_no=doc.name, amount=0,
+        payload=json.dumps({"employee": employee, "log_type": log_type, "time": str(doc.time)}),
+        result=json.dumps({"name": doc.name}), notes=f"{log_type} {employee} {str(doc.time)[:16]}")
     return {"name": doc.name}
 
 

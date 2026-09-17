@@ -172,16 +172,13 @@ def request_desk_pass(reason=None, next=None, company=None):
     start = now_datetime()
     until = add_to_date(start, minutes=PASS_MINUTES)
     frappe.cache().set_value(_PASS_KEY + user, str(until), expires_in_sec=PASS_MINUTES * 60)
-    doc = frappe.get_doc({
-        "doctype": "Accounting Portal Action", "action_type": _ACTION, "status": "Posted",
-        "company": company or None, "reference_doctype": "User", "reference_name": user,
-        "proposed_by": user, "approved_by": user, "posted_on": start,
-        "notes": reason[:500],
-        "payload": json.dumps({"next": dest, "minutes": PASS_MINUTES,
-                               "from": str(start)[:19], "until": str(until)[:19]}),
-        "result": json.dumps({"until": str(until)[:19]}),
-    })
-    doc.insert(ignore_permissions=True)
+    from accounting_portal.api import _actions
+    _actions.record(
+        _ACTION, company or None, reference_doctype="User", reference_name=user,
+        proposed_by=user, approved_by=user, posted_on=start, notes=reason[:500],
+        payload=json.dumps({"next": dest, "minutes": PASS_MINUTES,
+                            "from": str(start)[:19], "until": str(until)[:19]}),
+        result=json.dumps({"until": str(until)[:19]}))
     frappe.db.commit()
     return {"locked": True, "pass_until": str(until)[:16], "redirect": dest}
 

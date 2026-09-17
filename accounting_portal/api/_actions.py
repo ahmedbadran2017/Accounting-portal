@@ -197,6 +197,37 @@ def _post(doc):
     return doc
 
 
+def record(action_type, company, **fields):
+    """Write the audit row for something that has ALREADY happened.
+
+    `execute` is the gateway: it decides whether to post, holds a proposal for an
+    approver, and dedupes on a caller-supplied key. Some paths do their work
+    through ERPNext directly — a draft saved through its own validate, a ledger
+    reposted, a Desk pass opened — and only need the trail afterwards. Those were
+    building the row by hand and leaving out `dedupe_key`, which is mandatory and
+    unique on the doctype, so the insert threw and took the whole request down
+    with it. Not one "Edit draft", "Repost ledger" or "Desk pass" row exists in
+    the log, and saving an edited draft has never once worked.
+
+    The key here is a record's identity, not a gate: these rows must never
+    collide, and there is nothing to deduplicate because the work is already
+    done. `generate_hash` is random, which is exactly wrong for a dedupe key and
+    exactly right for this — see `digest` for the other case.
+    """
+    key = fields.pop("dedupe_key", None) or "rec:{}:{}:{}".format(
+        action_type, fields.get("reference_name") or "", frappe.generate_hash(length=10))
+    doc = frappe.get_doc({
+        "doctype": APA, "action_type": action_type, "company": company,
+        "status": fields.pop("status", "Posted"), "dedupe_key": key,
+        "proposed_by": fields.pop("proposed_by", None) or frappe.session.user,
+        "approved_by": fields.pop("approved_by", None) or frappe.session.user,
+        "posted_on": fields.pop("posted_on", None) or frappe.utils.now_datetime(),
+        **fields,
+    })
+    doc.insert(ignore_permissions=True)
+    return doc
+
+
 def execute(action_type, company, dedupe_key, payload=None, amount=0,
             reference_doctype=None, reference_name=None, notes=None):
     """The one entry point pillars call. Idempotent + audited.

@@ -388,15 +388,12 @@ def save_draft(doctype=None, name=None, header=None, rows=None, tax=None):
         doc.set_posting_time = 1
     doc.flags.ignore_permissions = True
     doc.save()
-    frappe.get_doc({
-        "doctype": "Accounting Portal Action", "action_type": EDIT_ACTION, "status": "Posted",
-        "company": doc.company, "reference_doctype": doctype, "reference_name": name,
-        "voucher_type": doctype, "voucher_no": name, "proposed_by": frappe.session.user,
-        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
-        "amount": flt(doc.get(bulk._ALLOWED.get(doctype, "")) or 0) if bulk._ALLOWED.get(doctype) else 0,
-        "payload": json.dumps({"before": before, "after": changed, "rows": row_note}),
-        "result": json.dumps({"saved": name}), "notes": f"Edited draft {name}",
-    }).insert(ignore_permissions=True)
+    _actions.record(
+        EDIT_ACTION, doc.company, reference_doctype=doctype, reference_name=name,
+        voucher_type=doctype, voucher_no=name,
+        amount=flt(doc.get(bulk._ALLOWED.get(doctype, "")) or 0) if bulk._ALLOWED.get(doctype) else 0,
+        payload=json.dumps({"before": before, "after": changed, "rows": row_note}),
+        result=json.dumps({"saved": name}), notes=f"Edited draft {name}")
     return get_draft(doctype, name)
 
 
@@ -477,16 +474,13 @@ def _update_submitted_items(doc, spec, header, rows):
                 doc.doctype, json.dumps(trans), doc.name)
         finally:
             frappe.flags.ignore_permissions = False
-    frappe.get_doc({
-        "doctype": "Accounting Portal Action", "action_type": EDIT_ACTION, "status": "Posted",
-        "company": doc.company, "reference_doctype": doc.doctype, "reference_name": doc.name,
-        "voucher_type": doc.doctype, "voucher_no": doc.name, "proposed_by": frappe.session.user,
-        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
-        "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
-        "payload": json.dumps({"update_items": diff, "before": before, "after": after}),
-        "result": json.dumps({"saved": doc.name}),
-        "notes": f"Updated {len(diff)} line change(s) and {len(after)} field(s) on submitted {doc.doctype} {doc.name}",
-    }).insert(ignore_permissions=True)
+    _actions.record(
+        EDIT_ACTION, doc.company, reference_doctype=doc.doctype, reference_name=doc.name,
+        voucher_type=doc.doctype, voucher_no=doc.name,
+        amount=flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
+        payload=json.dumps({"update_items": diff, "before": before, "after": after}),
+        result=json.dumps({"saved": doc.name}),
+        notes=f"Updated {len(diff)} line change(s) and {len(after)} field(s) on submitted {doc.doctype} {doc.name}")
     return get_draft(doc.doctype, doc.name)
 
 
@@ -542,28 +536,22 @@ def _reaccount_submitted(doc, spec, header, rows, tax=None):
     # or a promised date does not touch a single GL row, and reposting for one
     # would delete and rewrite every entry on the voucher for nothing.
     if not diff:
-        frappe.get_doc({
-            "doctype": "Accounting Portal Action", "action_type": EDIT_ACTION, "status": "Posted",
-            "company": doc.company, "reference_doctype": doc.doctype, "reference_name": doc.name,
-            "voucher_type": doc.doctype, "voucher_no": doc.name, "proposed_by": frappe.session.user,
-            "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
-            "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
-            "payload": json.dumps({"before": before, "after": after}),
-            "result": json.dumps({"saved": doc.name}),
-            "notes": f"Edited {len(after)} field(s) on submitted {doc.doctype} {doc.name}",
-        }).insert(ignore_permissions=True)
+        _actions.record(
+            EDIT_ACTION, doc.company, reference_doctype=doc.doctype, reference_name=doc.name,
+            voucher_type=doc.doctype, voucher_no=doc.name,
+            amount=flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
+            payload=json.dumps({"before": before, "after": after}),
+            result=json.dumps({"saved": doc.name}),
+            notes=f"Edited {len(after)} field(s) on submitted {doc.doctype} {doc.name}")
         return get_draft(doc.doctype, doc.name)
     repost = _make_repost(doc.company, doc.doctype, doc.name)
-    frappe.get_doc({
-        "doctype": "Accounting Portal Action", "action_type": REPOST_ACTION, "status": "Posted",
-        "company": doc.company, "reference_doctype": doc.doctype, "reference_name": doc.name,
-        "voucher_type": "Repost Accounting Ledger", "voucher_no": repost, "proposed_by": frappe.session.user,
-        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(),
-        "amount": flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
-        "payload": json.dumps({"changes": diff, "before": before, "after": after}),
-        "result": json.dumps({"repost": repost}),
-        "notes": f"Re-accounted {len(diff)} line(s) on {doc.doctype} {doc.name} and reposted",
-    }).insert(ignore_permissions=True)
+    _actions.record(
+        REPOST_ACTION, doc.company, reference_doctype=doc.doctype, reference_name=doc.name,
+        voucher_type="Repost Accounting Ledger", voucher_no=repost,
+        amount=flt(frappe.db.get_value(doc.doctype, doc.name, "grand_total") or 0),
+        payload=json.dumps({"changes": diff, "before": before, "after": after}),
+        result=json.dumps({"repost": repost}),
+        notes=f"Re-accounted {len(diff)} line(s) on {doc.doctype} {doc.name} and reposted")
     return get_draft(doc.doctype, doc.name)
 
 
@@ -580,14 +568,11 @@ def repost_ledger(doctype=None, name=None, company=None):
     if d.docstatus != 1:
         frappe.throw("Only a submitted document can be reposted")
     repost = _make_repost(d.company, doctype, name)
-    frappe.get_doc({
-        "doctype": "Accounting Portal Action", "action_type": REPOST_ACTION, "status": "Posted",
-        "company": d.company, "reference_doctype": doctype, "reference_name": name,
-        "voucher_type": "Repost Accounting Ledger", "voucher_no": repost, "proposed_by": frappe.session.user,
-        "approved_by": frappe.session.user, "posted_on": frappe.utils.now_datetime(), "amount": 0,
-        "payload": json.dumps({"doctype": doctype, "name": name}), "result": json.dumps({"repost": repost}),
-        "notes": f"Repost ledger of {doctype} {name}",
-    }).insert(ignore_permissions=True)
+    _actions.record(
+        REPOST_ACTION, d.company, reference_doctype=doctype, reference_name=name,
+        voucher_type="Repost Accounting Ledger", voucher_no=repost, amount=0,
+        payload=json.dumps({"doctype": doctype, "name": name}), result=json.dumps({"repost": repost}),
+        notes=f"Repost ledger of {doctype} {name}")
     return {"repost": repost}
 
 
