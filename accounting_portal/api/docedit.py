@@ -41,6 +41,18 @@ EDIT_ACTION = "Edit draft"
 _H = lambda f, t, o=None, ro=False, roe=False: {  # noqa: E731
     "field": f, "type": t, "options": o, "ro": ro, "ro_existing": roe}
 
+# The additional discount ERPNext puts at the foot of an order or invoice: a
+# percentage OR a flat amount, applied to the net or the grand total. It is the
+# one thing a supplier's price negotiation lands on that the portal had no field
+# for, so an order with a deal on it went to the Desk. Draft only — ERPNext does
+# not mark any of the three editable after submit, and it should not: the
+# discount moves the total, and the total is posted.
+_DISCOUNT = lambda: [  # noqa: E731
+    _H("apply_discount_on", "Select", "discount_on"),
+    _H("additional_discount_percentage", "Float"),
+    _H("discount_amount", "Currency"),
+]
+
 _SCHEMA = {
     "Journal Entry": {
         "header": [_H("posting_date", "Date"), _H("voucher_type", "Select", "voucher_types"),
@@ -65,7 +77,7 @@ _SCHEMA = {
     },
     "Purchase Invoice": {
         "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("bill_no", "Data"),
-                   _H("bill_date", "Date"), _H("remarks", "Text")],
+                   _H("bill_date", "Date")] + _DISCOUNT() + [_H("remarks", "Text")],
         # A bill that arrives with a line missing is the accountant's daily case —
         # on the Desk they just add it. Only the two invoice doctypes allow it:
         # a stock line (Delivery Note / Purchase Receipt) also needs a warehouse
@@ -91,7 +103,8 @@ _SCHEMA = {
     "Sales Invoice": {
         # po_no is the one header field ERPNext leaves open after submit, and the
         # customer's PO number is exactly what arrives late.
-        "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("po_no", "Data"), _H("remarks", "Text")],
+        "header": [_H("posting_date", "Date"), _H("due_date", "Date"), _H("po_no", "Data")]
+                  + _DISCOUNT() + [_H("remarks", "Text")],
         "child": {"field": "items", "can_add": True, "can_remove": True,
                   "columns": [_H("item_code", "Item"), _H("item_name", "Data", ro=True),
                               _H("qty", "Float"), _H("rate", "Currency")]},
@@ -127,7 +140,7 @@ _SCHEMA = {
     # Orders: editable as drafts AND as submitted documents ("Update Items" on the
     # Desk — qty/rate only, through ERPNext's update_child_qty_rate).
     "Sales Order": {
-        "header": [_H("delivery_date", "Date"), _H("po_no", "Data")],
+        "header": [_H("delivery_date", "Date"), _H("po_no", "Data")] + _DISCOUNT(),
         # A draft order takes lines like any other draft — the Desk allows it and
         # the portal used to refuse, which is why an order that arrived with the
         # wrong item had to be opened in the Desk to fix one row.
@@ -187,6 +200,9 @@ def _options(doctype, company):
         "SELECT name AS value, name AS label FROM `tabCost Center` WHERE company=%s AND is_group=0 AND disabled=0 ORDER BY name",
         (company,), as_dict=True)
     out["party_types"] = [{"value": v, "label": v} for v in ("", "Customer", "Supplier", "Employee")]
+    out["discount_on"] = [{"value": "", "label": "—"},
+                          {"value": "Grand Total", "label": "Grand Total"},
+                          {"value": "Net Total", "label": "Net Total"}]
     if doctype == "Journal Entry":
         out["voucher_types"] = [{"value": v, "label": v} for v in (
             "Journal Entry", "Bank Entry", "Cash Entry", "Credit Card Entry", "Contra Entry",
