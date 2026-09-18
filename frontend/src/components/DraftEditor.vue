@@ -340,13 +340,19 @@ const ItemPick = {
       h("input", { value: p.modelValue, placeholder: "—", dir: "ltr",
         class: "h-8 w-full min-w-[170px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40",
         onInput, onFocus: () => { if (hits.value.length) open.value = true; }, onBlur: () => setTimeout(() => (open.value = false), 150) }),
-      open.value && hits.value.length ? h("div", { class: "absolute z-30 mt-1 start-0 w-80 max-h-56 overflow-auto bg-white border border-line rounded-[10px] shadow-pop py-1" },
+      open.value && hits.value.length ? h("div", { class: "absolute z-30 mt-1 start-0 w-96 max-h-[320px] overflow-auto bg-white border border-line rounded-[10px] shadow-pop py-1" },
         // The description goes under the name. Two items can carry the same
         // description and differ only in code — picking between them off the
         // code alone is how the wrong one lands on a bill.
-        hits.value.map((o) => h("button", { type: "button", class: "w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm", onMousedown: (e) => { e.preventDefault(); pick(o); } },
-          [h("div", {}, [h("span", { class: "font-mono text-[10.5px] text-ink-muted me-2" }, o.item_code), h("span", {}, o.item_name || "")]),
-           o.description && o.description !== o.item_name ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, o.description) : null]))) : null,
+        hits.value.map((o) => h("button", { type: "button", class: "w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm flex items-center gap-2.5", onMousedown: (e) => { e.preventDefault(); pick(o); } }, [
+          o.image ? h("img", { src: o.image, loading: "lazy", class: "w-9 h-9 rounded-[7px] object-cover border border-line flex-shrink-0",
+                               onError: (e) => { e.target.style.display = "none"; } }) : null,
+          h("div", { class: "min-w-0 flex-1" }, [
+            h("div", { class: "truncate" }, [h("span", { class: "font-mono text-[10.5px] text-ink-muted me-2" }, o.item_code), h("span", {}, o.item_name || "")]),
+            o.description && o.description !== o.item_name ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, o.description) : null,
+            o.variant_of_name ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, "↳ " + o.variant_of_name) : null,
+          ]),
+        ]))) : null,
     ]);
   },
 };

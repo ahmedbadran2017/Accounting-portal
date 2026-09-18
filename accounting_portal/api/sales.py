@@ -632,11 +632,23 @@ def item_options(company=None, search=None, limit=20, side="selling"):
     # description and differ only in code; the Desk shows it next to the code for
     # exactly that reason, and picking blind between them is how the wrong item
     # gets onto a bill. It is stored as HTML, so the tags are stripped here.
-    select = f"""SELECT i.name AS item_code, i.item_name, i.image, IFNULL(i.custom_sku,'') AS sku,
+    # A template carries no stock and cannot be put on a document — ERPNext's own
+    # item_query excludes has_variants=1 and so does this. Of 177,638 items here,
+    # 18,710 are templates and 149,808 are their variants, so offering templates
+    # meant most of what came back could not be sold.
+    #
+    # A variant usually has no picture of its own (17,273 of them do not) and its
+    # template does. Falling back to the template's image is what makes the list
+    # look like a catalogue instead of a column of grey squares — the size and
+    # colour are in the variant's name anyway.
+    select = f"""SELECT i.name AS item_code, i.item_name,
+                        COALESCE(NULLIF(i.image,''), t.image) AS image,
+                        IFNULL(i.custom_sku,'') AS sku, i.variant_of, t.item_name AS variant_of_name,
                         LEFT(REGEXP_REPLACE(IFNULL(i.description,''), '<[^>]*>', ''), 90) AS description,
                         {rate_sql} AS rate
                  FROM `tabItem` i
-                 WHERE i.disabled=0 AND """
+                 LEFT JOIN `tabItem` t ON t.name = i.variant_of
+                 WHERE i.disabled=0 AND i.has_variants=0 AND """
     tail = " ORDER BY i.modified DESC LIMIT %(limit)s"
 
     def run(where, params):
@@ -646,14 +658,16 @@ def item_options(company=None, search=None, limit=20, side="selling"):
     # already reads the whole table (177k items, no index an OR like this can
     # use): 590ms measured. The passes below are the fallbacks, so the common
     # case still costs what it costs today and nothing more.
-    rows = run("(i.name LIKE %(s)s OR i.item_name LIKE %(s)s OR IFNULL(i.custom_sku,'') LIKE %(s)s)",
-               {"s": like})
+    rows = run("(i.name LIKE %(s)s OR i.item_name LIKE %(s)s OR IFNULL(i.custom_sku,'') LIKE %(s)s "
+               " OR IFNULL(i.customer_code,'') LIKE %(s)s)", {"s": like})
     if rows or len(q) < 2:
         return rows
     # Pass 2 — the description too. An accountant reading a supplier's delivery
     # note has the description in front of her, not our item code; searching it
     # was the one thing that sent her back to the Desk. +180ms, and only here.
-    rows = run("(i.description LIKE %(s)s OR i.item_group LIKE %(s)s)", {"s": like})
+    rows = run("(i.description LIKE %(s)s OR i.item_group LIKE %(s)s"
+               " OR i.name IN (SELECT parent FROM `tabItem Barcode` WHERE barcode LIKE %(s)s))",
+               {"s": like})
     if rows:
         return rows
     # Pass 3 — every word, anywhere, rather than the typed string as one lump.

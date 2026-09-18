@@ -25,24 +25,42 @@
         </label>
 
         <!-- Items -->
-        <div class="border border-line rounded-[12px] overflow-hidden">
+        <!-- No overflow-hidden on the card: the search results hang off the
+             header as an absolute panel, and clipping them to the card meant
+             one visible row on an empty order. The table below keeps its own
+             clip so the rounded bottom edge still holds. -->
+        <div class="border border-line rounded-[12px] relative">
           <div class="px-3 py-2 border-b border-line-hair bg-app-warm/40 relative">
             <div class="flex items-center gap-2">
               <Icon name="search" :size="13" color="#a8a29e" />
               <input v-model="itemQuery" :placeholder="L('Search item to add…','ابحث عن صنف لإضافته…','Ajouter un article…')" class="flex-1 bg-transparent text-[12px] focus:outline-none" @input="onItemSearch" @focus="itemOpen = true" />
             </div>
-            <div v-if="itemOpen && itemResults.length" class="absolute z-20 mt-1 inset-x-3 bg-white border border-line rounded-[10px] shadow-cardHover max-h-52 overflow-y-auto">
+            <div v-if="itemOpen && itemResults.length" class="absolute z-30 mt-1 inset-x-3 bg-white border border-line rounded-[10px] shadow-pop max-h-[320px] overflow-y-auto">
               <button v-for="it in itemResults" :key="it.item_code" class="w-full text-start px-3 py-2 text-[12px] hover:bg-app-warm border-b border-line-hair last:border-0 flex items-center gap-2" @click="addItem(it)">
-                <img v-if="it.image" :src="it.image" class="w-7 h-7 rounded object-cover border border-line flex-shrink-0" @error="$event.target.style.display='none'" />
-                <span class="flex-1 min-w-0"><span class="font-medium truncate block">{{ it.item_name || it.item_code }}</span><span class="text-[10px] text-ink-muted">{{ it.item_code }}</span></span>
+                <img v-if="it.image" :src="it.image" class="w-10 h-10 rounded-[7px] object-cover border border-line flex-shrink-0" loading="lazy" @error="$event.target.style.display='none'" />
+                <span v-else class="w-10 h-10 rounded-[7px] grid place-items-center bg-app-warm border border-line flex-shrink-0"><Icon name="box" :size="14" color="#a8a29e" /></span>
+                <span class="flex-1 min-w-0">
+                  <span class="font-medium truncate block">{{ it.item_name || it.item_code }}</span>
+                  <span class="text-[10px] text-ink-muted font-mono">{{ it.item_code }}</span><span v-if="it.sku" class="text-[10px] text-ink-muted"> · {{ it.sku }}</span>
+                  <span v-if="it.variant_of_name" class="text-[10px] text-ink-muted block truncate">{{ L("variant of", "نوع من", "variante de") }} {{ it.variant_of_name }}</span>
+                </span>
                 <span class="text-[11px] tnum text-ink-3">{{ it.rate ? fmt(it.rate) : "" }}</span>
               </button>
             </div>
           </div>
+          <div class="overflow-hidden rounded-b-[12px]">
           <table class="w-full text-[12px]">
             <tbody>
               <tr v-for="(ln, i) in lines" :key="i" class="border-b border-line-hair last:border-0">
-                <td class="px-3 py-2"><div class="font-medium truncate max-w-[230px]">{{ ln.item_name }}</div><div class="text-[10px] text-ink-muted">{{ ln.item_code }}</div></td>
+                <td class="px-3 py-2">
+                  <div class="flex items-center gap-2.5">
+                    <img v-if="ln.image" :src="ln.image" class="w-9 h-9 rounded-[7px] object-cover border border-line flex-shrink-0" loading="lazy" @error="$event.target.style.display='none'" />
+                    <div class="min-w-0">
+                      <div class="font-medium truncate max-w-[230px]">{{ ln.item_name }}</div>
+                      <div class="text-[10px] text-ink-muted font-mono">{{ ln.item_code }}</div>
+                    </div>
+                  </div>
+                </td>
                 <td class="px-2 py-2 w-16"><input type="number" min="1" v-model.number="ln.qty" class="w-full text-end tnum bg-transparent focus:outline-none border-b border-line-2" /></td>
                 <td class="px-2 py-2 w-24"><input type="number" min="0" v-model.number="ln.rate" class="w-full text-end tnum bg-transparent focus:outline-none border-b border-line-2" /></td>
                 <td class="px-3 py-2 text-end tnum font-semibold w-24">{{ fmt(ln.qty * ln.rate) }}</td>
@@ -51,6 +69,7 @@
               <tr v-if="!lines.length"><td colspan="5" class="px-3 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No items yet — search above to add.", "لا أصناف بعد — ابحث للإضافة.", "Aucun article.") }}</td></tr>
             </tbody>
           </table>
+          </div>
         </div>
 
         <!-- Shipping -->
@@ -128,7 +147,8 @@ function onItemSearch() {
   }, 220);
 }
 function addItem(i) {
-  lines.value.push({ item_code: i.item_code, item_name: i.item_name || i.item_code, qty: 1, rate: Number(i.rate) || 0 });
+  lines.value.push({ item_code: i.item_code, item_name: i.item_name || i.item_code, qty: 1,
+                     rate: Number(i.rate) || 0, image: i.image || "", variant_of_name: i.variant_of_name || "" });
   itemQuery.value = ""; itemResults.value = []; itemOpen.value = false;
 }
 
