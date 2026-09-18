@@ -402,6 +402,19 @@ def save_draft(doctype=None, name=None, header=None, rows=None, tax=None):
         row_note = {"rows": len(doc.get(cf) or []), "added": added, "removed": removed}
     if doctype in ("Purchase Invoice", "Sales Invoice") and changed.get("posting_date"):
         doc.set_posting_time = 1
+    # Moving a date leaves the payment schedule behind. The schedule was written
+    # from the OLD posting date, and ERPNext then refuses the save with "Due Date
+    # cannot be before Posting / Supplier Invoice Date" — pointing at the two
+    # dates on screen, which are in the right order, while the row it actually
+    # objects to is not on screen at all. Reproduced on PUR-INV-05635-1: posting
+    # 2025-04-21 → 2026-04-21 with a schedule row still on 2025-04-21.
+    #
+    # The Desk clears the schedule from its own form script whenever a date
+    # moves. Emptying it here does the same: ERPNext's set_payment_schedule
+    # rebuilds it from the new dates and the supplier's terms.
+    if doc.meta.has_field("payment_schedule") and any(
+            changed.get(f) for f in ("posting_date", "due_date", "bill_date", "transaction_date")):
+        doc.set("payment_schedule", [])
     doc.flags.ignore_permissions = True
     doc.save()
     _actions.record(
@@ -608,6 +621,14 @@ def _redate_poster(action):
     new.set(_REDATE_FIELD.get(dt, "posting_date"), new_date)
     if new.meta.has_field("set_posting_time"):
         new.set_posting_time = 1
+    # The copy carries the original's payment schedule, still written against the
+    # OLD date. Moving the document forward then fails on "Due Date cannot be
+    # before Posting / Supplier Invoice Date" — about a row nobody can see.
+    # Empty it and ERPNext rebuilds it from the new date and the party's terms.
+    if new.meta.has_field("payment_schedule"):
+        new.set("payment_schedule", [])
+        if new.meta.has_field("due_date") and new.get("due_date") and str(new.due_date) < str(new_date):
+            new.due_date = None          # let it be derived rather than trail the posting date
     new.flags.ignore_permissions = True
     new.insert()
     new.submit()

@@ -193,6 +193,15 @@ def _prepare_new(new, src_doctype, src_name):
         new.posting_date = today
         if new.meta.has_field("set_posting_time"):
             new.set_posting_time = 1
+        # …and the mapped copy still carries the original's payment schedule,
+        # written against the original's date. Once the date moves forward,
+        # ERPNext refuses the save with "Due Date cannot be before Posting /
+        # Supplier Invoice Date" — about a row the accountant cannot see. Empty
+        # it and let set_payment_schedule rebuild it from today.
+        if new.meta.has_field("payment_schedule"):
+            new.set("payment_schedule", [])
+        if new.meta.has_field("due_date") and new.get("due_date") and str(new.due_date) < today:
+            new.due_date = None
 
     # make_reverse_journal_entry returns an entry with no posting date at all.
     if new.doctype == "Journal Entry" and not new.get("posting_date"):
