@@ -21,18 +21,18 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-[16px] font-bold font-mono">{{ d.name }}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="statusBadge(d.status)">{{ d.status }}</span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="statusBadge(d.status)">{{ d.status }}</span>
             </div>
             <div class="text-[11px] text-ink-muted mt-0.5">{{ d.posting_date }} · {{ L("distributed by","التوزيع حسب","réparti par") }} {{ d.basis }}</div>
           </div>
-          <div class="text-end"><div class="text-[22px] font-extrabold tnum">{{ fmt(d.total) }}<span class="text-[12px] text-ink-muted ms-1">{{ d.currency || "" }}</span></div><div class="text-[10.5px] text-ink-muted">{{ L("total charges","إجمالي الرسوم","charges") }}</div></div>
+          <div class="text-end"><div class="text-[22px] font-extrabold tnum">{{ fmt(d.total) }}<span class="text-[12px] text-ink-muted ms-1">{{ d.currency || "" }}</span></div><div class="text-[11px] text-ink-muted">{{ L("total charges","إجمالي الرسوم","charges") }}</div></div>
         </div>
         <!-- charges -->
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line-hair">
           <div v-for="(c, i) in d.charges" :key="i" class="rounded-[9px] px-3 py-1.5" style="background:#fafaf9;border:1px solid #f0efed">
-            <span class="text-[10px] font-bold uppercase tracking-wide" :style="{ color: kindColor(c.kind) }">{{ kindLabel(c.kind) }}</span>
+            <span class="text-[11px] font-bold uppercase tracking-wide" :style="{ color: kindColor(c.kind) }">{{ kindLabel(c.kind) }}</span>
             <span class="text-[12px] font-semibold tnum ms-1.5">{{ fmt(c.amount) }}</span>
-            <span class="text-[10px] text-ink-muted ms-1">{{ c.description }}</span>
+            <span class="text-[11px] text-ink-muted ms-1">{{ c.description }}</span>
           </div>
         </div>
         <!-- linked receipts -->
@@ -43,14 +43,14 @@
 
       <!-- Allocation = the capitalisation into each item's inventory -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="layers" :size="14" color="#7c3aed" /><span class="text-[12px] font-bold">{{ L("Allocation · capitalised into inventory","التوزيع · يُرسمل في المخزون","Répartition dans le stock") }}</span><span class="text-[10px] text-ink-muted">{{ d.items.length }}</span></div>
+        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="layers" :size="14" color="#7c3aed" /><span class="text-[12px] font-bold">{{ L("Allocation · capitalised into inventory","التوزيع · يُرسمل في المخزون","Répartition dans le stock") }}</span><span class="text-[11px] text-ink-muted">{{ d.items.length }}</span></div>
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Receipt value","قيمة الاستلام","Valeur") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Allocated","المُوزّع","Alloué") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Per unit","للوحدة","Par u") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Receipt value","قيمة الاستلام","Valeur") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Allocated","المُوزّع","Alloué") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Per unit","للوحدة","Par u") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="(it, i) in d.items" :key="i" class="border-t border-line-hair">
@@ -58,10 +58,10 @@
                   <span class="flex items-center gap-2.5">
                     <img v-if="it.image" :src="it.image" class="w-8 h-8 rounded-[7px] object-cover flex-shrink-0 border border-line-hair" />
                     <span v-else class="w-8 h-8 rounded-[7px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="13" color="#a8a29e" /></span>
-                    <span class="min-w-0"><span class="block font-medium truncate max-w-[260px]">{{ it.item_name || it.item_code }}</span><span class="block text-[10px] text-ink-muted">{{ it.qty }} {{ L("units","وحدة","u") }}</span></span>
+                    <span class="min-w-0"><span class="block font-medium truncate max-w-[260px]">{{ it.item_name || it.item_code }}</span><span class="block text-[11px] text-ink-muted">{{ it.qty }} {{ L("units","وحدة","u") }}</span></span>
                   </span>
                 </td>
-                <td class="px-4 py-2.5 text-end tnum">{{ fmt(it.receipt_value) }} <span class="text-[10px] text-ink-muted">{{ it.share }}%</span></td>
+                <td class="px-4 py-2.5 text-end tnum">{{ fmt(it.receipt_value) }} <span class="text-[11px] text-ink-muted">{{ it.share }}%</span></td>
                 <td class="px-4 py-2.5 text-end tnum font-semibold text-success-dark">+{{ fmt(it.allocated) }}</td>
                 <td class="px-4 py-2.5 text-end tnum">+{{ fmt(it.per_unit) }}</td>
               </tr>

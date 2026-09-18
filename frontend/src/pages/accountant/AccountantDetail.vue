@@ -16,14 +16,14 @@
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3.5 flex items-center gap-3.5 flex-wrap">
         <span class="w-11 h-11 rounded-full grid place-items-center text-[14px] font-bold text-white shrink-0" :style="`background:${avatarColor(d.user)}`">{{ initials(d.name) }}</span>
         <div class="min-w-0">
-          <div class="text-[15px] font-extrabold flex items-center gap-2">{{ d.name }}
-            <span v-if="!d.enabled" class="text-[9px] font-semibold text-ink-muted bg-app-warm rounded px-1.5 py-0.5">{{ L("disabled","معطّل","désactivé") }}</span>
+          <div class="text-[16px] font-extrabold flex items-center gap-2">{{ d.name }}
+            <span v-if="!d.enabled" class="text-[11px] font-semibold text-ink-muted bg-app-warm rounded px-1.5 py-0.5">{{ L("disabled","معطّل","désactivé") }}</span>
           </div>
-          <div class="text-[11.5px] text-ink-muted">{{ d.user }}</div>
+          <div class="text-[12px] text-ink-muted">{{ d.user }}</div>
         </div>
         <div v-if="d.rank" class="ms-auto text-end">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rank by volume","الترتيب","Rang") }}</div>
-          <div class="text-[17px] font-extrabold">#{{ d.rank }} <span class="text-[11px] text-ink-muted font-semibold">/ {{ d.members }}</span></div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rank by volume","الترتيب","Rang") }}</div>
+          <div class="text-[18px] font-extrabold">#{{ d.rank }} <span class="text-[11px] text-ink-muted font-semibold">/ {{ d.members }}</span></div>
         </div>
       </div>
 
@@ -39,7 +39,7 @@
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("By document type","حسب نوع المستند","Par type") }}</span></div>
         <table class="w-full text-[12px]">
-          <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <th class="px-4 py-2 text-start">{{ L("Type","النوع","Type") }}</th>
             <th class="px-3 py-2 text-end">{{ L("Created","منشأة","Créés") }}</th>
             <th class="px-3 py-2 text-end">{{ L("Submitted","معتمدة","Validés") }}</th>
@@ -50,7 +50,7 @@
           </tr></thead>
           <tbody>
             <tr v-for="r in d.by_doctype" :key="r.code" class="border-t border-line-hair">
-              <td class="px-4 py-2.5"><span class="text-[10px] font-bold rounded px-1.5 py-0.5 tnum" :style="`background:${tint(r.code)};color:${ink(r.code)}`">{{ r.code }}</span> <span class="text-ink-2">{{ r.label }}</span></td>
+              <td class="px-4 py-2.5"><span class="text-[11px] font-bold rounded px-1.5 py-0.5 tnum" :style="`background:${tint(r.code)};color:${ink(r.code)}`">{{ r.code }}</span> <span class="text-ink-2">{{ r.label }}</span></td>
               <td class="px-3 py-2.5 text-end tnum font-semibold">{{ r.created.toLocaleString() }}</td>
               <td class="px-3 py-2.5 text-end tnum">{{ r.submitted.toLocaleString() }}</td>
               <td class="px-3 py-2.5 text-end tnum" :class="r.cancelled>0 ? 'text-rose-600 font-semibold' : 'text-ink-muted'">{{ r.cancelled.toLocaleString() }}</td>
@@ -68,7 +68,7 @@
       <!-- monthly trend -->
       <div v-if="d.monthly && d.monthly.length" class="bg-white rounded-card border border-line shadow-card px-4 py-3">
         <div class="flex items-center gap-2 mb-3"><Icon name="chart" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Monthly activity","النشاط الشهري","Activité mensuelle") }}</span>
-          <span class="ms-auto inline-flex items-center gap-3 text-[10px] text-ink-muted">
+          <span class="ms-auto inline-flex items-center gap-3 text-[11px] text-ink-muted">
             <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#0f766e"></span>{{ L("submitted","معتمد","validé") }}</span>
             <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#f43f5e"></span>{{ L("cancelled","ملغي","annulé") }}</span>
           </span>
@@ -79,7 +79,7 @@
               <div v-if="mo.cancelled" class="rounded-t-sm" :style="`height:${barH(mo.cancelled)}%;background:#f43f5e;min-height:2px`"></div>
               <div class="rounded-sm" :style="`height:${barH(mo.submitted)}%;background:#0f766e;min-height:2px`"></div>
             </div>
-            <span class="text-[9.5px] text-ink-muted whitespace-nowrap">{{ mLabel(mo.m) }}</span>
+            <span class="text-[11px] text-ink-muted whitespace-nowrap">{{ mLabel(mo.m) }}</span>
           </div>
         </div>
       </div>
@@ -90,10 +90,10 @@
         <table class="w-full text-[12px]">
           <tbody>
             <tr v-for="(r,i) in d.recent" :key="i" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40 group" :class="canOpen(r) ? 'cursor-pointer' : ''" @click="openDoc(r)">
-              <td class="px-4 py-2 w-px"><span class="text-[10px] font-bold rounded px-1.5 py-0.5 tnum" :style="`background:${tint(r.code)};color:${ink(r.code)}`">{{ r.code }}</span></td>
+              <td class="px-4 py-2 w-px"><span class="text-[11px] font-bold rounded px-1.5 py-0.5 tnum" :style="`background:${tint(r.code)};color:${ink(r.code)}`">{{ r.code }}</span></td>
               <td class="px-2 py-2 font-mono text-[11px] group-hover:text-accent-dark">{{ r.name }}</td>
               <td class="px-3 py-2 text-ink-3 whitespace-nowrap">{{ r.date }}</td>
-              <td class="px-3 py-2"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="statusClass(r.docstatus)">{{ statusLabel(r.docstatus) }}</span></td>
+              <td class="px-3 py-2"><span class="text-[11px] font-semibold px-1.5 py-0.5 rounded" :class="statusClass(r.docstatus)">{{ statusLabel(r.docstatus) }}</span></td>
               <td class="px-4 py-2 text-end tnum text-ink-2 whitespace-nowrap">{{ money(r.amount) }}<Icon name="arrow" :size="11" color="#cbd5e1" class="inline ms-1 opacity-0 group-hover:opacity-100" /></td>
             </tr>
             <tr v-if="!d.recent || !d.recent.length"><td colspan="5" class="px-4 py-8 text-center text-ink-muted">{{ L("No documents.","لا مستندات.","Aucun.") }}</td></tr>
@@ -127,10 +127,10 @@ const money = (n) => fmtAmount(n);
 
 // inline KPI card (keeps this page self-contained)
 const KpiCard = (props) => h("div", { class: "bg-white rounded-card border border-line shadow-card px-4 py-3" }, [
-  h("div", { class: "text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5" }, [
+  h("div", { class: "text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5" }, [
     h(Icon, { name: props.icon, size: 13, color: props.color }), props.label]),
   h("div", { class: "text-[20px] font-extrabold mt-1 tnum " + (props.valueClass || ""), style: props.valueClass ? "" : `color:${props.color}` }, props.value),
-  h("div", { class: "text-[10.5px] text-ink-muted mt-0.5" }, props.sub),
+  h("div", { class: "text-[11px] text-ink-muted mt-0.5" }, props.sub),
 ]);
 KpiCard.props = ["label", "value", "sub", "icon", "color", "valueClass"];
 

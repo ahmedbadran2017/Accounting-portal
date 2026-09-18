@@ -19,16 +19,16 @@
     <div class="bg-white rounded-card border border-line p-5">
       <div class="flex flex-wrap items-start gap-3">
         <div class="min-w-0">
-          <div class="text-[17px] font-bold tracking-tight font-mono">{{ b.id }}</div>
-          <div class="text-[12.5px] text-ink-3">{{ b.vendor }}<span v-if="b.date"> · {{ b.date }}</span><span v-if="b.bill_no" class="text-ink-muted"> · {{ b.bill_no }}</span></div>
+          <div class="text-[18px] font-bold tracking-tight font-mono">{{ b.id }}</div>
+          <div class="text-[13px] text-ink-3">{{ b.vendor }}<span v-if="b.date"> · {{ b.date }}</span><span v-if="b.bill_no" class="text-ink-muted"> · {{ b.bill_no }}</span></div>
         </div>
         <!-- Same on the payables side: outstanding was only ever used inside a
              v-if and a button label, while the grand total took the large slot. -->
         <div class="ms-auto text-end">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ Number(b.outstanding) > 0 ? L("Outstanding","المستحق","Restant dû") : L("Total","الإجمالي","Total") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ Number(b.outstanding) > 0 ? L("Outstanding","المستحق","Restant dû") : L("Total","الإجمالي","Total") }}</div>
           <div class="text-[24px] font-bold tnum leading-tight" :class="Number(b.outstanding) > 0 ? 'text-sale' : ''">{{ Number(b.outstanding) > 0 ? fmt2(b.outstanding) : b.amount }} <span class="text-[12px] text-ink-muted font-normal">{{ b.currency }}</span></div>
-          <div v-if="Number(b.outstanding) > 0" class="text-[11.5px] text-ink-3 mt-0.5 tnum">{{ L("of","من","sur") }} {{ b.amount }}<span v-if="b.due_date"> · {{ L("due","الاستحقاق","échéance") }} {{ b.due_date }}</span></div>
-          <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border mt-1"
+          <div v-if="Number(b.outstanding) > 0" class="text-[12px] text-ink-3 mt-0.5 tnum">{{ L("of","من","sur") }} {{ b.amount }}<span v-if="b.due_date"> · {{ L("due","الاستحقاق","échéance") }} {{ b.due_date }}</span></div>
+          <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded-badge border mt-1"
                 :style="{ background: BILL_STATUS[b.status].bg, color: BILL_STATUS[b.status].fg, borderColor: BILL_STATUS[b.status].bd }">
             {{ billStatusLabel(b.status, locale) }}
           </span>
@@ -39,16 +39,16 @@
              the bill list and the vendor ledger both link to was the one that
              could not pay it. Pay lives on the bill now, and it is the primary
              action because it is what an AP clerk opens a bill to do. -->
-        <button v-if="b.outstanding > 0 && !b.on_hold" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white px-3 py-1.5 rounded-chip disabled:opacity-50" style="background:#047857" :disabled="busy" @click="payOpen = true">
+        <button v-if="b.outstanding > 0 && !b.on_hold" class="inline-flex items-center gap-1.5 text-[12px] font-bold text-white px-3 py-1.5 rounded-chip disabled:opacity-50" style="background:#047857" :disabled="busy" @click="payOpen = true">
           <Icon name="wallet" :size="13" color="#fff" />{{ L("Pay","دفع","Payer") }} {{ fmt2(b.outstanding) }}
         </button>
-        <button v-if="b.outstanding > 0" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="toggleHold">
+        <button v-if="b.outstanding > 0" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="toggleHold">
           <Icon name="clock" :size="13" />{{ b.on_hold ? L("Release hold","رفع التعليق","Libérer") : L("Hold","تعليق","Suspendre") }}
         </button>
-        <button v-if="b.outstanding > 0 && b.outstanding <= 200" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="writeOff">
+        <button v-if="b.outstanding > 0 && b.outstanding <= 200" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="writeOff">
           {{ L("Write off","شطب","Passer en perte") }} {{ fmt2(b.outstanding) }}
         </button>
-        <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="confirmDebit = true">
+        <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="confirmDebit = true">
           <Icon name="refresh" :size="13" />{{ L("Debit note / return","إشعار مدين / مرتجع","Note de débit") }}
         </button>
       </div>
@@ -72,8 +72,8 @@
         <div v-for="leg in legs" :key="leg.key" class="rounded-card border p-3 text-center"
              :style="{ borderColor: leg.ok ? '#a7f3d0' : '#fecaca', background: leg.ok ? '#ecfdf5' : '#fef2f2' }">
           <Icon :name="leg.ok ? 'check' : 'alert'" :size="18" :color="leg.ok ? '#047857' : '#be123c'" />
-          <div class="text-[11.5px] font-semibold mt-1.5">{{ leg.label }}</div>
-          <div class="text-[10px] mt-0.5" :style="{ color: leg.ok ? '#047857' : '#be123c' }">{{ leg.state }}</div>
+          <div class="text-[12px] font-semibold mt-1.5">{{ leg.label }}</div>
+          <div class="text-[11px] mt-0.5" :style="{ color: leg.ok ? '#047857' : '#be123c' }">{{ leg.state }}</div>
         </div>
       </div>
       <div class="mt-3 pt-2.5 border-t border-line text-[11px]" :class="matched ? 'text-success-dark' : 'text-sale'">
@@ -85,14 +85,14 @@
 
     <!-- Line items -->
     <div v-if="items.length" class="bg-white rounded-card border border-line overflow-hidden">
-      <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="box" :size="14" color="#b45309" /><span class="text-[12.5px] font-bold">{{ L("Items","الأصناف","Articles") }}</span><span class="text-[10px] text-ink-muted">{{ items.length }}</span></div>
+      <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="box" :size="14" color="#b45309" /><span class="text-[13px] font-bold">{{ L("Items","الأصناف","Articles") }}</span><span class="text-[11px] text-ink-muted">{{ items.length }}</span></div>
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
-            <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","الكمية","Qté") }}</th>
-            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Prix") }}</th>
-            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
+            <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+            <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","الكمية","Qté") }}</th>
+            <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Prix") }}</th>
+            <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="(it, i) in items" :key="i" class="border-t border-line-hair">
@@ -100,7 +100,7 @@
                 <span class="flex items-center gap-2.5">
                   <img v-if="it.image" :src="it.image" class="w-8 h-8 rounded-[7px] object-cover flex-shrink-0 border border-line-hair" />
                   <span v-else class="w-8 h-8 rounded-[7px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="13" color="#a8a29e" /></span>
-                  <span class="min-w-0"><span class="block font-medium truncate max-w-[300px]">{{ it.name }}</span><span v-if="it.sku || it.code" class="block text-[10px] text-ink-muted font-mono">{{ it.sku || it.code }}</span></span>
+                  <span class="min-w-0"><span class="block font-medium truncate max-w-[300px]">{{ it.name }}</span><span v-if="it.sku || it.code" class="block text-[11px] text-ink-muted font-mono">{{ it.sku || it.code }}</span></span>
                 </span>
               </td>
               <td class="px-4 py-2.5 text-end tnum">{{ it.qty }}</td>
@@ -114,13 +114,13 @@
 
     <!-- Related documents -->
     <div class="bg-white rounded-card border border-line p-4">
-      <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="layers" :size="13" color="#7c3aed" /></span><span class="text-[12.5px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
+      <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="layers" :size="13" color="#7c3aed" /></span><span class="text-[13px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
       <div v-if="related.orders.length || related.receipts.length || related.payments.length" class="flex flex-wrap gap-2">
-        <button v-for="po in related.orders" :key="po" @click="openDoc('tobuy', po)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="12" color="#b45309" />{{ po }}</button>
-        <button v-for="gr in related.receipts" :key="gr" @click="openDoc('received', gr)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm"><Icon name="truck" :size="12" color="#c2410c" />{{ gr }}</button>
-        <button v-for="pe in related.payments" :key="pe" @click="openDoc('payments', pe)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="12" color="#047857" />{{ pe }}</button>
+        <button v-for="po in related.orders" :key="po" @click="openDoc('tobuy', po)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="12" color="#b45309" />{{ po }}</button>
+        <button v-for="gr in related.receipts" :key="gr" @click="openDoc('received', gr)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm"><Icon name="truck" :size="12" color="#c2410c" />{{ gr }}</button>
+        <button v-for="pe in related.payments" :key="pe" @click="openDoc('payments', pe)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="12" color="#047857" />{{ pe }}</button>
       </div>
-      <div v-else class="text-[11.5px] text-ink-muted">{{ L("No linked PO, receipt or payment.","لا أمر شراء أو استلام أو دفعة مرتبطة.","Aucun document lié.") }}</div>
+      <div v-else class="text-[12px] text-ink-muted">{{ L("No linked PO, receipt or payment.","لا أمر شراء أو استلام أو دفعة مرتبطة.","Aucun document lié.") }}</div>
     </div>
 
     <!-- Posted journal -->

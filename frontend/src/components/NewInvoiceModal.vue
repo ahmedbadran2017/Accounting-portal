@@ -15,41 +15,41 @@
             <PartyBox v-model="form.party" :party-type="sales ? 'Customer' : 'Supplier'" />
           </div>
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Posting date", "تاريخ الترحيل", "Date") }}</label>
-            <input type="date" v-model="form.posting_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white" /></div>
+            <input type="date" v-model="form.posting_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Due date", "الاستحقاق", "Échéance") }}</label>
-            <input type="date" v-model="form.due_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white" /></div>
+            <input type="date" v-model="form.due_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
 
           <template v-if="!sales">
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Supplier invoice no", "رقم فاتورة المورّد", "N° facture fourn.") }}</label>
-              <input v-model.trim="form.bill_no" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white" /></div>
+              <input v-model.trim="form.bill_no" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Supplier invoice date", "تاريخ فاتورة المورّد", "Date facture") }}</label>
-              <input type="date" v-model="form.bill_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white" /></div>
+              <input type="date" v-model="form.bill_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
           </template>
 
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("VAT", "الضريبة", "TVA") }}</label>
-            <select v-model="vatMode" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
+            <select v-model="vatMode" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white">
               <option value="none">{{ L("No tax", "بدون ضريبة", "Sans taxe") }}</option>
               <option value="template">{{ L("A rate on everything", "نسبة على الكل", "Un taux sur tout") }}</option>
               <option value="amount">{{ L("The amount on the invoice", "المبلغ المكتوب في الفاتورة", "Le montant figurant") }}</option>
             </select></div>
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency", "العملة", "Devise") }}</label>
-            <select v-model="form.currency" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
+            <select v-model="form.currency" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white">
               <option v-for="c in o.currencies" :key="c" :value="c">{{ c }}</option>
             </select></div>
           <div v-if="form.currency && form.currency !== o.currency">
             <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Exchange rate", "سعر الصرف", "Taux") }}</label>
-            <input type="number" step="any" v-model="form.exchange_rate" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white tnum" /></div>
+            <input type="number" step="any" v-model="form.exchange_rate" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white tnum" /></div>
         </div>
 
         <!-- lines -->
         <div class="border border-line rounded-[12px] overflow-hidden">
           <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[12px] font-bold">
             <Icon name="list" :size="13" color="#0b5c4f" />{{ L("Items", "الأصناف", "Articles") }}
-            <span class="ms-auto text-[11.5px] tnum text-ink-3">{{ L("Net", "الصافي", "HT") }} {{ fmt(net) }} {{ form.currency || o.currency }}</span>
+            <span class="ms-auto text-[12px] tnum text-ink-3">{{ L("Net", "الصافي", "HT") }} {{ fmt(net) }} {{ form.currency || o.currency }}</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-[12px]">
-              <thead><tr class="text-[10px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
+              <thead><tr class="text-[11px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
                 <th class="px-2 py-2 text-start w-6">#</th>
                 <th class="px-2 py-2 text-start">{{ L("Item", "الصنف", "Article") }}</th>
                 <th class="px-2 py-2 text-end w-24">{{ L("Qty", "الكمية", "Qté") }}</th>
@@ -74,7 +74,7 @@
             </table>
           </div>
           <div class="px-3 py-2 border-t border-line-hair">
-            <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="addLine"><Icon name="plus" :size="12" />{{ L("Add line", "إضافة سطر", "Ajouter") }}</button>
+            <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="addLine"><Icon name="plus" :size="12" />{{ L("Add line", "إضافة سطر", "Ajouter") }}</button>
           </div>
         </div>
 
@@ -85,7 +85,7 @@
         <div v-if="vatMode !== 'none'" class="border border-line rounded-[12px] p-3 space-y-2.5">
           <div v-if="vatMode === 'template'" class="grid sm:grid-cols-2 gap-3">
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Tax template", "قالب الضريبة", "Modèle") }}</label>
-              <select v-model="form.tax_template" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
+              <select v-model="form.tax_template" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white">
                 <option value="">{{ L("Choose…", "اختر…", "Choisir…") }}</option>
                 <option v-for="t in o.tax_templates" :key="t" :value="t">{{ t }}</option>
               </select></div>
@@ -93,9 +93,9 @@
           <div v-else class="grid sm:grid-cols-2 gap-3">
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("VAT amount on the invoice", "مبلغ الضريبة في الفاتورة", "Montant de TVA") }}</label>
               <input type="number" step="any" min="0" v-model="form.vat_amount" dir="ltr"
-                     class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] text-end tnum bg-white" /></div>
+                     class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] text-end tnum bg-white" /></div>
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Posts to", "يترحّل إلى", "Compte") }}</label>
-              <select v-model="form.vat_account" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
+              <select v-model="form.vat_account" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white">
                 <option v-for="a in vatAccounts" :key="a.value" :value="a.value">{{ a.label }}</option>
               </select></div>
           </div>
@@ -108,9 +108,9 @@
         </div>
 
         <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Remarks", "ملاحظات", "Remarques") }}</label>
-          <textarea v-model.trim="form.remarks" rows="2" class="w-full rounded-[9px] border border-line-2 px-2.5 py-1.5 text-[12.5px] bg-white"></textarea></div>
+          <textarea v-model.trim="form.remarks" rows="2" class="w-full rounded-[9px] border border-line-2 px-2.5 py-1.5 text-[13px] bg-white"></textarea></div>
 
-        <label class="inline-flex items-center gap-2 text-[12.5px]"><input type="checkbox" v-model="form.submit" /> {{ L("Submit now (otherwise saved as a draft to review)", "رحّلها الآن (وإلا تتحفظ كمسودة للمراجعة)", "Soumettre maintenant") }}</label>
+        <label class="inline-flex items-center gap-2 text-[13px]"><input type="checkbox" v-model="form.submit" /> {{ L("Submit now (otherwise saved as a draft to review)", "رحّلها الآن (وإلا تتحفظ كمسودة للمراجعة)", "Soumettre maintenant") }}</label>
         <p v-if="error" class="text-[12px] text-sale">{{ error }}</p>
       </div>
 
@@ -119,10 +119,10 @@
   ? L("The VAT you typed is posted as-is, exactly as on the invoice.", "مبلغ الضريبة اللي كتبتيه بيتسجّل زي ما هو، مطابق للفاتورة.", "La TVA saisie est comptabilisée telle quelle.")
   : L("Taxes are applied by the selected template on save.", "الضريبة بتتحسب من القالب عند الحفظ.", "Les taxes viennent du modèle.") }}</span>
         <div class="ms-auto flex gap-2">
-          <button class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button class="h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !form.party || !net" @click="save">
+          <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+          <UiButton variant="primary" :busy="busy" :disabled="busy || !form.party || !net" @click="save">
             {{ busy ? "…" : (form.submit ? L("Create & submit", "إنشاء وترحيل", "Créer et soumettre") : L("Save draft", "حفظ كمسودة", "Brouillon")) }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -134,6 +134,7 @@ import { ref, reactive, computed, onMounted, h, Teleport } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -254,8 +255,8 @@ const ItemBox = makeBox(
             : h("span", { class: "w-9 h-9 rounded-[7px] bg-app-warm border border-line flex-shrink-0" }),
     h("span", { class: "min-w-0 flex-1" }, [
       h("span", { class: "block truncate" }, x.item_name || x.item_code),
-      h("span", { class: "block text-[10.5px] text-ink-muted font-mono truncate" }, x.sku ? `${x.item_code} · ${x.sku}` : x.item_code),
-      x.variant_of_name ? h("span", { class: "block text-[10.5px] text-ink-muted truncate" }, "↳ " + x.variant_of_name) : null,
+      h("span", { class: "block text-[11px] text-ink-muted font-mono truncate" }, x.sku ? `${x.item_code} · ${x.sku}` : x.item_code),
+      x.variant_of_name ? h("span", { class: "block text-[11px] text-ink-muted truncate" }, "↳ " + x.variant_of_name) : null,
     ]),
   ], (x) => x.item_code);
 </script>

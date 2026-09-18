@@ -15,10 +15,10 @@
         <div class="p-5 space-y-3.5">
           <!-- what is this? a vendor's bill (PI) vs an immediate cash expense (JE) -->
           <div class="flex gap-1 bg-app-warm/60 rounded-chip p-1 w-fit">
-            <button type="button" class="px-3 py-1.5 rounded-lg text-[11.5px]" :class="modeType==='bill' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3 font-medium'" @click="modeType='bill'">{{ L("Supplier bill", "فاتورة مورّد", "Facture fournisseur") }}</button>
-            <button type="button" class="px-3 py-1.5 rounded-lg text-[11.5px]" :class="modeType==='cash' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3 font-medium'" @click="modeType='cash'">{{ L("Quick cash expense", "مصروف فوري", "Dépense rapide") }}</button>
+            <button type="button" class="px-3 py-1.5 rounded-lg text-[12px]" :class="modeType==='bill' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3 font-medium'" @click="modeType='bill'">{{ L("Supplier bill", "فاتورة مورّد", "Facture fournisseur") }}</button>
+            <button type="button" class="px-3 py-1.5 rounded-lg text-[12px]" :class="modeType==='cash' ? 'bg-white font-bold text-accent-dark shadow-card' : 'text-ink-3 font-medium'" @click="modeType='cash'">{{ L("Quick cash expense", "مصروف فوري", "Dépense rapide") }}</button>
           </div>
-          <div class="text-[10.5px] text-ink-muted -mt-1.5">
+          <div class="text-[11px] text-ink-muted -mt-1.5">
             {{ modeType==='bill'
               ? L("Meta / TikTok ads, freight, clearance… — books a real Purchase Invoice: supplier ledger, aging and partial payments work.", "إعلانات ميتا/تيك توك، شحن، تخليص… — بتتسجل Purchase Invoice حقيقية: كشف المورّد والأعمار والدفع الجزئي شغالين.", "Vraie facture fournisseur.")
               : L("Small immediate spend with no vendor account — books a journal entry.", "مصروف صغير فوري من غير حساب مورّد — قيد يومية.", "Petite dépense immédiate.") }}
@@ -39,7 +39,7 @@
                   <span class="flex-1 truncate">{{ s }}</span>
                   <Icon v-if="s === supplier" name="check" :size="13" color="#047857" class="shrink-0" />
                 </button>
-                <div v-if="!filteredSuppliers.length" class="px-3 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No supplier matches.","لا مورّد مطابق.","Aucun fournisseur.") }}</div>
+                <div v-if="!filteredSuppliers.length" class="px-3 py-4 text-center text-[12px] text-ink-muted">{{ L("No supplier matches.","لا مورّد مطابق.","Aucun fournisseur.") }}</div>
               </div>
             </div>
           </div>
@@ -49,8 +49,8 @@
                  :style="freightBill ? 'background:#eff6ff;border:1px solid #bfdbfe' : 'background:#fafaf9;border:1px solid #f0efed'">
             <input type="checkbox" v-model="freightBill" class="mt-0.5" />
             <span class="min-w-0">
-              <span class="block text-[11.5px] font-bold">🚢✈ {{ L("Freight / import bill (landed)", "فاتورة شحن / استيراد (landed)", "Facture de fret (landed)") }}</span>
-              <span class="block text-[10.5px] text-ink-muted mt-0.5">
+              <span class="block text-[12px] font-bold">🚢✈ {{ L("Freight / import bill (landed)", "فاتورة شحن / استيراد (landed)", "Facture de fret (landed)") }}</span>
+              <span class="block text-[11px] text-ink-muted mt-0.5">
                 {{ freightBill
                   ? L("Books to 153.03 (clearing) — will appear in Purchases → Shipments for allocation to its shipment. No P&L touched.",
                       "هتتسجل على 153.03 (وسيط) — وهتظهر في المشتريات → الشحنات لتوزيعها على شحنتها. مفيش لمس للأرباح.",
@@ -77,15 +77,15 @@
                   <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="`background:${catColor(a.category)}`"></span>
                   <span class="min-w-0 flex-1">
                     <span class="text-[12px] font-semibold truncate block">{{ a.nm }}</span>
-                    <span class="text-[10px] text-ink-muted">{{ a.num || "—" }} · {{ a.category }}{{ a.ccy && a.ccy !== opt.currency ? " · " + a.ccy : "" }}</span>
+                    <span class="text-[11px] text-ink-muted">{{ a.num || "—" }} · {{ a.category }}{{ a.ccy && a.ccy !== opt.currency ? " · " + a.ccy : "" }}</span>
                   </span>
                   <Icon v-if="a.name === expenseAccount" name="check" :size="13" color="#047857" class="shrink-0" />
                 </button>
-                <div v-if="!filteredAccounts.length" class="px-3 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun compte.") }}</div>
+                <div v-if="!filteredAccounts.length" class="px-3 py-4 text-center text-[12px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun compte.") }}</div>
               </div>
             </div>
             <div v-if="selectedAccount && !acctOpen" class="mt-1 flex items-center gap-1.5">
-              <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-chip" :style="`background:${catColor(selectedAccount.category)}20;color:${catColor(selectedAccount.category)}`">{{ selectedAccount.category }}</span>
+              <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded-chip" :style="`background:${catColor(selectedAccount.category)}20;color:${catColor(selectedAccount.category)}`">{{ selectedAccount.category }}</span>
             </div>
           </div>
 
@@ -106,11 +106,11 @@
           </div>
 
           <!-- FX rate when the bill currency differs from the company's -->
-          <div v-if="isFx" class="flex items-center gap-2 flex-wrap rounded-[10px] px-3 py-2 text-[11.5px]" style="background:#eff6ff">
+          <div v-if="isFx" class="flex items-center gap-2 flex-wrap rounded-[10px] px-3 py-2 text-[12px]" style="background:#eff6ff">
             <span class="font-semibold text-sky-800">{{ L("Rate","السعر","Taux") }} 1 {{ currency }} =</span>
             <input type="number" min="0" step="0.0001" v-model.number="fxRate" class="w-[90px] h-7 border border-line-2 rounded-chip px-2 text-[12px] tnum text-end bg-white focus:outline-none" />
             <span class="text-sky-800">{{ opt.currency }}</span>
-            <button v-if="rateSuggest" type="button" class="text-[10.5px] text-accent-dark font-semibold hover:underline" @click="fxRate = rateSuggest">{{ L("suggest","اقتراح","suggéré") }} {{ rateSuggest }}</button>
+            <button v-if="rateSuggest" type="button" class="text-[11px] text-accent-dark font-semibold hover:underline" @click="fxRate = rateSuggest">{{ L("suggest","اقتراح","suggéré") }} {{ rateSuggest }}</button>
             <span class="ms-auto text-ink-3">≈ <b class="tnum">{{ money(grossBase) }}</b> {{ opt.currency }} {{ L("in the books","في الدفاتر","comptable") }}</span>
           </div>
 
@@ -147,29 +147,29 @@
           <div class="border border-line rounded-[12px] overflow-hidden">
             <label class="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none" :class="hasTax ? 'bg-app-warm/50 border-b border-line-hair' : ''">
               <input type="checkbox" v-model="hasTax" class="accent-emerald-700" />
-              <span class="text-[11.5px] font-semibold">{{ L("Bill includes VAT (TVA / KDV)", "الفاتورة شاملة ضريبة (TVA / KDV)", "Facture avec TVA") }}</span>
+              <span class="text-[12px] font-semibold">{{ L("Bill includes VAT (TVA / KDV)", "الفاتورة شاملة ضريبة (TVA / KDV)", "Facture avec TVA") }}</span>
             </label>
             <div v-if="hasTax" class="p-3 space-y-2.5">
               <div class="grid grid-cols-2 gap-3">
                 <label class="block">
-                  <span class="text-[10.5px] font-semibold text-ink-3">{{ L("Input-VAT account", "حساب ضريبة المدخلات", "Compte TVA déductible") }}</span>
+                  <span class="text-[11px] font-semibold text-ink-3">{{ L("Input-VAT account", "حساب ضريبة المدخلات", "Compte TVA déductible") }}</span>
                   <div class="mt-1"><SearchSelect v-model="taxAccount" :items="taxItems" :placeholder="L('Search VAT account…','ابحث…','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div>
                 </label>
                 <label class="block">
-                  <span class="text-[10.5px] font-semibold text-ink-3">{{ L("Amount entered is", "المبلغ المدخل فوق", "Montant saisi") }}</span>
+                  <span class="text-[11px] font-semibold text-ink-3">{{ L("Amount entered is", "المبلغ المدخل فوق", "Montant saisi") }}</span>
                   <select v-model="amountMode" class="mt-1 w-full border border-line-2 rounded-chip px-2.5 py-2 text-[12px] focus:outline-none cursor-pointer">
                     <option value="gross">{{ L("incl. VAT (bill total)", "شامل الضريبة (إجمالي الفاتورة)", "TTC") }}</option>
                     <option value="net">{{ L("excl. VAT (net)", "غير شامل (الصافي)", "HT") }}</option>
                   </select>
                 </label>
               </div>
-              <div class="flex items-center gap-3 text-[11.5px]">
+              <div class="flex items-center gap-3 text-[12px]">
                 <span class="text-ink-3">{{ L("Net", "الصافي", "HT") }} <b class="tnum">{{ money(netAmount) }}</b></span>
                 <span class="text-ink-3">{{ L("VAT", "الضريبة", "TVA") }}
                   <input v-model.number="taxOverride" type="number" min="0" step="0.01" :placeholder="String(autoTax)" class="w-[90px] h-7 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none ms-1" />
                 </span>
                 <span class="text-ink-3">{{ L("Total", "الإجمالي", "TTC") }} <b class="tnum">{{ money(grossAmount) }}</b></span>
-                <span v-if="taxPct" class="text-[10px] text-ink-muted">({{ taxPct }}%)</span>
+                <span v-if="taxPct" class="text-[11px] text-ink-muted">({{ taxPct }}%)</span>
               </div>
             </div>
           </div>
@@ -178,22 +178,22 @@
           <div class="border border-dashed border-line-2 rounded-[12px] px-3 py-2.5">
             <div v-if="!fileUrl" class="flex items-center gap-2">
               <Icon name="doc" :size="14" color="#9a8f86" />
-              <label class="text-[11.5px] font-semibold text-accent-dark cursor-pointer hover:underline">
+              <label class="text-[12px] font-semibold text-accent-dark cursor-pointer hover:underline">
                 {{ uploading ? L("Uploading…","جارٍ الرفع…","…") : L("Attach the bill (PDF / photo)","أرفق الفاتورة (PDF / صورة)","Joindre la facture") }}
                 <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.heic" class="hidden" @change="onFile" :disabled="uploading" />
               </label>
-              <span class="text-[10px] text-ink-muted">{{ L("attached to the journal entry","بتتعلق على القيد نفسه","liée à l'écriture") }}</span>
+              <span class="text-[11px] text-ink-muted">{{ L("attached to the journal entry","بتتعلق على القيد نفسه","liée à l'écriture") }}</span>
             </div>
             <div v-else class="flex items-center gap-2">
               <Icon name="check" :size="14" color="#047857" />
-              <span class="text-[11.5px] font-medium truncate flex-1">{{ fileName }}</span>
+              <span class="text-[12px] font-medium truncate flex-1">{{ fileName }}</span>
               <button type="button" class="text-[11px] text-rose-500 hover:underline" @click="fileUrl=''; fileName=''">{{ L("remove","إزالة","retirer") }}</button>
             </div>
           </div>
 
           <!-- live double-entry preview -->
-          <div v-if="canPreview" class="border border-line rounded-[12px] overflow-hidden text-[11.5px]">
-            <div class="px-3 py-1.5 bg-app-warm/50 text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Journal preview", "معاينة القيد", "Aperçu de l'écriture") }}</div>
+          <div v-if="canPreview" class="border border-line rounded-[12px] overflow-hidden text-[12px]">
+            <div class="px-3 py-1.5 bg-app-warm/50 text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Journal preview", "معاينة القيد", "Aperçu de l'écriture") }}</div>
             <div class="flex items-center justify-between px-3 py-2 border-t border-line-hair">
               <span class="truncate">{{ L("Dr", "مدين", "Dr") }} · {{ shortAcct(effAccount) }}</span>
               <span class="tnum font-bold text-teal-700">{{ money(netAmount) }}</span>
@@ -211,14 +211,14 @@
 
           <div v-if="currencyWarn" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="alert" :size="13" />{{ L("Expense and pay accounts use different currencies — post this one in ERPNext.", "حساب المصروف والدفع بعملتين مختلفتين — رحّله من ERPNext.", "Devises différentes — passez-la dans ERPNext.") }}</div>
           <div v-else-if="grossBase >= opt.threshold" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="shield" :size="12" />{{ L("Material amount — needs an approver before it posts.", "مبلغ جوهري — يحتاج موافقة قبل الترحيل.", "Montant important — approbation requise.") }}</div>
-          <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+          <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
         </div>
 
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
-          <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canSubmit || posting || uploading" @click="submit">
+          <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+          <UiButton variant="primary" :disabled="!canSubmit || posting || uploading" @click="submit">
             {{ posting ? L("Saving…", "جارٍ الحفظ…", "…") : grossBase >= opt.threshold ? L("Submit for approval", "إرسال للموافقة", "Soumettre") : L("Record expense", "تسجيل المصروف", "Enregistrer") }}
-          </button>
+          </UiButton>
         </div>
       </template>
     </div>
@@ -229,6 +229,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";

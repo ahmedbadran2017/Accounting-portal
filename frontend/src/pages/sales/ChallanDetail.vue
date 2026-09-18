@@ -22,7 +22,7 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-[16px] font-bold font-mono">{{ d.name }}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="statusBadge(d.ship_status)">{{ d.ship_status }}</span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="statusBadge(d.ship_status)">{{ d.ship_status }}</span>
             </div>
             <div class="text-[12px] text-ink-2 mt-0.5 truncate max-w-[460px]">{{ d.customer }}<span v-if="d.city"> · {{ d.city }}</span></div>
             <div class="text-[11px] text-ink-muted mt-0.5">{{ d.posting_date }} · {{ L("carrier", "الناقل", "transporteur") }}: {{ d.carrier }}<span v-if="d.tracking && d.tracking !== '—'"> · {{ d.tracking }}</span></div>
@@ -41,14 +41,14 @@
 
       <!-- Line items -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="box" :size="14" color="#0369a1" /><span class="text-[12px] font-bold">{{ L("Items", "الأصناف", "Articles") }}</span><span class="text-[10px] text-ink-muted">{{ d.lines.length }}</span></div>
+        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="box" :size="14" color="#0369a1" /><span class="text-[12px] font-bold">{{ L("Items", "الأصناف", "Articles") }}</span><span class="text-[11px] text-ink-muted">{{ d.lines.length }}</span></div>
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item", "الصنف", "Article") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty", "الكمية", "Qté") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate", "السعر", "Prix") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount", "المبلغ", "Montant") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item", "الصنف", "Article") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty", "الكمية", "Qté") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate", "السعر", "Prix") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount", "المبلغ", "Montant") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="(l, i) in d.lines" :key="i" class="border-t border-line-hair">
@@ -56,7 +56,7 @@
                   <span class="flex items-center gap-2.5">
                     <img v-if="l.image" :src="l.image" class="w-8 h-8 rounded-[7px] object-cover flex-shrink-0 border border-line-hair" />
                     <span v-else class="w-8 h-8 rounded-[7px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="13" color="#a8a29e" /></span>
-                    <span class="min-w-0"><span class="block font-medium truncate max-w-[280px]">{{ l.name }}</span><span v-if="l.sku || l.item_code" class="block text-[10px] text-ink-muted font-mono">{{ l.sku || l.item_code }}</span></span>
+                    <span class="min-w-0"><span class="block font-medium truncate max-w-[280px]">{{ l.name }}</span><span v-if="l.sku || l.item_code" class="block text-[11px] text-ink-muted font-mono">{{ l.sku || l.item_code }}</span></span>
                   </span>
                 </td>
                 <td class="px-4 py-2.5 text-end tnum">{{ l.qty }}</td>

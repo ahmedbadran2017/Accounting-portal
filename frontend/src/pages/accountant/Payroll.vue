@@ -35,12 +35,12 @@
             <div class="flex items-end gap-2 h-28">
               <div v-for="mo in c.monthly" :key="mo.m" class="flex-1 flex flex-col items-center gap-1 min-w-0" :title="mo.m+': '+money(mo.net)+' '+ccy">
                 <div class="w-full flex-1 flex items-end"><div class="w-full rounded-t-sm bg-teal-600" :style="`height:${mBar(mo.net)}%;min-height:2px`"></div></div>
-                <span class="text-[9px] text-ink-muted whitespace-nowrap">{{ mo.m.slice(5) }}</span>
+                <span class="text-[11px] text-ink-muted whitespace-nowrap">{{ mo.m.slice(5) }}</span>
               </div>
             </div>
           </div>
           <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-            <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2"><Icon name="building" :size="14" color="#0b5c4f" />{{ L('By department','حسب القسم','Par service') }}<span class="text-[10px] text-ink-muted font-normal">{{ L('click to view staff','اضغط لعرض الموظفين','cliquer') }}</span></div>
+            <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2"><Icon name="building" :size="14" color="#0b5c4f" />{{ L('By department','حسب القسم','Par service') }}<span class="text-[11px] text-ink-muted font-normal">{{ L('click to view staff','اضغط لعرض الموظفين','cliquer') }}</span></div>
             <table class="w-full text-[12px]"><tbody>
               <tr v-for="dep in c.by_department" :key="dep.dept" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/50 cursor-pointer group" @click="openDept(dep.dept)">
                 <td class="px-4 py-2 truncate max-w-[180px] group-hover:text-accent-dark">{{ dep.dept }}</td>
@@ -61,7 +61,7 @@
         <div class="bg-white rounded-card border border-line shadow-card px-4 py-3.5 flex items-center gap-3 flex-wrap">
           <Icon name="lock" :size="18" :color="cl.closed ? '#047857' : '#b45309'" />
           <div>
-            <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L('Payroll month','شهر الرواتب','Mois de paie') }}</div>
+            <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L('Payroll month','شهر الرواتب','Mois de paie') }}</div>
             <select v-model="clMonth" class="mt-0.5 text-[16px] font-extrabold bg-transparent focus:outline-none cursor-pointer -ms-0.5" @change="loadClose()">
               <option v-for="m in cl.months" :key="m" :value="m">{{ m }}</option>
             </select>
@@ -72,13 +72,13 @@
           <div v-if="cl.closed" class="text-[11px] text-ink-muted">{{ L('closed','أُقفل','clôturé') }} {{ cl.closed_on }}<span v-if="cl.closed_by"> · {{ cl.closed_by }}</span></div>
           <div class="ms-auto flex items-center gap-2">
             <button v-if="!cl.closed && can('post_entries')" type="button" :disabled="clBusy"
-                    class="inline-flex items-center gap-1.5 h-9 px-4 rounded-chip text-[12.5px] font-bold text-white disabled:opacity-50"
+                    class="inline-flex items-center gap-1.5 h-9 px-4 rounded-chip text-[13px] font-bold text-white disabled:opacity-50"
                     :class="cl.ready ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'"
                     @click="doClose">
               <Icon :name="clBusy ? 'clock' : 'lock'" :size="14" />{{ clBusy ? L('Closing…','جارٍ الإقفال…','…') : cl.ready ? L('Close month','إقفال الشهر','Clôturer') : L('Close anyway','إقفال رغم النقص','Clôturer quand même') }}
             </button>
             <button v-if="cl.closed && can('manage_users')" type="button" :disabled="clBusy"
-                    class="inline-flex items-center gap-1.5 h-9 px-4 rounded-chip text-[12.5px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50" @click="doReopen">
+                    class="inline-flex items-center gap-1.5 h-9 px-4 rounded-chip text-[13px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50" @click="doReopen">
               <Icon :name="clBusy ? 'clock' : 'arrow'" :size="14" />{{ L('Reopen','إعادة فتح','Rouvrir') }}
             </button>
           </div>
@@ -94,11 +94,11 @@
 
         <!-- ── RUN PAYROLL: generate → submit → pay, all from here ── -->
         <div v-if="can('post_entries') && !cl.closed" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Run payroll','تشغيل الرواتب','Exécuter la paie') }}</span><span class="text-[10px] text-ink-muted">{{ L('generate → submit → pay','إنشاء ← اعتماد ← دفع','générer → soumettre → payer') }}</span></div>
+          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Run payroll','تشغيل الرواتب','Exécuter la paie') }}</span><span class="text-[11px] text-ink-muted">{{ L('generate → submit → pay','إنشاء ← اعتماد ← دفع','générer → soumettre → payer') }}</span></div>
           <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <!-- 1. Generate -->
             <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
-              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-bold text-white bg-ink">1</span><span class="text-[12px] font-bold">{{ L('Generate slips','إنشاء المسيّرات','Générer') }}</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-bold text-white bg-ink">1</span><span class="text-[12px] font-bold">{{ L('Generate slips','إنشاء المسيّرات','Générer') }}</span></div>
               <div class="text-[11px] text-ink-muted flex-1">{{ pv.eligible_count || 0 }} {{ L('eligible staff with no slip yet','موظف مؤهّل بلا مسيّر','éligibles sans bulletin') }}</div>
               <button type="button" :disabled="runBusy || !(pv.eligible_count>0)" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-40" @click="doGenerate">
                 <Icon :name="runBusy==='gen' ? 'clock' : 'plus'" :size="12" class="inline -mt-0.5 me-1" />{{ pv.eligible_count>0 ? L('Generate','إنشاء','Générer')+' '+pv.eligible_count : L('None eligible','لا مؤهّلين','Aucun') }}
@@ -106,7 +106,7 @@
             </div>
             <!-- 2. Submit -->
             <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
-              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-bold text-white bg-ink">2</span><span class="text-[12px] font-bold">{{ L('Submit slips','اعتماد المسيّرات','Soumettre') }}</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-bold text-white bg-ink">2</span><span class="text-[12px] font-bold">{{ L('Submit slips','اعتماد المسيّرات','Soumettre') }}</span></div>
               <div class="text-[11px] text-ink-muted flex-1">{{ pv.draft_count || 0 }} {{ L('draft slips → posts the accrual','مسودّة ← ترحيل الاستحقاق','brouillons → comptabilise') }}</div>
               <button type="button" :disabled="runBusy || !(pv.draft_count>0)" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-sky-700 hover:bg-sky-800 disabled:opacity-40" @click="doSubmitSlips">
                 <Icon :name="runBusy==='sub' ? 'clock' : 'check'" :size="12" class="inline -mt-0.5 me-1" />{{ pv.draft_count>0 ? L('Submit','اعتماد','Soumettre')+' '+pv.draft_count : L('No drafts','لا مسودّات','Aucun') }}
@@ -114,7 +114,7 @@
             </div>
             <!-- 3. Pay -->
             <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
-              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-bold text-white bg-ink">3</span><span class="text-[12px] font-bold">{{ L('Pay salaries','دفع الرواتب','Payer') }}</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-bold text-white bg-ink">3</span><span class="text-[12px] font-bold">{{ L('Pay salaries','دفع الرواتب','Payer') }}</span></div>
               <div class="text-[11px] text-ink-muted flex-1">{{ money(pv.to_pay_net) }} {{ ccy }} · {{ pv.to_pay_count || 0 }} {{ L('unpaid','غير مدفوع','non payés') }}</div>
               <div class="flex gap-1.5">
                 <div class="min-w-0 flex-1"><SearchSelect v-model="payBank" :items="payBankItems" :placeholder="L('bank…','البنك…','banque…')" :empty-text="L('No bank','لا بنك','Aucun')" input-class="h-8 text-[11px] bg-app-warm/40" /></div>
@@ -124,7 +124,7 @@
               </div>
             </div>
           </div>
-          <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+          <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
             <Icon name="shield" :size="11" color="#9a8f86" />{{ L('Submit & Pay are gated for material amounts and fully reversible (Undo in Activity).','الاعتماد والدفع مبوّبان بالموافقة للمبالغ الكبيرة وقابلان للتراجع بالكامل.','Soumettre & Payer sont contrôlés et réversibles.') }}
           </div>
         </div>
@@ -138,7 +138,7 @@
                 <span class="w-6 h-6 rounded-full grid place-items-center shrink-0" :style="`background:${s.ok ? '#ecfdf5' : '#fff7ed'}`">
                   <Icon :name="s.ok ? 'check' : 'alert'" :size="14" :color="s.ok ? '#047857' : '#b45309'" />
                 </span>
-                <div class="text-[12.5px] font-semibold" :class="s.ok ? 'text-ink' : 'text-amber-800'">{{ checkLabel(s) }}</div>
+                <div class="text-[13px] font-semibold" :class="s.ok ? 'text-ink' : 'text-amber-800'">{{ checkLabel(s) }}</div>
                 <span v-if="s.of !== undefined" class="ms-auto tnum text-[12px] font-bold" :class="s.ok ? 'text-success-dark' : 'text-amber-700'">{{ s.n }} / {{ s.of }}</span>
                 <span v-else-if="s.n !== undefined && !s.ok" class="ms-auto tnum text-[12px] font-bold text-amber-700">{{ s.n }}</span>
                 <Icon v-else-if="s.ok" name="check" :size="14" color="#047857" class="ms-auto" />
@@ -161,7 +161,7 @@
                   </tr>
                 </tbody></table>
               </div>
-              <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted">{{ L('Slips are created in ERPNext HR; the portal verifies & locks the month.','المسيّرات تُنشأ في ERPNext HR؛ البوابة تتحقق وتقفل الشهر.','Bulletins créés dans ERPNext HR.') }}</div>
+              <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted">{{ L('Slips are created in ERPNext HR; the portal verifies & locks the month.','المسيّرات تُنشأ في ERPNext HR؛ البوابة تتحقق وتقفل الشهر.','Bulletins créés dans ERPNext HR.') }}</div>
             </div>
             <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
               <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" />{{ L('Payroll runs this month','تشغيلات الشهر','Exécutions du mois') }}</div>
@@ -169,7 +169,7 @@
                 <tr v-for="r in cl.runs" :key="r.name" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/50 cursor-pointer group" @click="openRun(r.name)">
                   <td class="px-4 py-2 font-mono text-[11px]">{{ r.name }}</td>
                   <td class="px-3 py-2 text-end tnum text-ink-muted">{{ r.slips }} {{ L('slips','مسير','bull.') }}</td>
-                  <td class="px-4 py-2 text-end"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="r.status==='Posted' ? 'bg-emerald-50 text-emerald-700' : r.status==='Cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-700'">{{ r.status }}</span></td>
+                  <td class="px-4 py-2 text-end"><span class="text-[11px] font-semibold px-1.5 py-0.5 rounded" :class="r.status==='Posted' ? 'bg-emerald-50 text-emerald-700' : r.status==='Cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-700'">{{ r.status }}</span></td>
                 </tr>
                 <tr v-if="!cl.runs.length"><td colspan="3" class="px-4 py-6 text-center text-ink-muted">{{ L('No payroll run for this month.','لا تشغيل رواتب لهذا الشهر.','Aucune exécution.') }}</td></tr>
               </tbody></table>
@@ -206,14 +206,14 @@
           </select>
           <div class="relative">
             <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-            <input v-model.trim="empSearch" :placeholder="L('Search…','بحث…','Rechercher…')" class="w-40 sm:w-52 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+            <input v-model.trim="empSearch" :placeholder="L('Search…','بحث…','Rechercher…')" class="w-40 sm:w-52 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
           </div>
         </div>
       </div>
       <TableLoading v-if="eLoad" :rows="8" />
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[12px]">
-          <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <th class="px-4 py-2 text-start">{{ L('Employee','الموظف','Employé') }}</th>
             <th class="px-3 py-2 text-start hidden sm:table-cell">{{ L('Department','القسم','Service') }}</th>
             <th class="px-3 py-2 text-start">{{ L('Status','الحالة','Statut') }}</th>
@@ -224,12 +224,12 @@
           </tr></thead>
           <tbody>
             <tr v-for="r in emps" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer group" @click="openEmp(r.name)">
-              <td class="px-4 py-2.5"><div class="font-semibold group-hover:text-accent-dark">{{ r.nm }}</div><div class="text-[10px] text-ink-muted">{{ r.desig || r.name }}</div></td>
+              <td class="px-4 py-2.5"><div class="font-semibold group-hover:text-accent-dark">{{ r.nm }}</div><div class="text-[11px] text-ink-muted">{{ r.desig || r.name }}</div></td>
               <td class="px-3 py-2.5 text-ink-2 hidden sm:table-cell truncate max-w-[160px]">{{ r.dept || "—" }}</td>
-              <td class="px-3 py-2.5"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-chip" :class="r.status==='Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-muted'">{{ r.status || "—" }}</span></td>
+              <td class="px-3 py-2.5"><span class="text-[11px] font-bold px-1.5 py-0.5 rounded-chip" :class="r.status==='Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-muted'">{{ r.status || "—" }}</span></td>
               <td class="px-3 py-2.5" @click.stop>
                 <span v-if="r.has_structure" class="text-[11px] text-ink-2 truncate max-w-[150px] inline-block align-middle">{{ r.structure }}</span>
-                <button v-else-if="r.status==='Active' && can('post_entries')" type="button" class="inline-flex items-center gap-1 h-6 px-2 rounded-chip text-[10.5px] font-bold text-white bg-teal-700 hover:bg-teal-800" @click="assignFor(r)">
+                <button v-else-if="r.status==='Active' && can('post_entries')" type="button" class="inline-flex items-center gap-1 h-6 px-2 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800" @click="assignFor(r)">
                   <Icon name="plus" :size="11" />{{ L('Assign','تعيين','Affecter') }}
                 </button>
                 <span v-else class="text-[11px] text-ink-muted">—</span>
@@ -249,7 +249,7 @@
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" />{{ L('Payroll runs','تشغيلات الرواتب','Exécutions') }}</div>
       <TableLoading v-if="rLoad" :rows="8" />
       <table v-else class="w-full text-[12px]">
-        <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+        <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
           <th class="px-4 py-2 text-start">{{ L('Run','التشغيل','Exéc.') }}</th>
           <th class="px-3 py-2 text-start">{{ L('Period','الفترة','Période') }}</th>
           <th class="px-3 py-2 text-end">{{ L('Slips','مسيّرات','Bulletins') }}</th>
@@ -261,7 +261,7 @@
             <td class="px-4 py-2.5 font-mono text-[11px]">{{ r.name }}</td>
             <td class="px-3 py-2.5 text-ink-2">{{ r.month }}</td>
             <td class="px-3 py-2.5 text-end tnum">{{ r.slips }}</td>
-            <td class="px-3 py-2.5"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :class="r.status==='Posted' ? 'bg-emerald-50 text-emerald-700' : r.status==='Cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-700'">{{ r.status }}</span></td>
+            <td class="px-3 py-2.5"><span class="text-[11px] font-semibold px-1.5 py-0.5 rounded" :class="r.status==='Posted' ? 'bg-emerald-50 text-emerald-700' : r.status==='Cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-700'">{{ r.status }}</span></td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ money(r.net) }}</td>
           </tr>
         </tbody>
@@ -279,10 +279,10 @@
           <Kpi :label="L('Mismatched','غير مطابقة','Non concordés')" :value="String(gl.mismatched || 0)" icon="alert" :color="gl.mismatched ? '#b45309' : '#94a3b8'" :sub="L('accounts','حساب','comptes')" />
         </div>
         <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Payroll → GL reconciliation','مطابقة الرواتب بالأستاذ','Rapprochement paie → GL') }}</span><span class="text-[10px] text-ink-muted">{{ L('slip totals vs the account they post to','إجمالي المسيّرات مقابل حسابها','par compte') }}</span></div>
+          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Payroll → GL reconciliation','مطابقة الرواتب بالأستاذ','Rapprochement paie → GL') }}</span><span class="text-[11px] text-ink-muted">{{ L('slip totals vs the account they post to','إجمالي المسيّرات مقابل حسابها','par compte') }}</span></div>
           <div class="overflow-x-auto">
             <table class="w-full text-[12px]">
-              <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+              <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                 <th class="px-4 py-2 text-start">{{ L('Account','الحساب','Compte') }}</th>
                 <th class="px-3 py-2 text-end">{{ L('Expected','المتوقّع','Attendu') }}</th>
                 <th class="px-3 py-2 text-end">{{ L('Actual','الفعلي','Réel') }}</th>
@@ -290,7 +290,7 @@
               </tr></thead>
               <tbody>
                 <tr v-for="r in gl.rows" :key="r.account" class="border-t border-line-hair" :class="r.tied ? '' : 'bg-rose-50/40'">
-                  <td class="px-4 py-2.5"><span class="font-mono text-[10px] text-ink-muted">{{ r.num }}</span> {{ r.name }}</td>
+                  <td class="px-4 py-2.5"><span class="font-mono text-[11px] text-ink-muted">{{ r.num }}</span> {{ r.name }}</td>
                   <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ money(r.expected) }}</td>
                   <td class="px-3 py-2.5 text-end tnum">{{ money(r.actual) }}</td>
                   <td class="px-4 py-2.5 text-end tnum font-bold" :class="r.tied ? 'text-success-dark' : 'text-rose-600'">{{ r.tied ? '✓' : money(r.variance) }}</td>
@@ -310,7 +310,7 @@
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm" :style="`background:${grp.c}`"></span><span class="text-[12px] font-bold">{{ grp.t }}</span><span class="ms-auto tnum font-bold text-[12px]">{{ money(grp.k==='earnings' ? k.earning_total : k.deduction_total) }}</span></div>
           <table class="w-full text-[12px]"><tbody>
             <tr v-for="(cmp,i) in (k[grp.k]||[])" :key="i" class="border-t border-line-hair first:border-t-0">
-              <td class="px-4 py-2"><div class="truncate max-w-[220px]">{{ cmp.component }}</div><div class="text-[10px] text-ink-muted font-mono">{{ cmp.account_short || "—" }}</div></td>
+              <td class="px-4 py-2"><div class="truncate max-w-[220px]">{{ cmp.component }}</div><div class="text-[11px] text-ink-muted font-mono">{{ cmp.account_short || "—" }}</div></td>
               <td class="px-4 py-2 text-end tnum font-semibold">{{ money(cmp.total) }}</td>
             </tr>
           </tbody></table>
@@ -355,9 +355,9 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const money = (n) => fmtMoney(n);
 
 const Kpi = (p) => h("div", { class: "bg-white rounded-card border border-line shadow-card px-4 py-3" }, [
-  h("div", { class: "text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5" }, [h(Icon, { name: p.icon, size: 13, color: p.color }), p.label]),
-  h("div", { class: "text-[19px] font-extrabold mt-1 tnum whitespace-nowrap", style: `color:${p.color}` }, p.value),
-  h("div", { class: "text-[10.5px] text-ink-muted mt-0.5" }, p.sub)]);
+  h("div", { class: "text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5" }, [h(Icon, { name: p.icon, size: 13, color: p.color }), p.label]),
+  h("div", { class: "text-[20px] font-extrabold mt-1 tnum whitespace-nowrap", style: `color:${p.color}` }, p.value),
+  h("div", { class: "text-[11px] text-ink-muted mt-0.5" }, p.sub)]);
 Kpi.props = ["label", "value", "sub", "icon", "color"];
 
 // The active tab lives in the URL (?t=…) so browser Back / reload return you to

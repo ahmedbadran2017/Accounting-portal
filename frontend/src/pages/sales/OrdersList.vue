@@ -11,7 +11,7 @@
         <template v-for="(s, i) in MACHINE" :key="s">
           <button class="flex flex-col items-start flex-1 px-3 py-1.5 rounded-lg" :class="filterState === s ? 'bg-app-warm' : 'hover:bg-app-warm/60'" @click="toggleState(s)">
             <span class="text-[18px] font-bold tnum leading-none" :style="{ color: filterState === s ? STATE_META[s].fg : '#1c1917' }">{{ (stateCounts[s] || 0).toLocaleString() }}</span>
-            <span class="text-[10.5px] font-semibold mt-[3px]" :class="filterState === s ? 'text-accent-dark' : 'text-ink-3'">{{ stateLabel(s, locale) }}</span>
+            <span class="text-[11px] font-semibold mt-[3px]" :class="filterState === s ? 'text-accent-dark' : 'text-ink-3'">{{ stateLabel(s, locale) }}</span>
           </button>
           <Icon v-if="i < MACHINE.length - 1" name="chev" :size="15" color="#d6d3d1" class="flex-shrink-0 rtl:rotate-180" />
         </template>
@@ -22,9 +22,9 @@
     <div class="flex items-center gap-2 flex-wrap">
       <div class="relative flex-1 max-w-xs">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-        <input v-model.trim="st.search.value" :placeholder="t('module.search')" class="w-full h-9 bg-white border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40" />
+        <input v-model.trim="st.search.value" :placeholder="t('module.search')" class="w-full h-9 bg-white border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40" />
       </div>
-      <span v-if="isLive !== null || st.error.value" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" :style="(isLive && !st.error.value) ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ (isLive && !st.error.value) ? lbl("Live","مباشر","Live") : lbl("Load failed","فشل التحميل","Échec") }}</span>
+      <span v-if="isLive !== null || st.error.value" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full border" :style="(isLive && !st.error.value) ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ (isLive && !st.error.value) ? lbl("Live","مباشر","Live") : lbl("Load failed","فشل التحميل","Échec") }}</span>
       <span v-if="st.error.value" class="text-[11px] text-rose-600 truncate max-w-[26rem]" :title="st.error.value">{{ st.error.value }}</span>
       <div class="flex items-center gap-1 bg-app-warm/60 rounded-chip p-0.5" :title="lbl('Active = confirmed onward','النشطة = من التأكيد فصاعدًا','Actives = à partir de la confirmation')">
         <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="activeOnly ? 'bg-white shadow-card text-ink' : 'text-ink-3'" @click="setActive(true)">{{ lbl("Active","النشطة","Actives") }}</button>
@@ -59,7 +59,7 @@
           <thead>
             <tr style="background:#fafaf9">
               <th class="w-8 px-3"><input type="checkbox" :checked="st.allSelected.value" @change="st.toggleAll()" /></th>
-              <th v-for="c in cols" :key="c.key" class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none" :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
+              <th v-for="c in cols" :key="c.key" class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none" :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                   <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
               </th>
@@ -70,12 +70,12 @@
               <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(o.id)" @change="st.toggle(o.id)" /></td>
               <td class="px-4 py-2.5 font-mono font-semibold text-ink whitespace-nowrap">{{ o.id }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date || "—" }}</td>
-              <td class="px-4 py-2.5"><span class="flex items-center gap-2"><span class="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold flex-shrink-0" :style="{ background: AV[o.av] }">{{ o.initials }}</span><span class="truncate max-w-[160px]">{{ o.customer }}</span></span></td>
+              <td class="px-4 py-2.5"><span class="flex items-center gap-2"><span class="w-6 h-6 rounded-full grid place-items-center text-white text-[11px] font-bold flex-shrink-0" :style="{ background: AV[o.av] }">{{ o.initials }}</span><span class="truncate max-w-[160px]">{{ o.customer }}</span></span></td>
               <td class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.city || "—" }}</td>
               <td class="px-4 py-2.5 text-ink-2 whitespace-nowrap">{{ o.carrier || "—" }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.trackStatus }}</td>
-              <td class="px-4 py-2.5"><span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border" :style="{ background: STATE_META[o.state].bg, color: STATE_META[o.state].fg, borderColor: STATE_META[o.state].bd }">{{ stateLabel(o.state, locale) }}</span></td>
-              <td class="px-4 py-2.5"><span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border" :style="postingInfo(o.state, locale).posted ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#f5f5f4;color:#a8a29e;border-color:#e7e5e4'">{{ postingInfo(o.state, locale).label }}</span></td>
+              <td class="px-4 py-2.5"><span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded-badge border" :style="{ background: STATE_META[o.state].bg, color: STATE_META[o.state].fg, borderColor: STATE_META[o.state].bd }">{{ stateLabel(o.state, locale) }}</span></td>
+              <td class="px-4 py-2.5"><span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded-badge border" :style="postingInfo(o.state, locale).posted ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#f5f5f4;color:#a8a29e;border-color:#e7e5e4'">{{ postingInfo(o.state, locale).label }}</span></td>
               <td class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ fmtMAD(o.value) }}</td>
             </tr>
           </tbody>
@@ -89,9 +89,9 @@
       <div class="flex items-center justify-between px-4 py-3 border-t border-line-hair text-[12px]">
         <span class="text-ink-muted">{{ lbl("Showing","عرض","Affichage") }} <b>{{ st.rangeStart.value }}–{{ st.rangeEnd.value }}</b> {{ lbl("of","من","sur") }} <b>{{ st.total.value.toLocaleString() }}</b></span>
         <div class="flex items-center gap-1.5">
-          <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-semibold border border-line-2 disabled:opacity-40 inline-flex items-center gap-1" :disabled="st.page.value <= 1 || st.loading.value" @click="st.prev()"><Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ lbl("Prev","السابق","Préc.") }}</button>
+          <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold border border-line-2 disabled:opacity-40 inline-flex items-center gap-1" :disabled="st.page.value <= 1 || st.loading.value" @click="st.prev()"><Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ lbl("Prev","السابق","Préc.") }}</button>
           <span class="text-ink-3 px-1">{{ st.page.value }} / {{ st.totalPages.value }}</span>
-          <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-semibold border border-line-2 disabled:opacity-40 inline-flex items-center gap-1" :disabled="st.page.value >= st.totalPages.value || st.loading.value" @click="st.next()">{{ lbl("Next","التالي","Suiv.") }}<Icon name="arrow" :size="12" class="rotate-180 rtl:rotate-0" /></button>
+          <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold border border-line-2 disabled:opacity-40 inline-flex items-center gap-1" :disabled="st.page.value >= st.totalPages.value || st.loading.value" @click="st.next()">{{ lbl("Next","التالي","Suiv.") }}<Icon name="arrow" :size="12" class="rotate-180 rtl:rotate-0" /></button>
         </div>
       </div>
     </div>

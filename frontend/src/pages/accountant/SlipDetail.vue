@@ -17,7 +17,7 @@
           <div class="text-[11px] text-ink-muted font-mono">{{ s.name }} · {{ s.start_date }} → {{ s.end_date }}</div>
         </div>
         <div class="ms-auto text-end">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Net pay","الصافي","Net") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Net pay","الصافي","Net") }}</div>
           <div class="text-[22px] font-extrabold tnum" style="color:#0f766e">{{ money(s.net_pay) }} <span class="text-[12px] text-ink-muted font-bold">{{ ccy }}</span></div>
         </div>
       </div>

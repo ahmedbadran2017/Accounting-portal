@@ -20,14 +20,14 @@
         </button>
         <PartyStatement :open="showStatement" party-type="Customer" :party="(d.raw && d.raw.name) || d.name" :party-name="d.name" @close="showStatement = false" />
         <div class="text-end">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ d.owedLabel }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ d.owedLabel }}</div>
           <div class="text-[24px] font-bold tnum leading-tight" :class="d.owedRaw > 0 ? 'text-ink' : 'text-ink-3'">{{ d.owed }} <span class="text-[12px] text-ink-muted font-normal">MAD</span></div>
           <div v-if="d.credit" class="text-[11px] mt-0.5" style="color:#7c3aed">{{ d.creditLabel }} {{ d.credit }}</div>
         </div>
       </div>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-[15px]">
         <div v-for="s in d.stats" :key="s.label" class="rounded-[11px] px-[13px] py-[11px]" style="background:#fafaf9;border:1px solid #f0efed">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ s.label }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ s.label }}</div>
           <div class="text-[18px] font-bold tnum mt-[3px]">{{ s.value }}</div>
         </div>
       </div>
@@ -37,12 +37,12 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <button v-for="cn in d.connections" :key="cn.label" class="yo-card bg-white border border-line rounded-[12px] p-3.5 shadow-card text-start" @click="go(cn.go)">
         <div class="flex items-center justify-between">
-          <span class="text-[10.5px] text-ink-muted font-semibold">{{ cn.label }}</span>
+          <span class="text-[11px] text-ink-muted font-semibold">{{ cn.label }}</span>
           <Icon name="chevDown" :size="14" color="#cbb5ad" class="-rotate-90 rtl:rotate-90" />
         </div>
         <!-- A row count is a signpost, not a figure. It used to be set at the
              same size as the money on the cards above it. -->
-        <div class="text-[15px] font-bold tnum mt-[3px]">{{ cn.value }}</div>
+        <div class="text-[16px] font-bold tnum mt-[3px]">{{ cn.value }}</div>
       </button>
     </div>
 
@@ -52,7 +52,7 @@
         <div class="text-[13px] font-bold mb-3">{{ d.contactTitle }}</div>
         <div class="flex flex-col gap-2.5">
           <div v-for="ct in d.contact" :key="ct.k" class="flex items-baseline justify-between gap-3">
-            <span class="text-[11.5px] text-ink-muted font-semibold flex-shrink-0">{{ ct.k }}</span>
+            <span class="text-[12px] text-ink-muted font-semibold flex-shrink-0">{{ ct.k }}</span>
             <span class="text-[12px] font-medium text-end">{{ ct.v }}</span>
           </div>
         </div>
@@ -68,7 +68,7 @@
               <div class="text-[12px] font-semibold">{{ ac.title }}</div>
               <div class="text-[11px] text-ink-muted">{{ ac.meta }}</div>
             </div>
-            <span class="text-[10.5px] text-ink-muted flex-shrink-0">{{ ac.time }}</span>
+            <span class="text-[11px] text-ink-muted flex-shrink-0">{{ ac.time }}</span>
           </div>
         </div>
       </div>
@@ -81,12 +81,12 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Document","المستند","Document") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Type","النوع","Type") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance","الرصيد","Solde") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Document","المستند","Document") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Type","النوع","Type") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance","الرصيد","Solde") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -121,7 +121,7 @@
             <input v-model="ef.email" type="email" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("City","المدينة","Ville") }}</span>
             <input v-model="ef.city" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
-          <div v-if="editError" class="text-[11.5px] text-sale">{{ editError }}</div>
+          <div v-if="editError" class="text-[12px] text-sale">{{ editError }}</div>
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="editing = false">{{ L("Cancel","إلغاء","Annuler") }}</button>

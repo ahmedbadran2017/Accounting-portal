@@ -10,13 +10,13 @@
 
       <div class="bg-white rounded-card border border-line shadow-card p-4">
         <div class="flex items-center gap-3 flex-wrap">
-          <span class="text-[15px] font-bold font-mono" dir="ltr">{{ sheet.pr }}</span>
+          <span class="text-[16px] font-bold font-mono" dir="ltr">{{ sheet.pr }}</span>
           <span class="text-[12px] text-ink-muted">{{ sheet.dt }} · {{ sheet.supplier }}</span>
-          <span class="text-[12px]">{{ sheet.channel === "air" ? "🛫" : "🚢" }}<span v-if="!sheet.channel_confirmed" class="text-[10px] text-amber-600 font-bold" :title="L('channel is a suggestion — flip it from the list if wrong','القناة اقتراح — اقلبها من القائمة لو غلط','suggestion')">?</span> {{ fmt0(sheet.kg) }}kg · {{ fmt0(sheet.qty) }} {{ L("units","قطعة","unités") }}</span>
+          <span class="text-[12px]">{{ sheet.channel === "air" ? "🛫" : "🚢" }}<span v-if="!sheet.channel_confirmed" class="text-[11px] text-amber-600 font-bold" :title="L('channel is a suggestion — flip it from the list if wrong','القناة اقتراح — اقلبها من القائمة لو غلط','suggestion')">?</span> {{ fmt0(sheet.kg) }}kg · {{ fmt0(sheet.qty) }} {{ L("units","قطعة","unités") }}</span>
           <span class="flex-1"></span>
           <span class="text-[12px] tnum"><b>{{ L("Freight","الشحن","Fret") }}:</b> {{ fmt0(sheet.freight.landed) }}
             <FreightChip :source="sheet.freight.source" class="ms-1" />
-            <span class="text-[10.5px] text-ink-muted" dir="ltr"> @{{ sheet.freight.rate_kg }}/kg</span>
+            <span class="text-[11px] text-ink-muted" dir="ltr"> @{{ sheet.freight.rate_kg }}/kg</span>
           </span>
         </div>
       </div>
@@ -26,51 +26,51 @@
         <div class="text-[12px] font-bold mb-2">🧾 {{ L("Freight bills of this shipment","فواتير شحن الشحنة دي","Factures fret") }}</div>
         <div class="flex gap-1.5 flex-wrap mb-2">
           <span v-for="b in attachedBills" :key="b.voucher" class="inline-flex items-center gap-1.5 text-[11px] border rounded-[8px] px-2 py-1 flex-wrap" style="background:#f0fdf4;border-color:#bbf7d0">
-            <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
+            <span class="font-mono text-[11px]" dir="ltr">{{ b.voucher }}</span>
             <span class="tnum font-semibold">{{ fmt0(shareOf(b)) }}</span>
-            <span v-if="b.n_prs > 1" class="text-[10px] text-ink-muted">÷{{ b.n_prs }}</span>
+            <span v-if="b.n_prs > 1" class="text-[11px] text-ink-muted">÷{{ b.n_prs }}</span>
             <!-- the bill's REAL kg: auto from per-kg invoices (🔒), manual for lump bills -->
             <template v-if="b.kg_source === 'auto'">
-              <span class="text-[10px] tnum text-ink-muted" dir="ltr">🔒 {{ fmt0(b.kg) }}kg → {{ b.implied_rate }}/kg</span>
+              <span class="text-[11px] tnum text-ink-muted" dir="ltr">🔒 {{ fmt0(b.kg) }}kg → {{ b.implied_rate }}/kg</span>
             </template>
             <template v-else>
               <input type="number" step="1" min="0" :value="kgDraft[b.voucher] ?? b.kg" :disabled="!canWrite || busy"
                      @input="kgDraft[b.voucher] = $event.target.valueAsNumber"
                      :placeholder="L('kg','كجم','kg')"
-                     class="w-[64px] h-[22px] px-1 text-end tnum text-[10.5px] border rounded-[5px] outline-none"
+                     class="w-[64px] h-[22px] px-1 text-end tnum text-[11px] border rounded-[5px] outline-none"
                      :style="b.kg ? 'border-color:#a7f3d0' : 'border-color:#fde68a;background:#fffbeb'" />
               <button v-if="canWrite && (kgDraft[b.voucher] ?? null) != null && kgDraft[b.voucher] !== b.kg" :disabled="busy"
-                      class="text-[10px] font-bold px-1.5 py-0.5 rounded-[5px] text-white bg-brand disabled:opacity-40" @click="saveBillKg(b)">✓</button>
-              <span v-if="b.implied_rate" class="text-[10px] tnum text-ink-muted" dir="ltr">→ {{ b.implied_rate }}/kg</span>
-              <span v-else class="text-[9.5px] font-bold" style="color:#b45309">{{ L("enter kg","أدخلوا الكيلو","kg ?") }}</span>
+                      class="text-[11px] font-bold px-1.5 py-0.5 rounded-[5px] text-white bg-brand disabled:opacity-40" @click="saveBillKg(b)">✓</button>
+              <span v-if="b.implied_rate" class="text-[11px] tnum text-ink-muted" dir="ltr">→ {{ b.implied_rate }}/kg</span>
+              <span v-else class="text-[11px] font-bold" style="color:#b45309">{{ L("enter kg","أدخلوا الكيلو","kg ?") }}</span>
             </template>
             <button v-if="canWrite && !sheet.frozen" :disabled="busy" class="text-sale disabled:opacity-40" @click="toggleBill(b, false)">✕</button>
           </span>
           <span v-if="!attachedBills.length" class="text-[11px] text-ink-muted">{{ L("No bills attached yet — pick from the list:","لسه مفيش فواتير مرفقة — اختاروا من القايمة:","Aucune facture.") }}</span>
         </div>
-        <details class="text-[11.5px]" :open="!attachedBills.length">
-          <summary class="cursor-pointer text-accent-dark font-bold text-[11.5px]">{{ L("+ Attach a bill","+ إرفاق فاتورة","+ Joindre") }} ({{ shownBills.length }}/{{ availableBills.length }})</summary>
+        <details class="text-[12px]" :open="!attachedBills.length">
+          <summary class="cursor-pointer text-accent-dark font-bold text-[12px]">{{ L("+ Attach a bill","+ إرفاق فاتورة","+ Joindre") }} ({{ shownBills.length }}/{{ availableBills.length }})</summary>
           <input v-model="billSearch" :placeholder="L('search bill / supplier / amount…','بحث فاتورة / مورّد / مبلغ…','rechercher…')"
                  class="mt-2 h-[26px] px-2.5 text-[11px] border border-line rounded-[7px] outline-none focus:border-accent w-[230px]" />
           <div class="mt-2 border border-line rounded-[8px] max-h-[220px] overflow-y-auto">
             <div v-for="b in shownBills" :key="b.voucher" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 hover:bg-app-warm">
-              <span class="font-mono text-[10.5px]" dir="ltr">{{ b.voucher }}</span>
-              <span class="text-[10px] text-ink-muted">{{ b.dt }}</span>
-              <span v-if="b.suggested_pr === sheet.pr" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style="background:#eef2ff;color:#4338ca"
+              <span class="font-mono text-[11px]" dir="ltr">{{ b.voucher }}</span>
+              <span class="text-[11px] text-ink-muted">{{ b.dt }}</span>
+              <span v-if="b.suggested_pr === sheet.pr" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style="background:#eef2ff;color:#4338ca"
                     :title="b.suggested_why">✨ {{ L("tracker match","مطابقة التراكر","corresp. tracker") }}</span>
-              <span v-else-if="b.ref_match" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style="background:#ecfdf5;color:#047857"
+              <span v-else-if="b.ref_match" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style="background:#ecfdf5;color:#047857"
                     :title="L('The bill mentions this shipment in its reference/remarks','الفاتورة ذاكرة الشحنة دي في مرجعها/بيانها','La facture référence cette expédition')">⭐ {{ L("ref match","مرجع مطابق","réf.") }}</span>
-              <span v-else-if="b.days < 999" class="text-[10px] text-ink-3 tnum whitespace-nowrap" dir="ltr"
+              <span v-else-if="b.days < 999" class="text-[11px] text-ink-3 tnum whitespace-nowrap" dir="ltr"
                     :title="L('days between bill and receipt dates','فرق الأيام بين تاريخ الفاتورة والاستلام','écart en jours')">±{{ b.days }}{{ L("d","ي","j") }}</span>
               <span class="truncate flex-1 text-[11px]">{{ b.supplier || b.account }}</span>
               <span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
-              <span v-if="b.kg" class="text-[10px] tnum text-ink-muted" dir="ltr">{{ fmt0(b.kg) }}kg @{{ b.implied_rate }}</span>
-              <span v-if="b.n_prs" class="text-[10px] text-ink-muted">{{ L("covers","بتغطي","couvre") }} {{ b.n_prs }}</span>
-              <button v-if="canWrite && !sheet.frozen" :disabled="busy" class="text-[10.5px] font-bold px-2 py-0.5 rounded-[6px] border border-line hover:bg-white disabled:opacity-40" @click="toggleBill(b, true)">{{ L("Attach","إرفاق","Joindre") }}</button>
+              <span v-if="b.kg" class="text-[11px] tnum text-ink-muted" dir="ltr">{{ fmt0(b.kg) }}kg @{{ b.implied_rate }}</span>
+              <span v-if="b.n_prs" class="text-[11px] text-ink-muted">{{ L("covers","بتغطي","couvre") }} {{ b.n_prs }}</span>
+              <button v-if="canWrite && !sheet.frozen" :disabled="busy" class="text-[11px] font-bold px-2 py-0.5 rounded-[6px] border border-line hover:bg-white disabled:opacity-40" @click="toggleBill(b, true)">{{ L("Attach","إرفاق","Joindre") }}</button>
             </div>
           </div>
         </details>
-        <div v-if="sheet.frozen" class="text-[10.5px] text-ink-muted mt-1.5">❄ {{ L("Basis frozen — unfreeze (Super Admin) to change freight.","الأساس مجمّد — فك التجميد لتغيير الشحن.","Base gelée.") }}</div>
+        <div v-if="sheet.frozen" class="text-[11px] text-ink-muted mt-1.5">❄ {{ L("Basis frozen — unfreeze (Super Admin) to change freight.","الأساس مجمّد — فك التجميد لتغيير الشحن.","Base gelée.") }}</div>
       </div>
 
       <!-- product-cost verification lives in Cost Trace (after freight is assembled) -->
@@ -83,7 +83,7 @@
         </div>
         <span class="text-[11px] tnum text-ink-muted">{{ sheetVerified }}/{{ sheet.lines.length }} {{ L("verified","متحقق","vérifié") }}</span>
         <router-link :to="`/accounting/items/costtrace?pr=${sheet.pr}&year=${yearSel || ''}`"
-                     class="h-[30px] inline-flex items-center px-3.5 rounded-[8px] text-[11.5px] font-bold text-white shadow-brand bg-brand hover:bg-brand-dark">
+                     class="h-[30px] inline-flex items-center px-3.5 rounded-[8px] text-[12px] font-bold text-white shadow-brand bg-brand hover:bg-brand-dark">
           {{ L("Open costing file","افتح ملف التكلفة","Ouvrir") + " →" }}
         </router-link>
       </div>
@@ -94,42 +94,42 @@
       <!-- progress + recon -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div class="bg-white border border-line rounded-card shadow-card px-3.5 py-2.5">
-          <div class="text-[10px] text-ink-muted">{{ L("Shipments costed","شحنات اتقفلت تكلفتها","Expéditions costées") }}</div>
+          <div class="text-[11px] text-ink-muted">{{ L("Shipments costed","شحنات اتقفلت تكلفتها","Expéditions costées") }}</div>
           <div class="text-[16px] font-bold tnum">{{ data.counts.costed + data.counts.applied }} / {{ data.rows.length }}</div>
           <div class="h-[5px] rounded-full bg-app-warm mt-1.5 overflow-hidden"><div class="h-full rounded-full" style="background:#047857" :style="{width: pct + '%'}"></div></div>
         </div>
         <div class="bg-white border border-line rounded-card shadow-card px-3.5 py-2.5">
-          <div class="text-[10px] text-ink-muted">{{ L("Freight bills","فواتير الشحن","Factures fret") }}</div>
+          <div class="text-[11px] text-ink-muted">{{ L("Freight bills","فواتير الشحن","Factures fret") }}</div>
           <div class="text-[16px] font-bold tnum">{{ fmt0(data.recon.bills_total) }}</div>
-          <div class="text-[10px] text-ink-3">{{ L("allocated","موزَّع","alloué") }} {{ fmt0(data.recon.allocated) }}</div>
+          <div class="text-[11px] text-ink-3">{{ L("allocated","موزَّع","alloué") }} {{ fmt0(data.recon.allocated) }}</div>
         </div>
         <div class="bg-white border rounded-card shadow-card px-3.5 py-2.5" :style="data.inbox.length ? 'border-color:#fde68a;background:#fffbeb' : 'border-color:#e7e5e4'">
-          <div class="text-[10px] text-ink-muted">{{ L("Bill inbox (unallocated)","فواتير غير موزَّعة","Non alloué") }}</div>
+          <div class="text-[11px] text-ink-muted">{{ L("Bill inbox (unallocated)","فواتير غير موزَّعة","Non alloué") }}</div>
           <div class="text-[16px] font-bold tnum" :style="data.inbox.length ? 'color:#b45309' : 'color:#047857'">{{ data.inbox.length }}</div>
-          <div class="text-[10px] text-ink-3">{{ L("open a shipment → attach","افتحوا الشحنة وارفقوها","à joindre") }}</div>
+          <div class="text-[11px] text-ink-3">{{ L("open a shipment → attach","افتحوا الشحنة وارفقوها","à joindre") }}</div>
         </div>
         <div class="bg-white border border-line rounded-card shadow-card px-3.5 py-2.5">
-          <div class="text-[10px] text-ink-muted">{{ L("Status","الحالة","Statut") }}</div>
+          <div class="text-[11px] text-ink-muted">{{ L("Status","الحالة","Statut") }}</div>
           <div class="flex gap-1 flex-wrap mt-1">
             <span v-for="st in ['pending','progress','costed','applied']" :key="st"
-                  class="text-[10px] font-bold px-1.5 py-0.5 rounded-full tnum" :style="STATUS_STYLE[st]">{{ data.counts[st] }} {{ statusLabel(st) }}</span>
+                  class="text-[11px] font-bold px-1.5 py-0.5 rounded-full tnum" :style="STATUS_STYLE[st]">{{ data.counts[st] }} {{ statusLabel(st) }}</span>
           </div>
-          <div class="text-[10px] text-ink-3 mt-0.5">{{ data.frozen ? "❄ " + L("basis frozen","الأساس مجمّد","base gelée") : L("basis not frozen","الأساس مش مجمّد","non gelée") }}</div>
+          <div class="text-[11px] text-ink-3 mt-0.5">{{ data.frozen ? "❄ " + L("basis frozen","الأساس مجمّد","base gelée") : L("basis not frozen","الأساس مش مجمّد","non gelée") }}</div>
         </div>
       </div>
 
       <!-- inbox strip -->
       <div v-if="data.inbox.length" class="bg-white border rounded-card shadow-card px-4 py-2.5" style="border-color:#fde68a">
         <span class="text-[11px] font-bold" style="color:#b45309">🧾 {{ L("Unallocated freight bills:","فواتير شحن مستنية توزيع:","Factures à allouer :") }}</span>
-        <span v-for="b in data.inbox.slice(0, 8)" :key="b.voucher" class="inline-flex items-center gap-1 text-[10.5px] border rounded-[6px] px-1.5 py-0.5 ms-1.5 bg-white"
+        <span v-for="b in data.inbox.slice(0, 8)" :key="b.voucher" class="inline-flex items-center gap-1 text-[11px] border rounded-[6px] px-1.5 py-0.5 ms-1.5 bg-white"
               :style="b.suggested_pr ? 'border-color:#c7d2fe' : 'border-color:#e7e5e4'">
           <span class="font-mono" dir="ltr">{{ b.voucher.slice(-9) }}</span><span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
           <button v-if="b.suggested_pr && canWrite && !data.frozen" :disabled="busy"
-                  class="text-[9.5px] font-bold px-1 py-0.5 rounded-[4px] text-white bg-brand disabled:opacity-40"
+                  class="text-[11px] font-bold px-1 py-0.5 rounded-[4px] text-white bg-brand disabled:opacity-40"
                   :title="(b.suggested_why || '') + ' → ' + b.suggested_pr"
                   @click="acceptSuggestion(b)">✨ {{ L("accept","اعتماد","ok") }}</button>
         </span>
-        <span v-if="data.inbox.length > 8" class="text-[10.5px] text-ink-muted ms-1">+{{ data.inbox.length - 8 }}</span>
+        <span v-if="data.inbox.length > 8" class="text-[11px] text-ink-muted ms-1">+{{ data.inbox.length - 8 }}</span>
       </div>
 
       <!-- shipments table -->
@@ -139,38 +139,38 @@
           <input v-model="search" :placeholder="L('search shipment / supplier…','بحث شحنة / مورّد…','rechercher…')"
                  class="h-[26px] px-2.5 text-[11px] border border-line rounded-[7px] outline-none focus:border-accent w-[190px]" />
           <span class="flex items-center gap-1">
-            <button v-for="y in data.years" :key="y" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border tnum"
+            <button v-for="y in data.years" :key="y" class="text-[11px] font-bold px-2 py-0.5 rounded-full border tnum"
                     :style="data.year===y ? 'background:#eef2ff;color:#4338ca;border-color:#c7d2fe' : 'border-color:#e7e5e4;color:#78716c'"
                     @click="setYear(y)">{{ y }}</button>
           </span>
           <span class="flex-1"></span>
-          <button v-for="f in FILTERS" :key="f.id" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border"
+          <button v-for="f in FILTERS" :key="f.id" class="text-[11px] font-bold px-2 py-0.5 rounded-full border"
                   :style="filter===f.id ? 'background:#eef2ff;color:#4338ca;border-color:#c7d2fe' : 'border-color:#e7e5e4;color:#78716c'"
                   @click="filter = filter===f.id ? '' : f.id">{{ f.icon }} {{ L(...f.label) }}</button>
         </div>
-        <table class="w-full text-[11.5px]" :style="busy ? 'opacity:.55;pointer-events:none' : ''">
+        <table class="w-full text-[12px]" :style="busy ? 'opacity:.55;pointer-events:none' : ''">
           <thead><tr style="background:#fafaf9">
-            <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Shipment","الشحنة","Expédition") }}</th>
-            <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورّد","Fourn.") }}</th>
-            <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted" :title="L('Channel: 🛫 air · 🚢 sea','القناة: 🛫 جوي · 🚢 بحري','Canal : 🛫 air · 🚢 mer')">{{ L("Ch.","قناة","Can.") }}</th>
-            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">kg</th>
-            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Lines verified","سطور متحققة","Lignes") }}</th>
-            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
-            <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
+            <th class="px-4 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Shipment","الشحنة","Expédition") }}</th>
+            <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Supplier","المورّد","Fourn.") }}</th>
+            <th class="px-3 py-2 text-center text-[11px] font-bold text-ink-muted" :title="L('Channel: 🛫 air · 🚢 sea','القناة: 🛫 جوي · 🚢 بحري','Canal : 🛫 air · 🚢 mer')">{{ L("Ch.","قناة","Can.") }}</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">kg</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Lines verified","سطور متحققة","Lignes") }}</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
+            <th class="px-3 py-2 text-center text-[11px] font-bold text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="r in shownRows" :key="r.name" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/60" @click="openSheet(r.name)">
-              <td class="px-4 py-2 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.name }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
+              <td class="px-4 py-2 font-mono text-[11px] whitespace-nowrap" dir="ltr">{{ r.name }}<div class="text-[11px] text-ink-muted font-sans">{{ r.dt }}</div></td>
               <td class="px-3 py-2 truncate max-w-[150px]">{{ r.supplier }}</td>
               <td class="px-3 py-2 text-center whitespace-nowrap">
                 <button v-if="canWrite && !data.frozen" class="text-[13px] hover:scale-110 transition-transform"
                         :title="r.channel_confirmed ? L('Channel confirmed — click to flip','القناة مؤكدة — دوس للقلب','Confirmé — cliquer pour changer')
                                                     : L('SUGGESTED only — click to flip, or confirm as-is below','اقتراح بس — دوس للقلب','Suggéré — cliquer pour changer')"
-                        @click.stop="flipChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></button>
-                <button v-if="canWrite && !data.frozen && !r.channel_confirmed" class="ms-0.5 text-[10px] font-bold text-emerald-700 hover:underline"
+                        @click.stop="flipChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[11px] text-amber-600 font-bold">?</span></button>
+                <button v-if="canWrite && !data.frozen && !r.channel_confirmed" class="ms-0.5 text-[11px] font-bold text-emerald-700 hover:underline"
                         :title="L('confirm the suggested channel as-is','تأكيد القناة المقترحة زي ما هي','confirmer tel quel')"
                         @click.stop="confirmChannel(r)">✓</button>
-                <template v-if="!canWrite || data.frozen">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></template>
+                <template v-if="!canWrite || data.frozen">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[11px] text-amber-600 font-bold">?</span></template>
               </td>
               <td class="px-3 py-2 text-end tnum">{{ fmt0(r.kg) }}</td>
               <td class="px-3 py-2 text-end tnum">
@@ -180,14 +180,14 @@
                 <FreightChip :source="r.freight.source" class="ms-0.5" />
               </td>
               <td class="px-3 py-2 text-center">
-                <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="STATUS_STYLE[r.status]">{{ STATUS_ICON[r.status] }} {{ statusLabel(r.status) }}</span>
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="STATUS_STYLE[r.status]">{{ STATUS_ICON[r.status] }} {{ statusLabel(r.status) }}</span>
               </td>
             </tr>
-            <tr v-if="!shownRows.length"><td colspan="7" class="px-4 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No shipments match.","مفيش شحنات مطابقة.","Aucune expédition.") }}</td></tr>
+            <tr v-if="!shownRows.length"><td colspan="7" class="px-4 py-4 text-center text-[12px] text-ink-muted">{{ L("No shipments match.","مفيش شحنات مطابقة.","Aucune expédition.") }}</td></tr>
           </tbody>
         </table>
         <div v-if="filteredRows.length > shownRows.length" class="px-4 py-2.5 border-t border-line-hair text-center">
-          <button class="text-[11.5px] font-bold text-accent-dark hover:underline" @click="visLimit += 200">
+          <button class="text-[12px] font-bold text-accent-dark hover:underline" @click="visLimit += 200">
             {{ L("Show more","عرض المزيد","Afficher plus") }} ({{ shownRows.length }}/{{ filteredRows.length }})
           </button>
         </div>
@@ -209,9 +209,9 @@
               <span v-if="ready.items_waiting && (ready.items_waiting.freight || ready.items_waiting.verify)" class="ms-2" style="color:#b45309">⏳ {{ ready.items_waiting.freight }} {{ L("waiting freight","مستني شحن","att. fret") }} · {{ ready.items_waiting.verify }} {{ L("waiting verify","مستني تحقق","att. vérif.") }}</span>
             </div>
           </div>
-          <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
+          <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
                   :disabled="busy" @click="previewApply">{{ L("Preview next wave","معاينة الدفعة الجاية","Aperçu") }}</button>
-          <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+          <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                   :disabled="busy || !ready?.items_ready"
                   :title="!ready?.items_ready ? L('Nothing ready — items are waiting for freight or verification','مفيش جاهز — الأصناف مستنية شحن أو تحقق','Rien de prêt') : ''"
                   @click="runApply">{{ L("Apply 20","طبّق 20","Appliquer 20") }}</button>
@@ -220,7 +220,7 @@
           <template v-if="applyPrev.dry_run">
             <b>{{ L("Next wave","الدفعة الجاية","Prochaine vague") }} ({{ applyPrev.next_wave.length }}):</b>
             <span v-for="w in applyPrev.next_wave.slice(0, 10)" :key="w.item_code" class="inline-flex items-center gap-1 border border-line rounded-[6px] px-1.5 py-0.5 ms-1 tnum">
-              <span class="font-mono text-[10px]" dir="ltr">{{ w.item_code }}</span> @{{ w.rate }}</span>
+              <span class="font-mono text-[11px]" dir="ltr">{{ w.item_code }}</span> @{{ w.rate }}</span>
             <span v-if="applyPrev.next_wave.length > 10" class="text-ink-muted ms-1">+{{ applyPrev.next_wave.length - 10 }}</span>
             <span class="text-ink-muted ms-2">({{ L("remaining after","المتبقي بعدها","restant") }}: {{ applyPrev.remaining }})</span>
           </template>
@@ -235,7 +235,7 @@
 
     <div v-else-if="loadErr" class="bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center gap-2">
       <span class="text-[12px] text-sale font-semibold">{{ L("Couldn't load the shipments.","معرفناش نحمّل الشحنات.","Échec de chargement.") }}</span>
-      <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="loadList">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+      <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="loadList">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
     </div>
     <div v-else class="text-[12px] text-ink-muted py-8 text-center">{{ L("Loading shipments…","بيحمّل الشحنات…","Chargement…") }}</div>
   </div>

@@ -11,8 +11,8 @@
       <div class="flex items-center gap-3 flex-wrap">
         <div class="inline-flex items-center gap-2 bg-white border border-line rounded-card px-3.5 py-2 shadow-card">
           <span class="text-[11px] font-bold text-ink-muted uppercase tracking-wider">{{ L("Net working capital", "صافي رأس المال العامل", "BFR net") }}</span>
-          <span class="text-[15px] font-extrabold tnum" :style="{ color: wc >= 0 ? '#047857' : '#be123c' }">{{ money(wc) }} <span class="text-[10px] text-ink-muted">MAD</span></span>
-          <span class="text-[10px] text-ink-muted">{{ L("AR − AP", "مدينة − دائنة", "AR − AP") }}</span>
+          <span class="text-[16px] font-extrabold tnum" :style="{ color: wc >= 0 ? '#047857' : '#be123c' }">{{ money(wc) }} <span class="text-[11px] text-ink-muted">MAD</span></span>
+          <span class="text-[11px] text-ink-muted">{{ L("AR − AP", "مدينة − دائنة", "AR − AP") }}</span>
         </div>
         <button @click="exportCSV" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-chip border border-line-2 bg-white text-[12px] font-semibold text-ink-2 hover:bg-app-warm">
           <Icon name="download" :size="14" />{{ L("Export", "تصدير", "Exporter") }}
@@ -25,20 +25,20 @@
           <div class="flex items-center gap-2"><span class="w-7 h-7 rounded-[9px] grid place-items-center" style="background:#eff6ff"><Icon name="trend" :size="15" color="#0369a1" /></span><span class="text-[12px] font-bold text-ink-3">{{ L("Receivables (AR)", "الذمم المدينة", "Créances") }}</span><Icon name="arrow" :size="12" color="#a8a29e" class="ms-auto rtl:rotate-180" /></div>
           <div class="text-[26px] font-extrabold tnum mt-2" style="color:#0369a1">{{ money(ar.operational) }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
           <div class="text-[11px] text-ink-muted mt-1">{{ L("operational — what's really owed to us", "تشغيلي — المستحق الحقيقي لنا", "opérationnel") }}</div>
-          <div class="mt-2 inline-flex items-center gap-1.5 text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fef2f2;color:#be123c"><Icon name="alert" :size="11" />{{ L("GL broken — needs reconciliation", "الـ GL مكسور — يحتاج مطابقة", "GL à réconcilier") }}</div>
+          <div class="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#fef2f2;color:#be123c"><Icon name="alert" :size="11" />{{ L("GL broken — needs reconciliation", "الـ GL مكسور — يحتاج مطابقة", "GL à réconcilier") }}</div>
         </button>
         <button @click="drill('/accounting/purchases/topay')" class="bg-white rounded-card border border-line shadow-card p-5 text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all">
           <div class="flex items-center gap-2"><span class="w-7 h-7 rounded-[9px] grid place-items-center" style="background:#fef2f2"><Icon name="wallet" :size="15" color="#be123c" /></span><span class="text-[12px] font-bold text-ink-3">{{ L("Payables (AP)", "الذمم الدائنة", "Dettes") }}</span><Icon name="arrow" :size="12" color="#a8a29e" class="ms-auto rtl:rotate-180" /></div>
           <div class="text-[26px] font-extrabold tnum mt-2" style="color:#be123c">{{ money(ap.net_invoice) }}<span class="text-[12px] text-ink-muted ms-1">MAD</span></div>
           <div class="text-[11px] text-ink-muted mt-1">{{ L("net of supplier advances", "صافي بعد المقدّمات", "net des avances") }}</div>
-          <div class="mt-2 inline-flex items-center gap-1.5 text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="ap.reconciled ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'"><Icon :name="ap.reconciled ? 'check' : 'alert'" :size="11" />{{ ap.reconciled ? L("ties to GL", "مطابق للـ GL", "concorde") : L("small gap to GL", "فرق بسيط مع الـ GL", "léger écart") }}</div>
+          <div class="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full" :style="ap.reconciled ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'"><Icon :name="ap.reconciled ? 'check' : 'alert'" :size="11" />{{ ap.reconciled ? L("ties to GL", "مطابق للـ GL", "concorde") : L("small gap to GL", "فرق بسيط مع الـ GL", "léger écart") }}</div>
         </button>
       </div>
 
       <!-- AR reconciliation -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="trend" :size="14" color="#0369a1" /><span class="text-[12px] font-bold">{{ L("Receivables — operational vs book", "الذمم المدينة — تشغيلي مقابل دفتري", "Créances — opérationnel vs comptable") }}</span></div>
-        <table class="w-full text-[12.5px]">
+        <table class="w-full text-[13px]">
           <tbody>
             <tr class="border-b border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="drill('/accounting/sales/delivered')"><td class="px-4 py-2.5"><Icon name="arrow" :size="10" color="#cfc9c4" class="inline me-1 rtl:rotate-180" />{{ L("Carrier float (delivered · not collected)", "عهدة الناقل (مُسلّم · غير محصّل)", "En cours transporteur") }}</td><td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(ar.carrier_float) }}</td></tr>
             <tr class="border-b border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="drill('/accounting/sales/invoices')"><td class="px-4 py-2.5"><Icon name="arrow" :size="10" color="#cfc9c4" class="inline me-1 rtl:rotate-180" />{{ L("Invoiced & unpaid", "متفوتر وغير مدفوع", "Facturé impayé") }}</td><td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(ar.si_outstanding) }}</td></tr>
@@ -56,18 +56,18 @@
       <!-- AP reconciliation -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="wallet" :size="14" color="#be123c" /><span class="text-[12px] font-bold">{{ L("Payables — operational vs book", "الذمم الدائنة — تشغيلي مقابل دفتري", "Dettes — opérationnel vs comptable") }}</span></div>
-        <table class="w-full text-[12.5px]">
+        <table class="w-full text-[13px]">
           <tbody>
             <tr class="border-b border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="drill('/accounting/purchases/topay')"><td class="px-4 py-2.5"><Icon name="arrow" :size="10" color="#cfc9c4" class="inline me-1 rtl:rotate-180" />{{ L("Unpaid bills (To pay + Billed)", "فواتير غير مدفوعة", "Factures impayées") }}</td><td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(ap.pi_unpaid) }}</td></tr>
             <tr class="border-b border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="drill('/accounting/purchases/payments')"><td class="px-4 py-2.5"><Icon name="arrow" :size="10" color="#cfc9c4" class="inline me-1 rtl:rotate-180" />{{ L("− Supplier advances (prepaid)", "− دفعات مقدّمة للمورّدين", "− Avances fournisseurs") }}</td><td class="px-4 py-2.5 text-end tnum font-semibold text-accent-dark">({{ fmt(ap.advances) }})</td></tr>
             <tr class="border-b border-line-hair bg-accent/5"><td class="px-4 py-2.5 font-bold">{{ L("= Net bills owed", "= صافي المستحق", "= Net dû") }}</td><td class="px-4 py-2.5 text-end tnum font-extrabold">{{ fmt(ap.net_invoice) }}</td></tr>
             <tr class="border-b border-line-hair"><td class="px-4 py-2.5 text-ink-3">{{ L("Book balance — GL Creditors", "الرصيد الدفتري — دائنون", "Solde GL Créditeurs") }}</td><td class="px-4 py-2.5 text-end tnum font-bold">{{ fmt(ap.gl_creditors) }}</td></tr>
-            <tr><td class="px-4 py-2.5 text-ink-muted text-[11.5px]">{{ L("Gap to GL", "الفرق مع الـ GL", "Écart") }}</td><td class="px-4 py-2.5 text-end tnum text-[11.5px]" :class="Math.abs(ap.invoice_gap) > 1000 ? 'text-sale font-semibold' : 'text-ink-muted'">{{ fmt(ap.invoice_gap) }}</td></tr>
+            <tr><td class="px-4 py-2.5 text-ink-muted text-[12px]">{{ L("Gap to GL", "الفرق مع الـ GL", "Écart") }}</td><td class="px-4 py-2.5 text-end tnum text-[12px]" :class="Math.abs(ap.invoice_gap) > 1000 ? 'text-sale font-semibold' : 'text-ink-muted'">{{ fmt(ap.invoice_gap) }}</td></tr>
           </tbody>
         </table>
         <div class="px-4 py-2.5 bg-app-warm/30 border-t border-line-hair flex items-center justify-between flex-wrap gap-2 cursor-pointer hover:bg-app-warm/50" @click="drill('/accounting/purchases/received')">
-          <span class="text-[11.5px] text-ink-2"><b>{{ L("GRNI", "GRNI", "GRNI") }}</b> · {{ L("received, not billed (accrued liability)", "مستلم بلا فاتورة (التزام مستحق)", "reçu non facturé") }}</span>
-          <span class="text-[11.5px] tnum">{{ L("op", "تشغيلي", "op") }} <b>{{ fmt(ap.grni) }}</b> · {{ L("GL", "دفتري", "GL") }} {{ fmt(ap.gl_grni) }} · {{ L("gap", "فرق", "écart") }} <span :class="Math.abs(ap.grni_gap) > 1000 ? 'text-sale font-semibold' : ''">{{ fmt(ap.grni_gap) }}</span></span>
+          <span class="text-[12px] text-ink-2"><b>{{ L("GRNI", "GRNI", "GRNI") }}</b> · {{ L("received, not billed (accrued liability)", "مستلم بلا فاتورة (التزام مستحق)", "reçu non facturé") }}</span>
+          <span class="text-[12px] tnum">{{ L("op", "تشغيلي", "op") }} <b>{{ fmt(ap.grni) }}</b> · {{ L("GL", "دفتري", "GL") }} {{ fmt(ap.gl_grni) }} · {{ L("gap", "فرق", "écart") }} <span :class="Math.abs(ap.grni_gap) > 1000 ? 'text-sale font-semibold' : ''">{{ fmt(ap.grni_gap) }}</span></span>
         </div>
         <AgingBar :a="r.ap_aging" :L="L" :fmt="fmt" />
       </div>
@@ -80,7 +80,7 @@
                   class="w-full flex items-center gap-2.5 px-4 py-2.5 border-t border-line-hair first:border-t-0 hover:bg-app-warm/60 text-start">
             <span class="w-5 text-[11px] font-bold text-ink-muted tnum">{{ i + 1 }}</span>
             <span class="flex-1 truncate text-[12px]">{{ t.name }}</span>
-            <span class="tnum font-bold text-[12.5px] text-sale">{{ fmt(t.owed) }}</span>
+            <span class="tnum font-bold text-[13px] text-sale">{{ fmt(t.owed) }}</span>
           </button>
           <div v-if="!(r.top_creditors || []).length" class="py-6 text-center text-[11px] text-ink-muted">—</div>
         </div>
@@ -88,8 +88,8 @@
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="14" color="#b45309" /><span class="text-[12px] font-bold">{{ L("Prepaid — to match to bills", "مقدّمات — للمطابقة", "Avances à affecter") }}</span></div>
           <button v-for="t in (r.top_advances || [])" :key="t.party" @click="drill('/accounting/purchases/payments')"
                   class="w-full flex items-center gap-2.5 px-4 py-2.5 border-t border-line-hair first:border-t-0 hover:bg-app-warm/60 text-start">
-            <span class="flex-1 truncate text-[12px]">{{ t.name }}<span class="text-ink-muted text-[10px] ms-1.5">· {{ t.n }} {{ L("pmts", "دفعة", "pmts") }}</span></span>
-            <span class="tnum font-bold text-[12.5px]" style="color:#b45309">{{ fmt(t.adv) }}</span>
+            <span class="flex-1 truncate text-[12px]">{{ t.name }}<span class="text-ink-muted text-[11px] ms-1.5">· {{ t.n }} {{ L("pmts", "دفعة", "pmts") }}</span></span>
+            <span class="tnum font-bold text-[13px]" style="color:#b45309">{{ fmt(t.adv) }}</span>
           </button>
           <div v-if="!(r.top_advances || []).length" class="py-6 text-center text-[11px] text-ink-muted">—</div>
         </div>
@@ -105,13 +105,13 @@
           </div>
           <div class="inline-flex items-center gap-1.5 ms-2">
             <span class="text-[11px] text-ink-muted">{{ L("as of", "كما في", "au") }}</span>
-            <input type="date" v-model="asOn" @change="loadAging(agingKind)" class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[11.5px] bg-white" />
+            <input type="date" v-model="asOn" @change="loadAging(agingKind)" class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white" />
             <button v-if="asOn !== today" type="button" class="h-7 px-2 rounded-[8px] text-[11px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm" @click="asOn = today; loadAging(agingKind)">{{ L("Today","اليوم","Auj.") }}</button>
           </div>
         </div>
         <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
           <table class="w-full text-[12px]">
-            <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted sticky top-0">
+            <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted sticky top-0">
               <th class="px-4 py-2 text-start">{{ L("Party","الطرف","Tiers") }}</th>
               <th class="px-2 py-2 text-end">{{ L("Current","حالي","Courant") }}</th><th class="px-2 py-2 text-end">1–30</th><th class="px-2 py-2 text-end">31–60</th><th class="px-2 py-2 text-end">61–90</th><th class="px-2 py-2 text-end">90+</th><th class="px-4 py-2 text-end">{{ L("Total","الإجمالي","Total") }}</th>
             </tr></thead>
@@ -145,7 +145,7 @@
         <div class="flex-1 overflow-auto">
           <div v-if="partyLoading" class="py-8 text-center text-[12px] text-ink-muted">…</div>
           <table v-else class="w-full text-[12px]">
-            <thead><tr class="text-[10px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
+            <thead><tr class="text-[11px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
               <th class="px-4 py-2 text-start">{{ L("Invoice","الفاتورة","Facture") }}</th>
               <th class="px-3 py-2 text-start">{{ L("Date","التاريخ","Date") }}</th>
               <th class="px-3 py-2 text-start">{{ L("Due","الاستحقاق","Échéance") }}</th>
@@ -276,7 +276,7 @@ const AgingBar = {
         h("div", { class: "flex h-2.5 rounded-full overflow-hidden bg-app-warm" },
           segs.map((s) => h("div", { style: { width: ((Number(a[s.k]) || 0) / total * 100) + "%", background: s.c } }))),
         h("div", { class: "flex flex-wrap gap-x-4 gap-y-1 mt-2" },
-          segs.map((s) => h("span", { class: "text-[10.5px] text-ink-3 inline-flex items-center gap-1" }, [
+          segs.map((s) => h("span", { class: "text-[11px] text-ink-3 inline-flex items-center gap-1" }, [
             h("span", { class: "w-2 h-2 rounded-full inline-block", style: { background: s.c } }),
             s.l() + " ", h("b", { class: "tnum" }, props.fmt(a[s.k] || 0)),
           ]))),

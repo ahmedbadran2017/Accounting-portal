@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3">
     <div class="flex items-center gap-2 flex-wrap">
-      <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
+      <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
             :class="live ? 'text-success-dark bg-success-soft' : 'text-amber-700 bg-amber-50'">
         <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}
       </span>
@@ -12,47 +12,47 @@
     <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("User","المستخدم","Utilisateur") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Role","الدور","Rôle") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Last active","آخر نشاط","Dernière activité") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted" :title="L('Locked = ERPNext Desk (/app) refused; they work in the portal and can take a logged 1-hour pass.','مقفول = الـ Desk مرفوض؛ يشتغل من البورتال ويقدر ياخد تصريح ساعة مسجَّل.','Verrouillé = Desk ERPNext refusé.')">{{ L("Desk","الـ Desk","Desk") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("User","المستخدم","Utilisateur") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Role","الدور","Rôle") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Last active","آخر نشاط","Dernière activité") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted" :title="L('Locked = ERPNext Desk (/app) refused; they work in the portal and can take a logged 1-hour pass.','مقفول = الـ Desk مرفوض؛ يشتغل من البورتال ويقدر ياخد تصريح ساعة مسجَّل.','Verrouillé = Desk ERPNext refusé.')">{{ L("Desk","الـ Desk","Desk") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="u in users" :key="u.user" class="border-t border-line-hair hover:bg-app-warm/40" :class="!u.enabled && 'opacity-55'">
             <td class="px-4 py-2.5">
               <span class="flex items-center gap-2.5">
-                <span class="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold flex-shrink-0" :style="{ background: badge(u.user) }">{{ ini(u.full_name) }}</span>
-                <span class="min-w-0"><span class="block font-semibold truncate max-w-[200px]">{{ u.full_name }}</span><span class="block text-[10.5px] text-ink-muted truncate max-w-[200px]">{{ u.user }}</span></span>
-                <span v-if="u.user === me" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-3">{{ L("you","أنت","vous") }}</span>
+                <span class="w-7 h-7 rounded-full grid place-items-center text-white text-[11px] font-bold flex-shrink-0" :style="{ background: badge(u.user) }">{{ ini(u.full_name) }}</span>
+                <span class="min-w-0"><span class="block font-semibold truncate max-w-[200px]">{{ u.full_name }}</span><span class="block text-[11px] text-ink-muted truncate max-w-[200px]">{{ u.user }}</span></span>
+                <span v-if="u.user === me" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-3">{{ L("you","أنت","vous") }}</span>
               </span>
             </td>
             <td class="px-4 py-2.5">
               <select v-if="canManage" :value="u.role" @change="changeRole(u, $event.target.value)" :disabled="busy"
-                      class="h-8 border border-line-2 rounded-[8px] px-2 text-[11.5px] bg-white focus:outline-none focus:border-accent/40 disabled:opacity-50">
+                      class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 disabled:opacity-50">
                 <option v-for="r in roles" :key="r.role" :value="r.role">{{ r.label }}</option>
               </select>
               <span v-else class="inline-flex text-[11px] font-bold px-2 py-0.5 rounded-badge" style="background:#faf6f4;color:#0b5c4f">{{ roleLabel(u.role) }}</span>
             </td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ u.last_active ? when(u.last_active) : "—" }}</td>
             <td class="px-4 py-2.5">
-              <span v-if="!u.lockable" class="text-[10.5px] text-ink-muted" :title="L('Super Admins are never locked','السوبر أدمن لا يُقفل عليه','Jamais verrouillé')">{{ L("Open · admin","مفتوح · أدمن","Ouvert · admin") }}</span>
+              <span v-if="!u.lockable" class="text-[11px] text-ink-muted" :title="L('Super Admins are never locked','السوبر أدمن لا يُقفل عليه','Jamais verrouillé')">{{ L("Open · admin","مفتوح · أدمن","Ouvert · admin") }}</span>
               <button v-else-if="canManage && u.user !== me && u.user !== 'Administrator'" @click="toggleDesk(u)" :disabled="busy"
-                      class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full border disabled:opacity-50"
+                      class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border disabled:opacity-50"
                       :style="u.desk_locked ? 'background:#fef3c7;color:#92400e;border-color:#fcd34d' : 'background:#f5f5f4;color:#57534e;border-color:#e7e5e4'">
                 <Icon name="lock" :size="10" :color="u.desk_locked ? '#92400e' : '#a8a29e'" />{{ u.desk_locked ? L("Locked","مقفول","Verrouillé") : L("Open","مفتوح","Ouvert") }}
               </button>
-              <span v-else class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="u.desk_locked ? 'background:#fef3c7;color:#92400e' : 'background:#f5f5f4;color:#57534e'">
+              <span v-else class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full" :style="u.desk_locked ? 'background:#fef3c7;color:#92400e' : 'background:#f5f5f4;color:#57534e'">
                 <Icon name="lock" :size="10" :color="u.desk_locked ? '#92400e' : '#a8a29e'" />{{ u.desk_locked ? L("Locked","مقفول","Verrouillé") : L("Open","مفتوح","Ouvert") }}
               </span>
             </td>
             <td class="px-4 py-2.5 text-end">
               <button v-if="canManage && u.user !== me && u.user !== 'Administrator'" @click="toggle(u)" :disabled="busy"
-                      class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border disabled:opacity-50"
+                      class="text-[11px] font-bold px-2 py-0.5 rounded-full border disabled:opacity-50"
                       :style="u.enabled ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fef2f2;color:#b91c1c;border-color:#fecaca'">
                 {{ u.enabled ? L("Active","نشط","Actif") : L("Disabled","معطّل","Désactivé") }}
               </button>
-              <span v-else class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="u.enabled ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'">{{ u.enabled ? L("Active","نشط","Actif") : L("Disabled","معطّل","Désactivé") }}</span>
+              <span v-else class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="u.enabled ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'">{{ u.enabled ? L("Active","نشط","Actif") : L("Disabled","معطّل","Désactivé") }}</span>
             </td>
           </tr>
           <tr v-if="!users.length"><td colspan="5" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ L("No portal users.","لا مستخدمين.","Aucun utilisateur.") }}</td></tr>
@@ -64,11 +64,11 @@
     <div v-if="inviteOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="inviteOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
         <div class="text-[14px] font-bold">{{ L("Invite teammate","دعوة عضو","Inviter un membre") }}</div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Email","البريد","E-mail") }} *</label><input v-model.trim="inv.email" type="email" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Full name","الاسم","Nom complet") }}</label><input v-model.trim="inv.full_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Email","البريد","E-mail") }} *</label><input v-model.trim="inv.email" type="email" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Full name","الاسم","Nom complet") }}</label><input v-model.trim="inv.full_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
         <div><label class="text-[11px] font-bold text-ink-3">{{ L("Role","الدور","Rôle") }}</label>
-          <select v-model="inv.role" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40"><option v-for="r in roles" :key="r.role" :value="r.role">{{ r.label }} — {{ r.desc }}</option></select></div>
-        <p class="text-[10px] text-ink-muted">{{ L("They receive a welcome email to set a password.","سيصلهم إيميل ترحيبي لتعيين كلمة المرور.","Ils reçoivent un e-mail de bienvenue.") }}</p>
+          <select v-model="inv.role" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40"><option v-for="r in roles" :key="r.role" :value="r.role">{{ r.label }} — {{ r.desc }}</option></select></div>
+        <p class="text-[11px] text-ink-muted">{{ L("They receive a welcome email to set a password.","سيصلهم إيميل ترحيبي لتعيين كلمة المرور.","Ils reçoivent un e-mail de bienvenue.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="inviteOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
           <button @click="sendInvite" :disabled="inviting || !inv.email" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ inviting ? L("Inviting…","جارٍ…","…") : L("Send invite","إرسال","Envoyer") }}</button>

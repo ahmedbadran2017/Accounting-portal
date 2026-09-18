@@ -9,7 +9,7 @@
         </select>
       </div>
       <span class="text-[11px] text-ink-muted hidden sm:inline">{{ L("bonuses & deductions reviewed before the slip is generated", "حوافز وخصومات تُراجَع قبل إنشاء المسيّر", "revus avant génération") }}</span>
-      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openAdd()">
+      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openAdd()">
         <Icon name="plus" :size="14" />{{ L("Add adjustment", "إضافة", "Ajouter") }}
       </button>
     </div>
@@ -22,20 +22,20 @@
     </div>
 
     <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-      <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2"><Icon name="users" :size="14" color="#0b5c4f" />{{ L("By employee","حسب الموظف","Par employé") }}<span class="text-[10px] text-ink-muted font-normal">{{ d.count || 0 }} {{ L("entries","بند","lignes") }}</span></div>
+      <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2"><Icon name="users" :size="14" color="#0b5c4f" />{{ L("By employee","حسب الموظف","Par employé") }}<span class="text-[11px] text-ink-muted font-normal">{{ d.count || 0 }} {{ L("entries","بند","lignes") }}</span></div>
       <TableLoading v-if="loading" :rows="6" />
       <div v-else-if="!(d.employees||[]).length" class="px-4 py-10 text-center text-[12px] text-ink-muted">{{ L("No adjustments for this month yet.","لا حوافز أو خصومات لهذا الشهر.","Aucun ajustement.") }}</div>
       <div v-else class="divide-y divide-line-hair">
         <div v-for="e in d.employees" :key="e.employee">
           <button type="button" class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-app-warm/40 text-start" @click="toggle(e.employee)">
             <Icon name="arrow" :size="12" color="#cbd5e1" class="transition-transform shrink-0" :class="open[e.employee] ? 'rotate-90' : ''" />
-            <span class="text-[12.5px] font-semibold flex-1 truncate">{{ e.nm }}</span>
-            <span v-if="e.earn" class="text-[11.5px] tnum font-semibold text-teal-700">+{{ money(e.earn) }}</span>
-            <span v-if="e.ded" class="text-[11.5px] tnum font-semibold text-rose-600">−{{ money(e.ded) }}</span>
+            <span class="text-[13px] font-semibold flex-1 truncate">{{ e.nm }}</span>
+            <span v-if="e.earn" class="text-[12px] tnum font-semibold text-teal-700">+{{ money(e.earn) }}</span>
+            <span v-if="e.ded" class="text-[12px] tnum font-semibold text-rose-600">−{{ money(e.ded) }}</span>
             <span class="text-[12px] tnum font-bold w-24 text-end" :class="e.net < 0 ? 'text-rose-600' : 'text-teal-700'">{{ e.net >= 0 ? '+' : '' }}{{ money(e.net) }}</span>
           </button>
           <div v-if="open[e.employee]" class="bg-app-warm/30 px-4 pb-2">
-            <div v-for="it in e.items" :key="it.name" class="flex items-center gap-2 py-1.5 text-[11.5px] border-b border-line-hair/50 last:border-b-0">
+            <div v-for="it in e.items" :key="it.name" class="flex items-center gap-2 py-1.5 text-[12px] border-b border-line-hair/50 last:border-b-0">
               <span class="w-2 h-2 rounded-sm shrink-0" :style="`background:${it.type==='Earning' ? '#0f766e' : '#be123c'}`"></span>
               <span class="flex-1 truncate">{{ it.comp }}</span>
               <span class="tnum font-semibold" :class="it.type==='Earning' ? 'text-teal-700' : 'text-rose-600'">{{ it.type==='Earning' ? '+' : '−' }}{{ money(it.amount) }}</span>
@@ -45,7 +45,7 @@
           </div>
         </div>
       </div>
-      <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+      <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
         <Icon name="alert" :size="11" color="#9a8f86" />{{ L("These apply automatically when you Generate the month's slips.","بتتطبّق تلقائيًا لما تعمل Generate لمسيّرات الشهر.","Appliqués à la génération.") }}
       </div>
     </div>
@@ -81,7 +81,7 @@
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Amount","المبلغ","Montant") }} ({{ ccy }})</span>
             <input type="number" min="0" step="0.01" v-model.number="form.amount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum text-end font-semibold focus:outline-none focus:border-accent/40" placeholder="0.00" />
           </label>
-          <div v-if="err" class="text-[11.5px] text-sale">{{ err }}</div>
+          <div v-if="err" class="text-[12px] text-sale">{{ err }}</div>
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="adding=false">{{ L("Cancel","إلغاء","Annuler") }}</button>
@@ -113,9 +113,9 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const money = (n) => fmtAmount(n);
 const canWrite = computed(() => can("post_entries"));
 const Kpi = (p) => h("div", { class: "bg-white rounded-card border border-line shadow-card px-4 py-3" }, [
-  h("div", { class: "text-[10px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
+  h("div", { class: "text-[11px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
   h("div", { class: "text-[18px] font-extrabold mt-1 tnum", style: `color:${p.color}` }, p.value),
-  h("div", { class: "text-[10px] text-ink-muted mt-0.5" }, p.sub)]);
+  h("div", { class: "text-[11px] text-ink-muted mt-0.5" }, p.sub)]);
 Kpi.props = ["label", "value", "color", "sub"];
 
 const now = new Date();

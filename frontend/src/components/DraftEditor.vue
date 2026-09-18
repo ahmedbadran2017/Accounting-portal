@@ -4,8 +4,8 @@
       <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2">
         <Icon name="gear" :size="15" color="#0b5c4f" />
         <span class="text-[14px] font-bold">{{ L("Edit draft", "تعديل المسودة", "Modifier le brouillon") }}</span>
-        <span class="font-mono text-[11.5px] text-ink-muted"><bdi dir="ltr">{{ name }}</bdi></span>
-        <span v-if="d.currency" class="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-3">{{ d.currency }}</span>
+        <span class="font-mono text-[12px] text-ink-muted"><bdi dir="ltr">{{ name }}</bdi></span>
+        <span v-if="d.currency" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-3">{{ d.currency }}</span>
         <button class="ms-auto text-ink-muted hover:text-ink" @click="$emit('close')"><Icon name="close" :size="16" /></button>
       </div>
 
@@ -31,16 +31,16 @@
             <div v-for="f in d.header" :key="f.field" :class="f.type === 'Text' ? 'sm:col-span-2 lg:col-span-3' : ''">
               <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ f.label }}</label>
               <component :is="'div'">
-                <textarea v-if="f.type === 'Text'" v-model="hv[f.field]" :disabled="f.ro" rows="2" class="w-full rounded-[9px] border border-line-2 px-2.5 py-1.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm"></textarea>
-                <input v-else-if="f.type === 'Date'" type="date" v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
-                <input v-else-if="['Currency','Float','Int'].includes(f.type)" type="number" step="any" v-model="hv[f.field]" :disabled="f.ro" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white tnum focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
-                <label v-else-if="f.type === 'Check'" class="inline-flex items-center gap-2 h-9 text-[12.5px]"><input type="checkbox" :checked="hv[f.field] === '1' || hv[f.field] === true || hv[f.field] === 1" @change="hv[f.field] = $event.target.checked ? 1 : 0" :disabled="f.ro" /> {{ L("Yes", "نعم", "Oui") }}</label>
-                <select v-else-if="f.type === 'Select'" v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm">
+                <textarea v-if="f.type === 'Text'" v-model="hv[f.field]" :disabled="f.ro" rows="2" class="w-full rounded-[9px] border border-line-2 px-2.5 py-1.5 text-[13px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm"></textarea>
+                <input v-else-if="f.type === 'Date'" type="date" v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
+                <input v-else-if="['Currency','Float','Int'].includes(f.type)" type="number" step="any" v-model="hv[f.field]" :disabled="f.ro" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white tnum focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
+                <label v-else-if="f.type === 'Check'" class="inline-flex items-center gap-2 h-9 text-[13px]"><input type="checkbox" :checked="hv[f.field] === '1' || hv[f.field] === true || hv[f.field] === 1" @change="hv[f.field] = $event.target.checked ? 1 : 0" :disabled="f.ro" /> {{ L("Yes", "نعم", "Oui") }}</label>
+                <select v-else-if="f.type === 'Select'" v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm">
                   <option v-for="o in (d.options[f.options] || [])" :key="o.value" :value="o.value">{{ o.label || o.value || "—" }}</option>
                 </select>
-                <SearchSelect v-else-if="f.type === 'Link'" v-model="hv[f.field]" :items="d.options[f.options] || []" :disabled="f.ro" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-9 text-[12.5px] bg-white" />
+                <SearchSelect v-else-if="f.type === 'Link'" v-model="hv[f.field]" :items="d.options[f.options] || []" :disabled="f.ro" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-9 text-[13px] bg-white" />
                 <PartyPick v-else-if="f.type === 'Party'" v-model="hv[f.field]" :party-type="d.party_type_fixed || hv.party_type" :disabled="f.ro" />
-                <input v-else v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
+                <input v-else v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
               </component>
             </div>
           </div>
@@ -49,14 +49,14 @@
           <div v-if="d.child" class="bg-white border border-line rounded-[12px] overflow-hidden">
             <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[12px] font-bold">
               <Icon name="list" :size="13" color="#0b5c4f" />{{ d.child.label }}
-              <span class="text-[10.5px] text-ink-muted font-normal">{{ rv.length }}</span>
+              <span class="text-[11px] text-ink-muted font-normal">{{ rv.length }}</span>
               <span v-if="isJE" class="ms-auto text-[11px] tnum" :class="balanced ? 'text-success-dark' : 'text-sale'">
                 Dr {{ fmt(totDr) }} · Cr {{ fmt(totCr) }} {{ balanced ? "✓" : "· Δ " + fmt(Math.abs(totDr - totCr)) }}
               </span>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-[12px]">
-                <thead><tr class="text-[10px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
+                <thead><tr class="text-[11px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
                   <th class="px-2 py-2 text-start w-8">#</th>
                   <th v-for="c in d.child.columns" :key="c.field" class="px-2 py-2 text-start whitespace-nowrap" :class="['Currency','Float'].includes(c.type) ? 'text-end' : ''">{{ c.label }}</th>
                   <th v-if="d.child.can_remove" class="w-8"></th>
@@ -82,49 +82,49 @@
               </table>
             </div>
             <div v-if="d.child.fill === 'outstanding'" class="px-3 py-2 border-t border-line-hair flex items-center gap-2 flex-wrap">
-              <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark h-7 px-2.5 rounded-chip disabled:opacity-50" :disabled="outLoading" @click="loadOutstanding">
+              <button type="button" class="inline-flex items-center gap-1 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark h-7 px-2.5 rounded-chip disabled:opacity-50" :disabled="outLoading" @click="loadOutstanding">
                 <Icon name="search" :size="12" color="#fff" />{{ outLoading ? "…" : L("Get outstanding invoices", "جلب الفواتير المستحقة", "Factures en attente") }}
               </button>
-              <span v-if="out.unallocated" class="text-[11.5px] text-ink-3">{{ L("Unallocated", "غير مخصّص", "Non affecté") }} <b class="tnum">{{ fmt(out.unallocated) }}</b></span>
+              <span v-if="out.unallocated" class="text-[12px] text-ink-3">{{ L("Unallocated", "غير مخصّص", "Non affecté") }} <b class="tnum">{{ fmt(out.unallocated) }}</b></span>
             </div>
             <div v-if="outRows.length" class="border-t border-line-hair bg-app-warm/20 max-h-[220px] overflow-auto">
-              <table class="w-full text-[11.5px]">
-                <thead><tr class="text-[10px] font-bold uppercase tracking-wider text-ink-muted"><th class="px-3 py-1.5 w-8"></th><th class="px-3 py-1.5 text-start">{{ L("Invoice","الفاتورة","Facture") }}</th><th class="px-3 py-1.5 text-start">{{ L("Date","التاريخ","Date") }}</th><th class="px-3 py-1.5 text-end">{{ L("Outstanding","المستحق","Restant") }}</th><th class="px-3 py-1.5 text-end w-28">{{ L("Allocate","المخصّص","Affecter") }}</th></tr></thead>
+              <table class="w-full text-[12px]">
+                <thead><tr class="text-[11px] font-bold uppercase tracking-wider text-ink-muted"><th class="px-3 py-1.5 w-8"></th><th class="px-3 py-1.5 text-start">{{ L("Invoice","الفاتورة","Facture") }}</th><th class="px-3 py-1.5 text-start">{{ L("Date","التاريخ","Date") }}</th><th class="px-3 py-1.5 text-end">{{ L("Outstanding","المستحق","Restant") }}</th><th class="px-3 py-1.5 text-end w-28">{{ L("Allocate","المخصّص","Affecter") }}</th></tr></thead>
                 <tbody>
                   <tr v-for="o in outRows" :key="o.name" class="border-t border-line-hair/60">
                     <td class="px-3 py-1"><input type="checkbox" v-model="o._on" @change="autoFill" /></td>
                     <td class="px-3 py-1 font-mono">{{ o.name }}</td>
                     <td class="px-3 py-1 text-ink-3">{{ o.date }}</td>
                     <td class="px-3 py-1 text-end tnum">{{ fmt(o.outstanding) }}</td>
-                    <td class="px-3 py-1"><input type="number" step="any" min="0" v-model="o._amt" :disabled="!o._on" dir="ltr" class="h-7 w-full rounded-[7px] border border-line-2 px-1.5 text-[11.5px] text-end tnum bg-white disabled:bg-app-warm" /></td>
+                    <td class="px-3 py-1"><input type="number" step="any" min="0" v-model="o._amt" :disabled="!o._on" dir="ltr" class="h-7 w-full rounded-[7px] border border-line-2 px-1.5 text-[12px] text-end tnum bg-white disabled:bg-app-warm" /></td>
                   </tr>
                 </tbody>
               </table>
               <div class="px-3 py-2 flex items-center gap-2 border-t border-line-hair">
-                <span class="text-[11.5px] text-ink-3">{{ L("Selected", "المحدّد", "Sélection") }} <b class="tnum">{{ fmt(selectedAlloc) }}</b></span>
-                <button type="button" class="ms-auto h-7 px-3 rounded-chip text-[11.5px] font-bold text-white bg-ink disabled:opacity-50" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</button>
+                <span class="text-[12px] text-ink-3">{{ L("Selected", "المحدّد", "Sélection") }} <b class="tnum">{{ fmt(selectedAlloc) }}</b></span>
+                <button type="button" class="ms-auto h-7 px-3 rounded-chip text-[12px] font-bold text-white bg-ink disabled:opacity-50" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</button>
               </div>
             </div>
             <div v-if="d.child.can_add" class="px-3 py-2 border-t border-line-hair flex items-center gap-4 flex-wrap">
-              <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="addRow"><Icon name="plus" :size="12" />{{ L("Add row", "إضافة سطر", "Ajouter une ligne") }}</button>
+              <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="addRow"><Icon name="plus" :size="12" />{{ L("Add row", "إضافة سطر", "Ajouter une ligne") }}</button>
               <!-- The Desk's "Get Items From → Purchase Order", which takes several
                    orders at once: one supplier, three deliveries, one monthly bill. -->
-              <button v-if="canPullPo" type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="openPo"><Icon name="cart" :size="12" />{{ L("Get items from purchase order", "اسحب الأصناف من أمر شراء", "Importer d'une commande") }}</button>
+              <button v-if="canPullPo" type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="openPo"><Icon name="cart" :size="12" />{{ L("Get items from purchase order", "اسحب الأصناف من أمر شراء", "Importer d'une commande") }}</button>
             </div>
             <div v-if="poOpen" class="border-t border-line-hair bg-app-warm/30 px-3 py-2.5 space-y-2">
-              <div class="text-[11.5px] font-bold">{{ L("Open purchase orders for", "أوامر الشراء المفتوحة لـ", "Commandes ouvertes de") }} {{ poSupplier }}</div>
-              <div v-if="poLoading" class="text-[11.5px] text-ink-muted py-2">…</div>
-              <div v-else-if="!pos.length" class="text-[11.5px] text-ink-muted py-2">{{ L("Nothing left to bill on this supplier's orders.", "مفيش حاجة متبقية للفوترة على أوامر المورّد ده.", "Rien à facturer.") }}</div>
+              <div class="text-[12px] font-bold">{{ L("Open purchase orders for", "أوامر الشراء المفتوحة لـ", "Commandes ouvertes de") }} {{ poSupplier }}</div>
+              <div v-if="poLoading" class="text-[12px] text-ink-muted py-2">…</div>
+              <div v-else-if="!pos.length" class="text-[12px] text-ink-muted py-2">{{ L("Nothing left to bill on this supplier's orders.", "مفيش حاجة متبقية للفوترة على أوامر المورّد ده.", "Rien à facturer.") }}</div>
               <label v-for="o in pos" :key="o.name" class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-[9px] bg-white border border-line-2 cursor-pointer">
                 <input type="checkbox" :value="o.name" v-model="poPicked" class="accent-accent w-3.5 h-3.5" />
-                <span class="font-mono text-[11.5px] font-semibold flex-1 min-w-0 truncate">{{ o.name }}</span>
-                <span class="text-[10.5px] text-ink-muted">{{ o.date }}</span>
-                <span class="text-[10.5px] text-ink-muted tnum">{{ o.per_billed }}% {{ L("billed", "مفوتر", "facturé") }}</span>
-                <span class="tnum text-[11.5px] font-bold">{{ fmt(o.total) }}</span>
+                <span class="font-mono text-[12px] font-semibold flex-1 min-w-0 truncate">{{ o.name }}</span>
+                <span class="text-[11px] text-ink-muted">{{ o.date }}</span>
+                <span class="text-[11px] text-ink-muted tnum">{{ o.per_billed }}% {{ L("billed", "مفوتر", "facturé") }}</span>
+                <span class="tnum text-[12px] font-bold">{{ fmt(o.total) }}</span>
               </label>
               <div class="flex justify-end gap-2 pt-0.5">
-                <button type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-semibold text-ink-3 hover:bg-white" @click="poOpen = false">{{ L("Back", "رجوع", "Retour") }}</button>
-                <button type="button" class="h-8 px-3.5 rounded-chip text-[11.5px] font-bold text-white bg-ink disabled:opacity-40" :disabled="!poPicked.length || poBusy" @click="pullPo">{{ poBusy ? "…" : L("Add the lines", "أضف السطور", "Ajouter les lignes") }}</button>
+                <button type="button" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3 hover:bg-white" @click="poOpen = false">{{ L("Back", "رجوع", "Retour") }}</button>
+                <button type="button" class="h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-ink disabled:opacity-40" :disabled="!poPicked.length || poBusy" @click="pullPo">{{ poBusy ? "…" : L("Add the lines", "أضف السطور", "Ajouter les lignes") }}</button>
               </div>
             </div>
           </div>
@@ -133,11 +133,11 @@
           <div v-if="d.tax && (d.tax.rows.length || d.tax.can_edit)" class="bg-white border border-line rounded-[12px] overflow-hidden">
             <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[12px] font-bold">
               <Icon name="percent" :size="13" color="#0b5c4f" />{{ d.tax.label }}
-              <span class="text-[10.5px] text-ink-muted font-normal">{{ d.tax.rows.length }}</span>
+              <span class="text-[11px] text-ink-muted font-normal">{{ d.tax.rows.length }}</span>
             </div>
             <div class="overflow-auto">
               <table class="w-full text-[12px]">
-                <thead><tr class="bg-app-warm/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                <thead><tr class="bg-app-warm/60 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                   <th v-for="c in d.tax.columns" :key="c.field" class="px-2 py-2 text-start whitespace-nowrap" :class="c.type === 'Currency' ? 'text-end' : ''">{{ c.label }}</th>
                   <th v-if="d.tax.can_edit" class="w-8"></th>
                 </tr></thead>
@@ -160,8 +160,8 @@
               </table>
             </div>
             <div v-if="d.tax.can_edit" class="px-3 py-2 border-t border-line-hair flex items-center gap-3 flex-wrap">
-              <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="addTaxRow"><Icon name="plus" :size="12" />{{ L("Add a tax row", "إضافة سطر ضريبة", "Ajouter une taxe") }}</button>
-              <span class="text-[10.5px] text-ink-muted">{{ L("Set the type to Actual and type the amount printed on the invoice when the rates are mixed.", "خلّي النوع Actual واكتبي المبلغ المطبوع في الفاتورة لما الضرايب تكون مختلطة.", "Type « Actual » pour saisir le montant figurant sur la facture.") }}</span>
+              <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="addTaxRow"><Icon name="plus" :size="12" />{{ L("Add a tax row", "إضافة سطر ضريبة", "Ajouter une taxe") }}</button>
+              <span class="text-[11px] text-ink-muted">{{ L("Set the type to Actual and type the amount printed on the invoice when the rates are mixed.", "خلّي النوع Actual واكتبي المبلغ المطبوع في الفاتورة لما الضرايب تكون مختلطة.", "Type « Actual » pour saisir le montant figurant sur la facture.") }}</span>
             </div>
           </div>
         </template>
@@ -169,10 +169,10 @@
 
       <div class="px-5 py-3 border-t border-line-hair flex items-center gap-2">
         <span v-if="error" class="text-[12px] text-sale truncate">{{ error }}</span>
-        <span v-else class="text-[10.5px] text-ink-muted">{{ L("Saving runs ERPNext's own checks; totals and taxes recompute. Submit afterwards from the document.", "الحفظ بيمر على فحوصات ERPNext وبيعيد حساب الإجماليات. رحّل بعدها من المستند.", "L'enregistrement applique les contrôles ERPNext.") }}</span>
+        <span v-else class="text-[11px] text-ink-muted">{{ L("Saving runs ERPNext's own checks; totals and taxes recompute. Submit afterwards from the document.", "الحفظ بيمر على فحوصات ERPNext وبيعيد حساب الإجماليات. رحّل بعدها من المستند.", "L'enregistrement applique les contrôles ERPNext.") }}</span>
         <div class="ms-auto flex gap-2">
-          <button class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button class="h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="saving || !d.supported || (isJE && !balanced)" @click="save">{{ saving ? L("Saving…", "حفظ…", "…") : d.submitted_kind === 'reaccount' ? L("Save & repost ledger", "حفظ وإعادة ترحيل", "Enregistrer & reposter") : d.submitted_mode ? L("Update items", "تحديث السطور", "Mettre à jour") : L("Save draft", "حفظ المسودة", "Enregistrer") }}</button>
+          <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+          <UiButton variant="primary" :busy="saving" :disabled="saving || !d.supported || (isJE && !balanced)" @click="save">{{ saving ? L("Saving…", "حفظ…", "…") : d.submitted_kind === 'reaccount' ? L("Save & repost ledger", "حفظ وإعادة ترحيل", "Enregistrer & reposter") : d.submitted_mode ? L("Update items", "تحديث السطور", "Mettre à jour") : L("Save draft", "حفظ المسودة", "Enregistrer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -183,6 +183,7 @@
 import { ref, reactive, computed, onMounted, h, watch, Teleport } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
@@ -388,18 +389,18 @@ const ItemPick = {
                   : h("span", { class: "w-9 h-9 rounded-[7px] bg-app-warm border border-line flex-shrink-0" }),
                 h("div", { class: "min-w-0 flex-1" }, [
                   h("div", { class: "truncate" }, o.item_name || o.item_code),
-                  h("div", { class: "text-[10.5px] text-ink-muted font-mono truncate" }, o.sku ? `${o.item_code} · ${o.sku}` : o.item_code),
+                  h("div", { class: "text-[11px] text-ink-muted font-mono truncate" }, o.sku ? `${o.item_code} · ${o.sku}` : o.item_code),
                   o.description && o.description !== o.item_name
-                    ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, o.description) : null,
+                    ? h("div", { class: "text-[11px] text-ink-muted truncate" }, o.description) : null,
                   o.variant_of_name
-                    ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, "\u21b3 " + o.variant_of_name) : null,
+                    ? h("div", { class: "text-[11px] text-ink-muted truncate" }, "\u21b3 " + o.variant_of_name) : null,
                 ]),
               ])),
               // Nothing matched: offer to create it here rather than send her to
               // the Items screen and back. This is the Desk's "Create a new Item".
               qi.form.value
                 ? h("div", { class: "border-t border-line-hair p-3 space-y-2", onMousedown: (e) => e.preventDefault() }, [
-                    h("div", { class: "text-[11.5px] font-bold" }, "New item"),
+                    h("div", { class: "text-[12px] font-bold" }, "New item"),
                     h("input", { class: INP, placeholder: "Code", value: qi.form.value.item_code,
                                  onInput: (e) => { qi.form.value.item_code = e.target.value; } }),
                     h("input", { class: INP, placeholder: "Name", value: qi.form.value.item_name,
@@ -409,11 +410,11 @@ const ItemPick = {
                     h("select", { class: INP, onChange: (e) => { qi.form.value.uom = e.target.value; } },
                       qi.opts.value.uoms.map((u) => h("option", { value: u, selected: u === qi.form.value.uom }, u))),
                     qi.error.value ? h("div", { class: "text-[11px] text-sale" }, qi.error.value) : null,
-                    h("div", { class: "text-[10.5px] text-ink-muted" }, "Created as a non-stock item. Anything that moves through a warehouse belongs in Items."),
+                    h("div", { class: "text-[11px] text-ink-muted" }, "Created as a non-stock item. Anything that moves through a warehouse belongs in Items."),
                     h("div", { class: "flex justify-end gap-2" }, [
-                      h("button", { type: "button", class: "h-8 px-3 rounded-chip text-[11.5px] font-semibold text-ink-3",
+                      h("button", { type: "button", class: "h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3",
                                     onClick: () => qi.close() }, "Back"),
-                      h("button", { type: "button", class: "h-8 px-3.5 rounded-chip text-[11.5px] font-bold text-white bg-ink disabled:opacity-40",
+                      h("button", { type: "button", class: "h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-ink disabled:opacity-40",
                                     disabled: qi.busy.value,
                                     onClick: async () => { const made = await qi.create(); if (made) pick(made); } },
                         qi.busy.value ? "…" : "Create and use"),
@@ -448,11 +449,11 @@ const PartyPick = {
     function pick(o) { em("update:modelValue", o.name); open.value = false; hits.value = []; }
     return () => h("div", { class: "relative" }, [
       h("input", { value: p.modelValue, disabled: p.disabled, placeholder: p.partyType || "—", dir: "ltr",
-        class: (p.small ? "h-8 text-[12px] min-w-[160px]" : "h-9 text-[12.5px]") + " w-full rounded-[8px] border border-line-2 px-2 bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm",
+        class: (p.small ? "h-8 text-[12px] min-w-[160px]" : "h-9 text-[13px]") + " w-full rounded-[8px] border border-line-2 px-2 bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm",
         onInput, onFocus: () => { if (hits.value.length) open.value = true; }, onBlur: () => setTimeout(() => (open.value = false), 150) }),
       open.value && hits.value.length ? h("div", { class: "absolute z-30 mt-1 start-0 w-72 max-h-56 overflow-auto bg-white border border-line rounded-[10px] shadow-pop py-1" },
         hits.value.map((o) => h("button", { type: "button", class: "w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm", onMousedown: (e) => { e.preventDefault(); pick(o); } },
-          [h("span", { class: "font-mono text-[10.5px] text-ink-muted me-2" }, o.name), h("span", {}, o.label || "")]))) : null,
+          [h("span", { class: "font-mono text-[11px] text-ink-muted me-2" }, o.name), h("span", {}, o.label || "")]))) : null,
     ]);
   },
 };

@@ -3,10 +3,10 @@
     <div class="flex items-center gap-2 flex-wrap">
       <div class="flex gap-1 bg-white border border-line rounded-chip p-1 w-fit shadow-card">
         <button v-for="v in VIEWS" :key="v.k" class="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5" :class="view === v.k ? 'bg-app-warm text-accent-dark shadow-card' : 'text-ink-3 hover:text-ink'" @click="view = v.k">
-          <Icon :name="v.icon" :size="13" />{{ v.label() }}<span v-if="v.k==='recurring' && dueBadge" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">{{ dueBadge }}</span>
+          <Icon :name="v.icon" :size="13" />{{ v.label() }}<span v-if="v.k==='recurring' && dueBadge" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">{{ dueBadge }}</span>
         </button>
       </div>
-      <button v-if="can('post_entries')" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew">
+      <button v-if="can('post_entries')" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew">
         <Icon name="plus" :size="14" />{{ L("New expense", "مصروف جديد", "Nouvelle dépense") }}
       </button>
     </div>
@@ -21,13 +21,13 @@
           <div class="flex gap-1 bg-app-warm/50 rounded-chip p-0.5">
             <button v-for="gp in GROUPS" :key="gp.k" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="tx.filters.value.group === gp.k ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'" @click="setGroup(gp.k)">{{ gp.label() }}</button>
           </div>
-          <select :value="tx.filters.value.category" class="h-8 bg-app-warm/40 border border-line-2 rounded-[9px] px-2 text-[11.5px] focus:outline-none focus:border-accent/40" @change="setCat($event.target.value)">
+          <select :value="tx.filters.value.category" class="h-8 bg-app-warm/40 border border-line-2 rounded-[9px] px-2 text-[12px] focus:outline-none focus:border-accent/40" @change="setCat($event.target.value)">
             <option value="all">{{ L("All categories", "كل الفئات", "Toutes catégories") }}</option>
             <option v-for="c in CATS" :key="c" :value="c">{{ catLabel(c) }}</option>
           </select>
           <div class="inline-flex items-center gap-1 text-[11px] text-ink-muted">
             <span>≥</span>
-            <input type="number" min="0" :value="tx.filters.value.min_amount" placeholder="0" class="w-20 h-8 bg-app-warm/40 border border-line-2 rounded-[9px] px-2 text-[11.5px] text-end tnum focus:outline-none focus:border-accent/40" @change="setMin($event.target.value)" />
+            <input type="number" min="0" :value="tx.filters.value.min_amount" placeholder="0" class="w-20 h-8 bg-app-warm/40 border border-line-2 rounded-[9px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" @change="setMin($event.target.value)" />
           </div>
           <div class="ms-auto relative">
             <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="14" /></span>
@@ -37,7 +37,7 @@
         <TableLoading v-if="tx.loading.value" :rows="8" />
         <div v-else class="overflow-x-auto">
           <table class="w-full text-[12px]">
-            <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+            <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
               <th class="px-4 py-2 text-start">{{ L("Date", "التاريخ", "Date") }}</th>
               <th class="px-3 py-2 text-start">{{ L("Category", "الفئة", "Catégorie") }}</th>
               <th class="px-3 py-2 text-start">{{ L("Account", "الحساب", "Compte") }}</th>
@@ -47,9 +47,9 @@
             <tbody>
               <tr v-for="r in tx.rows.value" :key="r.id" class="border-t border-line-hair hover:bg-app-warm/40" :class="canOpen(r) ? 'cursor-pointer group' : ''" @click="openVoucher(r)">
                 <td class="px-4 py-2.5 whitespace-nowrap text-ink-2">{{ r.posting_date }}</td>
-                <td class="px-3 py-2.5"><span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-chip whitespace-nowrap" :style="`background:${catColor(r.category)}18;color:${catColor(r.category)}`">{{ catLabel(r.category) }}</span></td>
-                <td class="px-3 py-2.5"><div class="font-semibold truncate max-w-[240px]" :class="canOpen(r) ? 'group-hover:text-accent-dark' : ''">{{ r.nm }}</div><div v-if="r.remarks" class="text-[10px] text-ink-muted truncate max-w-[240px]">{{ r.remarks }}</div></td>
-                <td class="px-3 py-2.5 hidden md:table-cell"><div class="font-mono text-[10.5px] text-ink-3">{{ r.voucher_no }}</div><div class="text-[9.5px] text-ink-muted">{{ r.voucher_type }}<span v-if="r.party"> · {{ r.party }}</span></div></td>
+                <td class="px-3 py-2.5"><span class="text-[11px] font-semibold px-1.5 py-0.5 rounded-chip whitespace-nowrap" :style="`background:${catColor(r.category)}18;color:${catColor(r.category)}`">{{ catLabel(r.category) }}</span></td>
+                <td class="px-3 py-2.5"><div class="font-semibold truncate max-w-[240px]" :class="canOpen(r) ? 'group-hover:text-accent-dark' : ''">{{ r.nm }}</div><div v-if="r.remarks" class="text-[11px] text-ink-muted truncate max-w-[240px]">{{ r.remarks }}</div></td>
+                <td class="px-3 py-2.5 hidden md:table-cell"><div class="font-mono text-[11px] text-ink-3">{{ r.voucher_no }}</div><div class="text-[11px] text-ink-muted">{{ r.voucher_type }}<span v-if="r.party"> · {{ r.party }}</span></div></td>
                 <td class="px-4 py-2.5 text-end whitespace-nowrap">
                   <span class="tnum font-bold" :class="r.amount < 0 ? 'text-rose-500' : ''">{{ money(r.amount) }}</span>
                   <button v-if="can('post_entries') && canDup(r)" type="button" class="ms-2 align-middle text-ink-muted hover:text-accent-dark opacity-0 group-hover:opacity-100 transition" :title="L('Duplicate','تكرار','Dupliquer')" @click.stop="duplicate(r)"><Icon name="copy" :size="13" /></button>
@@ -70,7 +70,7 @@
     <TableLoading v-if="loading" :rows="6" />
     <div v-else-if="err" class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-10 text-center">
       <Icon name="alert" :size="20" color="#e11d48" class="inline-block mb-2" />
-      <p class="text-[12.5px] text-ink-2">{{ L("Couldn't load expenses.","تعذّر تحميل المصروفات.","Échec du chargement.") }}</p>
+      <p class="text-[13px] text-ink-2">{{ L("Couldn't load expenses.","تعذّر تحميل المصروفات.","Échec du chargement.") }}</p>
       <button type="button" class="mt-2 h-8 px-3 rounded-chip border border-line-2 text-[12px] font-semibold hover:bg-app-warm" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button>
     </div>
 
@@ -78,19 +78,19 @@
       <!-- the split the user wants: cost of sales vs operating expenses -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="bg-white rounded-card border border-line shadow-card px-4 py-3.5">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="layers" :size="13" color="#0f766e" />{{ L("Cost of sales","تكلفة المبيعات","Coût des ventes") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="layers" :size="13" color="#0f766e" />{{ L("Cost of sales","تكلفة المبيعات","Coût des ventes") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" style="color:#0f766e">{{ money(g.cost_of_sales) }} <span class="text-[12px] text-ink-muted font-bold">{{ ccy }}</span></div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ L("COGS + freight & logistics","تكلفة البضاعة + الشحن","CMV + fret") }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ L("COGS + freight & logistics","تكلفة البضاعة + الشحن","CMV + fret") }}</div>
         </div>
         <div class="bg-white rounded-card border border-line shadow-card px-4 py-3.5">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="building" :size="13" color="#7c3aed" />{{ L("Operating expenses","المصروفات التشغيلية","Charges d'exploitation") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="building" :size="13" color="#7c3aed" />{{ L("Operating expenses","المصروفات التشغيلية","Charges d'exploitation") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" style="color:#7c3aed">{{ money(g.opex) }} <span class="text-[12px] text-ink-muted font-bold">{{ ccy }}</span></div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ L("payroll · rent · marketing · taxes…","رواتب · إيجار · تسويق · ضرائب…","paie · loyer · marketing…") }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ L("payroll · rent · marketing · taxes…","رواتب · إيجار · تسويق · ضرائب…","paie · loyer · marketing…") }}</div>
         </div>
         <div class="bg-white rounded-card border border-line shadow-card px-4 py-3.5">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="wallet" :size="13" color="#0369a1" />{{ L("Total expense","إجمالي المصروف","Total") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="wallet" :size="13" color="#0369a1" />{{ L("Total expense","إجمالي المصروف","Total") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum">{{ money(data.total) }} <span class="text-[12px] text-ink-muted font-bold">{{ ccy }}</span></div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ (data.categories||[]).length }} {{ L("categories","فئات","catégories") }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ (data.categories||[]).length }} {{ L("categories","فئات","catégories") }}</div>
         </div>
       </div>
 
@@ -98,21 +98,21 @@
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
           <Icon name="list" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("By category","حسب الفئة","Par catégorie") }}</span>
-          <span class="text-[10px] text-ink-muted">{{ L("click to see accounts","اضغط لعرض الحسابات","cliquer pour les comptes") }}</span>
+          <span class="text-[11px] text-ink-muted">{{ L("click to see accounts","اضغط لعرض الحسابات","cliquer pour les comptes") }}</span>
         </div>
         <div v-for="c in data.categories" :key="c.cat" class="border-t border-line-hair first:border-t-0">
           <button type="button" class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-app-warm/40 text-start" @click="toggle(c.cat)">
             <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="`background:${c.color}`"></span>
-            <span class="text-[12.5px] font-semibold w-40 shrink-0">{{ catLabel(c.cat) }}</span>
-            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-chip shrink-0" :class="c.group==='cost_of_sales' ? 'bg-teal-50 text-teal-700' : 'bg-violet-50 text-violet-700'">{{ c.group==='cost_of_sales' ? L('COS','ت.مبيعات','CV') : L('OPEX','تشغيلي','OPEX') }}</span>
+            <span class="text-[13px] font-semibold w-40 shrink-0">{{ catLabel(c.cat) }}</span>
+            <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded-chip shrink-0" :class="c.group==='cost_of_sales' ? 'bg-teal-50 text-teal-700' : 'bg-violet-50 text-violet-700'">{{ c.group==='cost_of_sales' ? L('COS','ت.مبيعات','CV') : L('OPEX','تشغيلي','OPEX') }}</span>
             <span class="flex-1 hidden sm:block"><span class="block h-2 rounded-full" :style="`width:${bar(c.amount)}%;background:${c.color};opacity:.55`"></span></span>
-            <span class="text-[10.5px] text-ink-muted tnum w-10 text-end shrink-0">{{ pct(c.amount) }}%</span>
+            <span class="text-[11px] text-ink-muted tnum w-10 text-end shrink-0">{{ pct(c.amount) }}%</span>
             <span class="tnum font-bold text-[13px] w-28 text-end shrink-0">{{ money(c.amount) }}</span>
             <Icon name="arrow" :size="12" color="#cbd5e1" class="shrink-0 transition-transform" :class="open[c.cat] ? 'rotate-90' : ''" />
           </button>
           <div v-if="open[c.cat]" class="bg-app-warm/30 px-4 py-1">
-            <button v-for="a in (data.by_account[c.cat]||[])" :key="a.num" type="button" class="w-full flex items-center gap-2 py-1.5 text-[11.5px] border-b border-line-hair/60 last:border-b-0 hover:text-accent-dark text-start" @click="drillAccount(a)">
-              <span class="font-mono text-[10px] text-ink-muted w-24 shrink-0">{{ a.num || "—" }}</span>
+            <button v-for="a in (data.by_account[c.cat]||[])" :key="a.num" type="button" class="w-full flex items-center gap-2 py-1.5 text-[12px] border-b border-line-hair/60 last:border-b-0 hover:text-accent-dark text-start" @click="drillAccount(a)">
+              <span class="font-mono text-[11px] text-ink-muted w-24 shrink-0">{{ a.num || "—" }}</span>
               <span class="flex-1 truncate text-ink-2">{{ a.name }}</span>
               <span class="tnum font-semibold" :class="a.amount < 0 ? 'text-rose-500' : ''">{{ money(a.amount) }}</span>
             </button>
@@ -124,7 +124,7 @@
       <div v-if="(data.months||[]).length" class="bg-white rounded-card border border-line shadow-card px-4 py-3">
         <div class="flex items-center gap-2 mb-3 flex-wrap">
           <Icon name="chart" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Monthly trend","الاتجاه الشهري","Tendance mensuelle") }}</span>
-          <span class="ms-auto flex items-center gap-2.5 flex-wrap text-[9.5px] text-ink-muted">
+          <span class="ms-auto flex items-center gap-2.5 flex-wrap text-[11px] text-ink-muted">
             <span v-for="c in data.categories" :key="c.cat" class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm" :style="`background:${c.color}`"></span>{{ catLabel(c.cat) }}</span>
           </span>
         </div>
@@ -133,7 +133,7 @@
             <div class="w-full flex-1 flex flex-col justify-end" :title="mo.m + ' · ' + money(monthTotal(mo)) + ' ' + ccy">
               <div v-for="c in data.categories" :key="c.cat" v-show="(mo[c.cat]||0) > 0" :style="`height:${segH(mo[c.cat])}%;background:${c.color};min-height:1px`"></div>
             </div>
-            <span class="text-[9.5px] text-ink-muted whitespace-nowrap">{{ mLabel(mo.m) }}</span>
+            <span class="text-[11px] text-ink-muted whitespace-nowrap">{{ mLabel(mo.m) }}</span>
           </div>
         </div>
       </div>

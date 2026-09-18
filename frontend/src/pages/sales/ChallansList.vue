@@ -3,8 +3,8 @@
     <!-- Delivery funnel insights -->
     <div v-if="ins" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <div v-for="s in statCards" :key="s.label" class="bg-white rounded-[13px] border border-line px-4 py-3 shadow-card">
-        <div class="text-[10.5px] text-ink-muted font-semibold">{{ s.label }}</div>
-        <div class="text-[19px] font-bold tnum mt-0.5" :class="s.cls">{{ s.value }}</div>
+        <div class="text-[11px] text-ink-muted font-semibold">{{ s.label }}</div>
+        <div class="text-[20px] font-bold tnum mt-0.5" :class="s.cls">{{ s.value }}</div>
       </div>
     </div>
 
@@ -18,14 +18,14 @@
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} · {{ L("carrier shipments","شحنات الناقل","expéditions") }}</span>
         <div class="ms-auto relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="st.search.value" :placeholder="L('Search DN / customer / tracking…','بحث…','Rechercher…')" class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="st.search.value" :placeholder="L('Search DN / customer / tracking…','بحث…','Rechercher…')" class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
-            <th v-for="c in cols" :key="c.key" class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
+            <th v-for="c in cols" :key="c.key" class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
                 :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
               <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                 <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
@@ -33,10 +33,10 @@
           </tr></thead>
           <tbody>
             <tr v-for="r in st.rows.value" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="open(r.name)">
-              <td class="px-4 py-2.5 font-mono text-[11.5px] font-semibold">{{ r.name }}<span v-if="r.docstatus === 0" class="ms-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
+              <td class="px-4 py-2.5 font-mono text-[12px] font-semibold">{{ r.name }}<span v-if="r.docstatus === 0" class="ms-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
               <td class="px-4 py-2.5 truncate max-w-[200px]">{{ r.customer }}</td>
               <td class="px-4 py-2.5 text-ink-3">{{ r.carrier }}<span v-if="r.tracking && r.tracking !== '—'" class="text-ink-muted"> · {{ r.tracking }}</span></td>
-              <td class="px-4 py-2.5"><span class="inline-flex text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="statusBadge(r.status)">{{ r.status }}</span></td>
+              <td class="px-4 py-2.5"><span class="inline-flex text-[11px] font-bold px-2 py-0.5 rounded-badge" :style="statusBadge(r.status)">{{ r.status }}</span></td>
               <td class="px-4 py-2.5 text-end text-ink-3 whitespace-nowrap">{{ String(r.date || "") }}</td>
             </tr>
           </tbody>

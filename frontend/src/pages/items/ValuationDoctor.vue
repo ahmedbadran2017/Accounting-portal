@@ -8,21 +8,21 @@
     <!-- summary -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Flagged bins","مخازن معلَّمة","Signalés") }}</div>
-        <div class="text-[20px] font-extrabold tnum mt-0.5">{{ d.summary?.flagged ?? "—" }} <span class="text-[10px] text-ink-muted">/ {{ d.summary?.bins }}</span></div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Flagged bins","مخازن معلَّمة","Signalés") }}</div>
+        <div class="text-[20px] font-extrabold tnum mt-0.5">{{ d.summary?.flagged ?? "—" }} <span class="text-[11px] text-ink-muted">/ {{ d.summary?.bins }}</span></div>
       </div>
       <div class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-rose-600">{{ L("Overvalued","مقيَّم بالزيادة","Survalorisé") }}</div>
-        <div class="text-[20px] font-extrabold tnum mt-0.5 text-rose-600">{{ money(d.summary?.overvalued_mad) }} <span class="text-[10px]">MAD</span></div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-rose-600">{{ L("Overvalued","مقيَّم بالزيادة","Survalorisé") }}</div>
+        <div class="text-[20px] font-extrabold tnum mt-0.5 text-rose-600">{{ money(d.summary?.overvalued_mad) }} <span class="text-[11px]">MAD</span></div>
       </div>
       <div class="bg-white rounded-card border border-amber-200 shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700">{{ L("Undervalued","مقيَّم بالنقص","Sous-valorisé") }}</div>
-        <div class="text-[20px] font-extrabold tnum mt-0.5 text-amber-700">{{ money(d.summary?.undervalued_mad) }} <span class="text-[10px]">MAD</span></div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">{{ L("Undervalued","مقيَّم بالنقص","Sous-valorisé") }}</div>
+        <div class="text-[20px] font-extrabold tnum mt-0.5 text-amber-700">{{ money(d.summary?.undervalued_mad) }} <span class="text-[11px]">MAD</span></div>
       </div>
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Repost queue","طابور إعادة الحساب","File repost") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Repost queue","طابور إعادة الحساب","File repost") }}</div>
         <div class="text-[13px] font-bold mt-1 flex items-center gap-2 flex-wrap">
-          <span v-for="(n, s) in (rq.counts || {})" :key="s" class="px-2 py-0.5 rounded-chip text-[10px]" :class="s==='Failed' ? 'bg-rose-50 text-rose-700' : s==='Queued' ? 'bg-amber-50 text-amber-700' : 'bg-app-warm text-ink-3'">{{ s }} {{ n }}</span>
+          <span v-for="(n, s) in (rq.counts || {})" :key="s" class="px-2 py-0.5 rounded-chip text-[11px]" :class="s==='Failed' ? 'bg-rose-50 text-rose-700' : s==='Queued' ? 'bg-amber-50 text-amber-700' : 'bg-app-warm text-ink-3'">{{ s }} {{ n }}</span>
           <span v-if="!Object.keys(rq.counts || {}).length" class="text-[11px] text-ink-muted">{{ L("empty","فاضي","vide") }}</span>
         </div>
       </div>
@@ -32,15 +32,15 @@
     <div v-if="(rq.rows || []).length" class="bg-white rounded-card border border-amber-200 shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2">
         <Icon name="clock" :size="14" color="#b45309" />{{ L("Repost jobs not finished","إعادة حسابات لسه ماخلصتش","Reposts en attente") }}
-        <span class="text-[10px] text-ink-muted">{{ rq.rows.length }}</span>
+        <span class="text-[11px] text-ink-muted">{{ rq.rows.length }}</span>
       </div>
       <div class="overflow-x-auto"><table class="w-full text-[12px]">
         <tbody>
           <tr v-for="r in rq.rows" :key="r.name" class="border-t border-line-hair">
-            <td class="px-4 py-2 font-mono text-[10.5px]">{{ r.name }}</td>
+            <td class="px-4 py-2 font-mono text-[11px]">{{ r.name }}</td>
             <td class="px-3 py-2">{{ r.item_code || r.voucher_no }}</td>
             <td class="px-3 py-2 text-ink-3">{{ r.posting_date }}</td>
-            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded-chip text-[10px]" :class="r.status==='Failed' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'">{{ r.status }}</span></td>
+            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded-chip text-[11px]" :class="r.status==='Failed' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'">{{ r.status }}</span></td>
             <td class="px-3 py-2 text-end">
               <button v-if="canWrite && ['Queued','Failed'].includes(r.status)" type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40" :disabled="kicking===r.name" @click="kick(r)">{{ kicking===r.name ? '…' : L('Kick','ادفع','Relancer') }}</button>
             </td>
@@ -54,7 +54,7 @@
       <button type="button" class="px-3 py-1.5 rounded-lg text-[12px]" :class="mode==='dist' ? 'text-accent-dark font-semibold bg-app-warm shadow-card' : 'text-ink-3 font-medium hover:text-ink'" @click="mode='dist'">{{ L("Distortions","التشويهات","Écarts") }}</button>
       <button type="button" class="px-3 py-1.5 rounded-lg text-[12px]" :class="mode==='zero' ? 'text-accent-dark font-semibold bg-app-warm shadow-card' : 'text-ink-3 font-medium hover:text-ink'" @click="mode='zero'">
         {{ L("Zero-COGS sellers","بيع بتكلفة صفر","COGS zéro") }}
-        <span v-if="z.summary?.sellers" class="ms-1 text-[10px] font-bold text-rose-600">{{ z.summary.sellers }}</span>
+        <span v-if="z.summary?.sellers" class="ms-1 text-[11px] font-bold text-rose-600">{{ z.summary.sellers }}</span>
       </button>
     </div>
 
@@ -62,7 +62,7 @@
     <div v-if="mode==='zero'" class="bg-white rounded-card border border-rose-200 shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2 flex-wrap">
         <Icon name="alert" :size="14" color="#e11d48" />{{ L("Selling at zero cost — every delivery books 100% fake margin","بيتباعوا بتكلفة صفر — كل تسليمة هامشها وهمي 100%","Vendus à coût nul") }}
-        <span class="text-[10px] text-ink-muted">{{ z.summary?.sellers || 0 }} {{ L("selling","بيتباعوا","vendus") }} / {{ z.summary?.bins || 0 }} · {{ L("missed COGS 2026 ≈","تكلفة ضايعة 2026 ≈","COGS manqué ≈") }} <b class="text-rose-600">{{ money(z.summary?.missed_cogs) }}</b></span>
+        <span class="text-[11px] text-ink-muted">{{ z.summary?.sellers || 0 }} {{ L("selling","بيتباعوا","vendus") }} / {{ z.summary?.bins || 0 }} · {{ L("missed COGS 2026 ≈","تكلفة ضايعة 2026 ≈","COGS manqué ≈") }} <b class="text-rose-600">{{ money(z.summary?.missed_cogs) }}</b></span>
         <button v-if="canWrite && selZero.length" type="button" class="ms-auto h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="bulkBusy" @click="fixSelected">
           {{ bulkBusy ? bulkProgress : L(`Fix ${selZero.length} at benchmark`, `صحّح ${selZero.length} بالمرجع`, `Corriger ${selZero.length}`) }}
         </button>
@@ -70,7 +70,7 @@
       <TableLoading v-if="zLoading" :rows="6" />
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[12px]">
-          <thead><tr style="background:#fff1f2" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <thead><tr style="background:#fff1f2" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <th class="ps-4 py-2 w-8"><input type="checkbox" :checked="allZeroSel" class="accent-emerald-700" @change="toggleAllZero" /></th>
             <th class="px-2 py-2 text-start">{{ L("Item","الصنف","Article") }}</th>
             <th class="px-3 py-2 text-start">{{ L("Warehouse","المخزن","Dépôt") }}</th>
@@ -86,7 +86,7 @@
               <td class="px-2 py-2 max-w-[220px]">
                 <router-link :to="{ path: '/accounting/items/costing', query: { item: r.item_code } }" class="hover:underline">
                   <div class="truncate font-medium">{{ r.item_name }}</div>
-                  <div class="text-[10px] text-ink-muted font-mono">{{ r.sku || r.item_code }}</div>
+                  <div class="text-[11px] text-ink-muted font-mono">{{ r.sku || r.item_code }}</div>
                 </router-link>
               </td>
               <td class="px-3 py-2 text-[11px] whitespace-nowrap">{{ r.warehouse.replace(/ - \w+$/, "") }}</td>
@@ -99,14 +99,14 @@
                   <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="w-[80px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none" :placeholder="String(r.benchmark)" />
                   <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" :disabled="busy===key(r)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</button>
                 </div>
-                <span v-else-if="!r.benchmark" class="text-[10px] text-ink-muted">{{ L("no purchase basis — set cost from Costing","بدون أساس شراء — حدد التكلفة من Costing","sans base") }}</span>
+                <span v-else-if="!r.benchmark" class="text-[11px] text-ink-muted">{{ L("no purchase basis — set cost from Costing","بدون أساس شراء — حدد التكلفة من Costing","sans base") }}</span>
               </td>
             </tr>
             <tr v-if="!(z.rows || []).length"><td colspan="8" class="px-4 py-8 text-center text-ink-muted">{{ L("No zero-valuation stock 🎉","مفيش مخزون بتقييم صفري 🎉","Aucun stock à zéro") }}</td></tr>
           </tbody>
         </table>
       </div>
-      <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+      <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
         <Icon name="alert" :size="11" color="#9a8f86" />{{ L("Fix posts a Stock Reconciliation at the benchmark; later deliveries repost with real COGS. Material fixes go to approval.","التصحيح بيرحّل Stock Reconciliation بالمرجع؛ التسليمات اللاحقة بيتعاد حسابها بتكلفة حقيقية. الكبير بيروح للموافقة.","Corrections auditées.") }}
       </div>
     </div>
@@ -120,7 +120,7 @@
       <TableLoading v-if="loading" :rows="8" />
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[12px]">
-          <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <th class="px-4 py-2 text-start">{{ L("Item","الصنف","Article") }}</th>
             <th class="px-3 py-2 text-start">{{ L("Warehouse","المخزن","Dépôt") }}</th>
             <th class="px-3 py-2 text-end">{{ L("Qty","كمية","Qté") }}</th>
@@ -134,7 +134,7 @@
               <td class="px-4 py-2 max-w-[240px]">
                 <router-link :to="{ path: '/accounting/items/costing', query: { item: r.item_code } }" class="hover:underline">
                   <div class="truncate font-medium">{{ r.item_name }}</div>
-                  <div class="text-[10px] text-ink-muted font-mono">{{ r.sku || r.item_code }}</div>
+                  <div class="text-[11px] text-ink-muted font-mono">{{ r.sku || r.item_code }}</div>
                 </router-link>
               </td>
               <td class="px-3 py-2 text-[11px] whitespace-nowrap">{{ r.warehouse.replace(/ - \w+$/, "") }}</td>
@@ -142,13 +142,13 @@
               <td class="px-3 py-2 text-end tnum font-semibold" :class="r.flag==='overvalued' ? 'text-rose-600' : r.flag==='undervalued' || r.flag==='zero_rate' ? 'text-amber-700' : ''">{{ money(r.vr) }}</td>
               <td class="px-3 py-2 text-end tnum">{{ r.benchmark != null ? money(r.benchmark) : "—" }}</td>
               <td class="px-3 py-2 text-end tnum whitespace-nowrap">
-                <span v-if="r.dev_pct != null" :class="r.flag==='overvalued' ? 'text-rose-600' : r.flag==='undervalued' ? 'text-amber-700' : 'text-ink-3'">{{ money(r.distortion) }} <span class="text-[9.5px]">({{ r.dev_pct > 0 ? "+" : "" }}{{ r.dev_pct }}%)</span></span>
-                <span v-else class="text-[10px] text-ink-muted">{{ r.flag === 'zero_rate' ? L('zero rate','سعر صفري','taux zéro') : L('no purchase basis','بدون أساس شراء','sans base') }}</span>
+                <span v-if="r.dev_pct != null" :class="r.flag==='overvalued' ? 'text-rose-600' : r.flag==='undervalued' ? 'text-amber-700' : 'text-ink-3'">{{ money(r.distortion) }} <span class="text-[11px]">({{ r.dev_pct > 0 ? "+" : "" }}{{ r.dev_pct }}%)</span></span>
+                <span v-else class="text-[11px] text-ink-muted">{{ r.flag === 'zero_rate' ? L('zero rate','سعر صفري','taux zéro') : L('no purchase basis','بدون أساس شراء','sans base') }}</span>
               </td>
               <td class="px-4 py-2 text-end whitespace-nowrap">
                 <div v-if="canWrite && r.flag !== 'ok' && r.flag !== 'no_basis'" class="inline-flex items-center gap-1.5">
                   <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="w-[84px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none" :placeholder="r.benchmark != null ? String(r.benchmark) : '0.00'" />
-                  <input v-model="fixDate[key(r)]" type="date" :max="today" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-1.5 text-[10.5px] focus:outline-none" />
+                  <input v-model="fixDate[key(r)]" type="date" :max="today" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-1.5 text-[11px] focus:outline-none" />
                   <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" :disabled="busy===key(r) || !(Number(fixRate[key(r)] ?? r.benchmark) > 0)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</button>
                 </div>
               </td>
@@ -157,7 +157,7 @@
           </tbody>
         </table>
       </div>
-      <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+      <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
         <Icon name="alert" :size="11" color="#9a8f86" />
         {{ L("Benchmark = FX-corrected purchase cost + freight","المرجعي = تكلفة الشراء المصححة + الشحن","Référence = coût corrigé + fret") }}
         <template v-if="d.freight">({{ d.freight.rate }}/kg · {{ L("weights known for","الوزن معروف لـ","poids") }} {{ d.freight.coverage_pct }}%)</template>

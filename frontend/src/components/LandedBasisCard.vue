@@ -5,13 +5,13 @@
        the monthly COGS true-ups. -->
   <div v-if="loadErr && !sr" class="bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center gap-2">
     <span class="text-[12px] text-sale font-semibold">{{ L("Couldn't load the landed basis.","معرفناش نحمّل أساس الشحن.","Échec de chargement.") }}</span>
-    <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+    <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
   </div>
   <div v-else-if="sr" class="bg-white rounded-card border shadow-card overflow-hidden" :style="sr.frozen ? 'border-color:#a7f3d0' : 'border-color:#e7e5e4'">
     <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap cursor-pointer" @click="open = !open">
       <span class="text-[13px] font-bold">{{ L("Landed basis (reconciliation & freeze)","أساس الشحن (التسوية والتجميد)","Base landed (réconciliation)") }} {{ sr.year }}</span>
-      <span v-if="sr.frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">❄ {{ L("FROZEN","مجمّد","GELÉ") }}</span>
-      <span v-if="sr.frozen && sr.recon.post_freeze_receipts" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309"
+      <span v-if="sr.frozen" class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">❄ {{ L("FROZEN","مجمّد","GELÉ") }}</span>
+      <span v-if="sr.frozen && sr.recon.post_freeze_receipts" class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309"
             :title="L('Shipments received after the freeze carry no landed in the frozen snapshot — unfreeze and re-freeze to refresh it.','شحنات وصلت بعد التجميد مش جوه اللقطة المجمّدة — فكّوا وجمّدوا تاني لتحديثها.','Expéditions reçues après le gel.')">
         ⚠ {{ sr.recon.post_freeze_receipts }} {{ L("new shipments since freeze","شحنات جديدة بعد التجميد","depuis le gel") }}</span>
       <span class="text-[11px] text-ink-muted flex-1">
@@ -32,26 +32,26 @@
       <div>
         <div class="text-[11px] font-bold text-ink-2 mb-1.5">🧾 {{ L("Freight bills on the included accounts","فواتير الشحن على الحسابات المفعّلة","Factures fret") }}</div>
         <div class="border border-line rounded-[8px] overflow-hidden max-h-[240px] overflow-y-auto">
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9" class="sticky top-0">
-              <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Bill","الفاتورة","Facture") }}</th>
-              <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier / account","المورّد / الحساب","Fourn.") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
-              <th class="px-3 py-1.5 text-center text-[10px] font-bold text-ink-muted">{{ L("Covers","بتغطي","Couvre") }}</th>
+              <th class="px-3 py-1.5 text-start text-[11px] font-bold text-ink-muted">{{ L("Bill","الفاتورة","Facture") }}</th>
+              <th class="px-3 py-1.5 text-start text-[11px] font-bold text-ink-muted">{{ L("Supplier / account","المورّد / الحساب","Fourn.") }}</th>
+              <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
+              <th class="px-3 py-1.5 text-center text-[11px] font-bold text-ink-muted">{{ L("Covers","بتغطي","Couvre") }}</th>
               <th class="px-3 py-1.5"></th>
             </tr></thead>
             <tbody>
               <tr v-for="b in sortedBills" :key="b.voucher" class="border-t border-line-hair first:border-0" :style="b.excluded ? 'opacity:.45' : b.prs.length ? '' : 'background:#fffbeb'">
-                <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ b.voucher }}<div class="text-[10px] text-ink-muted font-sans">{{ b.dt }}</div></td>
-                <td class="px-3 py-1.5"><div class="truncate max-w-[180px]">{{ b.supplier || "—" }}</div><div class="text-[10px] text-ink-muted truncate max-w-[180px]">{{ b.account }}</div></td>
+                <td class="px-3 py-1.5 font-mono text-[11px] whitespace-nowrap" dir="ltr">{{ b.voucher }}<div class="text-[11px] text-ink-muted font-sans">{{ b.dt }}</div></td>
+                <td class="px-3 py-1.5"><div class="truncate max-w-[180px]">{{ b.supplier || "—" }}</div><div class="text-[11px] text-ink-muted truncate max-w-[180px]">{{ b.account }}</div></td>
                 <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmt0(b.amount) }}</td>
                 <td class="px-3 py-1.5 text-center">
-                  <span v-if="b.excluded" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f5f4;color:#78716c">{{ L("not freight","مش شحن","hors fret") }}</span>
-                  <span v-else-if="b.prs.length" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ b.prs.length }} {{ L("shipment(s)","شحنة","exp.") }}</span>
-                  <span v-else class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unallocated","غير موزعة","non allouée") }}</span>
+                  <span v-if="b.excluded" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f5f4;color:#78716c">{{ L("not freight","مش شحن","hors fret") }}</span>
+                  <span v-else-if="b.prs.length" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ b.prs.length }} {{ L("shipment(s)","شحنة","exp.") }}</span>
+                  <span v-else class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unallocated","غير موزعة","non allouée") }}</span>
                 </td>
                 <td class="px-3 py-1.5 text-end">
-                  <button v-if="canWrite && !sr.frozen" class="text-[10.5px] px-1.5 py-1 rounded-[6px] border border-line text-ink-3 hover:bg-app-warm"
+                  <button v-if="canWrite && !sr.frozen" class="text-[11px] px-1.5 py-1 rounded-[6px] border border-line text-ink-3 hover:bg-app-warm"
                           :title="b.excluded ? L('Restore — it IS a freight bill','رجّعها — دي فاتورة شحن','Restaurer') : L('Exclude — not a freight bill','استبعدها — مش فاتورة شحن','Exclure')"
                           @click="toggleExclude(b)">{{ b.excluded ? "↺" : "✕" }}</button>
                 </td>
@@ -66,7 +66,7 @@
       <div>
         <div class="text-[11px] font-bold text-ink-2 mb-1.5">🛫 {{ L("Air tariff bands (MAD/kg) — prefill for the per-shipment rate confirm","تعريفة الجوي بالفترات (درهم/كجم) — بتتعبّى تلقائيًا في اعتماد سعر كل شحنة","Barème aérien") }}</div>
         <div class="flex items-center gap-2 flex-wrap">
-          <span v-for="(r, i) in airRates" :key="i" class="inline-flex items-center gap-1.5 border border-line rounded-[8px] px-2 py-1 text-[11.5px] tnum" dir="ltr">
+          <span v-for="(r, i) in airRates" :key="i" class="inline-flex items-center gap-1.5 border border-line rounded-[8px] px-2 py-1 text-[12px] tnum" dir="ltr">
             {{ L("from","من","dès") }} <input type="date" v-model="r.from" :disabled="!canWrite || !!sr.frozen" class="border-0 outline-none bg-transparent w-[120px]" @change="saveAirRates" />
             → <input type="number" step="1" v-model.number="r.rate" :disabled="!canWrite || !!sr.frozen" class="border-0 outline-none bg-transparent w-[52px] font-bold" @change="saveAirRates" /> /kg
             <button v-if="canWrite && !sr.frozen" class="text-sale text-[12px]" @click="airRates.splice(i,1); saveAirRates()">✕</button>
@@ -86,19 +86,19 @@
       <!-- bill-source accounts -->
       <div>
         <div class="text-[11px] font-bold text-ink-2 mb-1.5">🗂 {{ L("Freight accounts (bill sources)","حسابات الشحن (مصادر الفواتير)","Comptes fret") }}</div>
-        <table class="w-full text-[11.5px] border border-line rounded-[8px] overflow-hidden">
+        <table class="w-full text-[12px] border border-line rounded-[8px] overflow-hidden">
           <thead><tr style="background:#fafaf9">
-            <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
-            <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Net","الصافي","Net") }}</th>
-            <th class="px-3 py-1.5 text-center text-[10px] font-bold text-ink-muted">{{ L("Type","النوع","Type") }}</th>
-            <th class="px-3 py-1.5 text-center text-[10px] font-bold text-ink-muted">{{ L("Include","تفعيل","Inclure") }}</th>
+            <th class="px-3 py-1.5 text-start text-[11px] font-bold text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
+            <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">{{ L("Net","الصافي","Net") }}</th>
+            <th class="px-3 py-1.5 text-center text-[11px] font-bold text-ink-muted">{{ L("Type","النوع","Type") }}</th>
+            <th class="px-3 py-1.5 text-center text-[11px] font-bold text-ink-muted">{{ L("Include","تفعيل","Inclure") }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="r in sr.pool_rows" :key="r.account" class="border-t border-line-hair first:border-0" :style="r.included ? '' : 'opacity:.55'">
-              <td class="px-3 py-1.5 truncate max-w-[250px]">{{ r.account }}<span class="text-[10px] text-ink-muted"> · {{ r.entries }}</span></td>
+              <td class="px-3 py-1.5 truncate max-w-[250px]">{{ r.account }}<span class="text-[11px] text-ink-muted"> · {{ r.entries }}</span></td>
               <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmt0(r.net) }}</td>
               <td class="px-3 py-1.5 text-center w-[90px]">
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full"
                       :style="r.suggested==='inbound' ? 'background:#ecfdf5;color:#047857' : r.suggested==='outbound' ? 'background:#f5f5f4;color:#78716c' : 'background:#fffbeb;color:#b45309'">
                   {{ r.suggested==='inbound' ? L('inbound','وارد','entrant') : r.suggested==='outbound' ? L('outbound','صادر','sortant') : L('review','مراجعة','revue') }}
                 </span>
@@ -118,14 +118,14 @@
           <span :title="L('Item fixes do NOT need the freeze — they gate on per-item shipment completeness.','تظبيط الأصناف مش محتاج التجميد — بوابته اكتمال شحنات الصنف.','Les corrections ne dépendent pas du gel.')">
             {{ L("Freeze snapshots every shipment's cost — required only for the monthly true-ups.","التجميد بياخد لقطة بتكلفة كل شحنة — مطلوب فقط لتسويات الشهور.","Gel requis uniquement pour les régularisations.") }}</span>
         </span>
-        <button v-if="canFreeze && !sr.frozen" class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+        <button v-if="canFreeze && !sr.frozen" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                 :disabled="busy || !!sr.recon.unallocated_count"
                 :title="sr.recon.unallocated_count ? L('Blocked: unallocated bills','متقفل: فيه فواتير غير موزَّعة','Bloqué : factures non allouées') : ''"
                 @click="freezeBasis">❄ {{ L("Freeze basis","جمّد الأساس","Geler") }}</button>
-        <button v-if="canFreeze && sr.frozen" class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
+        <button v-if="canFreeze && sr.frozen" class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
                 :disabled="busy" @click="unfreezeBasis">{{ L("Unfreeze","فكّ التجميد","Dégeler") }}</button>
-        <span v-if="!canFreeze" class="text-[10px] text-ink-3">{{ L("Freezing is Super-Admin only","التجميد للسوبر أدمن فقط","Gel : Super-Admin uniquement") }}</span>
-        <span v-if="sr.frozen" class="text-[10px] text-ink-3" dir="ltr">{{ sr.frozen.by }} · {{ sr.frozen.on }}</span>
+        <span v-if="!canFreeze" class="text-[11px] text-ink-3">{{ L("Freezing is Super-Admin only","التجميد للسوبر أدمن فقط","Gel : Super-Admin uniquement") }}</span>
+        <span v-if="sr.frozen" class="text-[11px] text-ink-3" dir="ltr">{{ sr.frozen.by }} · {{ sr.frozen.on }}</span>
       </div>
     </div>
   </div>

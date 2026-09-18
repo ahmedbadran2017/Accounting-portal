@@ -11,7 +11,7 @@
         <div class="flex items-center gap-3 flex-wrap">
           <span class="w-10 h-10 rounded-[12px] grid place-items-center" style="background:#eff6ff"><Icon name="doc" :size="18" color="#0369a1" /></span>
           <div class="flex-1 min-w-0">
-            <div class="text-[14px] font-bold truncate">{{ d.file_name }} <span class="text-[10px] font-mono text-ink-muted">{{ d.name }}</span></div>
+            <div class="text-[14px] font-bold truncate">{{ d.file_name }} <span class="text-[11px] font-mono text-ink-muted">{{ d.name }}</span></div>
             <div class="text-[11px] text-ink-muted">{{ d.account }} · {{ d.from_date }} → {{ d.to_date }} · {{ L("by","بواسطة","par") }} {{ d.owner }}</div>
           </div>
           <div class="flex items-center gap-2 flex-wrap text-[11px] font-semibold">
@@ -20,7 +20,7 @@
             <span class="px-2.5 py-1 rounded-chip" style="background:#eff6ff;color:#0369a1">➕ {{ d.n_created }}</span>
             <span class="px-2.5 py-1 rounded-chip" style="background:#f5f5f4;color:#78716c">👁 {{ d.n_ignored }}</span>
             <span class="px-2.5 py-1 rounded-chip font-bold" :class="pendingN ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'">{{ pendingN ? pendingN + " " + L("pending","متبقي","restants") : L("Done 🎉","خلصت 🎉","Terminé") }}</span>
-            <button v-if="canWrite && pendingN" type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="rematching" @click="rematch">{{ rematching ? "…" : L("Re-match", "إعادة مطابقة", "Re-lier") }}</button>
+            <button v-if="canWrite && pendingN" type="button" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="rematching" @click="rematch">{{ rematching ? "…" : L("Re-match", "إعادة مطابقة", "Re-lier") }}</button>
           </div>
         </div>
       </div>
@@ -29,7 +29,7 @@
       <div class="flex flex-wrap items-center gap-1 bg-white border border-line rounded-chip p-1 w-fit">
         <button v-for="fl in FILTERS" :key="fl.k" type="button" class="px-3 py-1.5 rounded-lg text-[12px]"
                 :class="filter === fl.k ? 'text-accent-dark font-semibold bg-app-warm shadow-card' : 'text-ink-3 font-medium hover:text-ink'"
-                @click="filter = fl.k">{{ fl.label() }} <span class="text-[10px] text-ink-muted">{{ fl.n() }}</span></button>
+                @click="filter = fl.k">{{ fl.label() }} <span class="text-[11px] text-ink-muted">{{ fl.n() }}</span></button>
       </div>
 
       <!-- bulk selection bar -->
@@ -37,14 +37,14 @@
         <span class="text-[12px] font-bold text-emerald-800">{{ sel.length }} {{ L("selected","مختار","sélectionnés") }} · {{ selDir === 'mixed' ? L('mixed direction','اتجاه مختلط','mixte') : money(selTotal) }}</span>
         <button type="button" class="text-[11px] text-ink-3 hover:underline" @click="sel = []">{{ L("clear","إلغاء","effacer") }}</button>
         <button v-if="selDir !== 'mixed'" type="button" class="ms-auto h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openBulk">{{ L(`Register ${sel.length} together`, `سجّل ${sel.length} مرة واحدة`, `Créer ${sel.length}`) }}</button>
-        <span v-else class="ms-auto text-[10.5px] text-amber-700 font-semibold">{{ L("select all money-in or all money-out","اختار كلهم داخل أو كلهم خارج","une seule direction") }}</span>
+        <span v-else class="ms-auto text-[11px] text-amber-700 font-semibold">{{ L("select all money-in or all money-out","اختار كلهم داخل أو كلهم خارج","une seule direction") }}</span>
       </div>
 
       <!-- lines, chronological -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
-            <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+            <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
               <th v-if="canWrite" class="ps-4 py-2 w-8"><input type="checkbox" :checked="allPendingSel" class="accent-emerald-700" @change="toggleAllPending" /></th>
               <th class="px-4 py-2 text-start cursor-pointer select-none hover:text-ink-2" @click="toggleSort('date')">{{ L("Date","التاريخ","Date") }}<span v-if="sortKey==='date'" class="text-accent-dark">{{ sortDir===1 ? ' ↑' : ' ↓' }}</span></th>
               <th class="px-3 py-2 text-start cursor-pointer select-none hover:text-ink-2" @click="toggleSort('description')">{{ L("Description","الوصف","Description") }}<span v-if="sortKey==='description'" class="text-accent-dark">{{ sortDir===1 ? ' ↑' : ' ↓' }}</span></th>
@@ -57,15 +57,15 @@
                 <td v-if="canWrite" class="ps-4 py-2 w-8"><input v-if="l.status==='pending'" type="checkbox" :checked="sel.includes(l.i)" class="accent-emerald-700" @change="toggleSel(l)" /></td>
                 <td class="px-4 py-2 whitespace-nowrap text-ink-3">{{ l.date }}</td>
                 <td class="px-3 py-2 max-w-[340px]"><div class="truncate" :title="l.description">{{ l.description || "—" }}</div>
-                  <div v-if="l.reason" class="text-[10px] text-ink-muted">{{ L("reason","السبب","raison") }}: {{ l.reason }}</div>
+                  <div v-if="l.reason" class="text-[11px] text-ink-muted">{{ L("reason","السبب","raison") }}: {{ l.reason }}</div>
                 </td>
                 <td class="px-3 py-2 text-end tnum font-semibold whitespace-nowrap" :class="l.amount < 0 ? 'text-sale' : 'text-success-dark'">{{ l.amount < 0 ? "−" : "+" }}{{ money(Math.abs(l.amount)) }}</td>
                 <td class="px-3 py-2 whitespace-nowrap">
-                  <span v-if="l.status==='matched'" class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip" style="background:#ecfdf5;color:#047857">✓ {{ l.voucher }}<span v-if="l.split > 1"> +{{ l.split - 1 }}</span></span>
-                  <span v-else-if="l.status==='created'" class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip" style="background:#eff6ff;color:#0369a1">➕ {{ l.voucher }}</span>
-                  <span v-else-if="l.status==='ignored'" class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip" style="background:#f5f5f4;color:#78716c">👁 {{ L("ignored","متجاهَل","ignoré") }}</span>
-                  <span v-else class="text-[10.5px] font-semibold px-2 py-0.5 rounded-chip bg-amber-50 text-amber-800">{{ L("missing in books","ناقص في الدفاتر","manquant") }}</span>
-                  <div v-if="l.by && l.by!=='auto'" class="text-[9.5px] text-ink-muted mt-0.5">{{ l.by.split("@")[0] }} · {{ l.at }}</div>
+                  <span v-if="l.status==='matched'" class="text-[11px] font-semibold px-2 py-0.5 rounded-chip" style="background:#ecfdf5;color:#047857">✓ {{ l.voucher }}<span v-if="l.split > 1"> +{{ l.split - 1 }}</span></span>
+                  <span v-else-if="l.status==='created'" class="text-[11px] font-semibold px-2 py-0.5 rounded-chip" style="background:#eff6ff;color:#0369a1">➕ {{ l.voucher }}</span>
+                  <span v-else-if="l.status==='ignored'" class="text-[11px] font-semibold px-2 py-0.5 rounded-chip" style="background:#f5f5f4;color:#78716c">👁 {{ L("ignored","متجاهَل","ignoré") }}</span>
+                  <span v-else class="text-[11px] font-semibold px-2 py-0.5 rounded-chip bg-amber-50 text-amber-800">{{ L("missing in books","ناقص في الدفاتر","manquant") }}</span>
+                  <div v-if="l.by && l.by!=='auto'" class="text-[11px] text-ink-muted mt-0.5">{{ l.by.split("@")[0] }} · {{ l.at }}</div>
                 </td>
                 <td class="px-4 py-2 text-end whitespace-nowrap">
                   <div v-if="canWrite && l.status==='pending'" class="inline-flex items-center gap-1.5">
@@ -74,14 +74,14 @@
                     <button type="button" class="h-7 px-2 rounded-chip text-[11px] text-accent-dark hover:bg-app-warm" :title="L('Transfer between our accounts','تحويل بين حساباتنا','Virement interne')" @click="openTransfer(l)">↔</button>
                     <button type="button" class="h-7 px-2 rounded-chip text-[11px] text-ink-3 hover:bg-app-warm" @click="ignore(l)">{{ L("Ignore","تجاهل","Ignorer") }}</button>
                   </div>
-                  <button v-else-if="canWrite && l.status!=='pending'" type="button" class="text-[10.5px] text-ink-muted hover:text-sale hover:underline" @click="reset(l)">{{ L("undo","تراجع","annuler") }}</button>
+                  <button v-else-if="canWrite && l.status!=='pending'" type="button" class="text-[11px] text-ink-muted hover:text-sale hover:underline" @click="reset(l)">{{ L("undo","تراجع","annuler") }}</button>
                 </td>
               </tr>
               <tr v-if="!visible.length"><td :colspan="canWrite ? 6 : 5" class="px-4 py-10 text-center text-ink-muted">{{ L("Nothing in this filter.","مفيش حاجة في الفلتر ده.","Rien ici.") }}</td></tr>
             </tbody>
           </table>
         </div>
-        <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+        <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
           <Icon name="alert" :size="11" color="#9a8f86" />{{ L("Register opens the expense form (supplier bill or quick cash) prefilled from the line; Match links an existing uncleared entry and marks it reconciled at the line's date.","«سجّل» بيفتح فورم المصروفات (فاتورة مورّد أو مصروف فوري) متعبي من السطر؛ «اربط» بيوصل قيد موجود ويعلّمه مُسوّى بتاريخ السطر.","Créer / Lier / Ignorer.") }}
         </div>
       </div>
@@ -102,7 +102,7 @@
                      :placeholder="L('search by supplier / ref / voucher — for split payments','ابحث باسم المورّد / المرجع / السند — للدفعات المقسّمة','rechercher fournisseur / réf')"
                      class="w-full h-9 bg-app-warm/40 border border-line-2 rounded-chip ps-9 pe-3 text-[12px] focus:outline-none focus:border-accent/40" />
             </div>
-            <div class="mt-1.5 text-[10.5px] text-ink-muted">{{ L("Tick several entries whose total equals this line (one transfer paying many invoices).","علّم على أكتر من قيد مجموعهم = السطر ده (تحويل واحد بيسدد كذا فاتورة).","Cochez plusieurs écritures.") }}</div>
+            <div class="mt-1.5 text-[11px] text-ink-muted">{{ L("Tick several entries whose total equals this line (one transfer paying many invoices).","علّم على أكتر من قيد مجموعهم = السطر ده (تحويل واحد بيسدد كذا فاتورة).","Cochez plusieurs écritures.") }}</div>
           </div>
           <div class="p-4 pt-2">
             <div v-if="candBusy" class="py-8 text-center text-ink-muted text-[12px]">{{ L("Searching…","جارٍ البحث…","…") }}</div>
@@ -110,7 +110,7 @@
               <tbody>
                 <tr v-for="c in cands" :key="c.voucher" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" :class="pickedV.includes(c.voucher) ? 'bg-emerald-50/50' : ''" @click="toggleCand(c)">
                   <td class="ps-3 py-2 w-8"><input type="checkbox" :checked="pickedV.includes(c.voucher)" class="accent-emerald-700 pointer-events-none" /></td>
-                  <td class="px-2 py-2 font-mono text-[11px]">{{ c.voucher }}<div class="text-[9.5px] text-ink-muted font-sans">{{ c.voucher_type }}<span v-if="c.cleared" class="ms-1 text-emerald-700 font-semibold">· {{ L("already reconciled","مُسوّى قبل كده","déjà rapproché") }}</span></div></td>
+                  <td class="px-2 py-2 font-mono text-[11px]">{{ c.voucher }}<div class="text-[11px] text-ink-muted font-sans">{{ c.voucher_type }}<span v-if="c.cleared" class="ms-1 text-emerald-700 font-semibold">· {{ L("already reconciled","مُسوّى قبل كده","déjà rapproché") }}</span></div></td>
                   <td class="px-2 py-2 text-ink-3 whitespace-nowrap">{{ c.date }}</td>
                   <td class="px-2 py-2 truncate max-w-[170px] text-[11px]">{{ c.party || c.ref }}</td>
                   <td class="px-2 py-2 text-end tnum font-semibold" :class="c.amount<0 ? 'text-sale' : 'text-success-dark'">{{ money(c.amount) }}</td>
@@ -151,7 +151,7 @@
                 <button v-for="a in bulkFiltered" :key="a.name" type="button" class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0"
                         :class="a.name === bulkAccount ? 'bg-accent-soft font-semibold' : ''" @click="bulkAccount = a.name">
                   <span class="flex-1 truncate">{{ a.num ? a.num + " · " : "" }}{{ a.nm }}</span>
-                  <span class="text-[9.5px] text-ink-muted">{{ a.typ || a.rt }}</span>
+                  <span class="text-[11px] text-ink-muted">{{ a.typ || a.rt }}</span>
                   <Icon v-if="a.name === bulkAccount" name="check" :size="13" color="#047857" />
                 </button>
                 <div v-if="!bulkFiltered.length" class="px-3 py-4 text-center text-[11px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun.") }}</div>
@@ -186,7 +186,7 @@
                 <button v-for="a in inFiltered" :key="a.name" type="button" class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0"
                         :class="a.name === inAccount ? 'bg-accent-soft font-semibold' : ''" @click="inAccount = a.name">
                   <span class="flex-1 truncate">{{ a.num ? a.num + " · " : "" }}{{ a.nm }}</span>
-                  <span class="text-[9.5px] text-ink-muted">{{ a.typ || a.rt }}</span>
+                  <span class="text-[11px] text-ink-muted">{{ a.typ || a.rt }}</span>
                   <Icon v-if="a.name === inAccount" name="check" :size="13" color="#047857" />
                 </button>
                 <div v-if="!inFiltered.length" class="px-3 py-4 text-center text-[11px] text-ink-muted">{{ L("No account matches.","لا حساب مطابق.","Aucun.") }}</div>

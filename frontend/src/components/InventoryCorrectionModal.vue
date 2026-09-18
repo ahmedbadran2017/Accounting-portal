@@ -12,8 +12,8 @@
       <div v-else class="p-5 space-y-3.5">
         <!-- Diagnosis -->
         <div class="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3">
-          <p v-if="p.stock_account" class="text-[11.5px] text-amber-800 leading-relaxed">{{ L("Stock-in-hand carries "+money(p.stock_balance)+" while “"+shortAcct(p.adjustment_account)+"” absorbs "+money(p.adjustment_balance)+". This nets the churn out: stock falls to "+money(p.stock_after)+" and the adjustment account zeroes.","المخزون يحمل "+money(p.stock_balance)+" بينما يمتص حساب التسوية "+money(p.adjustment_balance)+". هذا القيد يصفّي الفرق: المخزون ينزل إلى "+money(p.stock_after)+".","Le stock porte "+money(p.stock_balance)+"; cette écriture le ramène à "+money(p.stock_after)+".") }}</p>
-          <p v-else class="text-[11.5px] text-amber-800 leading-relaxed">{{ L("“"+shortAcct(p.account)+"” holds "+money(p.balance)+" across "+(p.entries||0).toLocaleString()+" parked entries. This reclassifies the balance to COGS and zeroes the pile.","حساب التصحيح يحمل "+money(p.balance)+" عبر "+(p.entries||0).toLocaleString()+" قيد. هذا يعيد تصنيفه لتكلفة المبيعات ويصفّي الرصيد.","Le compte de correction porte "+money(p.balance)+" sur "+(p.entries||0).toLocaleString()+" écritures. Reclassé en CMV.") }}</p>
+          <p v-if="p.stock_account" class="text-[12px] text-amber-800 leading-relaxed">{{ L("Stock-in-hand carries "+money(p.stock_balance)+" while “"+shortAcct(p.adjustment_account)+"” absorbs "+money(p.adjustment_balance)+". This nets the churn out: stock falls to "+money(p.stock_after)+" and the adjustment account zeroes.","المخزون يحمل "+money(p.stock_balance)+" بينما يمتص حساب التسوية "+money(p.adjustment_balance)+". هذا القيد يصفّي الفرق: المخزون ينزل إلى "+money(p.stock_after)+".","Le stock porte "+money(p.stock_balance)+"; cette écriture le ramène à "+money(p.stock_after)+".") }}</p>
+          <p v-else class="text-[12px] text-amber-800 leading-relaxed">{{ L("“"+shortAcct(p.account)+"” holds "+money(p.balance)+" across "+(p.entries||0).toLocaleString()+" parked entries. This reclassifies the balance to COGS and zeroes the pile.","حساب التصحيح يحمل "+money(p.balance)+" عبر "+(p.entries||0).toLocaleString()+" قيد. هذا يعيد تصنيفه لتكلفة المبيعات ويصفّي الرصيد.","Le compte de correction porte "+money(p.balance)+" sur "+(p.entries||0).toLocaleString()+" écritures. Reclassé en CMV.") }}</p>
         </div>
 
         <!-- Credit target choice (inventory only) -->
@@ -27,17 +27,17 @@
         <div class="border border-line rounded-[12px] overflow-hidden">
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
+              <th class="px-3 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="(ln, i) in lines" :key="i" class="border-t border-line-hair">
                 <td class="px-3 py-2">
-                  <SearchSelect v-model="ln.account" :items="accountItems" :placeholder="L('Account…','حساب…','Compte…')" :empty-text="L('No account','لا حساب','Aucun')" input-class="h-8 text-[11.5px] bg-white" />
+                  <SearchSelect v-model="ln.account" :items="accountItems" :placeholder="L('Account…','حساب…','Compte…')" :empty-text="L('No account','لا حساب','Aucun')" input-class="h-8 text-[12px] bg-white" />
                 </td>
-                <td class="px-3 py-2"><input v-model.number="ln.debit" type="number" min="0" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[11.5px] text-end tnum focus:outline-none focus:border-accent/40" /></td>
-                <td class="px-3 py-2"><input v-model.number="ln.credit" type="number" min="0" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[11.5px] text-end tnum focus:outline-none focus:border-accent/40" /></td>
+                <td class="px-3 py-2"><input v-model.number="ln.debit" type="number" min="0" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" /></td>
+                <td class="px-3 py-2"><input v-model.number="ln.credit" type="number" min="0" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" /></td>
               </tr>
             </tbody>
             <tfoot>
@@ -50,9 +50,9 @@
           </table>
         </div>
 
-        <input v-model.trim="remark" :placeholder="L('Remark','ملاحظة','Remarque')" class="w-full h-9 border border-line-2 rounded-[9px] px-3 text-[12.5px] focus:outline-none focus:border-accent/40" />
-        <div class="flex items-center gap-2 text-[10.5px] text-ink-muted"><Icon name="shield" :size="12" />{{ L("Large entries are sent for approval before they post — nothing posts directly.","القيود الكبيرة تُرسل للموافقة قبل الترحيل.","Les écritures importantes nécessitent une approbation.") }}</div>
-        <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+        <input v-model.trim="remark" :placeholder="L('Remark','ملاحظة','Remarque')" class="w-full h-9 border border-line-2 rounded-[9px] px-3 text-[13px] focus:outline-none focus:border-accent/40" />
+        <div class="flex items-center gap-2 text-[11px] text-ink-muted"><Icon name="shield" :size="12" />{{ L("Large entries are sent for approval before they post — nothing posts directly.","القيود الكبيرة تُرسل للموافقة قبل الترحيل.","Les écritures importantes nécessitent une approbation.") }}</div>
+        <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
         <div class="flex justify-end gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="$emit('close')">{{ L("Cancel","إلغاء","Annuler") }}</button>
           <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !balanced || !totalDr" @click="submit">

@@ -21,7 +21,7 @@
       <!-- headline: what the whole correction is worth + audit progress -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3 lg:col-span-2">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("COGS correction across 2026","تصحيح COGS عبر 2026","Correction COGS 2026") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("COGS correction across 2026","تصحيح COGS عبر 2026","Correction COGS 2026") }}</div>
           <div class="text-[22px] font-extrabold tnum" :style="d.total_delta<0 ? 'color:#047857' : 'color:#b45309'" dir="ltr">
             {{ d.total_delta<0 ? '' : '+' }}{{ money(d.total_delta) }} <span class="text-[12px] font-bold text-ink-muted">MAD</span>
           </div>
@@ -34,12 +34,12 @@
           </div>
         </div>
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Audit progress","تقدّم المراجعة","Audit") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Audit progress","تقدّم المراجعة","Audit") }}</div>
           <div class="text-[22px] font-extrabold tnum" dir="ltr">{{ d.verified.pct }}%</div>
           <div class="mt-1 h-2 rounded-full overflow-hidden" style="background:#f1f5f9">
             <div class="h-full rounded-full" style="background:#059669" :style="{ width: d.verified.pct + '%' }"></div>
           </div>
-          <div class="text-[10.5px] text-ink-muted mt-1 tnum" dir="ltr">{{ n(d.verified.done) }} / {{ n(d.verified.total) }} {{ L("items verified","صنف متحقق","vérifiés") }}</div>
+          <div class="text-[11px] text-ink-muted mt-1 tnum" dir="ltr">{{ n(d.verified.done) }} / {{ n(d.verified.total) }} {{ L("items verified","صنف متحقق","vérifiés") }}</div>
         </div>
       </div>
 
@@ -65,14 +65,14 @@
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Ledger rows","صفوف","Lignes") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("COGS now","COGS الحالي","COGS actuel") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Corrected","المصحّح","Corrigé") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Δ profit","Δ الربح","Δ profit") }}</th>
-              <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("No-cost u","بلا تكلفة","Sans coût") }}</th>
+              <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Ledger rows","صفوف","Lignes") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("COGS now","COGS الحالي","COGS actuel") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Corrected","المصحّح","Corrigé") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Δ profit","Δ الربح","Δ profit") }}</th>
+              <th class="px-3 py-2 text-center text-[11px] font-bold text-ink-muted">{{ L("No-cost u","بلا تكلفة","Sans coût") }}</th>
               <th class="px-3 py-2 text-end"></th>
             </tr></thead>
             <tbody>
@@ -87,10 +87,10 @@
                 </td>
                 <td class="px-3 py-2 text-center tnum" :style="m.unpriced_units ? 'color:#b45309' : 'color:#cbd5e1'" dir="ltr">{{ n(m.unpriced_units) }}</td>
                 <td class="px-3 py-2 text-end">
-                  <span v-if="m.status==='done'" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ L("done","تم","fait") }}</span>
-                  <button v-else-if="m.ready" disabled class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line text-ink-muted opacity-70"
+                  <span v-if="m.status==='done'" class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ L("done","تم","fait") }}</span>
+                  <button v-else-if="m.ready" disabled class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-muted opacity-70"
                           :title="L('arming next','بيتفعّل في الخطوة الجاية','bientôt')">{{ L("Apply","طبّق","Appliquer") }} · {{ L("next","قريب","à venir") }}</button>
-                  <span v-else class="text-[10px] text-ink-muted">{{ L("waiting","في الانتظار","en attente") }}</span>
+                  <span v-else class="text-[11px] text-ink-muted">{{ L("waiting","في الانتظار","en attente") }}</span>
                 </td>
               </tr>
             </tbody>
@@ -107,7 +107,7 @@
         </div>
       </div>
 
-      <div class="text-[10.5px] text-ink-muted px-1">
+      <div class="text-[11px] text-ink-muted px-1">
         {{ L("Read-only plan. The forward and per-month write actions are gated, audited and reversible — armed as the next step, each previewed before it posts.",
              "خطة للقراءة فقط. أكشنات الكتابة (الأمام والشهور) gated وقابلة للعكس — بتتفعّل في الخطوة الجاية، وكل واحدة بمعاينة قبل الترحيل.",
              "Plan en lecture seule ; les actions d'écriture arrivent ensuite.") }}

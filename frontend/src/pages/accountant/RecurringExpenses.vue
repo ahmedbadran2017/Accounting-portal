@@ -3,33 +3,33 @@
     <!-- summary -->
     <div class="grid grid-cols-3 gap-3">
       <div class="bg-white rounded-card border shadow-card px-4 py-3" :class="d.overdue ? 'border-rose-200' : 'border-line'">
-        <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="d.overdue ? 'text-rose-600' : 'text-ink-muted'"><Icon name="alert" :size="13" :color="d.overdue ? '#e11d48' : '#94a3b8'" />{{ L("Overdue","متأخّرة","En retard") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="d.overdue ? 'text-rose-600' : 'text-ink-muted'"><Icon name="alert" :size="13" :color="d.overdue ? '#e11d48' : '#94a3b8'" />{{ L("Overdue","متأخّرة","En retard") }}</div>
         <div class="text-[20px] font-extrabold mt-1 tnum" :class="d.overdue ? 'text-rose-600' : ''">{{ loading ? "—" : (d.overdue || 0) }}</div>
-        <div class="text-[10.5px] text-ink-muted mt-0.5">{{ L("past due, not booked","فات موعدها ولم تُسجّل","non enregistrées") }}</div>
+        <div class="text-[11px] text-ink-muted mt-0.5">{{ L("past due, not booked","فات موعدها ولم تُسجّل","non enregistrées") }}</div>
       </div>
       <div class="bg-white rounded-card border shadow-card px-4 py-3" :class="d.due ? 'border-amber-200' : 'border-line'">
-        <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="d.due ? 'text-amber-700' : 'text-ink-muted'"><Icon name="clock" :size="13" :color="d.due ? '#b45309' : '#94a3b8'" />{{ L("Due soon","مستحقة قريباً","Bientôt") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="d.due ? 'text-amber-700' : 'text-ink-muted'"><Icon name="clock" :size="13" :color="d.due ? '#b45309' : '#94a3b8'" />{{ L("Due soon","مستحقة قريباً","Bientôt") }}</div>
         <div class="text-[20px] font-extrabold mt-1 tnum" :class="d.due ? 'text-amber-700' : ''">{{ loading ? "—" : (d.due || 0) }}</div>
-        <div class="text-[10.5px] text-ink-muted mt-0.5">{{ L("within 7 days","خلال 7 أيام","sous 7 jours") }}</div>
+        <div class="text-[11px] text-ink-muted mt-0.5">{{ L("within 7 days","خلال 7 أيام","sous 7 jours") }}</div>
       </div>
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="wallet" :size="13" color="#7c3aed" />{{ L("Monthly total","إجمالي شهري","Total mensuel") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="wallet" :size="13" color="#7c3aed" />{{ L("Monthly total","إجمالي شهري","Total mensuel") }}</div>
         <div class="text-[20px] font-extrabold mt-1 tnum" style="color:#7c3aed">{{ loading ? "—" : money(d.monthly_total) }}</div>
-        <div class="text-[10.5px] text-ink-muted mt-0.5">{{ ccy }} · {{ L("recurring monthly","متكرر شهري","récurrent") }}</div>
+        <div class="text-[11px] text-ink-muted mt-0.5">{{ ccy }} · {{ L("recurring monthly","متكرر شهري","récurrent") }}</div>
       </div>
     </div>
 
     <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
         <Icon name="clock" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Recurring expenses","المصروفات المتكرّرة","Charges récurrentes") }}</span>
-        <span class="text-[10px] text-ink-muted">{{ L("detected from history · overdue first","مكتشفة من السجل · المتأخّر أولاً","détecté de l'historique") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ L("detected from history · overdue first","مكتشفة من السجل · المتأخّر أولاً","détecté de l'historique") }}</span>
       </div>
       <TableLoading v-if="loading" :rows="8" />
       <div v-else-if="err" class="px-4 py-10 text-center"><Icon name="alert" :size="18" color="#e11d48" /><p class="text-[12px] text-ink-2 mt-1">{{ L("Couldn't load.","تعذّر التحميل.","Échec.") }}</p><button class="mt-2 h-8 px-3 rounded-chip border border-line-2 text-[12px] font-semibold" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button></div>
       <div v-else-if="!(d.recurring||[]).length" class="px-4 py-10 text-center text-[12px] text-ink-muted">{{ L("No recurring expenses detected.","لم تُكتشف مصروفات متكرّرة.","Aucune.") }}</div>
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[12px]">
-          <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <th class="px-4 py-2 text-start">{{ L("Expense","المصروف","Charge") }}</th>
             <th class="px-3 py-2 text-start hidden sm:table-cell">{{ L("Cadence","التكرار","Cadence") }}</th>
             <th class="px-3 py-2 text-end">{{ L("Avg / time","المتوسط","Moyenne") }}</th>
@@ -43,15 +43,15 @@
                   <span class="w-2 h-2 rounded-sm shrink-0" :style="`background:${r.color}`"></span>
                   <div class="min-w-0">
                     <div class="font-semibold truncate max-w-[220px]">{{ r.supplier }}</div>
-                    <div class="text-[10.5px] text-ink-muted truncate max-w-[220px]">{{ r.account_name }}</div>
+                    <div class="text-[11px] text-ink-muted truncate max-w-[220px]">{{ r.account_name }}</div>
                   </div>
                 </div>
               </td>
               <td class="px-3 py-2.5 text-ink-2 hidden sm:table-cell">{{ cadence(r.cadence) }} <span class="text-ink-muted">· {{ r.months }} {{ L("mo","شهر","mois") }}</span></td>
               <td class="px-3 py-2.5 text-end tnum font-semibold">{{ money(r.avg_amt) }}</td>
               <td class="px-3 py-2.5">
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded" :class="badge(r.status)">{{ r.next }}</span>
-                <div class="text-[10px] text-ink-muted mt-0.5">{{ dueLabel(r) }}</div>
+                <span class="text-[11px] font-bold px-1.5 py-0.5 rounded" :class="badge(r.status)">{{ r.next }}</span>
+                <div class="text-[11px] text-ink-muted mt-0.5">{{ dueLabel(r) }}</div>
               </td>
               <td class="px-4 py-2.5 text-end whitespace-nowrap">
                 <div v-if="canWrite && r.status!=='ok'" class="inline-flex items-center gap-1.5">
@@ -67,7 +67,7 @@
           </tbody>
         </table>
       </div>
-      <div class="px-4 py-2 border-t border-line-hair text-[10px] text-ink-muted flex items-center gap-1.5">
+      <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
         <Icon name="alert" :size="11" color="#9a8f86" />{{ L("“Record” opens the expense form prefilled (posts a journal). “Draft bill” copies the last bill forward as an unpaid draft to review.","«تسجيل» بيفتح نموذج المصروف معبّأ (بيرحّل قيد). «درافت فاتورة» بينسخ آخر فاتورة كمسودّة غير مدفوعة للمراجعة.","« Enregistrer » ouvre le formulaire pré-rempli ; « Brouillon » copie la dernière facture.") }}
       </div>
     </div>

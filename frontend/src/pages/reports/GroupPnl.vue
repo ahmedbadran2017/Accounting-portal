@@ -20,7 +20,7 @@
         <button v-for="c in ['USD','MAD']" :key="c" @click="ccy=c;load()"
                 class="h-[30px] px-3 text-[12px] font-bold" :class="ccy===c ? 'bg-accent text-white' : 'bg-white text-ink-muted'">{{ c }}</button>
       </div>
-      <span v-if="d.model" class="text-[10.5px] text-ink-muted">{{ L("model","النموذج","modèle") }}: {{ d.model.verified }} {{ L("verified","متحقق","vérifiés") }} · ×{{ d.model.factor }}</span>
+      <span v-if="d.model" class="text-[11px] text-ink-muted">{{ L("model","النموذج","modèle") }}: {{ d.model.verified }} {{ L("verified","متحقق","vérifiés") }} · ×{{ d.model.factor }}</span>
     </div>
 
     <div v-if="loading" class="py-16 text-center text-[12px] text-ink-muted">{{ L("Loading…","جاري التحميل…","Chargement…") }}</div>
@@ -32,14 +32,14 @@
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
           <div class="lab">{{ L("Revenue (incl. TVA)","الإيراد (شامل TVA)","Revenu (TTC)") }}</div>
           <div class="big tnum" dir="ltr">{{ money(t.revenue) }}</div>
-          <div v-if="t.vat_kept" class="text-[10.5px] tnum" style="color:#047857" dir="ltr">
+          <div v-if="t.vat_kept" class="text-[11px] tnum" style="color:#047857" dir="ltr">
             {{ L("TVA kept","TVA محتفظ بها","TVA conservée") }}: {{ money(t.vat_kept) }} · {{ L("settled","مسدّد","réglée") }}: {{ money(t.vat_settled) }}
           </div>
         </div>
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
           <div class="lab">{{ L("Gross margin","مجمل الربح","Marge brute") }}</div>
           <div class="big tnum" dir="ltr">{{ money(t.gross) }}</div>
-          <div class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ t.gm_pct }}%</div>
+          <div class="text-[11px] text-ink-muted tnum" dir="ltr">{{ t.gm_pct }}%</div>
         </div>
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
           <div class="lab">{{ L("Operating costs","المصاريف","Charges") }}</div>
@@ -55,10 +55,10 @@
       <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair text-[13px] font-bold">
           {{ L("Month by month","شهر بشهر","Mois par mois") }}
-          <span class="text-[10.5px] font-normal text-ink-muted">— {{ d.ccy }}</span>
+          <span class="text-[11px] font-normal text-ink-muted">— {{ d.ccy }}</span>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
               <th class="px-3 py-2 text-start th">{{ L("Month","الشهر","Mois") }}</th>
               <th class="px-3 py-2 text-end th">{{ L("Revenue (TTC)","إيراد شامل TVA","Revenu TTC") }}</th>
@@ -76,7 +76,7 @@
                 <td class="px-3 py-2 text-end tnum font-bold" :style="r.gm_pct<20 ? 'color:#b45309' : 'color:#047857'" dir="ltr">{{ r.gm_pct }}%</td>
                 <td class="px-3 py-2 text-end tnum text-ink-muted" dir="ltr">{{ money(r.opex) }}</td>
                 <td class="px-3 py-2 text-end tnum font-bold" :style="r.net<0 ? 'color:#b91c1c' : 'color:#047857'" dir="ltr">{{ money(r.net) }}</td>
-                <td class="px-3 py-2 text-end tnum text-[10px]" style="color:#9a8f86" dir="ltr">
+                <td class="px-3 py-2 text-end tnum text-[11px]" style="color:#9a8f86" dir="ltr">
                   {{ money(r.cogs_booked) }}
                   <span v-if="r.cogs_booked" :style="Math.abs(r.cogs_booked-r.cogs) > r.cogs*0.15 ? 'color:#b45309' : ''"> ({{ pct(r.cogs_booked, r.revenue) }}%)</span>
                 </td>
@@ -88,7 +88,7 @@
                 <td class="px-3 py-2 text-end tnum font-extrabold" dir="ltr">{{ t.gm_pct }}%</td>
                 <td class="px-3 py-2 text-end tnum font-extrabold" dir="ltr">{{ money(t.opex) }}</td>
                 <td class="px-3 py-2 text-end tnum font-extrabold" :style="t.net<0 ? 'color:#b91c1c' : 'color:#047857'" dir="ltr">{{ money(t.net) }}</td>
-                <td class="px-3 py-2 text-end tnum text-[10px]" style="color:#9a8f86" dir="ltr">{{ money(t.cogs_booked) }}</td>
+                <td class="px-3 py-2 text-end tnum text-[11px]" style="color:#9a8f86" dir="ltr">{{ money(t.cogs_booked) }}</td>
               </tr>
             </tbody>
           </table>
@@ -99,10 +99,10 @@
       <div class="grid lg:grid-cols-2 gap-3">
         <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
           <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold">{{ L("Operating costs by entity","المصاريف حسب الكيان","Charges par entité") }}</div>
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <tbody>
               <tr v-for="(v,co) in d.opex_by_company" :key="co" class="border-t border-line-hair">
-                <td class="px-4 py-1.5">{{ co }} <span class="text-[10px] text-ink-muted">({{ d.roles[co] }})</span></td>
+                <td class="px-4 py-1.5">{{ co }} <span class="text-[11px] text-ink-muted">({{ d.roles[co] }})</span></td>
                 <td class="px-4 py-1.5 text-end tnum" dir="ltr">{{ money(v) }}</td>
               </tr>
             </tbody>
@@ -112,7 +112,7 @@
           <div class="px-4 py-2.5 border-b text-[12px] font-bold" style="border-color:#fde68a;background:#fffbeb">
             {{ L("Eliminated (intercompany, disclosed)","المُقصى (بين الشركات، مُفصح)","Éliminé (intragroupe)") }}
           </div>
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <tbody>
               <tr v-for="(v,co) in d.eliminated" :key="co" class="border-t border-line-hair">
                 <td class="px-4 py-1.5">{{ co }}</td>

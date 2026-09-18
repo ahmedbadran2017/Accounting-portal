@@ -6,9 +6,9 @@
               :class="sel === c.company ? 'shadow-cardHover -translate-y-0.5 border-accent/50' : 'border-line hover:-translate-y-0.5'" @click="pick(c.company)">
         <div class="flex items-center justify-between gap-2">
           <span class="text-[12px] font-bold truncate">{{ c.company }}</span>
-          <span class="text-[15px] font-extrabold tnum" :style="`color:${scoreColor(c.score)}`">{{ c.score }}</span>
+          <span class="text-[16px] font-extrabold tnum" :style="`color:${scoreColor(c.score)}`">{{ c.score }}</span>
         </div>
-        <div class="mt-1.5 flex flex-wrap gap-1 text-[10px] font-semibold">
+        <div class="mt-1.5 flex flex-wrap gap-1 text-[11px] font-semibold">
           <span v-if="c.counts.sign" class="px-1.5 py-0.5 rounded-chip bg-rose-50 text-rose-600">{{ c.counts.sign }} {{ L('sign','إشارة','signe') }}</span>
           <span v-if="c.counts.miscash" class="px-1.5 py-0.5 rounded-chip bg-amber-50 text-amber-700">{{ c.counts.miscash }} {{ L('cash','كاش','caisse') }}</span>
           <span v-if="c.counts.junk" class="px-1.5 py-0.5 rounded-chip bg-stone-100 text-stone-600">{{ c.counts.junk }} {{ L('junk','زبالة','junk') }}</span>
@@ -24,7 +24,7 @@
     <div v-if="sel" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
         <Icon name="ledger" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold truncate max-w-[200px]">{{ sel }}</span>
-        <span class="text-[10px] text-ink-muted">{{ d.total }} {{ L('accounts','حساب','comptes') }} · {{ L('score','النقاط','score') }} <b :style="`color:${scoreColor(d.score)}`">{{ d.score }}</b></span>
+        <span class="text-[11px] text-ink-muted">{{ d.total }} {{ L('accounts','حساب','comptes') }} · {{ L('score','النقاط','score') }} <b :style="`color:${scoreColor(d.score)}`">{{ d.score }}</b></span>
         <div class="flex gap-1 bg-app-warm/50 rounded-chip p-0.5 ms-auto overflow-x-auto">
           <button v-for="ch in CHECKS" :key="ch.k" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap" :class="tab===ch.k ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'" @click="tab=ch.k">
             {{ ch.label() }} <span v-if="count(ch.k)" class="tnum">({{ count(ch.k) }})</span>
@@ -45,20 +45,20 @@
             <!-- duplicate groups -->
             <template v-if="tab==='duplicates'">
               <tr v-for="(g,i) in rows" :key="i" class="border-t border-line-hair first:border-t-0">
-                <td class="px-4 py-2"><div class="text-[10px] text-ink-muted uppercase tracking-wider mb-0.5">{{ g.accounts.length }} {{ L('same name','بنفس الاسم','même nom') }}</div>
-                  <div v-for="a in g.accounts" :key="a.account" class="flex items-center gap-2 py-0.5"><span class="font-mono text-[10px] text-ink-muted w-24">{{ a.num || '—' }}</span><button class="text-[11.5px] hover:text-accent-dark text-start truncate max-w-[420px]" @click="gl(a.account)">{{ a.account }}</button><span class="text-[9px] px-1 rounded bg-app-warm text-ink-muted">{{ a.root }}</span></div>
+                <td class="px-4 py-2"><div class="text-[11px] text-ink-muted uppercase tracking-wider mb-0.5">{{ g.accounts.length }} {{ L('same name','بنفس الاسم','même nom') }}</div>
+                  <div v-for="a in g.accounts" :key="a.account" class="flex items-center gap-2 py-0.5"><span class="font-mono text-[11px] text-ink-muted w-24">{{ a.num || '—' }}</span><button class="text-[12px] hover:text-accent-dark text-start truncate max-w-[420px]" @click="gl(a.account)">{{ a.account }}</button><span class="text-[11px] px-1 rounded bg-app-warm text-ink-muted">{{ a.root }}</span></div>
                 </td>
               </tr>
             </template>
             <!-- account rows -->
             <template v-else>
               <tr v-for="r in rows" :key="r.account" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40" :class="r.disabled ? 'opacity-50' : ''">
-                <td class="px-4 py-2.5"><button class="font-semibold text-start hover:text-accent-dark truncate max-w-[300px] block" @click="gl(r.account)">{{ r.nm }}</button><div class="text-[10px] text-ink-muted font-mono">{{ r.num }} · {{ r.root }}<span v-if="r.typ"> · {{ r.typ }}</span></div></td>
-                <td class="px-3 py-2.5 text-end tnum" :class="r.bal < 0 ? 'text-rose-600' : 'text-ink-3'">{{ money(r.bal) }} <span class="text-[9px] text-ink-muted">{{ r.ccy }}</span></td>
+                <td class="px-4 py-2.5"><button class="font-semibold text-start hover:text-accent-dark truncate max-w-[300px] block" @click="gl(r.account)">{{ r.nm }}</button><div class="text-[11px] text-ink-muted font-mono">{{ r.num }} · {{ r.root }}<span v-if="r.typ"> · {{ r.typ }}</span></div></td>
+                <td class="px-3 py-2.5 text-end tnum" :class="r.bal < 0 ? 'text-rose-600' : 'text-ink-3'">{{ money(r.bal) }} <span class="text-[11px] text-ink-muted">{{ r.ccy }}</span></td>
                 <td class="px-3 py-2.5 text-end tnum text-ink-muted hidden sm:table-cell">{{ r.n }} {{ L('txn','حركة','écr.') }}</td>
                 <td class="px-4 py-2.5 text-end whitespace-nowrap">
-                  <span v-if="r.suggestion" class="text-[10px] text-amber-700 me-2">{{ r.suggestion }}</span>
-                  <span v-if="r.expected" class="text-[10px] text-rose-600 me-2">{{ L('should be','المفروض','devrait') }} {{ r.expected }}</span>
+                  <span v-if="r.suggestion" class="text-[11px] text-amber-700 me-2">{{ r.suggestion }}</span>
+                  <span v-if="r.expected" class="text-[11px] text-rose-600 me-2">{{ L('should be','المفروض','devrait') }} {{ r.expected }}</span>
                   <template v-if="isAdmin && !r.disabled">
                     <button v-if="tab==='dead' || (tab==='junk' && r.n===0)" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</button>
                     <button v-else-if="tab==='spaces'" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="trim(r)">{{ L('Trim','قصّ','Nettoyer') }}</button>

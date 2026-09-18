@@ -10,8 +10,8 @@
       <button v-for="o in filtered" :key="o.value" type="button"
         class="w-full text-start px-3 py-1.5 hover:bg-app-warm/60 border-t border-line-hair first:border-t-0 disabled:opacity-40 disabled:cursor-not-allowed"
         :class="o.value === modelValue ? 'bg-accent-soft' : ''" :disabled="o.disabled" @click="pick(o)">
-        <div class="truncate text-[12.5px]" :class="o.value === modelValue ? 'font-semibold' : ''">{{ o.label }}</div>
-        <div v-if="o.sub" class="text-[10px] text-ink-muted font-mono truncate">{{ o.sub }}</div>
+        <div class="truncate text-[13px]" :class="o.value === modelValue ? 'font-semibold' : ''">{{ o.label }}</div>
+        <div v-if="o.sub" class="text-[11px] text-ink-muted font-mono truncate">{{ o.sub }}</div>
       </button>
       <div v-if="!filtered.length" class="px-3 py-3 text-center text-[11px] text-ink-muted">{{ emptyText }}</div>
     </div>
@@ -35,7 +35,7 @@ const props = defineProps({
   emptyText: { type: String, default: "No match" },
   disabled: { type: Boolean, default: false },
   limit: { type: Number, default: 100 },
-  inputClass: { type: String, default: "h-9 text-[12.5px] bg-white" },
+  inputClass: { type: String, default: "h-9 text-[13px] bg-white" },
 });
 const emit = defineEmits(["update:modelValue"]);
 

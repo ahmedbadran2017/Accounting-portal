@@ -9,17 +9,17 @@
 
       <form @submit.prevent="onSubmit" class="space-y-4">
         <div>
-          <label class="block text-[12.5px] font-medium text-ink-2 mb-1">{{ t("auth.email") }}</label>
+          <label class="block text-[13px] font-medium text-ink-2 mb-1">{{ t("auth.email") }}</label>
           <input v-model.trim="email" type="email" autocomplete="username" required
                  class="w-full rounded-chip border border-line-2 px-3 py-2.5 text-[13px] bg-app-warm focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
         <div>
-          <label class="block text-[12.5px] font-medium text-ink-2 mb-1">{{ t("auth.password") }}</label>
+          <label class="block text-[13px] font-medium text-ink-2 mb-1">{{ t("auth.password") }}</label>
           <input v-model="password" type="password" autocomplete="current-password" required
                  class="w-full rounded-chip border border-line-2 px-3 py-2.5 text-[13px] bg-app-warm focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
 
-        <p v-if="error" class="text-[12.5px] text-sale">{{ error }}</p>
+        <p v-if="error" class="text-[13px] text-sale">{{ error }}</p>
 
         <button type="submit" :disabled="busy"
                 class="w-full rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-brand disabled:opacity-60 flex items-center justify-center gap-2">
@@ -28,7 +28,7 @@
         </button>
       </form>
 
-      <div class="flex justify-center gap-3 mt-5 text-[11.5px] text-ink-muted">
+      <div class="flex justify-center gap-3 mt-5 text-[12px] text-ink-muted">
         <button v-for="l in LOCALES" :key="l" class="hover:text-ink font-medium"
                 :class="locale === l ? 'text-accent-dark font-semibold' : ''" @click="setLocale(l)">{{ LOCALE_LABEL[l] }}</button>
       </div>

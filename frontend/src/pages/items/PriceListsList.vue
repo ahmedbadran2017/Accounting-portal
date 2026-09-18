@@ -10,18 +10,18 @@
     <div v-else class="overflow-x-auto">
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Price list","القائمة","Liste") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Use","الاستخدام","Usage") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Currency","العملة","Devise") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Items","الأصناف","Articles") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Updated","آخر تحديث","MàJ") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Price list","القائمة","Liste") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Use","الاستخدام","Usage") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Currency","العملة","Devise") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Items","الأصناف","Articles") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Updated","آخر تحديث","MàJ") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="r in rows" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="open(r.name)">
             <td class="px-4 py-2.5 font-semibold">{{ r.name }}</td>
             <td class="px-4 py-2.5">
-              <span v-if="r.selling" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-badge me-1" style="background:#ecfdf5;color:#047857">{{ L("Selling","بيع","Vente") }}</span>
-              <span v-if="r.buying" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-badge" style="background:#eff6ff;color:#0369a1">{{ L("Buying","شراء","Achat") }}</span>
+              <span v-if="r.selling" class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge me-1" style="background:#ecfdf5;color:#047857">{{ L("Selling","بيع","Vente") }}</span>
+              <span v-if="r.buying" class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge" style="background:#eff6ff;color:#0369a1">{{ L("Buying","شراء","Achat") }}</span>
             </td>
             <td class="px-4 py-2.5 font-mono">{{ r.currency }}</td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ (r.items || 0).toLocaleString() }}</td>

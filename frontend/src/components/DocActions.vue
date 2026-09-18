@@ -1,14 +1,14 @@
 <template>
   <div v-if="state.exists || flow.creates.length" class="flex items-center gap-2 px-3 py-2.5 border-b border-line-hair flex-wrap bg-app-warm/30">
     <!-- docstatus pill -->
-    <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold px-2 py-0.5 rounded-full" :style="pill.style">
+    <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full" :style="pill.style">
       <span class="w-1.5 h-1.5 rounded-full" :style="{ background: pill.dot }"></span>{{ pill.label }}
     </span>
-    <span v-if="state.amended_to" class="text-[10.5px] text-ink-muted">{{ L("amended →","عُدّل →","amendé →") }} <button class="font-mono text-accent-dark hover:underline" @click="emit('open', state.amended_to)">{{ state.amended_to }}</button></span>
+    <span v-if="state.amended_to" class="text-[11px] text-ink-muted">{{ L("amended →","عُدّل →","amendé →") }} <button class="font-mono text-accent-dark hover:underline" @click="emit('open', state.amended_to)">{{ state.amended_to }}</button></span>
 
     <!-- assignees -->
     <div class="flex items-center gap-1">
-      <span v-for="u in assignList" :key="u" :title="u" class="w-6 h-6 rounded-full grid place-items-center text-[9px] font-bold text-white" :style="{ background: avatarColor(u) }">{{ initials(u) }}</span>
+      <span v-for="u in assignList" :key="u" :title="u" class="w-6 h-6 rounded-full grid place-items-center text-[11px] font-bold text-white" :style="{ background: avatarColor(u) }">{{ initials(u) }}</span>
       <div class="relative">
         <button @click="assignOpen = !assignOpen; if (assignOpen) loadUsers();" class="w-6 h-6 rounded-full grid place-items-center border border-dashed border-line-2 text-ink-muted hover:bg-white" :title="L('Assign','إسناد','Assigner')"><Icon name="plus" :size="11" /></button>
         <div v-if="assignOpen" class="absolute z-20 mt-1 start-0 w-52 bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-60 overflow-auto">
@@ -24,24 +24,24 @@
     <div class="ms-auto flex items-center gap-1.5">
       <!-- Create → : every linked document the Desk offers, as a portal draft -->
       <div v-if="flow.creates.length" class="relative">
-        <button :disabled="busy" @click="createOpen = !createOpen" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"><Icon name="plus" :size="12" color="#fff" />{{ L("Create","إنشاء","Créer") }} ▾</button>
+        <UiButton variant="create" size="sm" icon="plus" :disabled="busy" @click="createOpen = !createOpen">{{ L("Create","إنشاء","Créer") }} ▾</UiButton>
         <div v-if="createOpen" class="absolute z-20 mt-1 end-0 w-56 bg-white border border-line rounded-[10px] shadow-pop py-1">
           <button v-for="c in flow.creates" :key="c.key" @click="createFrom(c)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm flex items-center gap-2">
             <Icon name="doc" :size="12" color="#0b5c4f" /><span>{{ flowLabel(c) }}</span>
           </button>
         </div>
       </div>
-      <button v-for="s in flow.statuses" :key="s.key" :disabled="busy" @click="setStatus(s)" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold border disabled:opacity-50" :class="s.key === 'close' || s.key === 'hold' ? 'text-amber-800 bg-amber-50 border-amber-200 hover:bg-amber-100' : 'text-ink-2 bg-white border-line-2 hover:bg-app-warm'">
-        <Icon :name="s.key === 'close' || s.key === 'hold' ? 'lock' : 'refresh'" :size="11" />{{ statusLabel(s) }}
-      </button>
-      <button v-if="state.docstatus === 1 && GL_DOCTYPES.includes(props.doctype)" :disabled="busy" @click="confirm = 'repost'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50" :title="L('Rebuild this document\'s ledger entries from the document','إعادة بناء قيود هذا المستند من المستند نفسه','Reconstruire les écritures')"><Icon name="ledger" :size="12" />{{ L("Repost ledger","إعادة ترحيل القيود","Reposter") }}</button>
-      <button v-if="state.exists" :disabled="busy" @click="run('duplicate')" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50" :title="L('Copy into a new draft','نسخ كمسودة جديدة','Copier en brouillon')"><Icon name="copy" :size="12" />{{ L("Duplicate","نسخ","Dupliquer") }}</button>
-      <button v-if="state.exists && state.docstatus === 0" :disabled="busy" @click="confirm = 'delete'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 disabled:opacity-50"><Icon name="close" :size="12" />{{ L("Delete draft","حذف المسودة","Supprimer") }}</button>
-      <button v-if="state.can_submit" :disabled="busy" @click="run('submit')" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-success-dark hover:opacity-90 disabled:opacity-50"><Icon name="check" :size="12" color="#fff" />{{ L("Submit","ترحيل","Soumettre") }}</button>
-      <button v-if="state.can_cancel" :disabled="busy" @click="confirm = 'cancel'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 disabled:opacity-50"><Icon name="x" :size="12" />{{ L("Cancel doc","إلغاء المستند","Annuler") }}</button>
-      <button v-if="state.can_amend" :disabled="busy" @click="confirm = 'amend'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50"><Icon name="refresh" :size="12" />{{ L("Amend","تعديل ونسخ","Amender") }}</button>
+      <UiButton v-for="s in flow.statuses" :key="s.key" variant="secondary" size="sm"
+                :icon="s.key === 'close' || s.key === 'hold' ? 'lock' : 'refresh'"
+                :disabled="busy" @click="setStatus(s)">{{ statusLabel(s) }}</UiButton>
+      <UiButton v-if="state.docstatus === 1 && GL_DOCTYPES.includes(props.doctype)" variant="secondary" size="sm" icon="ledger" :title="L('Rebuild this document\'s ledger entries from the document','إعادة بناء قيود هذا المستند من المستند نفسه','Reconstruire les écritures')" :disabled="busy" @click="confirm = 'repost'">{{ L("Repost ledger","إعادة ترحيل القيود","Reposter") }}</UiButton>
+      <UiButton v-if="state.exists" variant="secondary" size="sm" icon="copy" :title="L('Copy into a new draft','نسخ كمسودة جديدة','Copier en brouillon')" :disabled="busy" @click="run('duplicate')">{{ L("Duplicate","نسخ","Dupliquer") }}</UiButton>
+      <UiButton v-if="state.exists && state.docstatus === 0" variant="danger" size="sm" icon="close" :disabled="busy" @click="confirm = 'delete'">{{ L("Delete draft","حذف المسودة","Supprimer") }}</UiButton>
+      <UiButton v-if="state.can_submit" variant="primary" size="sm" icon="check" :disabled="busy" @click="run('submit')">{{ L("Submit","ترحيل","Soumettre") }}</UiButton>
+      <UiButton v-if="state.can_cancel" variant="danger" size="sm" icon="x" :disabled="busy" @click="confirm = 'cancel'">{{ L("Cancel doc","إلغاء المستند","Annuler") }}</UiButton>
+      <UiButton v-if="state.can_amend" variant="secondary" size="sm" icon="refresh" :disabled="busy" @click="confirm = 'amend'">{{ L("Amend","تعديل ونسخ","Amender") }}</UiButton>
       <!-- the single most common amendment on the Desk (JE ×221, PE ×160 in a quarter): one click -->
-      <button v-if="state.can_amend && REDATE_OK.includes(props.doctype)" :disabled="busy" @click="newDate = ''; confirm = 'redate'" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50"><Icon name="clock" :size="12" />{{ L("Change date","تغيير التاريخ","Changer la date") }}</button>
+      <UiButton v-if="state.can_amend && REDATE_OK.includes(props.doctype)" variant="secondary" size="sm" icon="clock" :disabled="busy" @click="newDate = ''; confirm = 'redate'">{{ L("Change date","تغيير التاريخ","Changer la date") }}</UiButton>
     </div>
 
     <!-- confirm dialog -->
@@ -61,11 +61,12 @@
         </div>
         <div v-if="confirm === 'redate'" class="mt-3">
           <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("New posting date","التاريخ الجديد","Nouvelle date") }}</label>
-          <input type="date" v-model="newDate" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="newDate" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" />
         </div>
         <div class="flex justify-end gap-2 mt-4">
-          <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="confirm = ''">{{ L("Back","رجوع","Retour") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white disabled:opacity-50" :class="confirm === 'cancel' ? 'bg-sale' : 'bg-ink'" :disabled="busy || (confirm === 'redate' && !newDate)" @click="run(confirm)">{{ busy ? L("Working…","جارٍ…","…") : L("Confirm","تأكيد","Confirmer") }}</button>
+          <UiButton variant="quiet" @click="confirm = ''">{{ L("Back","رجوع","Retour") }}</UiButton>
+          <UiButton :variant="confirm === 'cancel' || confirm === 'delete' ? 'danger' : 'primary'" :busy="busy"
+                    :disabled="busy || (confirm === 'redate' && !newDate)" @click="run(confirm)">{{ busy ? L("Working…","جارٍ…","…") : L("Confirm","تأكيد","Confirmer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -77,6 +78,7 @@ import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";

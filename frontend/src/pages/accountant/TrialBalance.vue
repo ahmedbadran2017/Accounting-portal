@@ -6,13 +6,13 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#ecfdf5"><Icon name="list" :size="14" color="#047857" /></span>
         <span class="text-[13px] font-bold">{{ L("Trial balance","ميزان المراجعة","Balance") }}</span>
         <span class="text-[11px] text-ink-muted">{{ period ? L("opening → movement → closing, this year","افتتاحي ← حركة ← ختامي، هذه السنة","ouverture → mouvement → clôture") : L("net balance per account · reconciled to the GL","الرصيد الصافي لكل حساب","solde net par compte") }}</span>
-        <button type="button" class="ms-auto h-8 px-3 rounded-chip text-[11.5px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :disabled="pdfBusy" @click="downloadPdf"><Icon name="doc" :size="13" />{{ pdfBusy ? "…" : L("PDF","PDF","PDF") }}</button>
-        <button type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm" @click="exportCsv">CSV</button>
+        <button type="button" class="ms-auto h-8 px-3 rounded-chip text-[12px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :disabled="pdfBusy" @click="downloadPdf"><Icon name="doc" :size="13" />{{ pdfBusy ? "…" : L("PDF","PDF","PDF") }}</button>
+        <button type="button" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm" @click="exportCsv">CSV</button>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead>
-            <tr class="border-b border-line text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+            <tr class="border-b border-line text-[11px] font-bold uppercase tracking-wider text-ink-muted">
               <th class="px-4 py-2.5 text-start">{{ L("Code","الرمز","Code") }}</th>
               <th class="px-4 py-2.5 text-start">{{ L("Account","الحساب","Compte") }}</th>
               <template v-if="period">

@@ -9,16 +9,16 @@
 
     <div class="bg-white border border-line rounded-card shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
-        <span class="text-[12.5px] font-bold">{{ L("Recent opening entries","قيود افتتاحية حديثة","Écritures d'ouverture récentes") }}</span>
+        <span class="text-[13px] font-bold">{{ L("Recent opening entries","قيود افتتاحية حديثة","Écritures d'ouverture récentes") }}</span>
         <LiveBadge :live="isLive" />
       </div>
       <TableLoading v-if="loading" :rows="5" />
       <table v-else class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Entry","القيد","Écriture") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Memo","ملاحظة","Mémo") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Entry","القيد","Écriture") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Memo","ملاحظة","Mémo") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="r in rows" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="openJe(r.name)">

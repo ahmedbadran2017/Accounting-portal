@@ -19,7 +19,7 @@
           <div class="text-[11px] text-ink-muted mt-1">“Retour de fonds … .pdf”</div>
         </label>
 
-        <div v-if="error" class="text-[11.5px] text-sale bg-sale/5 border border-sale/20 rounded-chip px-3 py-2">{{ error }}</div>
+        <div v-if="error" class="text-[12px] text-sale bg-sale/5 border border-sale/20 rounded-chip px-3 py-2">{{ error }}</div>
 
         <!-- Preview -->
         <template v-if="preview">
@@ -32,11 +32,11 @@
           <!-- Tie-out -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div v-for="t in tiles" :key="t.label" class="rounded-[11px] px-3 py-2.5 border" :style="t.style">
-              <div class="text-[10px] font-bold uppercase tracking-wider opacity-70">{{ t.label }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider opacity-70">{{ t.label }}</div>
               <div class="text-[16px] font-extrabold tnum mt-0.5">{{ t.value }}</div>
             </div>
           </div>
-          <div v-if="preview.totals.by_method" class="flex items-center gap-1.5 flex-wrap text-[10.5px]">
+          <div v-if="preview.totals.by_method" class="flex items-center gap-1.5 flex-wrap text-[11px]">
             <span class="text-ink-muted font-semibold uppercase tracking-wider me-1">{{ L("Matched by method","المطابق حسب الدفع","Par paiement") }}</span>
             <span class="font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ preview.totals.by_method.cod }} COD</span>
             <span v-if="preview.totals.by_method.card" class="font-bold px-2 py-0.5 rounded-full" style="background:#f5f3ff;color:#7c3aed">{{ preview.totals.by_method.card }} {{ L("Card","كارت","Carte") }}</span>
@@ -57,10 +57,10 @@
           <div class="flex items-center gap-1 border-b border-line-hair">
             <button v-for="c in cats" :key="c.key" class="px-3 py-2 text-[12px] font-semibold border-b-2 -mb-px transition"
                     :class="cat === c.key ? 'border-accent text-accent-dark' : 'border-transparent text-ink-3 hover:text-ink'" @click="cat = c.key">
-              {{ c.label() }} <span class="text-[10px] px-1.5 py-0.5 rounded-full" :style="c.badge">{{ catCount(c.key) }}</span>
+              {{ c.label() }} <span class="text-[11px] px-1.5 py-0.5 rounded-full" :style="c.badge">{{ catCount(c.key) }}</span>
             </button>
           </div>
-          <p v-if="catTruncated(cat)" class="text-[10.5px] text-ink-muted -mb-1">
+          <p v-if="catTruncated(cat)" class="text-[11px] text-ink-muted -mb-1">
             {{ L("Showing first","عرض أول","Affichage des") }} {{ (preview[cat] || []).length }} {{ L("of","من","sur") }} {{ catCount(cat) }} {{ L("— the rest are processed but not listed here.","— الباقي بيتعالج لكن مش معروض هنا.","— le reste est traité.") }}
           </p>
           <p v-if="cat === 'variance' && (preview.variance || []).length" class="text-[11px] text-ink-3 -mb-1">
@@ -70,11 +70,11 @@
             <table class="w-full text-[12px]">
               <thead class="sticky top-0"><tr style="background:#fafaf9">
                 <th v-if="cat === 'variance'" class="px-2 py-2 w-9 text-center"><input type="checkbox" :checked="allVarSelected" @change="toggleAllVar" class="accent-accent" /></th>
-                <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Order","الطلب","Cmd") }}</th>
-                <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
-                <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Method","الدفع","Paiement") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Expected","المتوقّع","Attendu") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("File cash","كاش الملف","Encaisse") }}</th>
+                <th class="px-3 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Order","الطلب","Cmd") }}</th>
+                <th class="px-3 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
+                <th class="px-3 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Method","الدفع","Paiement") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Expected","المتوقّع","Attendu") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("File cash","كاش الملف","Encaisse") }}</th>
               </tr></thead>
               <tbody>
                 <tr v-for="(r, i) in (preview[cat] || []).slice(0, 300)" :key="i" class="border-t border-line-hair"
@@ -82,7 +82,7 @@
                   <td v-if="cat === 'variance'" class="px-2 py-1.5 text-center"><input type="checkbox" :checked="selectedVar.has(r.order)" :disabled="!r.order" @change="toggleVar(r.order)" class="accent-accent" /></td>
                   <td class="px-3 py-1.5 font-mono font-semibold">{{ r.order || ("#" + r.cmd) }}</td>
                   <td class="px-3 py-1.5 truncate max-w-[150px]">{{ r.customer || "—" }}</td>
-                  <td class="px-3 py-1.5"><span v-if="r.method" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" :style="methodStyle(r.method)">{{ r.method }}</span><span v-else class="text-ink-muted">—</span></td>
+                  <td class="px-3 py-1.5"><span v-if="r.method" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" :style="methodStyle(r.method)">{{ r.method }}</span><span v-else class="text-ink-muted">—</span></td>
                   <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ r.expected != null ? fmt(r.expected) : "—" }}</td>
                   <td class="px-3 py-1.5 text-end tnum" :class="cat === 'variance' ? 'font-semibold' : ''">{{ fmt(r.amount) }}</td>
                 </tr>
@@ -94,7 +94,7 @@
       </div>
 
       <div v-if="preview" class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
-        <span class="me-auto text-[11.5px] text-ink-3">{{ L("Will mark","سيُعلّم","Marquera") }} <b>{{ willMark }}</b> {{ L("orders Collected","طلب كمحصّل","encaissées") }}<span v-if="selectedVar.size" class="text-violet-600"> ({{ preview.totals.matched }} + {{ selectedVar.size }} {{ L("confirmed","مؤكّد","confirmées") }})</span></span>
+        <span class="me-auto text-[12px] text-ink-3">{{ L("Will mark","سيُعلّم","Marquera") }} <b>{{ willMark }}</b> {{ L("orders Collected","طلب كمحصّل","encaissées") }}<span v-if="selectedVar.size" class="text-violet-600"> ({{ preview.totals.matched }} + {{ selectedVar.size }} {{ L("confirmed","مؤكّد","confirmées") }})</span></span>
         <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel","إلغاء","Annuler") }}</button>
         <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!willMark || applying" @click="apply">
           {{ applying ? L("Applying…","جارٍ…","…") : L("Mark Collected","تعليم كمحصّل","Marquer encaissées") }}

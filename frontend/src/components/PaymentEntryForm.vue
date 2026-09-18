@@ -48,14 +48,14 @@
         </label>
 
         <div v-if="amount >= 10000" class="text-[11px] text-amber-700 inline-flex items-center gap-1"><Icon name="shield" :size="12" />{{ L("≥ 10,000 — recorded as proposed, needs an approver", "≥ 10,000 — يُسجَّل كمقترح ويحتاج موافِق", "≥ 10 000 — proposé, approbation requise") }}</div>
-        <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+        <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
       </div>
 
       <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
-        <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canPost || posting" @click="post">
+        <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+        <UiButton variant="primary" :disabled="!canPost || posting" @click="post">
           {{ posting ? L("Recording…", "جارٍ…", "…") : out ? L("Record payment", "تسجيل الدفعة", "Enregistrer") : L("Record receipt", "تسجيل الدفعة", "Enregistrer") }}
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>
@@ -65,6 +65,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { newClientKey } from "@/utils/helpers";

@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3">
     <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
+      <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
             :class="live ? 'text-success-dark bg-success-soft' : 'text-amber-700 bg-amber-50'">
         <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}
       </span>
@@ -12,7 +12,7 @@
     <div v-if="canManage" class="flex items-center gap-3 px-4 py-3 rounded-card border" :style="requireApproval ? 'background:#eff6ff;border-color:#bae6fd' : 'background:#fffbeb;border-color:#fde68a'">
       <Icon name="shield" :size="16" :color="requireApproval ? '#0369a1' : '#b45309'" />
       <div class="min-w-0">
-        <div class="text-[12.5px] font-bold">{{ L("Require an approver for material actions","اشتراط موافِق للعمليات الكبيرة","Approbation requise") }}</div>
+        <div class="text-[13px] font-bold">{{ L("Require an approver for material actions","اشتراط موافِق للعمليات الكبيرة","Approbation requise") }}</div>
         <div class="text-[11px] text-ink-muted">{{ requireApproval
           ? L(`Actions ≥ ${money0(threshold)} are held for a second approver.`, `العمليات ≥ ${money0(threshold)} تُحجز لموافِق ثانٍ.`, `Les actions ≥ ${money0(threshold)} attendent un approbateur.`)
           : L("OFF — every action posts directly (correction period). Still fully audited below.","معطّل — كل العمليات تُرحّل مباشرة (فترة التصحيح). وكلها مُسجّلة بالأسفل.","Désactivé — tout est passé directement.") }}</div>
@@ -37,22 +37,22 @@
     <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Action","الإجراء","Action") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher","المستند","Pièce") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("By","بواسطة","Par") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("When","متى","Quand") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted"></th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Action","الإجراء","Action") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher","المستند","Pièce") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("By","بواسطة","Par") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("When","متى","Quand") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted"></th>
         </tr></thead>
         <tbody>
           <tr v-for="a in filtered" :key="a.name" class="border-t border-line-hair hover:bg-app-warm/40">
-            <td class="px-4 py-2.5"><div class="font-semibold">{{ a.action_type }}</div><div v-if="a.notes" class="text-[10.5px] text-ink-muted truncate max-w-[220px]">{{ a.notes }}</div></td>
-            <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-badge border" :style="badge(a.status)">{{ a.status }}</span></td>
+            <td class="px-4 py-2.5"><div class="font-semibold">{{ a.action_type }}</div><div v-if="a.notes" class="text-[11px] text-ink-muted truncate max-w-[220px]">{{ a.notes }}</div></td>
+            <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-badge border" :style="badge(a.status)">{{ a.status }}</span></td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ a.amount ? money0(a.amount) : "—" }}</td>
             <td class="px-4 py-2.5 font-mono text-[11px] text-ink-2">{{ a.voucher_no || "—" }}</td>
             <td class="px-4 py-2.5 text-ink-3">{{ shortUser(a.proposed_by) }}<span v-if="a.approved_by" class="text-ink-muted"> → {{ shortUser(a.approved_by) }}</span>
-              <span v-if="assigneesOf(a).length" class="ms-1 inline-flex gap-0.5 align-middle"><span v-for="u in assigneesOf(a)" :key="u" :title="u" class="w-5 h-5 rounded-full grid place-items-center text-[8px] font-bold text-white" :style="{ background: avatarColor(u) }">{{ initials(u) }}</span></span>
+              <span v-if="assigneesOf(a).length" class="ms-1 inline-flex gap-0.5 align-middle"><span v-for="u in assigneesOf(a)" :key="u" :title="u" class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-bold text-white" :style="{ background: avatarColor(u) }">{{ initials(u) }}</span></span>
             </td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ when(a.posted_on || a.creation) }}</td>
             <td class="px-4 py-2.5 text-end whitespace-nowrap">
@@ -67,7 +67,7 @@
                 </span>
                 <button v-if="a.status === 'Proposed' && !isMine(a)" @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
                 <button v-else-if="a.status === 'Proposed' && canBreakGlass" @click="selfApprove(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50" :title="L('No other approver available — self-approve with a reason (logged)','لا يوجد موافِق آخر — اعتمد بنفسك بسبب مُسجّل','Auto-approuver')">{{ L("Self-approve", "اعتمد بنفسك", "Auto-approuver") }}</button>
-                <span v-else-if="a.status === 'Proposed'" class="text-[10px] text-ink-muted italic px-1" :title="L('You proposed this — another approver must approve it', 'أنت اقترحته — لازم موافِق آخر', 'Un autre approbateur est requis')">{{ L("awaiting another approver", "بانتظار موافِق آخر", "en attente d'un autre approbateur") }}</span>
+                <span v-else-if="a.status === 'Proposed'" class="text-[11px] text-ink-muted italic px-1" :title="L('You proposed this — another approver must approve it', 'أنت اقترحته — لازم موافِق آخر', 'Un autre approbateur est requis')">{{ L("awaiting another approver", "بانتظار موافِق آخر", "en attente d'un autre approbateur") }}</span>
                 <button v-if="a.status === 'Proposed'" @click="reject(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm">{{ L("Reject", "رفض", "Rejeter") }}</button>
                 <button v-if="a.status === 'Posted' && a.revertable && canUndo" @click="revert(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1"><Icon name="arrow" :size="11" class="rotate-180" />{{ L("Undo", "تراجع", "Annuler") }}</button>
               </span>
@@ -86,9 +86,9 @@
           <span class="w-7 h-7 rounded-[9px] grid place-items-center" style="background:#eff6ff"><Icon name="doc" :size="14" color="#0369a1" /></span>
           <div class="min-w-0">
             <div class="text-[13px] font-bold truncate">{{ detail?.action_type || L("Loading…","تحميل…","…") }}</div>
-            <div class="text-[10.5px] text-ink-muted">{{ L("Review before approving","راجِع قبل الاعتماد","Vérifier avant d’approuver") }}</div>
+            <div class="text-[11px] text-ink-muted">{{ L("Review before approving","راجِع قبل الاعتماد","Vérifier avant d’approuver") }}</div>
           </div>
-          <span v-if="detail" class="ms-auto text-[10.5px] font-bold px-2 py-0.5 rounded-badge border" :style="badge(detail.status)">{{ detail.status }}</span>
+          <span v-if="detail" class="ms-auto text-[11px] font-bold px-2 py-0.5 rounded-badge border" :style="badge(detail.status)">{{ detail.status }}</span>
           <button @click="closeDetail" class="w-7 h-7 grid place-items-center rounded-[8px] hover:bg-app-warm text-ink-muted"><Icon name="close" :size="14" /></button>
         </header>
 
@@ -96,18 +96,18 @@
           <div v-if="detailLoading" class="py-10 text-center text-[12px] text-ink-muted">{{ L("Loading…","جارٍ التحميل…","Chargement…") }}</div>
           <template v-else-if="detail">
             <!-- meta strip -->
-            <div class="grid grid-cols-2 gap-2 text-[11.5px]">
-              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[10px] uppercase tracking-wide font-bold">{{ L("Amount","المبلغ","Montant") }}</div><div class="font-bold tnum">{{ detail.amount ? money0(detail.amount) : "—" }}</div></div>
-              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[10px] uppercase tracking-wide font-bold">{{ L("Company","الشركة","Société") }}</div><div class="font-semibold truncate">{{ detail.company || "—" }}</div></div>
-              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[10px] uppercase tracking-wide font-bold">{{ L("Proposed by","اقترحه","Proposé par") }}</div><div class="font-semibold truncate">{{ shortUser(detail.proposed_by) }}</div></div>
-              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[10px] uppercase tracking-wide font-bold">{{ L("When","متى","Quand") }}</div><div class="font-semibold">{{ when(detail.creation) }}</div></div>
+            <div class="grid grid-cols-2 gap-2 text-[12px]">
+              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[11px] uppercase tracking-wide font-bold">{{ L("Amount","المبلغ","Montant") }}</div><div class="font-bold tnum">{{ detail.amount ? money0(detail.amount) : "—" }}</div></div>
+              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[11px] uppercase tracking-wide font-bold">{{ L("Company","الشركة","Société") }}</div><div class="font-semibold truncate">{{ detail.company || "—" }}</div></div>
+              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[11px] uppercase tracking-wide font-bold">{{ L("Proposed by","اقترحه","Proposé par") }}</div><div class="font-semibold truncate">{{ shortUser(detail.proposed_by) }}</div></div>
+              <div class="rounded-[10px] bg-app-warm/50 px-3 py-2"><div class="text-ink-muted text-[11px] uppercase tracking-wide font-bold">{{ L("When","متى","Quand") }}</div><div class="font-semibold">{{ when(detail.creation) }}</div></div>
             </div>
 
             <div v-if="detail.notes" class="text-[12px] text-ink-2 rounded-[10px] border border-line-hair px-3 py-2"><span class="text-ink-muted">{{ L("Note","ملاحظة","Note") }}: </span>{{ detail.notes }}</div>
 
             <!-- scalar payload fields -->
             <div v-if="scalarRows.length" class="rounded-[10px] border border-line-hair overflow-hidden">
-              <div class="px-3 py-2 bg-app-warm/40 text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Transaction","المعاملة","Transaction") }}</div>
+              <div class="px-3 py-2 bg-app-warm/40 text-[11px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Transaction","المعاملة","Transaction") }}</div>
               <table class="w-full text-[12px]">
                 <tr v-for="r in scalarRows" :key="r.k" class="border-t border-line-hair">
                   <td class="px-3 py-1.5 text-ink-muted whitespace-nowrap align-top w-[42%]">{{ r.label }}</td>
@@ -118,10 +118,10 @@
 
             <!-- array payload blocks (e.g. correction lines) -->
             <div v-for="b in tableBlocks" :key="b.k" class="rounded-[10px] border border-line-hair overflow-hidden">
-              <div class="px-3 py-2 bg-app-warm/40 text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ b.label }} · {{ b.rows.length }}</div>
+              <div class="px-3 py-2 bg-app-warm/40 text-[11px] font-bold uppercase tracking-wide text-ink-muted">{{ b.label }} · {{ b.rows.length }}</div>
               <div class="overflow-x-auto">
-                <table class="w-full text-[11.5px]">
-                  <thead><tr class="text-[9.5px] uppercase text-ink-muted">
+                <table class="w-full text-[12px]">
+                  <thead><tr class="text-[11px] uppercase text-ink-muted">
                     <th v-for="c in b.cols" :key="c" class="px-3 py-1.5 text-start font-bold whitespace-nowrap">{{ klabel(c) }}</th>
                   </tr></thead>
                   <tbody>
@@ -133,7 +133,7 @@
               </div>
             </div>
 
-            <div v-if="detail.voucher_no" class="text-[11.5px] text-ink-3">{{ L("Posted voucher","المستند المُرحّل","Pièce") }}: <span class="font-mono text-ink-2">{{ detail.voucher_no }}</span></div>
+            <div v-if="detail.voucher_no" class="text-[12px] text-ink-3">{{ L("Posted voucher","المستند المُرحّل","Pièce") }}: <span class="font-mono text-ink-2">{{ detail.voucher_no }}</span></div>
           </template>
         </div>
 

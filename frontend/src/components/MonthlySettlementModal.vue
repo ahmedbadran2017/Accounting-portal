@@ -19,14 +19,14 @@
           </div>
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Settlement date","تاريخ التسوية","Date") }}</label>
-            <input type="date" v-model="asOf" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+            <input type="date" v-model="asOf" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
           </div>
         </div>
 
         <div v-if="loading" class="py-8 text-center text-[12px] text-ink-muted">{{ L("Loading balances…","جارٍ تحميل الأرصدة…","Chargement…") }}</div>
 
         <template v-else-if="data && survivor">
-          <div v-if="!data.settleable" class="text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[10px] px-3 py-2 flex items-start gap-1.5">
+          <div v-if="!data.settleable" class="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[10px] px-3 py-2 flex items-start gap-1.5">
             <Icon name="alert" :size="13" color="#b45309" class="mt-px flex-shrink-0" />
             {{ L("The survivor isn't in the base currency — settlement supports base-currency accounts only.","الحساب الناجي مش بالعملة الأساسية — التسوية تدعم حسابات العملة الأساسية فقط.","Compte non en devise de base.") }}
           </div>
@@ -40,7 +40,7 @@
                   <td class="ps-3 py-2 w-8"><input type="checkbox" :value="s.name" v-model="selected" :disabled="!s.balance || !s.same_ccy" class="accent-indigo-600 w-4 h-4 align-middle" /></td>
                   <td class="px-2 py-2">
                     <div class="font-semibold truncate max-w-[240px]">{{ s.account_name }}</div>
-                    <div class="text-[10px] text-ink-muted font-mono">{{ s.name.split(' - ')[0] }}<span v-if="s.needs_party" class="text-amber-700"> · {{ L('party account — skip','حساب طرف — يُستثنى','compte tiers') }}</span><span v-else-if="!s.same_ccy" class="text-amber-700"> · {{ s.ccy }}</span></div>
+                    <div class="text-[11px] text-ink-muted font-mono">{{ s.name.split(' - ')[0] }}<span v-if="s.needs_party" class="text-amber-700"> · {{ L('party account — skip','حساب طرف — يُستثنى','compte tiers') }}</span><span v-else-if="!s.same_ccy" class="text-amber-700"> · {{ s.ccy }}</span></div>
                   </td>
                   <td class="px-3 py-2 text-end tnum font-semibold" :class="s.balance < 0 ? 'text-sale' : ''">{{ fmt2(s.balance) }}</td>
                 </tr>
@@ -57,8 +57,8 @@
           </template>
         </template>
 
-        <input v-model.trim="remark" :placeholder="L('Note (optional)','ملاحظة (اختياري)','Note (facultatif)')" class="w-full h-9 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
-        <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+        <input v-model.trim="remark" :placeholder="L('Note (optional)','ملاحظة (اختياري)','Note (facultatif)')" class="w-full h-9 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+        <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
       </div>
 
       <footer class="flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30 rounded-b-[16px]">

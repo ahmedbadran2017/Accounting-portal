@@ -15,7 +15,7 @@
         </div>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="tt.search.value" :placeholder="L('Search supplier…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="tt.search.value" :placeholder="L('Search supplier…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
         <button @click="importOpen = true" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="layers" :size="14" />{{ L("Import","استيراد","Importer") }}</button>
         <button @click="openNew" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand"><Icon name="plus" :size="14" color="#fff" />{{ L("New","جديد","Nouveau") }}</button>
@@ -30,7 +30,7 @@
             <tr style="background:#fafaf9">
               <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
-                  class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
+                  class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                   <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
@@ -42,13 +42,13 @@
               <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(v)" @change="tt.toggleRow(v)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
               <td v-show="!tt.hidden.value.has('supplier_name')" class="px-4 py-2.5">
                 <span class="flex items-center gap-2.5">
-                  <span class="w-7 h-7 rounded-[8px] grid place-items-center text-white text-[9px] font-bold flex-shrink-0" :style="{ background: badge(i) }">{{ ini(v.supplier_name) }}</span>
+                  <span class="w-7 h-7 rounded-[8px] grid place-items-center text-white text-[11px] font-bold flex-shrink-0" :style="{ background: badge(i) }">{{ ini(v.supplier_name) }}</span>
                   <span class="font-semibold truncate max-w-[260px]">{{ v.supplier_name }}</span>
                 </span>
               </td>
               <td v-show="!tt.hidden.value.has('group')" class="px-4 py-2.5 text-ink-2">{{ v.group || "—" }}</td>
               <td v-show="!tt.hidden.value.has('n_bills')" class="px-4 py-2.5 text-end tnum">{{ v.n_bills }}</td>
-              <td v-show="!tt.hidden.value.has('payable')" class="px-4 py-2.5 text-end tnum font-bold" :class="v.payable < 0 ? 'text-success-dark' : ''">{{ fmt(v.payable) }} <span class="text-[10px] text-ink-muted">{{ v.currency }}</span></td>
+              <td v-show="!tt.hidden.value.has('payable')" class="px-4 py-2.5 text-end tnum font-bold" :class="v.payable < 0 ? 'text-success-dark' : ''">{{ fmt(v.payable) }} <span class="text-[11px] text-ink-muted">{{ v.currency }}</span></td>
             </tr>
           </tbody>
         </table>
@@ -61,11 +61,11 @@
       <div v-else class="p-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <button v-for="(v, i) in tt.pageRows.value" :key="v.name" class="yo-card text-start bg-white border border-line rounded-[14px] p-4 shadow-card w-full" @click="open(v.name)">
           <div class="flex items-center gap-2.5">
-            <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center text-white text-[9.5px] font-bold flex-shrink-0" :style="{ background: badge(i) }">{{ ini(v.supplier_name) }}</span>
-            <div class="flex-1 min-w-0"><div class="text-[12.5px] font-bold truncate">{{ v.supplier_name }}</div><div class="text-[10.5px] text-ink-muted">{{ v.group || "—" }}</div></div>
+            <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center text-white text-[11px] font-bold flex-shrink-0" :style="{ background: badge(i) }">{{ ini(v.supplier_name) }}</span>
+            <div class="flex-1 min-w-0"><div class="text-[13px] font-bold truncate">{{ v.supplier_name }}</div><div class="text-[11px] text-ink-muted">{{ v.group || "—" }}</div></div>
           </div>
           <div class="text-[20px] font-bold tnum mt-2.5" :class="v.payable < 0 ? 'text-success-dark' : ''">{{ fmt(v.payable) }}<span class="text-[11px] text-ink-muted ms-0.5">{{ v.currency }}</span></div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ v.n_bills }} {{ L("bills · payable","فاتورة · مستحق","factures") }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ v.n_bills }} {{ L("bills · payable","فاتورة · مستحق","factures") }}</div>
         </button>
       </div>
     </div>
@@ -76,12 +76,12 @@
     <div v-if="newOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="newOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
         <div class="text-[14px] font-bold">{{ L("New supplier","مورّد جديد","Nouveau fournisseur") }}</div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.supplier_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.supplier_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
         <div><label class="text-[11px] font-bold text-ink-3">{{ L("Group","المجموعة","Groupe") }}</label>
-          <select v-model="nf.supplier_group" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40"><option value="">{{ L("Default","افتراضي","Défaut") }}</option><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
+          <select v-model="nf.supplier_group" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40"><option value="">{{ L("Default","افتراضي","Défaut") }}</option><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
         <div class="grid grid-cols-2 gap-2">
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="nf.tax_id" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="nf.tax_id" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
         </div>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="newOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
@@ -96,7 +96,7 @@
         <div class="text-[14px] font-bold">{{ L("Import suppliers","استيراد موردين","Importer des fournisseurs") }}</div>
         <p class="text-[11px] text-ink-muted">{{ L("One per line: name, group, tax id, currency (only name required).","سطر لكل مورّد: الاسم، المجموعة، الرقم الضريبي، العملة (الاسم فقط مطلوب).","Une ligne par fournisseur : nom, groupe, ID fiscal, devise.") }}</p>
         <textarea v-model="importText" rows="6" :placeholder="L('ACME SARL, Morocco Local Suppliers, 123456, MAD\nOther Vendor', 'مورّد، مجموعة، رقم ضريبي', 'Fournisseur, groupe, ID')" class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[12px] font-mono focus:outline-none focus:border-accent/40 resize-y"></textarea>
-        <div v-if="importResult" class="text-[11.5px] bg-app-warm/50 rounded-[9px] px-3 py-2">
+        <div v-if="importResult" class="text-[12px] bg-app-warm/50 rounded-[9px] px-3 py-2">
           <b class="text-success-dark">{{ importResult.created }}</b> {{ L("created","أُنشئ","créés") }} · {{ importResult.exists }} {{ L("existed","موجود","existants") }}<span v-if="importResult.failed"> · <b class="text-sale">{{ importResult.failed }}</b> {{ L("failed","فشل","échecs") }}</span>
         </div>
         <div class="flex items-center justify-between pt-1">

@@ -6,8 +6,8 @@
       <span v-if="icon" class="w-9 h-9 rounded-[11px] grid place-items-center flex-shrink-0" :style="{ background: tint }"><Icon :name="icon" :size="17" :color="color" /></span>
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5">
-          <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ label }}</span>
-          <span v-if="tag" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: tint, color }">{{ tag }}</span>
+          <span class="text-[11px] text-ink-muted font-bold uppercase tracking-wider">{{ label }}</span>
+          <span v-if="tag" class="text-[11px] font-bold px-1.5 py-px rounded-full" :style="{ background: tint, color }">{{ tag }}</span>
         </div>
         <div class="text-[22px] font-extrabold tnum leading-tight tracking-tight" :style="{ color: valueColor || '#1c1917' }">{{ value }}</div>
       </div>

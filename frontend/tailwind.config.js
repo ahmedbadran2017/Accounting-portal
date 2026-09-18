@@ -16,11 +16,35 @@ export default {
         // app surfaces / borders
         app: { bg: "#f3f1ef", warm: "#faf6f4", warm2: "#fafaf9" },
         line: { DEFAULT: "#f0efed", 2: "#e7e5e4", hair: "#f4f2f0" },
+        // Status tones. These eight pairs were written inline, as
+        // style="background:#fffbeb;color:#b45309", 169 distinct hex literals
+        // across the components and the commonest repeated 261 times. Same
+        // meaning, slightly different colour, everywhere. Named once here.
+        tone: {
+          good: "#047857", goodbg: "#ecfdf5", goodline: "#a7f3d0",
+          warn: "#b45309", warnbg: "#fffbeb", warnline: "#fde68a",
+          bad: "#b91c1c", badbg: "#fef2f2", badline: "#fecaca",
+          info: "#0369a1", infobg: "#eff6ff", infoline: "#bfdbfe",
+          calm: "#6d28d9", calmbg: "#f5f3ff", calmline: "#ddd6fe",
+          mute: "#57534e", mutebg: "#fafaf9", muteline: "#e7e5e4",
+        },
         // semantic
         sale: "#c4301c",
         success: { DEFAULT: "#1f9d55", dark: "#047857" },
         info: "#0369a1",
         violet: "#7c3aed",
+      },
+      // Six steps instead of fourteen. The old scale ran 9, 9.5, 10, 10.5, 11,
+      // 11.5, 12, 12.5, 13, 14… — differences nobody can see, so they carried no
+      // hierarchy, only noise. And its centre of gravity was 10–11px, which is
+      // small for people reading figures all day. The floor is 11px now.
+      fontSize: {
+        micro: ["11px", { lineHeight: "1.45" }],   // labels, table headers, hints
+        small: ["12px", { lineHeight: "1.5" }],    // secondary text
+        base2: ["13px", { lineHeight: "1.55" }],   // body, table cells, inputs
+        lead: ["14px", { lineHeight: "1.5" }],     // emphasis, card titles
+        title: ["16px", { lineHeight: "1.4" }],    // section titles
+        display: ["22px", { lineHeight: "1.25" }], // figures that carry the page
       },
       borderRadius: { card: "15px", chip: "9px", badge: "6px" },
       boxShadow: {

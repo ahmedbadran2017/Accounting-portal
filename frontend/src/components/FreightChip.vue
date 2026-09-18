@@ -1,7 +1,7 @@
 <template>
   <!-- ONE way to render a shipment's freight state everywhere:
        green = actual (bills or confirmed rate) · amber = estimate · red = none -->
-  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" :style="style">{{ label }}</span>
+  <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" :style="style">{{ label }}</span>
 </template>
 
 <script setup>

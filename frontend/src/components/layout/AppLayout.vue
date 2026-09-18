@@ -4,11 +4,11 @@
   <div v-if="noAccess" class="min-h-screen grid place-items-center bg-app-bg p-6">
     <div class="bg-white border border-line rounded-card shadow-card p-8 text-center max-w-md">
       <div class="w-14 h-14 rounded-full grid place-items-center mx-auto" style="background:#fef2f2"><Icon name="shield" :size="26" color="#b91c1c" /></div>
-      <div class="text-[17px] font-bold mt-4">{{ L("No access to this portal", "لا تملك صلاحية الدخول", "Accès non autorisé") }}</div>
-      <div class="text-[12.5px] text-ink-3 mt-2 leading-relaxed">{{ L("Your account isn't authorised for the Justyol accounting portal. Ask a Super Admin to grant you a role, then sign in again.", "حسابك غير مصرّح له بالدخول إلى بورتال محاسبة Justyol. اطلب من مسؤول (Super Admin) أن يمنحك صلاحية ثم سجّل الدخول من جديد.", "Votre compte n'est pas autorisé pour ce portail. Demandez un rôle à un Super Admin.") }}</div>
+      <div class="text-[18px] font-bold mt-4">{{ L("No access to this portal", "لا تملك صلاحية الدخول", "Accès non autorisé") }}</div>
+      <div class="text-[13px] text-ink-3 mt-2 leading-relaxed">{{ L("Your account isn't authorised for the Justyol accounting portal. Ask a Super Admin to grant you a role, then sign in again.", "حسابك غير مصرّح له بالدخول إلى بورتال محاسبة Justyol. اطلب من مسؤول (Super Admin) أن يمنحك صلاحية ثم سجّل الدخول من جديد.", "Votre compte n'est pas autorisé pour ce portail. Demandez un rôle à un Super Admin.") }}</div>
       <div v-if="user" class="text-[11px] text-ink-muted mt-3 font-mono bg-app-warm rounded-chip px-3 py-1.5 inline-block">{{ user }}</div>
       <div class="mt-5">
-        <button class="h-9 px-4 rounded-chip text-[12.5px] font-bold text-white bg-ink hover:bg-ink/90" @click="onLogout">{{ L("Sign out", "تسجيل الخروج", "Se déconnecter") }}</button>
+        <button class="h-9 px-4 rounded-chip text-[13px] font-bold text-white bg-ink hover:bg-ink/90" @click="onLogout">{{ L("Sign out", "تسجيل الخروج", "Se déconnecter") }}</button>
       </div>
     </div>
   </div>
@@ -29,11 +29,11 @@
       <div class="px-3 pt-3 relative" v-click-outside="() => (entityOpen = false)">
         <button class="w-full flex items-center gap-2.5 p-2 rounded-chip border border-line-2 bg-app-warm hover:bg-white"
                 @click="entityOpen = !entityOpen">
-          <span class="w-7 h-7 rounded-lg grid place-items-center text-white text-[10px] font-bold flex-shrink-0"
+          <span class="w-7 h-7 rounded-lg grid place-items-center text-white text-[11px] font-bold flex-shrink-0"
                 :style="{ background: entity.badge }">{{ entity.code }}</span>
           <span class="flex-1 text-start min-w-0">
             <span class="block text-[12px] font-semibold truncate">{{ entity.name }}</span>
-            <span class="block text-[10px] text-ink-muted">{{ entity.place }} · {{ entity.ccy }}</span>
+            <span class="block text-[11px] text-ink-muted">{{ entity.place }} · {{ entity.ccy }}</span>
           </span>
           <Icon name="chevDown" :size="15" color="#a8a29e" />
         </button>
@@ -42,11 +42,11 @@
           <button v-for="e in entities" :key="e.id"
                   class="w-full flex items-center gap-2.5 p-2 rounded-lg hover:bg-app-warm"
                   @click="pickEntity(e.id)">
-            <span class="w-7 h-7 rounded-lg grid place-items-center text-white text-[10px] font-bold flex-shrink-0"
+            <span class="w-7 h-7 rounded-lg grid place-items-center text-white text-[11px] font-bold flex-shrink-0"
                   :style="{ background: e.badge }">{{ e.code }}</span>
             <span class="flex-1 text-start min-w-0">
               <span class="block text-[12px] font-semibold truncate">{{ e.name }}</span>
-              <span class="block text-[10px] text-ink-muted">{{ e.place }} · {{ e.ccy }}</span>
+              <span class="block text-[11px] text-ink-muted">{{ e.place }} · {{ e.ccy }}</span>
             </span>
             <Icon v-if="e.id === entityId" name="check" :size="15" color="#0b5c4f" />
           </button>
@@ -56,10 +56,10 @@
       <!-- Nav tree -->
       <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-3.5">
         <div v-for="g in groups" :key="g.label">
-          <div class="px-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ t(g.label) }}</div>
+          <div class="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ t(g.label) }}</div>
           <div class="space-y-0.5">
             <template v-for="m in g.items" :key="m.id">
-              <button class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[12.5px]"
+              <button class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[13px]"
                       :class="activeModule === m.id
                         ? 'text-accent-dark font-semibold bg-app-warm shadow-[inset_0_0_0_1px_#f3e4de]'
                         : 'text-ink-2 font-medium hover:bg-app-warm/70'"
@@ -67,12 +67,12 @@
                 <Icon :name="m.icon" :size="16" :color="activeModule === m.id ? '#0b5c4f' : '#a8a29e'" />
                 <span class="flex-1 text-start">{{ t('nav.' + m.id) }}</span>
                 <span v-if="badgeFor(m)"
-                      class="min-w-[18px] h-[18px] px-1.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold grid place-items-center">{{ badgeFor(m) }}</span>
+                      class="min-w-[18px] h-[18px] px-1.5 rounded-full bg-rose-50 text-rose-600 text-[11px] font-bold grid place-items-center">{{ badgeFor(m) }}</span>
               </button>
               <!-- Sub-tabs of the active module -->
               <div v-if="activeModule === m.id && subtabs(m.id).length" class="mt-0.5 mb-1 space-y-0.5">
                 <button v-for="s in subtabs(m.id)" :key="s[0]"
-                        class="w-full flex items-center gap-2.5 py-1.5 ps-8 pe-2.5 rounded-lg text-[11.5px] text-start"
+                        class="w-full flex items-center gap-2.5 py-1.5 ps-8 pe-2.5 rounded-lg text-[12px] text-start"
                         :class="activeSub === s[0] ? 'text-accent-dark font-semibold bg-accent-soft' : 'text-ink-3 font-normal hover:bg-app-warm/60'"
                         @click="goSub(m.id, s[0])">
                   <span class="w-[5px] h-[5px] rounded-full flex-shrink-0"
@@ -91,7 +91,7 @@
         <div class="w-8 h-8 rounded-full bg-app-warm grid place-items-center text-[11px] font-bold text-ink-3">{{ initials }}</div>
         <div class="flex-1 leading-tight min-w-0">
           <div class="text-[12px] font-semibold truncate">{{ fullName || user }}</div>
-          <div class="text-[10px] text-ink-muted">{{ role || t("header.finance_lead") }}</div>
+          <div class="text-[11px] text-ink-muted">{{ role || t("header.finance_lead") }}</div>
         </div>
         <button class="p-1.5 rounded-lg hover:bg-app-warm text-ink-3" :title="t('common.logout')" @click="onLogout">
           <Icon name="arrow" :size="16" />
@@ -110,8 +110,8 @@
         <button type="button" @click="paletteOpen = true"
                 class="hidden sm:flex items-center gap-2 w-64 lg:w-80 bg-app-warm border border-line-2 rounded-chip px-3 py-2 hover:border-accent/40">
           <Icon name="search" :size="16" color="#a8a29e" />
-          <span class="flex-1 text-start text-[12.5px] text-ink-muted truncate">{{ t("header.search") }}</span>
-          <kbd class="text-[10px] text-ink-muted border border-line-2 rounded px-1.5 py-0.5">⌘K</kbd>
+          <span class="flex-1 text-start text-[13px] text-ink-muted truncate">{{ t("header.search") }}</span>
+          <kbd class="text-[11px] text-ink-muted border border-line-2 rounded px-1.5 py-0.5">⌘K</kbd>
         </button>
 
         <!-- Spacer pins the controls to the right edge -->
@@ -125,10 +125,10 @@
             <Icon name="bell" :size="14" :color="notifTotal ? '#92400e' : '#a8a29e'" /><span v-if="notifTotal" class="tnum">{{ notifTotal }}</span>
           </button>
           <div v-if="notifOpen" class="absolute z-50 end-0 top-10 w-[360px] max-h-[70vh] overflow-auto bg-white border border-line rounded-[12px] shadow-pop">
-            <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[11.5px]">
+            <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[12px]">
               <span class="font-bold">{{ L("Notifications","الإشعارات","Notifications") }}</span>
-              <span v-if="notif.counts?.approval" class="px-1.5 py-0.5 rounded-full text-[10px] font-bold" style="background:#fffbeb;color:#92400e">{{ notif.counts.approval }} {{ L("approvals","موافقات","approbations") }}</span>
-              <span v-if="notif.counts?.assignment" class="px-1.5 py-0.5 rounded-full text-[10px] font-bold" style="background:#eff6ff;color:#0369a1">{{ notif.counts.assignment }} {{ L("assigned","مُسند","assignés") }}</span>
+              <span v-if="notif.counts?.approval" class="px-1.5 py-0.5 rounded-full text-[11px] font-bold" style="background:#fffbeb;color:#92400e">{{ notif.counts.approval }} {{ L("approvals","موافقات","approbations") }}</span>
+              <span v-if="notif.counts?.assignment" class="px-1.5 py-0.5 rounded-full text-[11px] font-bold" style="background:#eff6ff;color:#0369a1">{{ notif.counts.assignment }} {{ L("assigned","مُسند","assignés") }}</span>
               <button class="ms-auto text-ink-muted hover:text-ink" @click="loadNotif">↻</button>
             </div>
             <button v-for="n in (notif.rows || [])" :key="n.kind + n.id" class="w-full text-start px-3 py-2 border-b border-line-hair/60 hover:bg-app-warm/50 flex gap-2.5" @click="openNotif(n)">
@@ -137,9 +137,9 @@
                 <Icon :name="n.kind === 'approval' ? 'shield' : n.kind === 'assignment' ? 'check' : 'send'" :size="12" :color="n.kind === 'approval' ? '#92400e' : n.kind === 'assignment' ? '#0369a1' : '#6d28d9'" />
               </span>
               <span class="min-w-0 flex-1">
-                <span class="block text-[12px] font-semibold truncate">{{ n.title }}<span v-if="n.ref_name" class="font-mono text-[10.5px] text-ink-muted ms-1">{{ n.ref_name }}</span></span>
+                <span class="block text-[12px] font-semibold truncate">{{ n.title }}<span v-if="n.ref_name" class="font-mono text-[11px] text-ink-muted ms-1">{{ n.ref_name }}</span></span>
                 <span class="block text-[11px] text-ink-3 truncate">{{ n.detail }}</span>
-                <span class="block text-[10px] text-ink-muted">{{ n.on }}<span v-if="n.amount"> · {{ Math.round(n.amount).toLocaleString() }}</span></span>
+                <span class="block text-[11px] text-ink-muted">{{ n.on }}<span v-if="n.amount"> · {{ Math.round(n.amount).toLocaleString() }}</span></span>
               </span>
             </button>
             <div v-if="!(notif.rows || []).length" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ L("Nothing waiting.","لا شيء منتظر.","Rien en attente.") }}</div>
@@ -162,7 +162,7 @@
             <Icon name="chevDown" :size="12" class="transition-transform" :class="langOpen ? 'rotate-180' : ''" />
           </button>
           <div v-if="langOpen" class="absolute end-0 mt-1 w-40 bg-white rounded-chip border border-line-2 shadow-cardHover p-1 z-50 animate-fadeIn">
-            <button v-for="lc in LOCALES" :key="lc" class="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-start text-[12.5px] hover:bg-app-warm"
+            <button v-for="lc in LOCALES" :key="lc" class="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-start text-[13px] hover:bg-app-warm"
                     :class="locale === lc ? 'font-bold text-accent-dark bg-app-warm/60' : 'text-ink-2'" @click="pickLocale(lc)">
               <span :dir="lc === 'ar' ? 'rtl' : 'ltr'">{{ LOCALE_NAMES[lc] }}</span>
               <Icon v-if="locale === lc" name="check" :size="14" color="#0b5c4f" />
@@ -171,12 +171,12 @@
         </div>
 
         <div class="relative" v-click-outside="() => (createMenuOpen = false)">
-          <button class="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand" @click="createMenuOpen = !createMenuOpen">
+          <button class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand" @click="createMenuOpen = !createMenuOpen">
             <Icon name="plus" :size="16" /><span class="hidden sm:inline">{{ t("header.create") }}</span>
           </button>
           <div v-if="createMenuOpen" class="absolute end-0 mt-1 w-48 bg-white rounded-chip border border-line-2 shadow-cardHover p-1 z-50 animate-fadeIn">
             <button v-for="o in createOptions" :key="o.type" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-app-warm text-start" @click="openCreate(o.type)">
-              <Icon :name="o.icon" :size="15" color="#0b5c4f" /><span class="text-[12.5px] font-medium">{{ o.label }}</span>
+              <Icon :name="o.icon" :size="15" color="#0b5c4f" /><span class="text-[13px] font-medium">{{ o.label }}</span>
             </button>
           </div>
         </div>
@@ -187,7 +187,7 @@
       <div v-if="staleTab" class="flex items-center gap-2 px-4 py-2 text-[12px] font-semibold" style="background:#fffbeb;color:#92400e;border-bottom:1px solid #fde68a">
         <Icon name="refresh" :size="14" color="#92400e" />
         {{ L("A newer version of the portal is available — reload to get it.", "في نسخة أحدث من البورتال — اعمل تحديث للصفحة.", "Une nouvelle version est disponible — rechargez.") }}
-        <button class="ms-auto h-7 px-3 rounded-chip text-[11.5px] font-bold text-white" style="background:#92400e" @click="hardReload">{{ L("Reload now", "تحديث الآن", "Recharger") }}</button>
+        <button class="ms-auto h-7 px-3 rounded-chip text-[12px] font-bold text-white" style="background:#92400e" @click="hardReload">{{ L("Reload now", "تحديث الآن", "Recharger") }}</button>
       </div>
 
       <main class="flex-1 p-[22px] max-w-[1500px] w-full mx-auto">

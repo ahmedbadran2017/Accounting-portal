@@ -14,15 +14,15 @@
       <div class="px-5 py-3 border-b border-line-hair bg-app-warm/40 flex items-center gap-2 flex-wrap">
         <span class="text-[11px] font-semibold text-ink-3">{{ L("Set all to", "عيّن الكل على", "Tout mettre à") }}</span>
         <input type="date" v-model="allDate" class="h-8 border border-line-2 rounded-chip px-2.5 text-[12px] focus:outline-none focus:border-accent/40" />
-        <button type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-40" :disabled="!allDate" @click="applyAll">{{ L("Apply", "طبّق", "Appliquer") }}</button>
-        <span class="text-[10.5px] text-ink-muted ms-auto">{{ L("defaults to each cheque's date", "الافتراضي = تاريخ كل شيك", "défaut = date du chèque") }}</span>
+        <button type="button" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-40" :disabled="!allDate" @click="applyAll">{{ L("Apply", "طبّق", "Appliquer") }}</button>
+        <span class="text-[11px] text-ink-muted ms-auto">{{ L("defaults to each cheque's date", "الافتراضي = تاريخ كل شيك", "défaut = date du chèque") }}</span>
       </div>
 
       <div class="max-h-[46vh] overflow-y-auto divide-y divide-line-hair">
         <div v-for="r in rows" :key="r.name" class="px-5 py-2.5 flex items-center gap-3">
           <div class="min-w-0 flex-1">
             <div class="text-[12px] font-mono font-semibold truncate">{{ r.cheque_no || r.name }}</div>
-            <div class="text-[10.5px] text-ink-muted truncate">{{ r.supplier_name }} · {{ r.currency }} {{ fmt(r.amount) }}</div>
+            <div class="text-[11px] text-ink-muted truncate">{{ r.supplier_name }} · {{ r.currency }} {{ fmt(r.amount) }}</div>
           </div>
           <input type="date" v-model="perDate[r.name]" class="h-8 border border-line-2 rounded-chip px-2.5 text-[12px] focus:outline-none focus:border-accent/40 shrink-0" />
         </div>

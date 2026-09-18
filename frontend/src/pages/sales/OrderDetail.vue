@@ -30,21 +30,21 @@
       <div class="flex items-start gap-3.5 flex-wrap">
         <div class="flex-1 min-w-[200px]">
           <div class="flex items-center gap-2.5 flex-wrap">
-            <span class="text-[19px] font-bold font-mono">{{ o.id }}</span>
+            <span class="text-[20px] font-bold font-mono">{{ o.id }}</span>
             <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-[7px] border"
                   :style="{ background: sm.bg, color: sm.fg, borderColor: sm.bd }">{{ stateLabel(o.state, locale) }}</span>
-            <span class="inline-block text-[10px] font-bold px-2.5 py-1 rounded-[7px] border"
+            <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-[7px] border"
                   :style="post.posted ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#f5f5f4;color:#a8a29e;border-color:#e7e5e4'">{{ post.label }}</span>
           </div>
           <div class="flex items-center gap-3.5 mt-[7px] text-[12px] text-ink-3 flex-wrap">
             <span class="inline-flex items-center gap-1.5">
-              <span class="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" :style="{ background: AV[o.av] }">{{ o.initials }}</span>{{ o.customer }}
+              <span class="w-6 h-6 rounded-full grid place-items-center text-white text-[11px] font-bold" :style="{ background: AV[o.av] }">{{ o.initials }}</span>{{ o.customer }}
             </span>
             <span>{{ o.date }}</span>
           </div>
         </div>
         <div class="text-end">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Order total (gross)","إجمالي الطلب","Total commande (TTC)") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ L("Order total (gross)","إجمالي الطلب","Total commande (TTC)") }}</div>
           <div class="text-[24px] font-bold tnum">{{ o.value }} <span class="text-[13px] text-ink-3">{{ o.currency }}</span></div>
         </div>
       </div>
@@ -69,10 +69,10 @@
                @error="$event.target.style.display='none'" />
           <span v-else class="w-14 h-14 rounded-[10px] grid place-items-center bg-app-warm border border-line flex-shrink-0"><Icon name="box" :size="20" color="#a8a29e" /></span>
           <div class="flex-1 min-w-0">
-            <div class="text-[12.5px] font-semibold leading-snug">{{ it.name }}</div>
+            <div class="text-[13px] font-semibold leading-snug">{{ it.name }}</div>
             <div class="text-[11px] text-ink-3 mt-0.5">{{ it.qty }} × {{ it.rate }} <span class="text-ink-muted">{{ o.currency }}</span></div>
           </div>
-          <div class="text-[13.5px] font-bold tnum whitespace-nowrap">{{ it.amount }} <span class="text-[11px] text-ink-muted">{{ o.currency }}</span></div>
+          <div class="text-[14px] font-bold tnum whitespace-nowrap">{{ it.amount }} <span class="text-[11px] text-ink-muted">{{ o.currency }}</span></div>
         </div>
       </div>
     </div>
@@ -86,7 +86,7 @@
       <FactCard :title="L('Delivery','التسليم','Livraison')"
                 icon="truck" tint="#fff7ed" color="#c2410c" :facts="deliveryFacts"
                 :empty="L('Not handed to a carrier yet.','لم تُسلَّم لشركة شحن بعد.','Pas encore remise au transporteur.')">
-        <a v-if="tracking.url" :href="tracking.url" target="_blank" rel="noopener" class="mt-2.5 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-accent hover:text-accent-dark"><Icon name="arrow" :size="13" class="rtl:rotate-180" />{{ L("Track shipment","تتبّع الشحنة","Suivre") }}</a>
+        <a v-if="tracking.url" :href="tracking.url" target="_blank" rel="noopener" class="mt-2.5 inline-flex items-center gap-1.5 text-[12px] font-bold text-accent hover:text-accent-dark"><Icon name="arrow" :size="13" class="rtl:rotate-180" />{{ L("Track shipment","تتبّع الشحنة","Suivre") }}</a>
       </FactCard>
 
       <FactCard :title="L('Financial','المالي','Financier')"
@@ -95,13 +95,13 @@
 
     <!-- Related documents -->
     <div class="bg-white rounded-[14px] border border-line p-4 shadow-card">
-      <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="layers" :size="13" color="#7c3aed" /></span><span class="text-[12.5px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
+      <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="layers" :size="13" color="#7c3aed" /></span><span class="text-[13px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
       <div v-if="related.invoices.length || related.deliveries.length || related.payments.length" class="flex flex-wrap gap-2">
-        <button v-for="dn in related.deliveries" :key="dn" @click="openDoc('sales','challans',dn)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="truck" :size="12" color="#c2410c" />{{ dn }}</button>
-        <button v-for="inv in related.invoices" :key="inv" @click="openDoc('sales','invoices',inv)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="doc" :size="12" color="#0b5c4f" />{{ inv }}</button>
-        <button v-for="pe in related.payments" :key="pe" @click="openDoc('sales','payments',pe)" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="12" color="#047857" />{{ pe }}</button>
+        <button v-for="dn in related.deliveries" :key="dn" @click="openDoc('sales','challans',dn)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="truck" :size="12" color="#c2410c" />{{ dn }}</button>
+        <button v-for="inv in related.invoices" :key="inv" @click="openDoc('sales','invoices',inv)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="doc" :size="12" color="#0b5c4f" />{{ inv }}</button>
+        <button v-for="pe in related.payments" :key="pe" @click="openDoc('sales','payments',pe)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="12" color="#047857" />{{ pe }}</button>
       </div>
-      <div v-else class="text-[11.5px] text-ink-muted">{{ L("No delivery, invoice or payment yet — this order hasn't reached a posting state.","لا يوجد تسليم أو فاتورة أو دفعة بعد — الطلب لم يصل لحالة ترحيل.","Aucun document lié pour le moment.") }}</div>
+      <div v-else class="text-[12px] text-ink-muted">{{ L("No delivery, invoice or payment yet — this order hasn't reached a posting state.","لا يوجد تسليم أو فاتورة أو دفعة بعد — الطلب لم يصل لحالة ترحيل.","Aucun document lié pour le moment.") }}</div>
     </div>
 
     <div class="grid lg:grid-cols-[1fr_1.25fr] gap-3.5">
@@ -119,10 +119,10 @@
             </div>
             <div class="pb-4 flex-1">
               <div class="flex items-center gap-2">
-                <span class="text-[12.5px] font-bold" :class="e.done ? 'text-ink' : 'text-ink-muted'">{{ e.title }}</span>
-                <span class="text-[10.5px] text-ink-muted">{{ e.time }}</span>
+                <span class="text-[13px] font-bold" :class="e.done ? 'text-ink' : 'text-ink-muted'">{{ e.title }}</span>
+                <span class="text-[11px] text-ink-muted">{{ e.time }}</span>
               </div>
-              <div class="text-[11.5px] text-ink-3 mt-0.5 leading-snug">{{ e.desc }}</div>
+              <div class="text-[12px] text-ink-3 mt-0.5 leading-snug">{{ e.desc }}</div>
             </div>
           </div>
         </div>
@@ -135,7 +135,7 @@
             <div class="text-[13px] font-bold">{{ L("Auto-posted journal","قيد تلقائي","Écriture auto-passée") }}</div>
             <div class="text-[11px] text-ink-muted">{{ L("No manual GL — every state posts itself","لا قيود يدوية — كل حالة تُرحّل نفسها","Aucun GL manuel — chaque état se passe seul") }}</div>
           </div>
-          <span v-if="!journal.noJournal" class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-[3px] rounded-full" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0">
+          <span v-if="!journal.noJournal" class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-[3px] rounded-full" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0">
             <Icon name="check" :size="11" />{{ L("Balanced","متوازن","Équilibrée") }}
           </span>
         </div>
@@ -143,15 +143,15 @@
           <div v-for="(j, i) in journal.stages" :key="i" class="border border-line rounded-[11px] overflow-hidden">
             <div class="flex items-center gap-2 px-3 py-2.5 bg-app-warm2 border-b border-line-hair">
               <span class="w-1.5 h-1.5 rounded-full" :style="{ background: j.dot }"></span>
-              <span class="text-[11.5px] font-bold">{{ j.stage }}</span>
-              <span class="text-[10.5px] text-ink-muted ms-auto font-mono">{{ j.ref }}</span>
+              <span class="text-[12px] font-bold">{{ j.stage }}</span>
+              <span class="text-[11px] text-ink-muted ms-auto font-mono">{{ j.ref }}</span>
             </div>
             <table class="w-full">
               <tbody>
                 <tr v-for="(ln, k) in j.lines" :key="k" class="border-t border-line-hair">
-                  <td class="px-3 py-[7px] text-[11.5px] text-ink-2" :class="ln.indent ? 'ps-7' : ''">{{ ln.acc }}</td>
-                  <td class="px-2 py-[7px] text-end text-[11.5px] font-semibold w-[90px] text-success-dark">{{ ln.dr || "" }}</td>
-                  <td class="px-3 py-[7px] text-end text-[11.5px] font-semibold w-[90px] text-sale">{{ ln.cr || "" }}</td>
+                  <td class="px-3 py-[7px] text-[12px] text-ink-2" :class="ln.indent ? 'ps-7' : ''">{{ ln.acc }}</td>
+                  <td class="px-2 py-[7px] text-end text-[12px] font-semibold w-[90px] text-success-dark">{{ ln.dr || "" }}</td>
+                  <td class="px-3 py-[7px] text-end text-[12px] font-semibold w-[90px] text-sale">{{ ln.cr || "" }}</td>
                 </tr>
               </tbody>
             </table>

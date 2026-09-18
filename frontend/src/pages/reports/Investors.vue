@@ -20,34 +20,34 @@
       <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2">
           <span class="text-[13px] font-bold">{{ L("Investors","المستثمرون","Investisseurs") }}</span>
-          <span class="text-[10.5px] text-ink-muted">{{ list.length }}</span>
+          <span class="text-[11px] text-ink-muted">{{ list.length }}</span>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Investor","المستثمر","Investisseur") }}</th>
-              <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Entity","الكيان","Entité") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Capital","رأس المال","Capital") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Drawn","المسحوب","Retiré") }}</th>
-              <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("Terms","الشروط","Conditions") }}</th>
+              <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Investor","المستثمر","Investisseur") }}</th>
+              <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Entity","الكيان","Entité") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Capital","رأس المال","Capital") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Drawn","المسحوب","Retiré") }}</th>
+              <th class="px-3 py-2 text-center text-[11px] font-bold text-ink-muted">{{ L("Terms","الشروط","Conditions") }}</th>
               <th class="px-3 py-2"></th>
             </tr></thead>
             <tbody>
               <tr v-for="i in list" :key="i.account" class="border-t border-line-hair hover:bg-[#fafaf9]">
                 <td class="px-3 py-2 font-bold">{{ i.name }}</td>
                 <td class="px-3 py-2 text-ink-muted">{{ i.company }}</td>
-                <td class="px-3 py-2 text-end tnum" dir="ltr">{{ fmt(i.capital) }} <span class="text-[9.5px] text-ink-muted">{{ i.currency }}</span></td>
+                <td class="px-3 py-2 text-end tnum" dir="ltr">{{ fmt(i.capital) }} <span class="text-[11px] text-ink-muted">{{ i.currency }}</span></td>
                 <td class="px-3 py-2 text-end tnum" dir="ltr">{{ i.drawn ? fmt(i.drawn) : "—" }}</td>
                 <td class="px-3 py-2 text-center">
-                  <span v-if="i.configured" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">
+                  <span v-if="i.configured" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">
                     {{ i.share_pct }}% · {{ i.basis }}
                   </span>
-                  <span v-else class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">
+                  <span v-else class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">
                     {{ L("not set","غير محددة","non définies") }}
                   </span>
                 </td>
                 <td class="px-3 py-2 text-end">
-                  <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line hover:bg-app-warm"
+                  <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line hover:bg-app-warm"
                           @click="open(i.account)">{{ L("Statement","كشف الحساب","Relevé") }}</button>
                 </td>
               </tr>
@@ -66,9 +66,9 @@
             </div>
             <div class="flex-1"></div>
             <div v-for="f in headline" :key="f.k" class="text-end">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ f.label }}</div>
-              <div class="text-[17px] font-extrabold tnum" :class="f.tone" dir="ltr">{{ f.v }}</div>
-              <div v-if="f.sub" class="text-[10px] text-ink-muted tnum" dir="ltr">{{ f.sub }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ f.label }}</div>
+              <div class="text-[18px] font-extrabold tnum" :class="f.tone" dir="ltr">{{ f.v }}</div>
+              <div v-if="f.sub" class="text-[11px] text-ink-muted tnum" dir="ltr">{{ f.sub }}</div>
             </div>
           </div>
           <!-- the drift between the books and the obligation, named plainly -->
@@ -85,32 +85,32 @@
         <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
           <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
             <span class="text-[13px] font-bold">{{ L("The cycle their money financed","الدورة اللي موّلها","Le cycle financé") }}</span>
-            <span class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ st.cycle.from }} → {{ st.cycle.to }} · {{ st.cycle.months.length }}{{ L("m","ش","m") }} · USD</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style="background:#f5f5f4;color:#57534e"
+            <span class="text-[11px] text-ink-muted tnum" dir="ltr">{{ st.cycle.from }} → {{ st.cycle.to }} · {{ st.cycle.months.length }}{{ L("m","ش","m") }} · USD</span>
+            <span class="text-[11px] px-1.5 py-0.5 rounded-full font-bold" style="background:#f5f5f4;color:#57534e"
                   :title="L('the month being posted is never included — its revenue is in but its payroll, rent and courier bills are not',
                             'الشهر الجاري مش داخل — إيراده اتسجّل بس مرتباته وإيجاره وفواتير شحنه لسه',
                             'le mois en cours est exclu')">
               {{ L("closed months only","شهور مقفولة فقط","mois clos") }}
             </span>
             <div class="flex-1"></div>
-            <span v-if="st.model" class="text-[10px] text-ink-muted tnum" dir="ltr"
+            <span v-if="st.model" class="text-[11px] text-ink-muted tnum" dir="ltr"
                   :title="L('product cost is modelled, not read from the ledger','تكلفة المنتج محسوبة بالنموذج مش من الدفاتر','coût modélisé')">
               {{ st.cycle.units }} {{ L("units","قطعة","unités") }} ·
               {{ st.model.verified }} {{ L("verified","متحقق منها","vérifiés") }} ·
               <span :style="st.cycle.units_unpriced ? 'color:#b45309' : ''">{{ st.cycle.units_unpriced }} {{ L("unpriced","بدون تكلفة","sans coût") }}</span>
             </span>
           </div>
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <tbody>
               <tr v-for="l in st.layers" :key="l.key" class="border-t border-line-hair"
                   :class="st.terms && st.terms.basis === l.key ? 'bg-emerald-50/50' : ''">
                 <td class="px-4 py-2 font-bold" :class="st.terms && st.terms.basis === l.key ? 'text-emerald-800' : ''">
                   {{ l.label }}
-                  <span v-if="st.terms && st.terms.basis === l.key" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ms-1" style="background:#ecfdf5;color:#047857">
+                  <span v-if="st.terms && st.terms.basis === l.key" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full ms-1" style="background:#ecfdf5;color:#047857">
                     {{ L("agreed basis","الأساس المتفق عليه","base convenue") }}
                   </span>
                 </td>
-                <td class="px-4 py-2 text-[10.5px] text-ink-muted">{{ l.hint }}</td>
+                <td class="px-4 py-2 text-[11px] text-ink-muted">{{ l.hint }}</td>
                 <td class="px-4 py-2 text-end tnum font-bold" :class="l.value < 0 ? 'text-sale' : ''" dir="ltr">{{ fmt(l.value) }}</td>
               </tr>
             </tbody>
@@ -144,18 +144,18 @@
                    "Un coût est imputé ici lorsqu'il a été nécessaire.") }}
             </div>
           </div>
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <tbody>
               <tr v-for="(o, i) in st.overhead_rows" :key="i" class="border-t border-line-hair">
                 <td class="px-4 py-2 font-bold">{{ o.label }}</td>
-                <td class="px-4 py-2 text-[10.5px] text-ink-muted">{{ o.why }}</td>
-                <td class="px-4 py-2 text-end text-[10.5px] text-ink-muted tnum" dir="ltr">{{ o.share_pct }}%</td>
+                <td class="px-4 py-2 text-[11px] text-ink-muted">{{ o.why }}</td>
+                <td class="px-4 py-2 text-end text-[11px] text-ink-muted tnum" dir="ltr">{{ o.share_pct }}%</td>
                 <td class="px-4 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(o.usd) }}</td>
               </tr>
               <tr class="border-t border-line" style="background:#fafaf9">
                 <td class="px-4 py-2 font-bold" colspan="3">
                   {{ L("Charged to the goods","المحمّل على البضاعة","Imputé") }}
-                  <span class="text-[10.5px] font-normal text-ink-muted">
+                  <span class="text-[11px] font-normal text-ink-muted">
                     {{ L("of","من","de") }} {{ fmt(st.cycle.overhead_total) }} {{ L("total running costs","إجمالي المصاريف","total") }}
                     ({{ st.cycle.overhead_goods_pct }}%)</span>
                 </td>
@@ -171,15 +171,15 @@
             <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
               <div class="px-4 py-2.5 border-b border-line-hair">
                 <div class="text-[12px] font-bold">{{ L("Capital in the goods","رأس المال في البضاعة","Capital dans les marchandises") }}</div>
-                <div class="text-[10.5px] text-ink-muted tnum" dir="ltr">
+                <div class="text-[11px] text-ink-muted tnum" dir="ltr">
                   {{ st.capital_basis && st.capital_basis.date }} · {{ st.capital_basis && st.capital_basis.source }}
                 </div>
               </div>
-              <table class="w-full text-[11.5px]">
+              <table class="w-full text-[12px]">
                 <tbody>
                   <tr v-for="(d, i) in (st.capital_basis && st.capital_basis.detail) || []" :key="i" class="border-t border-line-hair">
                     <td class="px-4 py-1.5">{{ d.location }}</td>
-                    <td class="px-4 py-1.5 text-end text-[10.5px] text-ink-muted tnum" dir="ltr">{{ d.native }}</td>
+                    <td class="px-4 py-1.5 text-end text-[11px] text-ink-muted tnum" dir="ltr">{{ d.native }}</td>
                     <td class="px-4 py-1.5 text-end tnum" dir="ltr">{{ fmt(d.usd) }}</td>
                   </tr>
                   <tr class="border-t border-line" style="background:#fafaf9">
@@ -189,12 +189,12 @@
                   </tr>
                   <tr class="border-t border-line-hair">
                     <td class="px-4 py-1.5 font-bold">{{ st.name }}</td>
-                    <td class="px-4 py-1.5 text-end text-[10.5px] font-bold tnum" style="color:#047857" dir="ltr">{{ st.goods.pct }}%</td>
+                    <td class="px-4 py-1.5 text-end text-[11px] font-bold tnum" style="color:#047857" dir="ltr">{{ st.goods.pct }}%</td>
                     <td class="px-4 py-1.5 text-end tnum font-bold" dir="ltr">{{ fmt(st.goods.capital_usd) }}</td>
                   </tr>
                   <tr class="border-t border-line-hair">
                     <td class="px-4 py-1.5">{{ L("The company","الشركة","La société") }}</td>
-                    <td class="px-4 py-1.5 text-end text-[10.5px] text-ink-muted tnum" dir="ltr">{{ st.goods.company_pct }}%</td>
+                    <td class="px-4 py-1.5 text-end text-[11px] text-ink-muted tnum" dir="ltr">{{ st.goods.company_pct }}%</td>
                     <td class="px-4 py-1.5 text-end tnum" dir="ltr">{{ fmt(st.goods.company_usd) }}</td>
                   </tr>
                 </tbody>
@@ -205,7 +205,7 @@
               <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold">
                 {{ L("What it comes to","اللي بيطلع منها","Ce qui en résulte") }}
               </div>
-              <table class="w-full text-[11.5px]">
+              <table class="w-full text-[12px]">
                 <tbody>
                   <tr class="border-t border-line-hair">
                     <td class="px-4 py-2 font-bold">{{ L("Profit on the goods","ربح البضاعة","Profit") }}</td>
@@ -256,17 +256,17 @@
           <div v-if="st.goods.sensitivity.length > 1" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
             <div class="px-4 py-2.5 border-b border-line-hair">
               <div class="text-[12px] font-bold">{{ L("If the capital base were read differently","لو اتقرأ رأس المال بشكل تاني","Autres lectures du capital") }}</div>
-              <div class="text-[10.5px] text-ink-muted">
+              <div class="text-[11px] text-ink-muted">
                 {{ L("His percentage depends on what counts as the stock he bought into — the only judgement in this statement.",
                      "نسبته بتتغير حسب إيه اللي يتحسب مخزون اشترى فيه — دي الحاجة الوحيدة اللي فيها اجتهاد هنا.",
                      "Le seul jugement de ce relevé.") }}
               </div>
             </div>
-            <table class="w-full text-[11.5px]">
+            <table class="w-full text-[12px]">
               <tbody>
                 <tr v-for="(x, i) in st.goods.sensitivity" :key="i" class="border-t border-line-hair" :class="x.chosen ? 'bg-emerald-50/50' : ''">
                   <td class="px-4 py-2" :class="x.chosen ? 'font-bold text-emerald-800' : ''">{{ x.label }}</td>
-                  <td class="px-4 py-2 text-end text-[10.5px] text-ink-muted tnum" dir="ltr">{{ fmt(x.base_usd) }}</td>
+                  <td class="px-4 py-2 text-end text-[11px] text-ink-muted tnum" dir="ltr">{{ fmt(x.base_usd) }}</td>
                   <td class="px-4 py-2 text-end tnum font-bold" dir="ltr">{{ x.pct }}%</td>
                   <td class="px-4 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(x.amount) }}</td>
                 </tr>
@@ -284,10 +284,10 @@
                 <tr v-for="(m, i) in st.moves" :key="i" class="border-t border-line-hair">
                   <td class="px-3 py-1.5 tnum text-ink-muted" dir="ltr">{{ m.date }}</td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ fmt(m.local) }}</td>
-                  <td class="px-3 py-1.5 text-end tnum text-[10px] text-ink-muted" dir="ltr">@{{ m.rate }}</td>
+                  <td class="px-3 py-1.5 text-end tnum text-[11px] text-ink-muted" dir="ltr">@{{ m.rate }}</td>
                   <td class="px-3 py-1.5 text-end tnum font-bold" dir="ltr">
                     {{ fmt(m.deal) }} {{ st.deal_currency }}
-                    <span v-if="m.estimated" class="text-[9px] font-bold px-1 py-0.5 rounded ms-1" style="background:#fffbeb;color:#b45309"
+                    <span v-if="m.estimated" class="text-[11px] font-bold px-1 py-0.5 rounded ms-1" style="background:#fffbeb;color:#b45309"
                           :title="L('converted at the rate of that date — the amount was not recorded in ' + st.deal_currency,'محوّل بسعر التاريخ — المبلغ مش متسجل بالـ' + st.deal_currency,'estimé')">≈</span>
                   </td>
                 </tr>
@@ -297,19 +297,19 @@
           <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
             <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold">
               {{ L("Drawings","المسحوبات","Retraits") }}
-              <span class="text-[10px] font-normal text-ink-muted">
+              <span class="text-[11px] font-normal text-ink-muted">
                 — {{ L("each valued at its own date's rate","كل واحد بسعر تاريخه","au taux de sa date") }}</span>
-              <span v-if="!st.profit_account" class="text-[10px] font-normal text-ink-muted"> — {{ L("no drawings account","مفيش حساب مسحوبات","aucun compte") }}</span>
+              <span v-if="!st.profit_account" class="text-[11px] font-normal text-ink-muted"> — {{ L("no drawings account","مفيش حساب مسحوبات","aucun compte") }}</span>
             </div>
             <table class="w-full text-[11px]">
               <tbody>
                 <tr v-for="(d, i) in st.draws" :key="i" class="border-t border-line-hair">
                   <td class="px-3 py-1.5 tnum text-ink-muted" dir="ltr">{{ d.date }}</td>
                   <td class="px-3 py-1.5 text-end tnum" dir="ltr">{{ fmt(d.local) }}</td>
-                  <td class="px-3 py-1.5 text-end tnum text-[10px] text-ink-muted" dir="ltr">@{{ d.rate }}</td>
+                  <td class="px-3 py-1.5 text-end tnum text-[11px] text-ink-muted" dir="ltr">@{{ d.rate }}</td>
                   <td class="px-3 py-1.5 text-end tnum font-bold" dir="ltr">
                     {{ fmt(d.deal) }} {{ st.deal_currency }}
-                    <span v-if="d.estimated" class="text-[9px] font-bold px-1 py-0.5 rounded ms-1" style="background:#fffbeb;color:#b45309">≈</span>
+                    <span v-if="d.estimated" class="text-[11px] font-bold px-1 py-0.5 rounded ms-1" style="background:#fffbeb;color:#b45309">≈</span>
                   </td>
                 </tr>
                 <tr v-if="!st.draws.length"><td class="px-3 py-4 text-center text-[11px] text-ink-muted">—</td></tr>
@@ -327,7 +327,7 @@
             <tbody>
               <tr v-for="(q, i) in st.quality" :key="i" class="border-t border-line-hair">
                 <td class="px-4 py-2">{{ q.issue }}</td>
-                <td class="px-4 py-2 text-end text-[10.5px] font-bold"
+                <td class="px-4 py-2 text-end text-[11px] font-bold"
                     :style="q.effect.includes('overstated') ? 'color:#b91c1c' : 'color:#b45309'">{{ q.effect }}</td>
               </tr>
             </tbody>

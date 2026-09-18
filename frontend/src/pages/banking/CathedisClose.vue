@@ -9,21 +9,21 @@
     <!-- KPI row -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <div v-for="s in stats" :key="s.label" class="bg-white rounded-[12px] border p-3.5 shadow-card" :style="{ borderColor: s.bd || '#efe9e6' }">
-        <div class="text-[10.5px] text-ink-muted font-semibold">{{ s.label }}</div>
-        <div class="text-[19px] font-bold tnum mt-[3px]" :style="{ color: s.color || '#1c1917' }">{{ s.value }}</div>
-        <div class="text-[10.5px] text-ink-3 mt-0.5">{{ s.sub }}</div>
+        <div class="text-[11px] text-ink-muted font-semibold">{{ s.label }}</div>
+        <div class="text-[20px] font-bold tnum mt-[3px]" :style="{ color: s.color || '#1c1917' }">{{ s.value }}</div>
+        <div class="text-[11px] text-ink-3 mt-0.5">{{ s.sub }}</div>
       </div>
     </div>
 
     <!-- Action bar -->
     <div v-if="canWrite" class="bg-white border border-line rounded-[12px] shadow-card p-3 flex flex-wrap items-center gap-2">
-      <span class="text-[11.5px] text-ink-muted">{{ L("Post missing collection receipts","ترحيل سندات القبض الناقصة","Poster les reçus manquants") }}</span>
+      <span class="text-[12px] text-ink-muted">{{ L("Post missing collection receipts","ترحيل سندات القبض الناقصة","Poster les reçus manquants") }}</span>
       <div class="flex-1"></div>
-      <button class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
+      <button class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
               :disabled="running" @click="runBatch(10)">{{ L("Test 10","جرّب 10","Test 10") }}</button>
-      <button class="h-[30px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
+      <button class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
               :disabled="running" @click="runBatch(50)">{{ L("Post 50","رحّل 50","Poster 50") }}</button>
-      <button class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+      <button class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
               :disabled="running || !sum || !sum.ready_count" @click="runAll">
         {{ running ? L("Posting…","جارٍ الترحيل…","…") : L("Close all","اقفل الكل","Tout clôturer") }}
       </button>
@@ -57,13 +57,13 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Invoice","الفاتورة","Facture") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Unpaid","غير مدفوع","Impayé") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Order","الأوردر","Commande") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Receipt date","تاريخ السند","Date reçu") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Tracking","التتبّع","Suivi") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted"></th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Invoice","الفاتورة","Facture") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Unpaid","غير مدفوع","Impayé") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Order","الأوردر","Commande") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Receipt date","تاريخ السند","Date reçu") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Tracking","التتبّع","Suivi") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted"></th>
             </tr>
           </thead>
           <tbody>
@@ -72,13 +72,13 @@
               <td class="px-4 py-2.5 truncate max-w-[170px]">{{ r.customer }}</td>
               <td class="px-4 py-2.5 text-end tnum font-bold">{{ fmtNum(r.outstanding) }}</td>
               <td class="px-4 py-2.5 text-end tnum" :class="Math.abs(r.diff) > 5 ? 'text-amber-600' : 'text-ink-3'">
-                {{ fmtNum(r.so_total) }}<span v-if="Math.abs(r.diff) > 5" class="text-[10px]"> (Δ{{ fmtNum(r.diff) }})</span>
+                {{ fmtNum(r.so_total) }}<span v-if="Math.abs(r.diff) > 5" class="text-[11px]"> (Δ{{ fmtNum(r.diff) }})</span>
               </td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ r.pe_date }}</td>
               <td class="px-4 py-2.5 text-ink-3 font-mono text-[11px] whitespace-nowrap">{{ r.tracking || "—" }}</td>
               <td class="px-4 py-2.5 text-end">
-                <span v-if="r.state === 'anomaly'" class="text-[10px] font-bold text-amber-600">{{ L("review","مراجعة","revue") }}</span>
-                <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+                <span v-if="r.state === 'anomaly'" class="text-[11px] font-bold text-amber-600">{{ L("review","مراجعة","revue") }}</span>
+                <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
                         :disabled="running" @click="postOne(r)">{{ L("Post","رحّل","Poster") }}</button>
               </td>
             </tr>

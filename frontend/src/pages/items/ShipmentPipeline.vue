@@ -8,24 +8,24 @@
     <!-- overview -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-rose-600">{{ L("Receipts w/o landed cost","استلامات بدون تحميل","Sans coût") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-rose-600">{{ L("Receipts w/o landed cost","استلامات بدون تحميل","Sans coût") }}</div>
         <div class="text-[20px] font-extrabold tnum mt-0.5">{{ ov.uncovered_receipts?.n ?? "—" }}</div>
-        <div class="text-[10.5px] text-ink-muted">{{ money(ov.uncovered_receipts?.value) }} {{ L("since","منذ","depuis") }} {{ ov.from_date }}</div>
+        <div class="text-[11px] text-ink-muted">{{ money(ov.uncovered_receipts?.value) }} {{ L("since","منذ","depuis") }} {{ ov.from_date }}</div>
       </div>
       <div class="bg-white rounded-card border border-amber-200 shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700">{{ L("Draft vouchers","درافت واقفة","Brouillons") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">{{ L("Draft vouchers","درافت واقفة","Brouillons") }}</div>
         <div class="text-[20px] font-extrabold tnum mt-0.5">{{ ov.drafts?.n ?? "—" }}</div>
-        <div class="text-[10.5px] text-ink-muted">{{ money(ov.drafts?.value) }} {{ L("stuck","محبوسة","bloqués") }}</div>
+        <div class="text-[11px] text-ink-muted">{{ money(ov.drafts?.value) }} {{ L("stuck","محبوسة","bloqués") }}</div>
       </div>
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Charge inbox","صندوق المصاريف","Charges") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Charge inbox","صندوق المصاريف","Charges") }}</div>
         <div class="text-[20px] font-extrabold tnum mt-0.5">{{ money(ov.inbox_total) }}</div>
-        <div class="text-[10.5px] text-ink-muted">{{ ov.inbox_n }} {{ L("booked, not capitalised","مسجل ومش مرسمَل","non capitalisées") }}</div>
+        <div class="text-[11px] text-ink-muted">{{ ov.inbox_n }} {{ L("booked, not capitalised","مسجل ومش مرسمَل","non capitalisées") }}</div>
       </div>
       <div class="bg-white rounded-card border border-emerald-200 shadow-card px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">{{ L("Posted 2026","مرحّل 2026","Validés") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">{{ L("Posted 2026","مرحّل 2026","Validés") }}</div>
         <div class="text-[20px] font-extrabold tnum mt-0.5">{{ ov.posted?.n ?? "—" }}</div>
-        <div class="text-[10.5px] text-ink-muted">{{ money(ov.posted?.value) }} {{ L("capitalised","مرسمَل","capitalisé") }}</div>
+        <div class="text-[11px] text-ink-muted">{{ money(ov.posted?.value) }} {{ L("capitalised","مرسمَل","capitalisé") }}</div>
       </div>
     </div>
 
@@ -33,10 +33,10 @@
     <div v-if="drafts.length" class="bg-white rounded-card border border-amber-200 shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2">
         <Icon name="clock" :size="14" color="#b45309" />{{ L("Stalled drafts — finish or drop","درافت واقفة — كمّلها أو امسحها","Brouillons en attente") }}
-        <span class="text-[10px] text-ink-muted">{{ drafts.length }}</span>
+        <span class="text-[11px] text-ink-muted">{{ drafts.length }}</span>
       </div>
       <div class="overflow-x-auto"><table class="w-full text-[12px]">
-        <thead><tr style="background:#fffbeb" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+        <thead><tr style="background:#fffbeb" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
           <th class="px-4 py-2 text-start">{{ L("Voucher","السند","Bon") }}</th>
           <th class="px-3 py-2 text-start">{{ L("Date","التاريخ","Date") }}</th>
           <th class="px-3 py-2 text-start">{{ L("Receipts","الاستلامات","Réceptions") }}</th>
@@ -48,14 +48,14 @@
           <tr v-for="d0 in drafts" :key="d0.name" class="border-t border-line-hair align-top">
             <td class="px-4 py-2.5 font-mono text-[11px]">
               <router-link :to="{ path: '/accounting/items/landed', query: { id: d0.name } }" class="text-accent-dark hover:underline">{{ d0.name }}</router-link>
-              <div class="text-[9.5px] text-ink-muted">{{ d0.items_n }} {{ L("item lines","سطر صنف","lignes") }} · {{ d0.basis }}</div>
+              <div class="text-[11px] text-ink-muted">{{ d0.items_n }} {{ L("item lines","سطر صنف","lignes") }} · {{ d0.basis }}</div>
             </td>
             <td class="px-3 py-2.5 whitespace-nowrap text-ink-3">{{ d0.dt }}</td>
-            <td class="px-3 py-2.5 text-[10.5px] font-mono max-w-[160px]">
+            <td class="px-3 py-2.5 text-[11px] font-mono max-w-[160px]">
               <router-link v-for="r in d0.receipts.slice(0,3)" :key="r" :to="{ path: '/accounting/purchases/received', query: { id: r } }" class="truncate block text-accent-dark hover:underline">{{ r }}</router-link>
               <div v-if="d0.receipts.length>3" class="text-ink-muted">+{{ d0.receipts.length-3 }}</div>
             </td>
-            <td class="px-3 py-2.5 text-[10.5px] max-w-[220px]"><div v-for="(c,i) in d0.charges.slice(0,3)" :key="i" class="truncate">{{ money(c.amount) }} — {{ (c.description || c.expense_account).slice(0,40) }}</div><div v-if="d0.charges.length>3" class="text-ink-muted">+{{ d0.charges.length-3 }}</div></td>
+            <td class="px-3 py-2.5 text-[11px] max-w-[220px]"><div v-for="(c,i) in d0.charges.slice(0,3)" :key="i" class="truncate">{{ money(c.amount) }} — {{ (c.description || c.expense_account).slice(0,40) }}</div><div v-if="d0.charges.length>3" class="text-ink-muted">+{{ d0.charges.length-3 }}</div></td>
             <td class="px-3 py-2.5 text-end tnum font-semibold whitespace-nowrap">{{ money(d0.total) }}</td>
             <td class="px-4 py-2.5 text-end whitespace-nowrap">
               <div v-if="canWrite" class="inline-flex items-center gap-1.5">
@@ -74,7 +74,7 @@
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2">
           <Icon name="truck" :size="14" color="#0b5c4f" />{{ L("1 · Pick the shipment's receipts","١ · اختار استلامات الشحنة","1 · Réceptions") }}
-          <span class="text-[10px] text-ink-muted">{{ selReceipts.length }} {{ L("selected","مختار","choisis") }}</span>
+          <span class="text-[11px] text-ink-muted">{{ selReceipts.length }} {{ L("selected","مختار","choisis") }}</span>
           <input v-model="rq" @input="debouncedReceipts" :placeholder="L('search receipt / supplier…','ابحث استلام / مورّد…','rechercher…')" class="ms-auto w-[180px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2.5 text-[11px] focus:outline-none" />
         </div>
         <TableLoading v-if="loading" :rows="5" />
@@ -83,10 +83,10 @@
             <tbody>
               <tr v-for="r in receipts" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="toggleReceipt(r.name)">
                 <td class="ps-4 py-2 w-8"><input type="checkbox" :checked="selReceipts.includes(r.name)" class="accent-emerald-700 pointer-events-none" /></td>
-                <td class="px-2 py-2 font-mono text-[10.5px] whitespace-nowrap"><router-link :to="{ path: '/accounting/purchases/received', query: { id: r.name } }" class="text-accent-dark hover:underline" @click.stop>{{ r.name }}</router-link></td>
+                <td class="px-2 py-2 font-mono text-[11px] whitespace-nowrap"><router-link :to="{ path: '/accounting/purchases/received', query: { id: r.name } }" class="text-accent-dark hover:underline" @click.stop>{{ r.name }}</router-link></td>
                 <td class="px-2 py-2 truncate max-w-[140px]">{{ r.supplier }}</td>
                 <td class="px-2 py-2 text-ink-3 whitespace-nowrap">{{ String(r.dt).slice(0,10) }}</td>
-                <td class="px-3 py-2 text-end tnum whitespace-nowrap">{{ money(r.value) }} <span class="text-[9px] text-ink-muted">· {{ r.items }} {{ L("items","صنف","art.") }}</span></td>
+                <td class="px-3 py-2 text-end tnum whitespace-nowrap">{{ money(r.value) }} <span class="text-[11px] text-ink-muted">· {{ r.items }} {{ L("items","صنف","art.") }}</span></td>
               </tr>
               <tr v-if="err"><td colspan="5" class="px-4 py-6 text-center text-rose-600 text-[11px]">{{ L("Couldn't load — ","تعذّر التحميل — ","Échec — ") }}<button @click="load" class="underline font-semibold">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button></td></tr>
               <tr v-else-if="!receipts.length"><td colspan="5" class="px-4 py-6 text-center text-ink-muted text-[11px]">{{ L("All 2026 receipts are covered 🎉","كل استلامات 2026 متغطية 🎉","Tout est couvert") }}</td></tr>
@@ -99,8 +99,8 @@
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2">
           <Icon name="cash" :size="14" color="#0b5c4f" />{{ L("2 · Attach the charges","٢ · علّق المصاريف","2 · Charges") }}
-          <span class="text-[10px] text-ink-muted">{{ money(chargesTotal) }}</span>
-          <button type="button" class="ms-auto text-[10.5px] font-bold text-accent-dark hover:underline" @click="manual = !manual">{{ manual ? L("hide manual","اخفي اليدوي","cacher") : L("+ manual charge","+ مصروف يدوي","+ manuel") }}</button>
+          <span class="text-[11px] text-ink-muted">{{ money(chargesTotal) }}</span>
+          <button type="button" class="ms-auto text-[11px] font-bold text-accent-dark hover:underline" @click="manual = !manual">{{ manual ? L("hide manual","اخفي اليدوي","cacher") : L("+ manual charge","+ مصروف يدوي","+ manuel") }}</button>
         </div>
         <div v-if="manual" class="px-4 py-3 border-b border-line-hair bg-app-warm/30 flex items-center gap-2 flex-wrap">
           <input v-model.trim="mCharge.description" :placeholder="L('description','الوصف','description')" class="flex-1 min-w-[140px] h-8 bg-white border border-line-2 rounded-chip px-2.5 text-[11px] focus:outline-none" />
@@ -113,19 +113,19 @@
             <tbody>
               <tr v-for="(c, i) in inbox" :key="c.vn + c.account + c.dt" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="toggleCharge(i)">
                 <td class="ps-4 py-2 w-8"><input type="checkbox" :checked="selCharges.includes(i)" class="accent-emerald-700 pointer-events-none" /></td>
-                <td class="px-2 py-2"><router-link :to="chargeLink(c)" class="font-mono text-[10.5px] text-accent-dark hover:underline" @click.stop>{{ c.vn }}</router-link>
-                  <div class="text-[10px] text-ink-muted truncate max-w-[200px]">{{ c.account_name }} · {{ c.remarks || c.vt }}</div>
-                  <div v-if="c.account_absorbed" class="text-[9.5px] text-amber-700">⚠ {{ money(c.account_absorbed) }} {{ L("already capitalised on this account — don't re-attach the same bill","اترسمل قبل كده على الحساب ده — متعلقش نفس الفاتورة تاني","déjà capitalisé sur ce compte") }}</div>
+                <td class="px-2 py-2"><router-link :to="chargeLink(c)" class="font-mono text-[11px] text-accent-dark hover:underline" @click.stop>{{ c.vn }}</router-link>
+                  <div class="text-[11px] text-ink-muted truncate max-w-[200px]">{{ c.account_name }} · {{ c.remarks || c.vt }}</div>
+                  <div v-if="c.account_absorbed" class="text-[11px] text-amber-700">⚠ {{ money(c.account_absorbed) }} {{ L("already capitalised on this account — don't re-attach the same bill","اترسمل قبل كده على الحساب ده — متعلقش نفس الفاتورة تاني","déjà capitalisé sur ce compte") }}</div>
                 </td>
                 <td class="px-2 py-2 text-ink-3 whitespace-nowrap text-[11px]">{{ c.dt }}</td>
                 <td class="px-3 py-2 text-end tnum font-semibold whitespace-nowrap">{{ money(c.amount) }}</td>
               </tr>
               <tr v-for="(m, i) in manualCharges" :key="'m'+i" class="border-t border-line-hair" style="background:#f0fdf4">
                 <td class="ps-4 py-2 w-8"><button type="button" class="text-rose-500 text-[13px]" @click="manualCharges.splice(i,1)">×</button></td>
-                <td class="px-2 py-2 text-[11px]" colspan="2">{{ m.description }} <span class="text-[10px] text-ink-muted">{{ m.expense_account }}</span></td>
+                <td class="px-2 py-2 text-[11px]" colspan="2">{{ m.description }} <span class="text-[11px] text-ink-muted">{{ m.expense_account }}</span></td>
                 <td class="px-3 py-2 text-end tnum font-semibold">{{ money(m.amount) }}</td>
               </tr>
-              <tr v-if="inbox.length >= 500"><td colspan="4" class="px-4 py-2 text-center text-[10px] text-amber-700">{{ L("Showing the latest 500 charges — post some to surface older ones.","بيعرض أحدث 500 مصروف — رحّل شوية عشان الأقدم يظهر.","500 dernières charges.") }}</td></tr>
+              <tr v-if="inbox.length >= 500"><td colspan="4" class="px-4 py-2 text-center text-[11px] text-amber-700">{{ L("Showing the latest 500 charges — post some to surface older ones.","بيعرض أحدث 500 مصروف — رحّل شوية عشان الأقدم يظهر.","500 dernières charges.") }}</td></tr>
               <tr v-if="err && !inbox.length"><td colspan="4" class="px-4 py-6 text-center text-rose-600 text-[11px]">{{ L("Couldn't load charges","تعذّر تحميل المصاريف","Échec de chargement") }}</td></tr>
               <tr v-else-if="!inbox.length && !manualCharges.length"><td colspan="4" class="px-4 py-6 text-center text-ink-muted text-[11px]">{{ L("No unallocated charges — add one manually if the bill isn't booked yet.","مفيش مصاريف غير موزعة — أضف يدوي لو الفاتورة لسه ماتسجلتش.","Aucune charge.") }}</td></tr>
             </tbody>
@@ -163,7 +163,7 @@
       </div>
       <div v-if="preview" class="overflow-x-auto max-h-[300px] overflow-y-auto">
         <table class="w-full text-[12px]">
-          <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted sticky top-0">
+          <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted sticky top-0">
             <th class="px-4 py-2 text-start">{{ L("Item","الصنف","Article") }}</th>
             <th class="px-3 py-2 text-end">{{ L("Qty","كمية","Qté") }}</th>
             <th class="px-3 py-2 text-end">{{ L("Rate now","السعر الحالي","Taux") }}</th>
@@ -173,7 +173,7 @@
           </tr></thead>
           <tbody>
             <tr v-for="(ln, i) in preview.lines" :key="i" class="border-t border-line-hair">
-              <td class="px-4 py-1.5 font-mono text-[10.5px]">{{ ln.item_code }}</td>
+              <td class="px-4 py-1.5 font-mono text-[11px]">{{ ln.item_code }}</td>
               <td class="px-3 py-1.5 text-end tnum">{{ ln.qty }}</td>
               <td class="px-3 py-1.5 text-end tnum">{{ money(ln.rate) }}</td>
               <td class="px-3 py-1.5 text-end tnum text-emerald-700">+{{ money(ln.alloc) }}</td>
@@ -183,8 +183,8 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="px-4 py-6 text-center text-[11.5px] text-ink-muted">{{ L("Pick receipts + charges, then Preview — nothing posts until step 4.","اختار استلامات ومصاريف وبعدين عاين — مفيش ترحيل قبل الخطوة ٤.","Choisissez puis aperçu.") }}</div>
-      <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+      <div v-else class="px-4 py-6 text-center text-[12px] text-ink-muted">{{ L("Pick receipts + charges, then Preview — nothing posts until step 4.","اختار استلامات ومصاريف وبعدين عاين — مفيش ترحيل قبل الخطوة ٤.","Choisissez puis aperçu.") }}</div>
+      <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
         <Icon name="alert" :size="11" color="#9a8f86" />{{ L("Posting: Dr stock / Cr 153.03 clearing — one voucher per basis (freight→weight, customs→value). Audited, gated over 10K, revert = cancel the voucher(s).","الترحيل: مدين المخزون / دائن 153.03 الوسيط — سند لكل أساس (شحن→وزن، جمرك→قيمة). مدقّق، فوق 10K موافقة، والتراجع = إلغاء السند.","Dr stock / Cr 153.03 — audité & réversible.") }}
       </div>
     </div>

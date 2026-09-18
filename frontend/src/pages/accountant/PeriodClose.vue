@@ -9,7 +9,7 @@
              that neither linked to. One screen, two scopes. -->
         <div class="flex gap-0.5 bg-app-warm rounded-chip p-0.5">
           <button v-for="sc in [['day', L('Day','اليوم','Jour')], ['month', L('Month','الشهر','Mois')]]" :key="sc[0]"
-                  class="px-2.5 py-1 rounded-lg text-[11.5px] font-semibold"
+                  class="px-2.5 py-1 rounded-lg text-[12px] font-semibold"
                   :class="scope === sc[0] ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'"
                   @click="setScope(sc[0])">{{ sc[1] }}</button>
         </div>
@@ -46,39 +46,39 @@
         <div class="flex items-center gap-2.5">
           <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center" style="background:rgba(255,255,255,.1)"><Icon name="lock" :size="16" color="#fbbf24" /></span>
           <div class="flex-1">
-            <div class="text-[12.5px] font-bold">{{ L("Period lock", "قفل الفترة", "Verrouillage") }}</div>
-            <div class="text-[10.5px]" style="color:#a8a29e">{{ L("Stops back-dated postings", "يمنع القيود بأثر رجعي", "Bloque les écritures antidatées") }}</div>
+            <div class="text-[13px] font-bold">{{ L("Period lock", "قفل الفترة", "Verrouillage") }}</div>
+            <div class="text-[11px]" style="color:#a8a29e">{{ L("Stops back-dated postings", "يمنع القيود بأثر رجعي", "Bloque les écritures antidatées") }}</div>
           </div>
         </div>
         <div class="flex items-center gap-2.5 mt-3 px-3 py-2.5 rounded-[10px]" style="background:rgba(255,255,255,.06)">
           <span class="w-[7px] h-[7px] rounded-full" :style="{ background: lockedUpto ? '#34d399' : '#fbbf24' }"></span>
-          <span class="flex-1 text-[11.5px]" style="color:#e7e5e4">{{ lockedUpto ? L("Locked up to", "مقفلة حتى", "Verrouillé au") + " " + lockedUpto : L("Not locked", "غير مقفلة", "Non verrouillé") }}</span>
+          <span class="flex-1 text-[12px]" style="color:#e7e5e4">{{ lockedUpto ? L("Locked up to", "مقفلة حتى", "Verrouillé au") + " " + lockedUpto : L("Not locked", "غير مقفلة", "Non verrouillé") }}</span>
         </div>
         <template v-if="isAdmin">
           <div class="flex items-center gap-2 mt-2.5">
             <input v-model="lockDate" type="date" class="flex-1 h-8 rounded-[8px] px-2 text-[12px] text-ink bg-white/90 border-0 focus:outline-none" />
-            <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-bold text-ink" style="background:#fbbf24" :disabled="lockBusy || !lockDate" @click="lock(lockDate)">{{ lockBusy ? "…" : L("Lock", "قفل", "Verrouiller") }}</button>
+            <button class="h-8 px-3 rounded-[8px] text-[12px] font-bold text-ink" style="background:#fbbf24" :disabled="lockBusy || !lockDate" @click="lock(lockDate)">{{ lockBusy ? "…" : L("Lock", "قفل", "Verrouiller") }}</button>
           </div>
-          <button v-if="lockedUpto" class="mt-2 text-[10.5px] font-semibold" style="color:#a8a29e" :disabled="lockBusy" @click="lock('')">{{ L("Unlock", "إلغاء القفل", "Déverrouiller") }}</button>
-          <p class="text-[10px] mt-2" style="color:#a8a29e">{{ L("Locks posting on/before the date across all companies.", "يمنع القيود في هذا التاريخ وقبله لكل الشركات.", "Bloque les écritures à cette date et avant, toutes sociétés.") }}</p>
+          <button v-if="lockedUpto" class="mt-2 text-[11px] font-semibold" style="color:#a8a29e" :disabled="lockBusy" @click="lock('')">{{ L("Unlock", "إلغاء القفل", "Déverrouiller") }}</button>
+          <p class="text-[11px] mt-2" style="color:#a8a29e">{{ L("Locks posting on/before the date across all companies.", "يمنع القيود في هذا التاريخ وقبله لكل الشركات.", "Bloque les écritures à cette date et avant, toutes sociétés.") }}</p>
         </template>
-        <p v-else class="text-[10px] mt-2" style="color:#a8a29e">{{ L("Only an admin can lock the period.", "المشرف فقط يمكنه قفل الفترة.", "Seul un admin peut verrouiller.") }}</p>
+        <p v-else class="text-[11px] mt-2" style="color:#a8a29e">{{ L("Only an admin can lock the period.", "المشرف فقط يمكنه قفل الفترة.", "Seul un admin peut verrouiller.") }}</p>
       </div>
 
       <!-- Year-end close -->
       <div v-if="isAdmin" class="rounded-[14px] p-4 bg-white border border-line shadow-card">
         <div class="flex items-center gap-2.5">
           <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center" style="background:#f5f3ff"><Icon name="ledger" :size="16" color="#7c3aed" /></span>
-          <div class="flex-1"><div class="text-[12.5px] font-bold">{{ L("Year-end close", "إقفال السنة", "Clôture annuelle") }}</div>
-            <div class="text-[10.5px] text-ink-muted">{{ L("Rolls P&L into retained earnings", "يرحّل الأرباح والخسائر لحقوق الملكية", "P&L → réserves") }}</div></div>
+          <div class="flex-1"><div class="text-[13px] font-bold">{{ L("Year-end close", "إقفال السنة", "Clôture annuelle") }}</div>
+            <div class="text-[11px] text-ink-muted">{{ L("Rolls P&L into retained earnings", "يرحّل الأرباح والخسائر لحقوق الملكية", "P&L → réserves") }}</div></div>
         </div>
         <div class="mt-3 space-y-1.5">
           <div v-for="y in years" :key="y.name" class="flex items-center gap-2 text-[12px] px-2.5 py-1.5 rounded-[9px] bg-app-warm/40">
-            <span class="flex-1 font-semibold">{{ y.name }} <span class="text-[10px] text-ink-muted">{{ y.sd }} → {{ y.ed }}</span></span>
-            <span v-if="y.closed" class="text-[10.5px] font-bold text-emerald-700">{{ L("closed ✓","مُقفلة ✓","clôturé") }}</span>
+            <span class="flex-1 font-semibold">{{ y.name }} <span class="text-[11px] text-ink-muted">{{ y.sd }} → {{ y.ed }}</span></span>
+            <span v-if="y.closed" class="text-[11px] font-bold text-emerald-700">{{ L("closed ✓","مُقفلة ✓","clôturé") }}</span>
             <button v-else class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="closeBusy===y.name" @click="closeYear(y)">{{ closeBusy===y.name ? '…' : L("Close","إقفال","Clôturer") }}</button>
           </div>
-          <p class="text-[10px] text-ink-muted">{{ L("Posts a Period Closing Voucher — reversible. Do this after the year is otherwise final.", "يرحّل Period Closing Voucher — قابل للتراجع. بعد ما السنة تخلص فعليًا.", "Réversible.") }}</p>
+          <p class="text-[11px] text-ink-muted">{{ L("Posts a Period Closing Voucher — reversible. Do this after the year is otherwise final.", "يرحّل Period Closing Voucher — قابل للتراجع. بعد ما السنة تخلص فعليًا.", "Réversible.") }}</p>
         </div>
       </div>
     </div>

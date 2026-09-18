@@ -23,11 +23,11 @@
       <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
         <div class="min-w-0">
           <div class="text-[13px] font-bold text-amber-900">{{ entityBanner.name }} · {{ entityBanner.ccy }}</div>
-          <div class="text-[11.5px] text-amber-800/80 max-w-xl">{{ entityBanner.role }}</div>
+          <div class="text-[12px] text-amber-800/80 max-w-xl">{{ entityBanner.role }}</div>
         </div>
         <div class="flex items-center gap-5 ms-auto">
           <div v-for="f in entityBanner.figs" :key="f.label" class="leading-tight">
-            <div class="text-[10px] text-amber-700/80 uppercase tracking-wide">{{ f.label }}</div>
+            <div class="text-[11px] text-amber-700/80 uppercase tracking-wide">{{ f.label }}</div>
             <div class="text-[14px] font-bold text-amber-900 tnum">{{ f.value }}</div>
           </div>
         </div>
@@ -44,24 +44,24 @@
               style="background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18)"><Icon name="shield" :size="20" color="#fff" /></span>
         <div class="flex-1 min-w-[240px]">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-[14.5px] font-bold">{{ t("dash.auditor_name") }}</span>
-            <span class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(167,139,250,.25);color:#ddd6fe">
+            <span class="text-[14px] font-bold">{{ t("dash.auditor_name") }}</span>
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(167,139,250,.25);color:#ddd6fe">
               <span class="w-[5px] h-[5px] rounded-full bg-violet-400 animate-pulse"></span>{{ t("dash.auditing") }}
             </span>
-            <span v-if="isLive" class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(52,211,153,.22);color:#a7f3d0">
+            <span v-if="isLive" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(52,211,153,.22);color:#a7f3d0">
               <span class="w-[5px] h-[5px] rounded-full bg-emerald-400"></span>Live{{ asOf ? " · " + asOf : "" }}
             </span>
           </div>
           <p class="text-[13px] mt-1.5 leading-relaxed max-w-2xl" style="color:#e9e3ff">{{ liveDigest }}</p>
         </div>
-        <button class="h-9 px-4 rounded-[10px] bg-white text-[12.5px] font-bold inline-flex items-center gap-1.5"
+        <button class="h-9 px-4 rounded-[10px] bg-white text-[13px] font-bold inline-flex items-center gap-1.5"
                 style="color:#5b21b6;box-shadow:0 4px 14px -4px rgba(0,0,0,.4)" @click="goCopilot">
           {{ t("dash.open_auditor") }}<Icon name="arrow" :size="14" class="rtl:rotate-180" />
         </button>
       </div>
       <div class="relative flex flex-wrap gap-2.5 mt-3.5">
         <button v-for="c in vm.digestChips" :key="c.label"
-                class="inline-flex items-center gap-2 px-[11px] py-[7px] rounded-[10px] text-[11.5px] font-semibold text-start"
+                class="inline-flex items-center gap-2 px-[11px] py-[7px] rounded-[10px] text-[12px] font-semibold text-start"
                 style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)" @click="goChip(c)">
           <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ background: c.dot }"></span>{{ c.label }}
         </button>
@@ -71,26 +71,26 @@
     <!-- Command strip: collected today · approvals · AR/AP aging -->
     <div v-if="cc" class="grid grid-cols-1 lg:grid-cols-4 gap-3">
       <button @click="goBucket('collected')" class="bg-white rounded-[14px] border border-line p-3.5 shadow-card text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected today","محصّل اليوم","Encaissé") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected today","محصّل اليوم","Encaissé") }}</div>
         <div class="text-[22px] font-extrabold tnum mt-1 text-success-dark">{{ money(ccData.collected_today) }} <span class="text-[11px] text-ink-muted font-normal">{{ ccyLabel }}</span></div>
       </button>
       <button @click="goApprovals" class="bg-white rounded-[14px] border p-3.5 shadow-card text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all" :style="ccData.approvals_pending ? 'border-color:#fde68a;background:#fffdf5' : 'border-color:#f0efed'">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Approvals waiting","موافقات معلّقة","Approbations") }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Approvals waiting","موافقات معلّقة","Approbations") }}</div>
         <div class="text-[22px] font-extrabold tnum mt-1" :class="ccData.approvals_pending ? 'text-amber-700' : ''">{{ ccData.approvals_pending || 0 }}</div>
       </button>
       <div class="bg-white rounded-[14px] border border-line p-3.5 shadow-card cursor-pointer hover:shadow-cardHover transition-all" @click="goArap">
-        <div class="flex items-center justify-between"><span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("AR aging","تقادم المدينين","Âge créances") }}</span><span class="text-[10px] font-bold tnum">{{ money(arAging.total) }}</span></div>
+        <div class="flex items-center justify-between"><span class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("AR aging","تقادم المدينين","Âge créances") }}</span><span class="text-[11px] font-bold tnum">{{ money(arAging.total) }}</span></div>
         <div class="flex items-end gap-1 h-[24px] mt-2">
           <div v-for="seg in agingSegs(arAging)" :key="seg.k" class="flex-1 rounded-t-sm" :style="{ height: seg.h + '%', minHeight: '3px', background: seg.color }" :title="seg.label"></div>
         </div>
-        <div class="flex justify-between text-[8px] text-ink-muted mt-1"><span>cur</span><span>30</span><span>60</span><span>90</span><span>90+</span></div>
+        <div class="flex justify-between text-[11px] text-ink-muted mt-1"><span>cur</span><span>30</span><span>60</span><span>90</span><span>90+</span></div>
       </div>
       <div class="bg-white rounded-[14px] border border-line p-3.5 shadow-card cursor-pointer hover:shadow-cardHover transition-all" @click="goArap">
-        <div class="flex items-center justify-between"><span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("AP aging","تقادم الدائنين","Âge dettes") }}</span><span class="text-[10px] font-bold tnum">{{ money(apAging.total) }}</span></div>
+        <div class="flex items-center justify-between"><span class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("AP aging","تقادم الدائنين","Âge dettes") }}</span><span class="text-[11px] font-bold tnum">{{ money(apAging.total) }}</span></div>
         <div class="flex items-end gap-1 h-[24px] mt-2">
           <div v-for="seg in agingSegs(apAging)" :key="seg.k" class="flex-1 rounded-t-sm" :style="{ height: seg.h + '%', minHeight: '3px', background: seg.color }" :title="seg.label"></div>
         </div>
-        <div class="flex justify-between text-[8px] text-ink-muted mt-1"><span>cur</span><span>30</span><span>60</span><span>90</span><span>90+</span></div>
+        <div class="flex justify-between text-[11px] text-ink-muted mt-1"><span>cur</span><span>30</span><span>60</span><span>90</span><span>90+</span></div>
       </div>
     </div>
 
@@ -99,21 +99,21 @@
     <div v-if="sh" class="bg-white rounded-[14px] border border-line shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
         <span class="text-[13px] font-bold">{{ L("Sales — the four figures","المبيعات — الأربع أرقام","Ventes — les quatre chiffres") }}</span>
-        <span class="text-[10.5px] text-ink-muted">{{ sh.year }} · {{ fmt(sh.orders) }} {{ L("orders","طلب","commandes") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ sh.year }} · {{ fmt(sh.orders) }} {{ L("orders","طلب","commandes") }}</span>
         <div class="flex-1"></div>
-        <span v-if="sh.conversion !== null" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
+        <span v-if="sh.conversion !== null" class="text-[11px] font-bold px-2 py-0.5 rounded-full"
               :style="sh.conversion >= 70 ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">
           {{ sh.conversion }}% {{ L("of orders became invoices","من الطلبات بقت فواتير","des commandes facturées") }}
         </span>
       </div>
       <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-line-hair rtl:divide-x-reverse">
         <div v-for="f in shFigs" :key="f.k" class="px-4 py-3.5">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ f.label }}</div>
-          <div class="text-[19px] font-extrabold tnum mt-1" :class="f.strong ? 'text-ink' : 'text-ink-3'" dir="ltr">{{ fmt(f.v) }}</div>
-          <div class="text-[10px] text-ink-muted mt-0.5">{{ f.hint }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ f.label }}</div>
+          <div class="text-[20px] font-extrabold tnum mt-1" :class="f.strong ? 'text-ink' : 'text-ink-3'" dir="ltr">{{ fmt(f.v) }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ f.hint }}</div>
         </div>
       </div>
-      <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted">
+      <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted">
         {{ L("Revenue is the P&L line (net of VAT); the VAT you charge belongs to the state, not to you.",
              "الإيراد هو سطر قائمة الدخل (صافي الضريبة) — الضريبة اللي بتحصّلها فلوس الدولة مش فلوسك.",
              "Le revenu est net de TVA ; la TVA collectée appartient à l'État.") }}
@@ -128,7 +128,7 @@
         <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: b.color, opacity: .3 }"></span>
         <div class="flex items-center gap-2">
           <span class="w-8 h-8 rounded-[10px] grid place-items-center flex-shrink-0" :style="{ background: b.tint }"><Icon :name="b.icon" :size="15" :color="b.color" /></span>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted leading-tight">{{ b.label }}</span>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-ink-muted leading-tight">{{ b.label }}</span>
         </div>
         <div class="text-[22px] font-extrabold tnum mt-1.5 leading-none" :style="{ color: b.color }">{{ (b.count || 0).toLocaleString() }}</div>
         <div class="text-[11px] text-ink-3 mt-1 tnum">{{ money(b.value) }} <span class="text-ink-muted">{{ ccyLabel }}</span></div>
@@ -144,7 +144,7 @@
           <span class="text-[13px] font-bold">{{ L("Carrier float · uncollected","رصيد لدى الناقل · غير محصّل","Flottant transporteur") }}</span>
         </div>
         <div class="relative text-[28px] font-extrabold text-sale tnum mt-2.5 tracking-tight leading-none">{{ money(cod.carrier_float) }}<span class="text-[13px] text-ink-muted ms-1">{{ ccyLabel }}</span></div>
-        <div class="relative text-[11.5px] text-ink-3 mt-2 leading-snug">{{ L("Cash for delivered orders that hasn't been reconciled yet — it's with Cathedis.","كاش طلبات مُسلّمة لسه ماتطابقش — لسه مع كاتدييس.","Encaisse livrée non rapprochée — chez Cathedis.") }}</div>
+        <div class="relative text-[12px] text-ink-3 mt-2 leading-snug">{{ L("Cash for delivered orders that hasn't been reconciled yet — it's with Cathedis.","كاش طلبات مُسلّمة لسه ماتطابقش — لسه مع كاتدييس.","Encaisse livrée non rapprochée — chez Cathedis.") }}</div>
       </div>
       <div class="bg-white rounded-[16px] border border-line p-[17px] shadow-card flex flex-col">
         <div class="flex items-center gap-2">
@@ -155,7 +155,7 @@
         <div class="h-2.5 rounded-full bg-app-warm overflow-hidden mt-3">
           <div class="h-full rounded-full transition-all" :style="{ width: Math.max(2, cod.reconciled_pct || 0) + '%', background: '#0f766e' }"></div>
         </div>
-        <div class="text-[11.5px] text-ink-3 mt-2">{{ L("of delivered cash matched to remittances.","من كاش المُسلّم مطابق للتحويلات.","du livré rapproché.") }}</div>
+        <div class="text-[12px] text-ink-3 mt-2">{{ L("of delivered cash matched to remittances.","من كاش المُسلّم مطابق للتحويلات.","du livré rapproché.") }}</div>
         <button class="mt-auto inline-flex items-center justify-center gap-1.5 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand mt-3" @click="goBucket('delivered')">
           <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher Cathedis") }}
         </button>
@@ -169,13 +169,13 @@
         <!-- soft accent glow tinted to the metric -->
         <div class="absolute -top-10 -end-10 w-28 h-28 rounded-full blur-2xl pointer-events-none" :style="{ background: k.ic, opacity: 0.07 }"></div>
         <div class="relative flex items-center justify-between">
-          <span class="text-[11.5px] font-semibold text-ink-3">{{ k.label }}</span>
+          <span class="text-[12px] font-semibold text-ink-3">{{ k.label }}</span>
           <span class="w-8 h-8 rounded-[10px] grid place-items-center shadow-sm" :style="{ background: k.ibg }"><Icon :name="k.icon" :size="16" :color="k.ic" /></span>
         </div>
-        <div class="relative text-[27px] font-extrabold tracking-tight tnum mt-2.5 leading-none">
+        <div class="relative text-[26px] font-extrabold tracking-tight tnum mt-2.5 leading-none">
           {{ k.value }}<span class="text-[13px] text-ink-muted font-bold ms-0.5">{{ k.unit }}</span>
         </div>
-        <div class="relative text-[10.5px] text-ink-muted mt-1.5">{{ k.sub }}</div>
+        <div class="relative text-[11px] text-ink-muted mt-1.5">{{ k.sub }}</div>
         <!-- live sparkline -->
         <svg v-if="k.spark" class="relative block w-full h-[26px] mt-2.5" viewBox="0 0 100 26" preserveAspectRatio="none">
           <defs>
@@ -196,7 +196,7 @@
       <div class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
         <div class="flex items-baseline justify-between gap-2.5 flex-wrap">
           <div>
-            <div class="text-[13.5px] font-bold">{{ vm.cashflow.title }}</div>
+            <div class="text-[14px] font-bold">{{ vm.cashflow.title }}</div>
             <div class="text-[11px] text-ink-muted">{{ vm.cashflow.sub }}</div>
           </div>
           <div class="flex items-center gap-3 text-[11px] text-ink-2">
@@ -212,15 +212,15 @@
         </div>
         <div class="flex gap-6 mt-3.5 pt-3 border-t border-line-hair">
           <div>
-            <div class="text-[10px] font-semibold text-ink-muted">{{ vm.cashflow.inLbl }}</div>
+            <div class="text-[11px] font-semibold text-ink-muted">{{ vm.cashflow.inLbl }}</div>
             <div class="text-[18px] font-bold text-success-dark tnum mt-px">{{ vm.cashflow.totalIn }}<span class="text-[11px] text-ink-muted ms-0.5">{{ ccyLabel }}</span></div>
           </div>
           <div>
-            <div class="text-[10px] font-semibold text-ink-muted">{{ vm.cashflow.outLbl }}</div>
+            <div class="text-[11px] font-semibold text-ink-muted">{{ vm.cashflow.outLbl }}</div>
             <div class="text-[18px] font-bold text-amber-700 tnum mt-px">{{ vm.cashflow.totalOut }}</div>
           </div>
           <div>
-            <div class="text-[10px] font-semibold text-ink-muted">{{ t("dash.net") }}</div>
+            <div class="text-[11px] font-semibold text-ink-muted">{{ t("dash.net") }}</div>
             <div class="text-[18px] font-bold text-info tnum mt-px">{{ vm.cashflow.net }}</div>
           </div>
         </div>
@@ -228,7 +228,7 @@
 
       <!-- Collection by channel -->
       <div class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
-        <div class="text-[13.5px] font-bold">{{ vm.channelMeta.title }}</div>
+        <div class="text-[14px] font-bold">{{ vm.channelMeta.title }}</div>
         <div class="text-[11px] text-ink-muted">{{ vm.channelMeta.sub }}</div>
         <div class="flex flex-col gap-3 mt-[15px]">
           <div v-for="c in vm.channels" :key="c.name">
@@ -236,12 +236,12 @@
               <span class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 truncate">
                 {{ c.name }}<Icon v-if="c.warn" name="alert" :size="12" color="#d97706" />
               </span>
-              <span class="text-[11.5px] font-bold text-ink tnum">{{ c.share }}%</span>
+              <span class="text-[12px] font-bold text-ink tnum">{{ c.share }}%</span>
             </div>
             <div class="h-[7px] rounded-[5px] bg-line-hair overflow-hidden">
               <div class="h-full rounded-[5px] animate-barGrow origin-left" :style="{ width: Math.max(c.share, 2.5) + '%', background: c.bar }"></div>
             </div>
-            <div class="text-[10px] text-ink-muted mt-[3px] font-mono tnum">{{ c.sub }} · {{ c.amount }} {{ ccyLabel }}</div>
+            <div class="text-[11px] text-ink-muted mt-[3px] font-mono tnum">{{ c.sub }} · {{ c.amount }} {{ ccyLabel }}</div>
           </div>
         </div>
         <div class="flex gap-2 mt-3.5 px-3 py-2.5 rounded-[10px]" style="background:#fffbeb;border:1px solid #fde68a">
@@ -255,7 +255,7 @@
     <div v-if="cod.cohort && cod.cohort.length" class="bg-white rounded-[14px] border border-line p-[17px] shadow-card">
       <div class="flex items-baseline justify-between gap-2 flex-wrap">
         <div>
-          <div class="text-[13.5px] font-bold">{{ L("Sales & collections by order month","المبيعات والتحصيلات بشهر الطلب","Ventes & encaissements") }}</div>
+          <div class="text-[14px] font-bold">{{ L("Sales & collections by order month","المبيعات والتحصيلات بشهر الطلب","Ventes & encaissements") }}</div>
           <div class="text-[11px] text-ink-muted">{{ L("revenue attributed to when the order was placed","الإيراد منسوب لوقت الطلب","produit par date de commande") }}</div>
         </div>
         <div class="flex items-center gap-3 text-[11px] text-ink-2">
@@ -270,7 +270,7 @@
             <div class="w-1/2 rounded-t-[3px] animate-barGrow origin-bottom" :style="{ height: barH(m.invoiced) + '%', background: '#0f766e', minHeight: '2px' }" :title="'Invoiced ' + fmt(m.invoiced)"></div>
             <div class="w-1/2 rounded-t-[3px] animate-barGrow origin-bottom" :style="{ height: barH(m.collected) + '%', background: '#7c3aed', minHeight: '2px' }" :title="'Collected ' + fmt(m.collected)"></div>
           </div>
-          <span class="text-[10px] text-ink-muted font-semibold">{{ monthLabel(m.month) }}</span>
+          <span class="text-[11px] text-ink-muted font-semibold">{{ monthLabel(m.month) }}</span>
         </div>
       </div>
     </div>
@@ -294,7 +294,7 @@
             class="w-full flex items-center gap-3 bg-white rounded-[14px] border p-3.5 shadow-card hover:-translate-y-0.5 hover:shadow-cardHover transition-all text-start" style="border-color:#fde68a">
       <span class="w-9 h-9 rounded-[10px] grid place-items-center flex-shrink-0" style="background:#fffbeb"><Icon name="doc" :size="16" color="#b45309" /></span>
       <div class="flex-1 min-w-0">
-        <div class="text-[12.5px] font-bold">{{ cheques.due_week_n }} {{ L("cheques due ≤ 7 days", "شيكات مستحقة ≤ 7 أيام", "chèques échéance ≤ 7 j") }}</div>
+        <div class="text-[13px] font-bold">{{ cheques.due_week_n }} {{ L("cheques due ≤ 7 days", "شيكات مستحقة ≤ 7 أيام", "chèques échéance ≤ 7 j") }}</div>
         <div class="text-[11px] text-ink-muted">{{ L("cash leaving the bank soon — review the register", "كاش هيخرج قريبًا — راجع السجل", "sortie de trésorerie imminente") }}</div>
       </div>
       <span class="text-[16px] font-extrabold tnum" style="color:#b45309">{{ money(cheques.due_week) }} <span class="text-[11px] text-ink-muted">{{ ccyLabel }}</span></span>
@@ -307,24 +307,24 @@
       <div class="flex items-center gap-2 mb-3">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon name="scale" :size="14" color="#0b5c4f" /></span>
         <span class="text-[12px] font-bold">{{ L("Receivables & Payables","الذمم المدينة والدائنة","Créances & Dettes") }}</span>
-        <span class="text-[10px] text-ink-muted">{{ L("operational vs book","تشغيلي مقابل دفتري","op. vs comptable") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ L("operational vs book","تشغيلي مقابل دفتري","op. vs comptable") }}</span>
         <Icon name="arrow" :size="13" color="#a8a29e" class="ms-auto rtl:rotate-180" />
       </div>
       <div class="grid grid-cols-3 gap-3">
         <div>
-          <div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Receivables","مدينة","Créances") }}</div>
-          <div class="text-[19px] font-extrabold tnum mt-0.5" style="color:#0369a1">{{ money(arap.ar_operational) }}</div>
-          <div v-if="arap.ar_broken" class="text-[9.5px] font-bold text-sale mt-0.5 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-sale"></span>{{ L("GL broken","الـ GL مكسور","GL cassé") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Receivables","مدينة","Créances") }}</div>
+          <div class="text-[20px] font-extrabold tnum mt-0.5" style="color:#0369a1">{{ money(arap.ar_operational) }}</div>
+          <div v-if="arap.ar_broken" class="text-[11px] font-bold text-sale mt-0.5 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-sale"></span>{{ L("GL broken","الـ GL مكسور","GL cassé") }}</div>
         </div>
         <div>
-          <div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Payables","دائنة","Dettes") }}</div>
-          <div class="text-[19px] font-extrabold tnum mt-0.5" style="color:#be123c">{{ money(arap.ap_net) }}</div>
-          <div class="text-[9.5px] font-bold mt-0.5 inline-flex items-center gap-1" :style="arap.ap_reconciled ? 'color:#047857' : 'color:#b45309'"><span class="w-1.5 h-1.5 rounded-full" :style="arap.ap_reconciled ? 'background:#047857' : 'background:#b45309'"></span>{{ arap.ap_reconciled ? L("ties to GL","مطابق","concorde") : L("small gap","فرق بسيط","léger écart") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Payables","دائنة","Dettes") }}</div>
+          <div class="text-[20px] font-extrabold tnum mt-0.5" style="color:#be123c">{{ money(arap.ap_net) }}</div>
+          <div class="text-[11px] font-bold mt-0.5 inline-flex items-center gap-1" :style="arap.ap_reconciled ? 'color:#047857' : 'color:#b45309'"><span class="w-1.5 h-1.5 rounded-full" :style="arap.ap_reconciled ? 'background:#047857' : 'background:#b45309'"></span>{{ arap.ap_reconciled ? L("ties to GL","مطابق","concorde") : L("small gap","فرق بسيط","léger écart") }}</div>
         </div>
         <div>
-          <div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Working capital","رأس المال العامل","BFR") }}</div>
-          <div class="text-[19px] font-extrabold tnum mt-0.5" :style="{ color: (arap.working_capital || 0) >= 0 ? '#047857' : '#be123c' }">{{ money(arap.working_capital) }}</div>
-          <div class="text-[9.5px] text-ink-muted mt-0.5">{{ L("AR − AP","مدينة − دائنة","AR − AP") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Working capital","رأس المال العامل","BFR") }}</div>
+          <div class="text-[20px] font-extrabold tnum mt-0.5" :style="{ color: (arap.working_capital || 0) >= 0 ? '#047857' : '#be123c' }">{{ money(arap.working_capital) }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ L("AR − AP","مدينة − دائنة","AR − AP") }}</div>
         </div>
       </div>
     </button>
@@ -336,7 +336,7 @@
         <div class="relative flex items-center gap-2">
           <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff1f2"><Icon name="wallet" :size="14" color="#be123c" /></span>
           <span class="text-[13px] font-bold">{{ vm.arap.arLabel }}</span>
-          <span class="text-[10.5px] text-ink-muted ms-auto">{{ vm.arap.arRows }} {{ t("dash.lines") }}</span>
+          <span class="text-[11px] text-ink-muted ms-auto">{{ vm.arap.arRows }} {{ t("dash.lines") }}</span>
         </div>
         <div class="relative text-[26px] font-bold text-sale tnum mt-2.5 tracking-tight">{{ vm.arap.arVal }}<span class="text-[12px] text-ink-muted ms-1">{{ ccyLabel }}</span></div>
         <div class="relative flex gap-2 mt-2.5 px-3 py-2.5 rounded-[10px]" style="background:#fef2f2;border:1px solid #fecaca">
@@ -349,10 +349,10 @@
         <div class="relative flex items-center gap-2">
           <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fff4e0"><Icon name="bank" :size="14" color="#b45309" /></span>
           <span class="text-[13px] font-bold">{{ vm.arap.apLabel }}</span>
-          <span class="text-[10.5px] text-ink-muted ms-auto">{{ vm.arap.apRows }} {{ t("dash.lines") }}</span>
+          <span class="text-[11px] text-ink-muted ms-auto">{{ vm.arap.apRows }} {{ t("dash.lines") }}</span>
         </div>
         <div class="relative text-[26px] font-bold text-ink tnum mt-2.5 tracking-tight">{{ vm.arap.apVal }}<span class="text-[12px] text-ink-muted ms-1">{{ ccyLabel }}</span></div>
-        <div class="relative text-[11.5px] text-ink-3 mt-3.5 leading-snug">{{ vm.arap.apNote }}</div>
+        <div class="relative text-[12px] text-ink-3 mt-3.5 leading-snug">{{ vm.arap.apNote }}</div>
       </div>
     </div>
 
@@ -362,8 +362,8 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#f5f3ff"><Icon name="shield" :size="14" color="#7c3aed" /></span>
         <div class="flex-1">
           <div class="flex items-center gap-2">
-            <div class="text-[13.5px] font-bold">{{ t("dash.flagged_title") }}</div>
-            <span class="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full border" :style="alertsLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ alertsLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
+            <div class="text-[14px] font-bold">{{ t("dash.flagged_title") }}</div>
+            <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full border" :style="alertsLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ alertsLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span>
           </div>
           <div class="text-[11px] text-ink-muted">{{ t("dash.flagged_sub") }}</div>
         </div>
@@ -376,10 +376,10 @@
           <span class="w-[30px] h-[30px] rounded-[8px] grid place-items-center flex-shrink-0" :style="{ background: sev(a).bg }"><Icon :name="a.icon" :size="15" :color="sev(a).fg" /></span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-[12.5px] font-bold">{{ a.title }}</span>
-              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge border" :style="{ background: sev(a).bg, color: sev(a).fg, borderColor: sev(a).bd }">{{ sevLabel(a.sev, locale) }}</span>
+              <span class="text-[13px] font-bold">{{ a.title }}</span>
+              <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge border" :style="{ background: sev(a).bg, color: sev(a).fg, borderColor: sev(a).bd }">{{ sevLabel(a.sev, locale) }}</span>
             </div>
-            <div class="text-[11.5px] text-ink-3 mt-0.5 truncate">{{ a.desc }}</div>
+            <div class="text-[12px] text-ink-3 mt-0.5 truncate">{{ a.desc }}</div>
           </div>
           <span v-if="a.amount" class="text-[12px] font-bold tnum flex-shrink-0" :class="a.amount.includes('-') ? 'text-sale' : ''">{{ a.amount }}</span>
           <Icon name="chev" :size="15" color="#cfc9c4" class="rtl:rotate-180 flex-shrink-0" />

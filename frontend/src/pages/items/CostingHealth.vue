@@ -3,31 +3,31 @@
     <TableLoading v-if="loading" :rows="6" />
     <div v-else-if="err" class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-10 text-center">
       <Icon name="alert" :size="20" color="#e11d48" class="inline-block mb-2" />
-      <p class="text-[12.5px] text-ink-2">{{ L("Couldn't load costing health.","تعذّر تحميل صحة التكلفة.","Échec du chargement.") }}</p>
+      <p class="text-[13px] text-ink-2">{{ L("Couldn't load costing health.","تعذّر تحميل صحة التكلفة.","Échec du chargement.") }}</p>
       <button type="button" class="mt-2 h-8 px-3 rounded-chip border border-line-2 text-[12px] font-semibold hover:bg-app-warm" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button>
     </div>
     <template v-else>
       <!-- top stat cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="wallet" :size="13" color="#0f766e" />{{ L("Costed","متكلّفة","Coûtés") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="wallet" :size="13" color="#0f766e" />{{ L("Costed","متكلّفة","Coûtés") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum">{{ (cov.costed||0).toLocaleString() }}</div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ L("of","من","sur") }} {{ (cov.catalogue||0).toLocaleString() }} · {{ pct(cov.costed,cov.catalogue) }}%</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ L("of","من","sur") }} {{ (cov.catalogue||0).toLocaleString() }} · {{ pct(cov.costed,cov.catalogue) }}%</div>
         </div>
         <div role="button" tabindex="0" class="text-start cursor-pointer bg-white rounded-card border shadow-card px-4 py-3 transition hover:ring-2 hover:ring-rose-400/20 focus:outline-none focus:ring-2 focus:ring-rose-400/40" :class="w.missing ? 'border-rose-200' : 'border-line'" @click="emit('drill','noweight')" @keydown.enter="emit('drill','noweight')">
-          <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="w.missing ? 'text-rose-600' : 'text-ink-muted'"><Icon name="scale" :size="13" :color="w.missing ? '#e11d48' : '#94a3b8'" />{{ L("Missing weight","وزن ناقص","Poids manquant") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="w.missing ? 'text-rose-600' : 'text-ink-muted'"><Icon name="scale" :size="13" :color="w.missing ? '#e11d48' : '#94a3b8'" />{{ L("Missing weight","وزن ناقص","Poids manquant") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" :class="w.missing ? 'text-rose-600' : ''">{{ (w.missing||0).toLocaleString() }}</div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ pct(w.missing,w.total) }}% · <span class="text-amber-700 font-semibold underline cursor-pointer" @click.stop="emit('drill','outliers')">{{ (w.heavy||0)+(w.light||0) }} {{ L("outliers","شاذة","aberrants") }}</span></div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ pct(w.missing,w.total) }}% · <span class="text-amber-700 font-semibold underline cursor-pointer" @click.stop="emit('drill','outliers')">{{ (w.heavy||0)+(w.light||0) }} {{ L("outliers","شاذة","aberrants") }}</span></div>
         </div>
         <div class="bg-white rounded-card border shadow-card px-4 py-3" :class="fx.overstatement>0 ? 'border-amber-200' : 'border-line'">
-          <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="fx.overstatement>0 ? 'text-amber-700' : 'text-ink-muted'"><Icon name="alert" :size="13" :color="fx.overstatement>0 ? '#b45309' : '#94a3b8'" />{{ L("FX overstatement","تضخّم الصرف","Surévaluation FX") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" :class="fx.overstatement>0 ? 'text-amber-700' : 'text-ink-muted'"><Icon name="alert" :size="13" :color="fx.overstatement>0 ? '#b45309' : '#94a3b8'" />{{ L("FX overstatement","تضخّم الصرف","Surévaluation FX") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" :class="fx.overstatement>0 ? 'text-amber-700' : ''">{{ money(fx.overstatement) }}</div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ (fx.wrong||[]).length }} {{ L("bad invoices","فاتورة غلط","factures") }} · {{ ccy }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ (fx.wrong||[]).length }} {{ L("bad invoices","فاتورة غلط","factures") }} · {{ ccy }}</div>
         </div>
         <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="truck" :size="13" color="#0369a1" />{{ L("Freight in P&L","شحن بالمصروفات","Fret en charges") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5"><Icon name="truck" :size="13" color="#0369a1" />{{ L("Freight in P&L","شحن بالمصروفات","Fret en charges") }}</div>
           <div class="text-[20px] font-extrabold mt-1 tnum" style="color:#0369a1">{{ money(fr.pool) }}</div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ L("not capitalised","غير مرسمَل","non capitalisé") }} · {{ fr.suggested_per_kg }}/kg</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ L("not capitalised","غير مرسمَل","non capitalisé") }} · {{ fr.suggested_per_kg }}/kg</div>
         </div>
       </div>
 
@@ -35,7 +35,7 @@
       <div v-if="(fx.wrong||[]).length || (fx.unverified||[]).length" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="alert" :size="14" color="#b45309" /><span class="text-[12px] font-bold">{{ L("Exchange-rate anomalies","شذوذ سعر الصرف","Anomalies de change") }}</span></div>
         <table v-if="(fx.wrong||[]).length" class="w-full text-[12px]">
-          <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <th class="px-4 py-2 text-start">{{ L("Invoice","الفاتورة","Facture") }}</th>
             <th class="px-3 py-2 text-end">{{ L("Booked FX","صرف مسجّل","FX livre") }}</th>
             <th class="px-3 py-2 text-end">{{ L("Live FX","صرف حيّ","FX réel") }}</th>
@@ -47,7 +47,7 @@
             <tr v-for="r in fx.wrong" :key="r.doc" class="border-t border-line-hair hover:bg-app-warm/40">
               <td class="px-4 py-2 font-mono text-[11px]">
                 <button type="button" class="font-semibold text-accent-dark hover:underline inline-flex items-center gap-1" @click="openBill(r.doc)">{{ r.doc }}<Icon name="arrow" :size="10" /></button>
-                <div class="text-[10px] text-ink-muted">{{ r.cur }} · {{ r.date }}</div>
+                <div class="text-[11px] text-ink-muted">{{ r.cur }} · {{ r.date }}</div>
               </td>
               <td class="px-3 py-2 text-end tnum text-rose-600 font-semibold">{{ r.book_fx }}</td>
               <td class="px-3 py-2 text-end tnum text-success-dark font-bold">{{ r.live_fx }}</td>
@@ -89,7 +89,7 @@
               </tr>
             </tbody>
           </table>
-          <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted">{{ L("Sitting in P&L — should be capitalised onto product cost by weight (Phase 3).","قاعد في الأرباح والخسائر — المفروض يترسمَل على تكلفة المنتج بالوزن (مرحلة 3).","À capitaliser au poids (phase 3).") }}</div>
+          <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted">{{ L("Sitting in P&L — should be capitalised onto product cost by weight (Phase 3).","قاعد في الأرباح والخسائر — المفروض يترسمَل على تكلفة المنتج بالوزن (مرحلة 3).","À capitaliser au poids (phase 3).") }}</div>
         </div>
       </div>
     </template>

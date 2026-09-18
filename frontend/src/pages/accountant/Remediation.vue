@@ -11,12 +11,12 @@
         <div class="flex items-start gap-2.5">
           <span class="w-9 h-9 rounded-[10px] grid place-items-center flex-shrink-0" :style="{ background: fx.tint }"><Icon name="shield" :size="17" :color="fx.ic" /></span>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 flex-wrap"><span class="text-[13px] font-bold">{{ fx.title }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge" :style="{ background: fx.tint, color: fx.ic }">{{ fx.sevLabel }}</span></div>
-            <div class="text-[11.5px] text-ink-3 mt-1 leading-relaxed">{{ fx.detail }}</div>
+            <div class="flex items-center gap-2 flex-wrap"><span class="text-[13px] font-bold">{{ fx.title }}</span><span class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge" :style="{ background: fx.tint, color: fx.ic }">{{ fx.sevLabel }}</span></div>
+            <div class="text-[12px] text-ink-3 mt-1 leading-relaxed">{{ fx.detail }}</div>
           </div>
         </div>
         <div class="flex items-center justify-between mt-3 pt-3 border-t border-line-hair">
-          <div><div class="text-[10px] text-ink-muted uppercase tracking-wide font-bold">{{ L("Balance","الرصيد","Solde") }}</div><div class="text-[16px] font-extrabold tnum" :class="fx.amount < 0 ? 'text-sale' : ''">{{ money(fx.amount) }}</div></div>
+          <div><div class="text-[11px] text-ink-muted uppercase tracking-wide font-bold">{{ L("Balance","الرصيد","Solde") }}</div><div class="text-[16px] font-extrabold tnum" :class="fx.amount < 0 ? 'text-sale' : ''">{{ money(fx.amount) }}</div></div>
           <button class="h-9 px-3.5 rounded-[10px] bg-brand hover:bg-brand-dark text-white text-[12px] font-bold inline-flex items-center gap-1.5 shadow-brand" @click="openFix(fx.kind)">
             <Icon name="shield" :size="14" color="#fff" />{{ L("Propose correcting entry","اقترح قيد تصحيح","Proposer") }}
           </button>
@@ -25,7 +25,7 @@
       <div v-if="!fixable.length && isLive" class="lg:col-span-2 bg-white rounded-card border border-line shadow-card py-12 text-center text-[12px] text-success-dark"><Icon name="check" :size="20" color="#047857" class="mb-1" /><div>{{ L("Nothing to remediate — no correctable findings.","لا شيء للمعالجة.","Rien à corriger.") }}</div></div>
     </div>
 
-    <p class="text-[10.5px] text-ink-muted">{{ L("Each proposal is balanced and editable. Material entries are recorded Proposed and need an approver — nothing posts directly.","كل اقتراح متوازن وقابل للتعديل. القيود الكبيرة تُسجَّل كمقترحة وتحتاج موافقة.","Chaque proposition est équilibrée; les écritures importantes nécessitent une approbation.") }}</p>
+    <p class="text-[11px] text-ink-muted">{{ L("Each proposal is balanced and editable. Material entries are recorded Proposed and need an approver — nothing posts directly.","كل اقتراح متوازن وقابل للتعديل. القيود الكبيرة تُسجَّل كمقترحة وتحتاج موافقة.","Chaque proposition est équilibrée; les écritures importantes nécessitent une approbation.") }}</p>
 
     <InventoryCorrectionModal :open="showFix" :kind="fixKind" @close="showFix = false" @done="load" />
   </div>

@@ -19,7 +19,7 @@
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("records","سجل","enreg.") }}</span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="st.search.value" :placeholder="L('Search payment / customer…','بحث…','Rechercher…')" class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white transition" />
+          <input v-model.trim="st.search.value" :placeholder="L('Search payment / customer…','بحث…','Rechercher…')" class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white transition" />
         </div>
       </div>
 
@@ -29,7 +29,7 @@
             <tr style="background:#fafaf9">
               <th class="w-8 px-3"><input type="checkbox" :checked="st.allSelected.value" @change="st.toggleAll()" /></th>
             <th v-for="c in cols" :key="c.key"
-                  class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
+                  class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
                   :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                   <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
@@ -39,7 +39,7 @@
           <tbody>
             <tr v-for="p in displayRows" :key="p.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(p.name)">
               <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(p.name)" @change="st.toggle(p.name)" /></td>
-              <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ p.name }}<span v-if="p.docstatus === 0" class="ms-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
+              <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ p.name }}<span v-if="p.docstatus === 0" class="ms-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
               <td class="px-4 py-2.5 truncate max-w-[200px]">{{ p.customer }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ p.date }}</td>
               <td class="px-4 py-2.5 whitespace-nowrap">

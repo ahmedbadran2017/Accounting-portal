@@ -6,7 +6,7 @@
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
             <span class="text-[14px] font-bold font-mono">{{ name }}</span>
-            <span v-if="d" class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="statusStyle(d.status)">{{ d.status }}</span>
+            <span v-if="d" class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="statusStyle(d.status)">{{ d.status }}</span>
           </div>
           <div class="text-[11px] text-ink-muted">{{ L("Warehouse return batch","دفعة إرجاع المخزن","Lot de retour entrepôt") }}<span v-if="d && d.posting_date"> · {{ d.posting_date }}</span></div>
         </div>
@@ -20,19 +20,19 @@
           <!-- stat tiles -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div class="rounded-[11px] px-3 py-2.5 border" style="background:#fafaf9;border-color:#f0efed">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Orders","الطلبات","Commandes") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Orders","الطلبات","Commandes") }}</div>
               <div class="text-[18px] font-extrabold tnum mt-0.5">{{ (d.total_orders || d.orders.length).toLocaleString() }}</div>
             </div>
             <div class="rounded-[11px] px-3 py-2.5 border" style="background:#ecfdf5;border-color:#a7f3d0;color:#047857">
-              <div class="text-[10px] font-bold uppercase tracking-wider opacity-70">{{ L("Items back","أصناف رجعت","Articles") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider opacity-70">{{ L("Items back","أصناف رجعت","Articles") }}</div>
               <div class="text-[18px] font-extrabold tnum mt-0.5">{{ Math.round(d.total_actual_qty).toLocaleString() }}</div>
             </div>
             <div class="rounded-[11px] px-3 py-2.5 border" :style="d.total_missing_qty ? 'background:#fffbeb;border-color:#fde68a;color:#b45309' : 'background:#fafaf9;border-color:#f0efed'">
-              <div class="text-[10px] font-bold uppercase tracking-wider opacity-70">{{ L("Missing","ناقص","Manquant") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider opacity-70">{{ L("Missing","ناقص","Manquant") }}</div>
               <div class="text-[18px] font-extrabold tnum mt-0.5">{{ Math.round(d.total_missing_qty).toLocaleString() }}</div>
             </div>
             <div class="rounded-[11px] px-3 py-2.5 border" style="background:#f5f3ff;border-color:#ddd6fe;color:#7c3aed">
-              <div class="text-[10px] font-bold uppercase tracking-wider opacity-70">{{ L("Return rate","نسبة الإرجاع","Taux retour") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider opacity-70">{{ L("Return rate","نسبة الإرجاع","Taux retour") }}</div>
               <div class="text-[18px] font-extrabold tnum mt-0.5">{{ Math.round(d.return_percentage) }}%</div>
             </div>
           </div>
@@ -50,15 +50,15 @@
           <div class="border border-line rounded-[10px] overflow-hidden max-h-[260px] overflow-y-auto">
             <table class="w-full text-[12px]">
               <thead class="sticky top-0"><tr style="background:#fafaf9">
-                <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-                <th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("AWB","AWB","AWB") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Ordered","مطلوب","Cmdé") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Back","رجع","Reçu") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Missing","ناقص","Manq.") }}</th>
+                <th class="px-3 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+                <th class="px-3 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("AWB","AWB","AWB") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Ordered","مطلوب","Cmdé") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Back","رجع","Reçu") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Missing","ناقص","Manq.") }}</th>
               </tr></thead>
               <tbody>
                 <tr v-for="(it, i) in d.items" :key="i" class="border-t border-line-hair">
-                  <td class="px-3 py-1.5"><div class="font-medium truncate max-w-[260px]">{{ it.item_name || it.item_code }}</div><div class="text-[10px] text-ink-muted font-mono">{{ it.sku }}</div></td>
+                  <td class="px-3 py-1.5"><div class="font-medium truncate max-w-[260px]">{{ it.item_name || it.item_code }}</div><div class="text-[11px] text-ink-muted font-mono">{{ it.sku }}</div></td>
                   <td class="px-3 py-1.5 font-mono text-[11px] text-ink-3">{{ it.awb || "—" }}</td>
                   <td class="px-3 py-1.5 text-end tnum">{{ it.ordered_qty }}</td>
                   <td class="px-3 py-1.5 text-end tnum font-semibold text-success-dark">{{ it.actual_qty }}</td>

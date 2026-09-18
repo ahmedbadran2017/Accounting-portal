@@ -3,15 +3,15 @@
     <!-- Status chips: the one thing every Desk list had and no portal list did -->
     <div v-if="statuses.length" class="flex items-center gap-1 flex-wrap">
       <button v-for="s in statuses" :key="s.k" type="button"
-              class="h-7 px-2.5 rounded-chip text-[11.5px] font-semibold border transition"
+              class="h-7 px-2.5 rounded-chip text-[12px] font-semibold border transition"
               :class="status === s.k ? 'text-white bg-ink border-ink' : 'text-ink-3 bg-white border-line-2 hover:bg-app-warm'"
               @click="$emit('update:status', s.k)">{{ s.label() }}</button>
     </div>
 
     <span class="ms-auto flex items-center gap-2">
-      <span v-if="total != null" class="text-[11.5px] text-ink-muted tnum">{{ total.toLocaleString() }} {{ L("rows", "صف", "lignes") }}</span>
+      <span v-if="total != null" class="text-[12px] text-ink-muted tnum">{{ total.toLocaleString() }} {{ L("rows", "صف", "lignes") }}</span>
       <select :value="pageSize" @change="$emit('update:pageSize', Number($event.target.value))"
-              class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[11.5px] bg-white" :title="L('Rows per page','صفوف في الصفحة','Lignes par page')">
+              class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white" :title="L('Rows per page','صفوف في الصفحة','Lignes par page')">
         <option :value="25">25</option><option :value="50">50</option><option :value="100">100</option><option :value="200">200</option>
       </select>
       <a v-if="exportKey" :href="excelUrl" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white inline-flex items-center gap-1" style="background:#1d6f42"

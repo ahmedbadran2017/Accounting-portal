@@ -32,15 +32,15 @@
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
       <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
         <Icon name="truck" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("By carrier","حسب الناقل","Par transporteur") }}</span>
-        <span v-if="loadingSum" class="text-[10px] text-ink-muted">…</span>
+        <span v-if="loadingSum" class="text-[11px] text-ink-muted">…</span>
       </div>
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Carrier","الناقل","Transporteur") }}</th>
-          <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected","حصّل","Encaissé") }}</th>
-          <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Swept to bank","نزل البنك","Versé") }}</th>
-          <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Still held","لسه معاه","Retenu") }}</th>
-          <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Last","آخر","Dernier") }}</th>
+          <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Carrier","الناقل","Transporteur") }}</th>
+          <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected","حصّل","Encaissé") }}</th>
+          <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Swept to bank","نزل البنك","Versé") }}</th>
+          <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Still held","لسه معاه","Retenu") }}</th>
+          <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Last","آخر","Dernier") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="c in (s.by_carrier || [])" :key="c.carrier" class="border-t border-line-hair hover:bg-app-warm/60" :class="carrier === c.carrier ? 'bg-accent/5' : ''">
@@ -64,17 +64,17 @@
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ isSweeps ? L("transfers","تحويل","virements") : L("deposits","إيداع","dépôts") }}</span>
         <div class="ms-auto relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="st.search.value" :placeholder="isSweeps ? L('Search voucher…','بحث بالقيد…','Rechercher écriture…') : L('Search ref / customer…','بحث…','Rechercher…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="st.search.value" :placeholder="isSweeps ? L('Search voucher…','بحث بالقيد…','Rechercher écriture…') : L('Search ref / customer…','بحث…','Rechercher…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
-            <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted cursor-pointer" @click="st.setSort('date')">{{ L("Date","التاريخ","Date") }}</th>
-            <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ isSweeps ? L("Voucher","القيد","Écriture") : L("Payment","الدفعة","Paiement") }}</th>
-            <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ isSweeps ? L("From carrier","من الناقل","Du transp.") : L("Carrier","الناقل","Transporteur") }}</th>
-            <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ isSweeps ? L("To bank","إلى البنك","Vers banque") : L("Reference","المرجع","Référence") }}</th>
-            <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted cursor-pointer" @click="st.setSort('amount')">{{ L("Amount","المبلغ","Montant") }}</th>
+            <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted cursor-pointer" @click="st.setSort('date')">{{ L("Date","التاريخ","Date") }}</th>
+            <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ isSweeps ? L("Voucher","القيد","Écriture") : L("Payment","الدفعة","Paiement") }}</th>
+            <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ isSweeps ? L("From carrier","من الناقل","Du transp.") : L("Carrier","الناقل","Transporteur") }}</th>
+            <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ isSweeps ? L("To bank","إلى البنك","Vers banque") : L("Reference","المرجع","Référence") }}</th>
+            <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted cursor-pointer" @click="st.setSort('amount')">{{ L("Amount","المبلغ","Montant") }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="r in st.rows.value" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="open(r.name)">

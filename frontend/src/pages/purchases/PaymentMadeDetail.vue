@@ -24,8 +24,8 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-[16px] font-bold font-mono">{{ d.name }}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ L("Payment made", "دفعة صادرة", "Paiement émis") }}</span>
-              <span v-if="d.status" class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#f1efe8;color:#5f5e5a">{{ d.status }}</span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ L("Payment made", "دفعة صادرة", "Paiement émis") }}</span>
+              <span v-if="d.status" class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#f1efe8;color:#5f5e5a">{{ d.status }}</span>
             </div>
             <div class="text-[13px] text-ink-2 mt-0.5">{{ d.party }}</div>
             <div class="text-[11px] text-ink-muted mt-0.5">{{ d.date }}<span v-if="d.reference_no"> · {{ L("ref", "مرجع", "réf") }} {{ d.reference_no }}</span></div>
@@ -38,7 +38,7 @@
         <div class="flex items-center gap-1.5 flex-wrap mt-4 pt-3 border-t border-line-hair text-[11px]">
           <span class="text-ink-muted">{{ L("Paid from", "مدفوع من", "Payé depuis") }}</span>
           <span class="font-semibold text-ink-2">{{ d.paid_from }}</span>
-          <span v-if="d.unallocated > 0" class="ms-2 text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unallocated", "غير مخصص", "non affecté") }} {{ fmt(d.unallocated) }}</span>
+          <span v-if="d.unallocated > 0" class="ms-2 text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unallocated", "غير مخصص", "non affecté") }} {{ fmt(d.unallocated) }}</span>
           <button v-if="d.unallocated > 0" @click="openMatch" class="ms-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim">
             <Icon name="scale" :size="12" color="#fff" />{{ L("Match to bills", "طابق بالفواتير", "Affecter") }}
           </button>
@@ -48,12 +48,12 @@
       <div class="grid lg:grid-cols-3 gap-3.5">
         <!-- Bills settled -->
         <div class="lg:col-span-2 bg-white rounded-card border border-line shadow-card overflow-hidden">
-          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="doc" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Bills settled", "الفواتير المسدّدة", "Factures réglées") }}</span><span class="text-[10px] text-ink-muted">{{ d.references.length }}</span></div>
+          <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="doc" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Bills settled", "الفواتير المسدّدة", "Factures réglées") }}</span><span class="text-[11px] text-ink-muted">{{ d.references.length }}</span></div>
           <table v-if="d.references.length" class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Bill", "الفاتورة", "Facture") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Total", "الإجمالي", "Total") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Allocated", "المخصّص", "Affecté") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Bill", "الفاتورة", "Facture") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Total", "الإجمالي", "Total") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Allocated", "المخصّص", "Affecté") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="r in d.references" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="openBill(r)">
@@ -70,7 +70,7 @@
         <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="ledger" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Journal impact", "الأثر المحاسبي", "Impact GL") }}</span></div>
           <table v-if="d.gl.length" class="w-full text-[12px]">
-            <thead><tr style="background:#fafaf9"><th class="px-3 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account", "الحساب", "Compte") }}</th><th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Dr", "مدين", "D") }}</th><th class="px-3 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Cr", "دائن", "C") }}</th></tr></thead>
+            <thead><tr style="background:#fafaf9"><th class="px-3 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account", "الحساب", "Compte") }}</th><th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Dr", "مدين", "D") }}</th><th class="px-3 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Cr", "دائن", "C") }}</th></tr></thead>
             <tbody>
               <tr v-for="(g, i) in d.gl" :key="i" class="border-t border-line-hair">
                 <td class="px-3 py-2"><div class="truncate max-w-[150px]">{{ g.name }}</div></td>
@@ -101,7 +101,7 @@
         <!-- A bill on a different payable account cannot be reconciled against this
              payment, so it is not listed. Saying so beats an empty box: Justyol
              Morocco has two accounts both called "Creditors MAD". -->
-        <div v-if="match.elsewhere && match.elsewhere.length" class="rounded-[10px] px-3 py-2 text-[11.5px] flex-shrink-0" style="background:#fffbeb;color:#92400e">
+        <div v-if="match.elsewhere && match.elsewhere.length" class="rounded-[10px] px-3 py-2 text-[12px] flex-shrink-0" style="background:#fffbeb;color:#92400e">
           {{ L("This payment sits on", "الدفعة دي على حساب", "Ce paiement est sur") }} <b>{{ shortAcct(match.account) }}</b>.
           {{ L("Not listed:", "مش معروض:", "Non listé :") }}
           <span v-for="(e, i) in match.elsewhere" :key="e.account">{{ i ? " · " : " " }}{{ e.n }} {{ L("bill(s)", "فاتورة", "facture(s)") }} {{ fmt(e.outstanding) }} {{ L("on", "على", "sur") }} <b>{{ shortAcct(e.account) }}</b></span>.
@@ -112,7 +112,7 @@
             <input type="checkbox" :checked="picked.has(b.name)" class="accent-accent w-3.5 h-3.5" @click.stop="togglePick(b)" />
             <div class="flex-1 min-w-0">
               <div class="text-[12px] font-mono font-semibold">{{ b.name }}</div>
-              <div class="text-[10.5px] text-ink-muted">{{ b.date }}<span v-if="b.due_date"> · {{ L("due", "استحقاق", "éch.") }} {{ b.due_date }}</span></div>
+              <div class="text-[11px] text-ink-muted">{{ b.date }}<span v-if="b.due_date"> · {{ L("due", "استحقاق", "éch.") }} {{ b.due_date }}</span></div>
             </div>
             <span class="tnum font-bold text-[12px] text-sale">{{ fmt(b.outstanding) }}</span>
           </div>
@@ -124,7 +124,7 @@
             <button @click="confirmMatch" :disabled="posting || !picked.size" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50 bg-accent">{{ posting ? L("Applying…", "جارٍ…", "…") : L("Apply", "طبّق", "Affecter") }}</button>
           </div>
         </div>
-        <p class="text-[10px] text-ink-muted flex-shrink-0">{{ L("Allocates oldest-due first; over-selection is fine (only the available amount is applied).", "يُخصّص للأقدم استحقاقًا أولًا.", "Affecte au plus ancien d'abord.") }}</p>
+        <p class="text-[11px] text-ink-muted flex-shrink-0">{{ L("Allocates oldest-due first; over-selection is fine (only the available amount is applied).", "يُخصّص للأقدم استحقاقًا أولًا.", "Affecte au plus ancien d'abord.") }}</p>
       </div>
     </div>
   </div>

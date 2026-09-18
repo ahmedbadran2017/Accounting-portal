@@ -10,7 +10,7 @@
       <span class="hidden lg:inline text-[11px] text-ink-muted">{{ L("Purchase Invoice · 3-way match vs PO + Goods Receipt","فاتورة شراء · مطابقة ثلاثية","Facture d’achat · rappr. 3 voies") }}</span>
       <div class="relative ms-auto">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-        <input v-model.trim="st.search.value" :placeholder="L('Search bill / vendor…','بحث…','Rechercher…')" class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white transition" />
+        <input v-model.trim="st.search.value" :placeholder="L('Search bill / vendor…','بحث…','Rechercher…')" class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white transition" />
       </div>
     </div>
 
@@ -20,7 +20,7 @@
           <tr style="background:#fafaf9">
             <th class="w-8 px-3"><input type="checkbox" :checked="st.allSelected.value" @change="st.toggleAll()" /></th>
             <th v-for="c in cols" :key="c.key"
-                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
+                class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
                 :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
               <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                 <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
@@ -34,14 +34,14 @@
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ b.date || "—" }}</td>
             <td class="px-4 py-2.5 truncate max-w-[200px]">{{ b.vendor }}</td>
             <td class="px-4 py-2.5">
-              <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-badge border"
+              <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-badge border"
                     :style="{ background: MATCH_META[b.match].bg, color: MATCH_META[b.match].c, borderColor: MATCH_META[b.match].bd }">
                 <Icon :name="b.match === 'ok' ? 'check' : 'alert'" :size="11" />{{ matchLabel(b.match, locale) }}
               </span>
             </td>
             <td class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap" :class="b.amount < 0 ? 'text-sale' : ''">{{ b.currency }} {{ fmt(b.amount) }}</td>
             <td class="px-4 py-2.5">
-              <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-badge border"
+              <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded-badge border"
                     :style="{ background: BILL_STATUS[b.status].bg, color: BILL_STATUS[b.status].fg, borderColor: BILL_STATUS[b.status].bd }">
                 {{ billStatusLabel(b.status, locale) }}
               </span>

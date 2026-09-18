@@ -4,14 +4,14 @@
       <span class="text-[13px] font-bold">{{ L("Verified due diligence","العناية الواجبة المُتحقَّقة","Due diligence vérifiée") }}</span>
       <LiveBadge :live="isLive" />
       <span class="text-[11px] text-ink-muted">{{ L("every figure tied to the GL — investor / audit ready","كل رقم مطابق للأستاذ — جاهز للمستثمر/التدقيق","chaque chiffre lié au GL") }}</span>
-      <span class="ms-auto inline-flex items-center gap-1.5 text-[11.5px] font-bold px-2.5 py-1 rounded-full" :style="scoreStyle"><Icon name="shield" :size="13" :color="scoreFg" />{{ d.score }}/{{ d.total }} {{ L("checks pass","فحص ناجح","contrôles OK") }}</span>
+      <span class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-bold px-2.5 py-1 rounded-full" :style="scoreStyle"><Icon name="shield" :size="13" :color="scoreFg" />{{ d.score }}/{{ d.total }} {{ L("checks pass","فحص ناجح","contrôles OK") }}</span>
     </div>
 
     <!-- Verified metric cards -->
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
       <div v-for="m in metricCards" :key="m.label" class="bg-white border border-line rounded-[14px] p-4 shadow-card">
-        <div class="flex items-center justify-between"><span class="text-[10.5px] font-semibold text-ink-3">{{ m.label }}</span><span class="inline-flex items-center gap-1 text-[8.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857"><Icon name="check" :size="9" />GL</span></div>
-        <div class="text-[19px] font-bold tnum mt-1.5" :style="m.color ? { color: m.color } : {}">{{ m.value }}</div>
+        <div class="flex items-center justify-between"><span class="text-[11px] font-semibold text-ink-3">{{ m.label }}</span><span class="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857"><Icon name="check" :size="9" />GL</span></div>
+        <div class="text-[20px] font-bold tnum mt-1.5" :style="m.color ? { color: m.color } : {}">{{ m.value }}</div>
       </div>
     </div>
 
@@ -22,11 +22,11 @@
         <div v-for="(c, i) in d.checklist" :key="i" class="flex items-center gap-3 px-4 py-3 border-t border-line-hair">
           <span class="w-7 h-7 rounded-[8px] grid place-items-center flex-shrink-0" :style="badgeBg(c.status)"><Icon :name="icon(c.status)" :size="14" :color="badgeFg(c.status)" /></span>
           <div class="flex-1 min-w-0">
-            <div class="text-[12.5px] font-bold">{{ areaLabel(c.area) }}</div>
-            <div class="text-[10.5px] text-ink-muted">{{ c.note }}</div>
+            <div class="text-[13px] font-bold">{{ areaLabel(c.area) }}</div>
+            <div class="text-[11px] text-ink-muted">{{ c.note }}</div>
           </div>
           <span class="text-[12px] font-bold tnum text-ink-2 whitespace-nowrap">{{ c.value }}</span>
-          <span class="text-[9.5px] font-bold px-2 py-0.5 rounded-badge w-[52px] text-center" :style="badgeChip(c.status)">{{ statusLabel(c.status) }}</span>
+          <span class="text-[11px] font-bold px-2 py-0.5 rounded-badge w-[52px] text-center" :style="badgeChip(c.status)">{{ statusLabel(c.status) }}</span>
         </div>
       </div>
     </div>

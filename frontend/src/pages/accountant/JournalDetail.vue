@@ -24,34 +24,34 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-[16px] font-bold font-mono">{{ j.name }}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#faf6f4;color:#0b5c4f">{{ j.voucher_type }}</span>
-              <span v-if="j.status" class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="j.status === 'Cancelled' ? 'background:#fef2f2;color:#be123c' : j.status === 'Draft' ? 'background:#fffbeb;color:#b45309' : 'background:#ecfdf5;color:#047857'">{{ j.status }}</span>
-              <span v-if="j.clearance_date" class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#eff6ff;color:#0369a1">{{ L("reconciled", "مُسوّى", "rapproché") }} {{ j.clearance_date }}</span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#faf6f4;color:#0b5c4f">{{ j.voucher_type }}</span>
+              <span v-if="j.status" class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="j.status === 'Cancelled' ? 'background:#fef2f2;color:#be123c' : j.status === 'Draft' ? 'background:#fffbeb;color:#b45309' : 'background:#ecfdf5;color:#047857'">{{ j.status }}</span>
+              <span v-if="j.clearance_date" class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#eff6ff;color:#0369a1">{{ L("reconciled", "مُسوّى", "rapproché") }} {{ j.clearance_date }}</span>
             </div>
             <div class="text-[12px] text-ink-2 mt-0.5 truncate max-w-[460px]">{{ j.user_remark || "—" }}</div>
             <div class="text-[11px] text-ink-muted mt-0.5">{{ j.posting_date }}<span v-if="j.cheque_no"> · {{ L("ref", "مرجع", "réf") }} {{ j.cheque_no }}</span></div>
           </div>
           <div class="text-end">
             <div class="text-[24px] font-extrabold tnum">{{ fmt(j.total_debit) }}<span class="text-[12px] text-ink-muted ms-1">{{ j.currency || "" }}</span></div>
-            <div class="text-[10.5px] text-ink-muted">{{ L("total", "الإجمالي", "total") }}</div>
+            <div class="text-[11px] text-ink-muted">{{ L("total", "الإجمالي", "total") }}</div>
           </div>
         </div>
       </div>
 
       <!-- Account lines -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Entries", "البنود", "Lignes") }}</span><span class="text-[10px] text-ink-muted">{{ j.accounts.length }}</span></div>
+        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Entries", "البنود", "Lignes") }}</span><span class="text-[11px] text-ink-muted">{{ j.accounts.length }}</span></div>
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account", "الحساب", "Compte") }}</th>
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Party", "الطرف", "Tiers") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit", "مدين", "Débit") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit", "دائن", "Crédit") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account", "الحساب", "Compte") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Party", "الطرف", "Tiers") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit", "مدين", "Débit") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit", "دائن", "Crédit") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="(a, i) in j.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/50">
-                <td class="px-4 py-2.5"><div class="font-medium truncate max-w-[280px]">{{ a.account_name }}</div><button v-if="a.reference_name" type="button" class="text-[10px] font-mono text-accent-dark hover:underline" @click.stop="openRef(a)">{{ a.reference_type }} · {{ a.reference_name }}</button></td>
+                <td class="px-4 py-2.5"><div class="font-medium truncate max-w-[280px]">{{ a.account_name }}</div><button v-if="a.reference_name" type="button" class="text-[11px] font-mono text-accent-dark hover:underline" @click.stop="openRef(a)">{{ a.reference_type }} · {{ a.reference_name }}</button></td>
                 <td class="px-4 py-2.5 text-ink-3 truncate max-w-[160px]">{{ a.party || "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum" :class="a.debit ? 'font-semibold' : 'text-ink-muted'">{{ a.debit ? fmt(a.debit) : "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum" :class="a.credit ? 'font-semibold' : 'text-ink-muted'">{{ a.credit ? fmt(a.credit) : "—" }}</td>

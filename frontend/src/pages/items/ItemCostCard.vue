@@ -14,13 +14,13 @@
         <span v-else class="w-14 h-14 rounded-xl bg-app-warm grid place-items-center shrink-0"><Icon name="grid" :size="20" color="#9a8f86" /></span>
         <div class="min-w-0">
           <div class="text-[14px] font-extrabold leading-snug">{{ d.item_name || d.item_code }}</div>
-          <div class="text-[11.5px] text-ink-muted font-mono">{{ d.sku || d.item_code }}</div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ d.item_group }}<span v-if="d.country"> · {{ d.country }}</span><span v-if="d.brand"> · {{ d.brand }}</span></div>
+          <div class="text-[12px] text-ink-muted font-mono">{{ d.sku || d.item_code }}</div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ d.item_group }}<span v-if="d.country"> · {{ d.country }}</span><span v-if="d.brand"> · {{ d.brand }}</span></div>
         </div>
         <div class="ms-auto flex items-center gap-2 flex-wrap">
-          <span v-if="d.flags.not_stock" class="text-[10px] font-bold text-ink-muted bg-app-warm border border-line-2 rounded-chip px-2 py-1">{{ L("service / non-stock","خدمة / غير مخزون","service") }}</span>
-          <span v-if="d.flags.no_purchase" class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-chip px-2 py-1">{{ L("no purchase invoice","لا فاتورة شراء","sans facture") }}</span>
-          <span v-if="d.flags.fx_off" class="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-chip px-2 py-1 inline-flex items-center gap-1"><Icon name="alert" :size="10" />{{ L("FX rate off","سعر الصرف خطأ","change erroné") }}</span>
+          <span v-if="d.flags.not_stock" class="text-[11px] font-bold text-ink-muted bg-app-warm border border-line-2 rounded-chip px-2 py-1">{{ L("service / non-stock","خدمة / غير مخزون","service") }}</span>
+          <span v-if="d.flags.no_purchase" class="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-chip px-2 py-1">{{ L("no purchase invoice","لا فاتورة شراء","sans facture") }}</span>
+          <span v-if="d.flags.fx_off" class="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-chip px-2 py-1 inline-flex items-center gap-1"><Icon name="alert" :size="10" />{{ L("FX rate off","سعر الصرف خطأ","change erroné") }}</span>
         </div>
       </div>
 
@@ -29,9 +29,9 @@
         <div class="lg:col-span-2 bg-white rounded-card border border-line shadow-card px-4 py-4">
           <div class="flex items-end gap-4 flex-wrap">
             <div>
-              <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Landed unit cost","تكلفة الوحدة المحمّلة","Coût unitaire") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Landed unit cost","تكلفة الوحدة المحمّلة","Coût unitaire") }}</div>
               <div class="text-[28px] font-extrabold tnum leading-none mt-1" style="color:#0f766e">{{ fmt(landed) }} <span class="text-[13px] text-ink-muted font-bold">{{ ccy }}</span></div>
-              <div class="text-[10.5px] text-ink-muted mt-1">{{ L("current item cost","تكلفة الصنف الحالية","coût actuel") }}: <b class="tnum">{{ Number(d.valuation_rate)>0 ? fmt(d.valuation_rate) : "—" }}</b></div>
+              <div class="text-[11px] text-ink-muted mt-1">{{ L("current item cost","تكلفة الصنف الحالية","coût actuel") }}: <b class="tnum">{{ Number(d.valuation_rate)>0 ? fmt(d.valuation_rate) : "—" }}</b></div>
             </div>
             <button v-if="isSuperAdmin && landed>0 && !d.flags.not_stock" type="button" :disabled="saving" class="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60 self-center" @click="saveCost">
               <Icon :name="saving ? 'clock' : 'check'" :size="14" />{{ saving ? L("Saving…","جارٍ…","…") : L("Set as item cost","حفظ كتكلفة","Définir") }}
@@ -41,9 +41,9 @@
               <div class="tnum font-bold text-rose-500 line-through">{{ fmt(bookLanded) }}</div>
             </div>
             <div v-if="d.sell" class="ms-auto text-end">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Margin vs sell","الهامش","Marge") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Margin vs sell","الهامش","Marge") }}</div>
               <div class="text-[18px] font-extrabold tnum" :class="margin>=0 ? 'text-success-dark' : 'text-rose-600'">{{ fmt(margin) }} <span class="text-[11px] font-bold">({{ marginPct }}%)</span></div>
-              <div class="text-[10px] text-ink-muted">{{ L("sell","بيع","vente") }} {{ fmt(d.sell) }} · {{ d.sell_src }}</div>
+              <div class="text-[11px] text-ink-muted">{{ L("sell","بيع","vente") }} {{ fmt(d.sell) }} · {{ d.sell_src }}</div>
             </div>
           </div>
           <!-- breakdown bar -->
@@ -62,40 +62,40 @@
         <!-- inputs -->
         <div class="bg-white rounded-card border border-line shadow-card px-4 py-4 space-y-3">
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Exchange rate","سعر الصرف","Change") }}</label>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Exchange rate","سعر الصرف","Change") }}</label>
             <div class="flex gap-1 bg-app-warm/60 rounded-chip p-0.5 mt-1">
-              <button class="flex-1 px-2 py-1 rounded-lg text-[11.5px] font-semibold" :class="fxMode==='live' ? 'bg-white shadow-card text-accent-dark' : 'text-ink-3'" @click="fxMode='live'">{{ L("Corrected","مصحّح","Corrigé") }}</button>
-              <button class="flex-1 px-2 py-1 rounded-lg text-[11.5px] font-semibold" :class="fxMode==='book' ? 'bg-white shadow-card text-accent-dark' : 'text-ink-3'" @click="fxMode='book'">{{ L("As booked","مسجّل","Au livre") }}</button>
+              <button class="flex-1 px-2 py-1 rounded-lg text-[12px] font-semibold" :class="fxMode==='live' ? 'bg-white shadow-card text-accent-dark' : 'text-ink-3'" @click="fxMode='live'">{{ L("Corrected","مصحّح","Corrigé") }}</button>
+              <button class="flex-1 px-2 py-1 rounded-lg text-[12px] font-semibold" :class="fxMode==='book' ? 'bg-white shadow-card text-accent-dark' : 'text-ink-3'" @click="fxMode='book'">{{ L("As booked","مسجّل","Au livre") }}</button>
             </div>
           </div>
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Weight (kg)","الوزن (كجم)","Poids (kg)") }}</label>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Weight (kg)","الوزن (كجم)","Poids (kg)") }}</label>
             <input v-model.number="weight" type="number" step="0.001" min="0" class="w-full h-9 mt-1 bg-app-warm/40 border rounded-[10px] px-3 text-[13px] tnum focus:outline-none focus:bg-white" :class="weightBad ? 'border-rose-300' : 'border-line-2 focus:border-accent/40'" />
-            <div v-if="weightBad" class="text-[10px] text-rose-600 mt-1">{{ L("missing / implausible — check the item","ناقص / غير منطقي — راجع الصنف","manquant / improbable") }}</div>
+            <div v-if="weightBad" class="text-[11px] text-rose-600 mt-1">{{ L("missing / implausible — check the item","ناقص / غير منطقي — راجع الصنف","manquant / improbable") }}</div>
           </div>
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-wider text-ink-muted flex items-center justify-between">{{ L("Freight / kg","شحن / كجم","Fret / kg") }}
-              <button class="text-[10px] font-semibold text-accent-dark hover:underline" @click="freightPerKg = d.suggested_freight_per_kg">{{ L("suggest","اقتراح","suggéré") }} {{ fmt(d.suggested_freight_per_kg) }}</button>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center justify-between">{{ L("Freight / kg","شحن / كجم","Fret / kg") }}
+              <button class="text-[11px] font-semibold text-accent-dark hover:underline" @click="freightPerKg = d.suggested_freight_per_kg">{{ L("suggest","اقتراح","suggéré") }} {{ fmt(d.suggested_freight_per_kg) }}</button>
             </label>
             <input v-model.number="freightPerKg" type="number" step="0.1" min="0" class="w-full h-9 mt-1 bg-app-warm/40 border border-line-2 rounded-[10px] px-3 text-[13px] tnum focus:outline-none focus:border-accent/40 focus:bg-white" />
-            <div v-if="d.freight_stats" class="text-[10px] text-ink-muted mt-1 leading-relaxed">
+            <div v-if="d.freight_stats" class="text-[11px] text-ink-muted mt-1 leading-relaxed">
               {{ L("= all inbound freight ÷ est. total kg","= كل مصاريف الشحن الوارد ÷ الوزن الكلي المقدَّر","= fret total ÷ kg estimés") }}
               ({{ Number(d.freight_stats.pool).toLocaleString() }} ÷ {{ Number(d.freight_stats.est_total_kg).toLocaleString() }} kg)
               <span :class="d.freight_stats.coverage_pct < 20 ? 'text-amber-700 font-semibold' : ''">· {{ L("weights known for","الوزن معروف لـ","poids connus") }} {{ d.freight_stats.coverage_pct }}% {{ L("of units — extrapolated","من الوحدات — الباقي مُقدَّر","des unités") }}</span>
             </div>
           </div>
-          <p class="text-[10px] text-ink-muted leading-relaxed pt-1">{{ L("A calculator — nothing is written to the books yet. Posting the cost is a later step.","حاسبة — لسه مفيش كتابة للدفاتر. ترحيل التكلفة خطوة لاحقة.","Calculateur — rien n'est écrit.") }}</p>
+          <p class="text-[11px] text-ink-muted leading-relaxed pt-1">{{ L("A calculator — nothing is written to the books yet. Posting the cost is a later step.","حاسبة — لسه مفيش كتابة للدفاتر. ترحيل التكلفة خطوة لاحقة.","Calculateur — rien n'est écrit.") }}</p>
         </div>
       </div>
 
       <!-- purchase basis -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="truck" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Purchase basis","أساس الشراء","Base d'achat") }}</span>
-          <span class="text-[10px] text-ink-muted">{{ L("weighted avg","متوسط مرجّح","moy. pond.") }} · {{ d.purchases.length }} {{ L("lines","سطر","lignes") }}</span>
+          <span class="text-[11px] text-ink-muted">{{ L("weighted avg","متوسط مرجّح","moy. pond.") }} · {{ d.purchases.length }} {{ L("lines","سطر","lignes") }}</span>
         </div>
         <div v-if="d.purchases.length" class="overflow-x-auto">
           <table class="w-full text-[12px]">
-            <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+            <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
               <th class="px-4 py-2 text-start">{{ L("Invoice","الفاتورة","Facture") }}</th>
               <th class="px-3 py-2 text-start hidden sm:table-cell">{{ L("Supplier","المورّد","Fourn.") }}</th>
               <th class="px-3 py-2 text-end">{{ L("Qty","كمية","Qté") }}</th>
@@ -108,7 +108,7 @@
               <tr v-for="(p,i) in d.purchases" :key="i" class="border-t border-line-hair" :class="p.fx_off ? 'bg-rose-50/40' : ''">
                 <td class="px-4 py-2 font-mono text-[11px]">
                   <button type="button" class="font-semibold text-accent-dark hover:underline inline-flex items-center gap-1" @click="openBill(p.doc)">{{ p.doc }}<Icon name="arrow" :size="10" /></button>
-                  <div class="text-[10px] text-ink-muted">{{ p.dt }}</div>
+                  <div class="text-[11px] text-ink-muted">{{ p.dt }}</div>
                 </td>
                 <td class="px-3 py-2 text-ink-2 hidden sm:table-cell truncate max-w-[140px]">{{ p.supplier }}</td>
                 <td class="px-3 py-2 text-end tnum">{{ p.qty }}</td>

@@ -7,30 +7,30 @@
       <span class="hidden lg:inline text-[11px] text-ink-muted">{{ L("carrier collected vs deposited","المُحصَّل مقابل المُودَع","collecté vs déposé") }}</span>
       <div class="ms-auto relative">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-        <input v-model.trim="search" @input="onSearch" :placeholder="L('Search ref / carrier…','بحث…','Rechercher…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+        <input v-model.trim="search" @input="onSearch" :placeholder="L('Search ref / carrier…','بحث…','Rechercher…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
       </div>
     </div>
     <TableLoading v-if="loading" :rows="8" />
     <div v-else class="overflow-x-auto">
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Batch","الدفعة","Lot") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Carrier","الناقل","Transp.") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Orders","الطلبات","Cmd") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Expected","المتوقَّع","Attendu") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected","المُحصَّل","Collecté") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Variance","الفرق","Écart") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Batch","الدفعة","Lot") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Carrier","الناقل","Transp.") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Orders","الطلبات","Cmd") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Expected","المتوقَّع","Attendu") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected","المُحصَّل","Collecté") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Variance","الفرق","Écart") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="b in rows" :key="b.ref" class="border-t border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="open(b.ref)">
-            <td class="px-4 py-2.5 font-mono text-[11px] font-semibold whitespace-nowrap">{{ b.ref }}<div class="text-[10px] text-ink-muted font-sans">{{ b.date }}</div></td>
+            <td class="px-4 py-2.5 font-mono text-[11px] font-semibold whitespace-nowrap">{{ b.ref }}<div class="text-[11px] text-ink-muted font-sans">{{ b.date }}</div></td>
             <td class="px-4 py-2.5">{{ b.carrier }}</td>
             <td class="px-4 py-2.5 text-end tnum text-ink-3">{{ b.orders }}</td>
             <td class="px-4 py-2.5 text-end tnum">{{ money(b.expected) }}</td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ money(b.collected) }}</td>
             <td class="px-4 py-2.5 text-end tnum font-bold" :class="b.variance < 0 ? 'text-sale' : b.variance > 0 ? 'text-amber-700' : 'text-ink-3'">{{ b.variance > 0 ? "+" : "" }}{{ money(b.variance) }}</td>
-            <td class="px-4 py-2.5"><span class="inline-flex text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="stBadge(b.status)">{{ stLabel(b.status) }}</span></td>
+            <td class="px-4 py-2.5"><span class="inline-flex text-[11px] font-bold px-2 py-0.5 rounded-badge" :style="stBadge(b.status)">{{ stLabel(b.status) }}</span></td>
           </tr>
           <tr v-if="!rows.length"><td colspan="7" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No remittance batches.","لا دفعات.","Aucun lot.") }}</td></tr>
         </tbody>

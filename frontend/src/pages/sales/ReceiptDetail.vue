@@ -24,8 +24,8 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-[16px] font-bold font-mono">{{ d.name }}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="statusStyle(d.status)">{{ d.status }}</span>
-              <span v-if="/cath/i.test(d.method)" class="text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1" style="background:#f5f3ff;color:#6d28d9"><Icon name="truck" :size="11" />{{ d.method }}</span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="statusStyle(d.status)">{{ d.status }}</span>
+              <span v-if="/cath/i.test(d.method)" class="text-[11px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1" style="background:#f5f3ff;color:#6d28d9"><Icon name="truck" :size="11" />{{ d.method }}</span>
             </div>
             <div class="text-[13px] text-ink-2 mt-0.5">{{ d.party }}</div>
             <div class="text-[11px] text-ink-muted mt-0.5">{{ d.date }}<span v-if="d.reference_no"> · {{ L("ref","مرجع","réf") }} {{ d.reference_no }}</span></div>
@@ -42,14 +42,14 @@
         <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
             <Icon name="layers" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Allocated to","مخصّص لـ","Affecté à") }}</span>
-            <span class="text-[10px] text-ink-muted">{{ d.references.length }}</span>
+            <span class="text-[11px] text-ink-muted">{{ d.references.length }}</span>
           </div>
           <table class="w-full text-[12px]">
             <tbody>
               <tr v-for="(r, i) in d.references" :key="i" class="border-t border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="openRef(r)">
                 <td class="px-4 py-2.5">
                   <div class="font-mono font-semibold">{{ r.name }}</div>
-                  <div class="text-[10px] text-ink-muted">{{ r.doctype }}</div>
+                  <div class="text-[11px] text-ink-muted">{{ r.doctype }}</div>
                 </td>
                 <td class="px-4 py-2.5 text-end tnum font-bold whitespace-nowrap">{{ fmt(r.allocated) }}</td>
               </tr>
@@ -57,7 +57,7 @@
             </tbody>
           </table>
           <div v-if="d.orders.length" class="px-4 py-2.5 border-t border-line-hair flex items-center gap-2 flex-wrap">
-            <span class="text-[10.5px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Orders","الطلبات","Cmds") }}</span>
+            <span class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Orders","الطلبات","Cmds") }}</span>
             <button v-for="o in d.orders" :key="o" class="font-mono text-[11px] font-semibold text-accent-dark hover:underline" @click="openOrder(o)">{{ o }}</button>
           </div>
         </div>
@@ -69,13 +69,13 @@
           </div>
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="(g, i) in d.gl" :key="i" class="border-t border-line-hair">
-                <td class="px-4 py-2.5"><div class="truncate max-w-[200px]">{{ g.name }}</div><div class="text-[10px] text-ink-muted font-mono">{{ g.account }}</div></td>
+                <td class="px-4 py-2.5"><div class="truncate max-w-[200px]">{{ g.name }}</div><div class="text-[11px] text-ink-muted font-mono">{{ g.account }}</div></td>
                 <td class="px-4 py-2.5 text-end tnum" :class="g.dr ? 'font-semibold' : 'text-ink-muted'">{{ g.dr ? fmt(g.dr) : "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum" :class="g.cr ? 'font-semibold' : 'text-ink-muted'">{{ g.cr ? fmt(g.cr) : "—" }}</td>
               </tr>

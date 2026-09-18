@@ -4,9 +4,9 @@
     <div v-if="insightCards.length" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div v-for="m in insightCards" :key="m.label" class="relative bg-white border border-line rounded-[14px] p-3.5 shadow-card overflow-hidden">
         <div class="absolute -top-8 -end-8 w-20 h-20 rounded-full blur-2xl pointer-events-none" :style="{ background: m.glow, opacity: .07 }"></div>
-        <div class="relative text-[9.5px] text-ink-muted font-bold uppercase tracking-wider">{{ m.label }}</div>
-        <div class="relative text-[19px] font-extrabold tnum mt-1 tracking-tight" :style="{ color: m.color }">{{ m.value }}</div>
-        <div class="relative text-[10px] text-ink-3 mt-0.5">{{ m.sub }}</div>
+        <div class="relative text-[11px] text-ink-muted font-bold uppercase tracking-wider">{{ m.label }}</div>
+        <div class="relative text-[20px] font-extrabold tnum mt-1 tracking-tight" :style="{ color: m.color }">{{ m.value }}</div>
+        <div class="relative text-[11px] text-ink-3 mt-0.5">{{ m.sub }}</div>
       </div>
     </div>
 
@@ -15,15 +15,15 @@
       <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#faf6f4"><Icon :name="cfg.icon" :size="14" color="#0b5c4f" /></span>
         <span class="text-[13px] font-bold">{{ title }}</span>
-        <span v-if="isLive !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+        <span v-if="isLive !== null" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full border"
               :style="isLive ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ isLive ? "Live" : L("Load failed","فشل التحميل","Échec") }}</span>
-        <span v-if="notBuilt" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border" style="background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe">{{ L("Not built yet","لم تُبنَ بعد","Pas encore construit") }}</span>
-        <span v-if="loadErr" class="text-[10px] text-rose-600 truncate max-w-[20rem]" :title="loadErr">{{ loadErr }}</span>
+        <span v-if="notBuilt" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full border" style="background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe">{{ L("Not built yet","لم تُبنَ بعد","Pas encore construit") }}</span>
+        <span v-if="loadErr" class="text-[11px] text-rose-600 truncate max-w-[20rem]" :title="loadErr">{{ loadErr }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("records","سجل","enreg.") }}</span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="search" :placeholder="t('module.search')"
-                 class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white transition" />
+                 class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white transition" />
         </div>
       </div>
 
@@ -44,20 +44,20 @@
 
         <!-- Faceted filters (configured column indices) -->
         <select v-for="fi in facetCols" :key="fi" :value="facetActive[fi] || ''" @change="setFacet(fi, $event.target.value)"
-                class="h-[30px] border rounded-chip px-2 text-[11.5px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer max-w-[150px]"
+                class="h-[30px] border rounded-chip px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer max-w-[150px]"
                 :class="facetActive[fi] ? 'border-accent/50 text-accent-dark font-semibold' : 'border-line-2 text-ink-3'">
           <option value="">{{ L("All","الكل","Tous") }} {{ cfg.cols[fi][0] }}</option>
           <option v-for="opt in facetOptions[fi]" :key="opt" :value="opt">{{ opt }}</option>
         </select>
 
         <!-- Export current view -->
-        <button class="ms-auto inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="exportCSV" :title="L('Export current view to CSV','تصدير CSV','Exporter CSV')">
+        <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="exportCSV" :title="L('Export current view to CSV','تصدير CSV','Exporter CSV')">
           <Icon name="doc" :size="13" />{{ L("Export","تصدير","Exporter") }}
         </button>
 
         <!-- Column visibility -->
         <div class="relative" ref="colMenu">
-          <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="colOpen = !colOpen">
+          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="colOpen = !colOpen">
             <Icon name="layers" :size="13" />{{ L("Columns","الأعمدة","Colonnes") }}
           </button>
           <div v-if="colOpen" class="absolute end-0 mt-1 z-20 w-52 bg-white border border-line rounded-[10px] shadow-cardHover p-1.5 max-h-64 overflow-y-auto">
@@ -69,9 +69,9 @@
         </div>
 
         <!-- Page size -->
-        <div class="inline-flex items-center gap-1.5 text-[11.5px] text-ink-3">
+        <div class="inline-flex items-center gap-1.5 text-[12px] text-ink-3">
           <span class="hidden sm:inline">{{ L("Rows","صفوف","Lignes") }}</span>
-          <select v-model.number="pageSize" class="h-[30px] border border-line-2 rounded-chip px-2 text-[11.5px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer">
+          <select v-model.number="pageSize" class="h-[30px] border border-line-2 rounded-chip px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer">
             <option v-for="n in [20, 50, 100, 500]" :key="n" :value="n">{{ n }}</option>
           </select>
         </div>
@@ -83,7 +83,7 @@
           <thead>
             <tr style="background:#fafaf9">
               <th v-for="(c, i) in cfg.cols" v-show="!hidden.has(i)" :key="i"
-                  class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
+                  class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c[1] === 'e' ? 'text-end' : 'text-start'" @click="toggleSort(i)">
                 <span class="inline-flex items-center gap-1" :class="c[1] === 'e' ? 'flex-row-reverse' : ''">
                   {{ c[0] }}
@@ -114,7 +114,7 @@
       <div v-else-if="!sortedRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ search || datePreset !== 'all' ? L("No records match your filters.","لا توجد سجلات مطابقة.","Aucun enregistrement.") : t("common.error_loading") }}</div>
 
       <!-- Pagination footer -->
-      <div v-if="sortedRows.length" class="flex items-center gap-3 px-4 py-2.5 border-t border-line-hair text-[11.5px] text-ink-3 flex-wrap">
+      <div v-if="sortedRows.length" class="flex items-center gap-3 px-4 py-2.5 border-t border-line-hair text-[12px] text-ink-3 flex-wrap">
         <span>{{ L("Showing","عرض","Affichage") }} <b class="text-ink">{{ rangeStart }}–{{ rangeEnd }}</b> {{ L("of","من","sur") }} <b class="text-ink">{{ sortedRows.length }}</b></span>
         <div class="ms-auto flex items-center gap-1">
           <button class="h-7 px-2.5 rounded-chip border border-line-2 bg-white text-ink-2 font-semibold disabled:opacity-40 hover:bg-app-warm inline-flex items-center gap-1" :disabled="page <= 1" @click="page--"><Icon name="arrow" :size="12" class="rotate-180 rtl:rotate-0" />{{ L("Prev","السابق","Préc.") }}</button>

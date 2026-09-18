@@ -18,10 +18,10 @@
           <button @click="compare = compare ? 0 : 1, load()" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="compare ? 'bg-accent/10 text-accent-dark border-accent/30' : 'bg-white text-ink-3 border-line-2'">{{ L("Compare","مقارنة","Comparer") }}</button>
         </template>
         <button @click="printIt" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />{{ L("Print","طباعة","Imprimer") }}</button>
-          <button type="button" class="h-8 px-3 rounded-chip text-[11.5px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :disabled="pdfBusy" @click="downloadPdf">
+          <button type="button" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :disabled="pdfBusy" @click="downloadPdf">
             <Icon name="doc" :size="13" />{{ pdfBusy ? "…" : "PDF" }}
           </button>
-          <a :href="excelUrl" class="h-8 px-3 rounded-chip text-[11.5px] font-bold text-white inline-flex items-center gap-1.5" style="background:#1d6f42"><Icon name="download" :size="13" color="#fff" />Excel</a>
+          <a :href="excelUrl" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white inline-flex items-center gap-1.5" style="background:#1d6f42"><Icon name="download" :size="13" color="#fff" />Excel</a>
       </div>
     </div>
     <div v-if="tab !== 'monthly'" class="text-[11px] text-ink-muted no-print tnum">{{ d.from_date }} → {{ d.to_date }}<span v-if="compare && d.prior_from"> · {{ L("vs","مقابل","vs") }} {{ d.prior_from }} → {{ d.prior_to }}</span></div>
@@ -31,12 +31,12 @@
     <!-- ── Profit & Loss ── -->
     <div v-else-if="tab === 'pnl'" class="space-y-3">
       <div v-if="d.pnl.anomaly" class="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2.5">
-        <Icon name="alert" :size="15" color="#b45309" /><span class="text-[11.5px] text-ink-2">{{ L("Net is distorted by","الصافي متأثر بـ","Faussé par") }} “{{ d.pnl.anomaly.name }}” ({{ money(d.pnl.anomaly.amount) }}) — {{ L("the broken stock/COGS posting. Read net with care.","قيد المخزون/التكلفة المعطّل. اقرأ الصافي بحذر.","écriture stock/CMV cassée.") }}</span>
+        <Icon name="alert" :size="15" color="#b45309" /><span class="text-[12px] text-ink-2">{{ L("Net is distorted by","الصافي متأثر بـ","Faussé par") }} “{{ d.pnl.anomaly.name }}” ({{ money(d.pnl.anomaly.amount) }}) — {{ L("the broken stock/COGS posting. Read net with care.","قيد المخزون/التكلفة المعطّل. اقرأ الصافي بحذر.","écriture stock/CMV cassée.") }}</span>
       </div>
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-        <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("Profit & loss","الأرباح والخسائر","Compte de résultat") }}</span><span class="text-[10px] text-ink-muted">{{ d.currency }}</span><span v-if="d.presentation && d.presentation.rate_avg" class="text-[10px] text-violet-700 tnum" dir="ltr" :title="L('translated from ' + d.presentation.base + ' — P&L @ period average, BS @ closing','محوّل من ' + d.presentation.base + ' — الدخل بمتوسط الفترة والميزانية بالإقفال','converti')">{{ d.presentation.base }}→{{ d.presentation.ccy }} @ {{ d.presentation.rate_avg }} / {{ d.presentation.rate_close }}</span><span v-else-if="d.presentation && d.presentation.error" class="text-[10px] text-amber-600">⚠ {{ d.presentation.error }}</span></div>
-        <table class="w-full text-[12.5px]">
-          <thead v-if="compare"><tr style="background:#fafaf9"><th></th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Current","الحالية","Actuel") }}</th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Prior","السابقة","Précéd.") }}</th><th class="px-5 py-1.5 text-end text-[10px] font-bold uppercase tracking-wide text-ink-muted">Δ</th></tr></thead>
+        <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="scale" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("Profit & loss","الأرباح والخسائر","Compte de résultat") }}</span><span class="text-[11px] text-ink-muted">{{ d.currency }}</span><span v-if="d.presentation && d.presentation.rate_avg" class="text-[11px] text-violet-700 tnum" dir="ltr" :title="L('translated from ' + d.presentation.base + ' — P&L @ period average, BS @ closing','محوّل من ' + d.presentation.base + ' — الدخل بمتوسط الفترة والميزانية بالإقفال','converti')">{{ d.presentation.base }}→{{ d.presentation.ccy }} @ {{ d.presentation.rate_avg }} / {{ d.presentation.rate_close }}</span><span v-else-if="d.presentation && d.presentation.error" class="text-[11px] text-amber-600">⚠ {{ d.presentation.error }}</span></div>
+        <table class="w-full text-[13px]">
+          <thead v-if="compare"><tr style="background:#fafaf9"><th></th><th class="px-5 py-1.5 text-end text-[11px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Current","الحالية","Actuel") }}</th><th class="px-5 py-1.5 text-end text-[11px] font-bold uppercase tracking-wide text-ink-muted">{{ L("Prior","السابقة","Précéd.") }}</th><th class="px-5 py-1.5 text-end text-[11px] font-bold uppercase tracking-wide text-ink-muted">Δ</th></tr></thead>
           <tbody>
             <template v-for="sec in pnlSections" :key="sec.key">
               <tr class="border-t border-line-hair" style="background:#fcfcfb"><td class="px-5 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3" :colspan="compare ? 4 : 2">{{ sec.title }}</td></tr>
@@ -45,8 +45,8 @@
                 <template v-for="g in sec.groups" :key="sec.key + g.group">
                   <tr class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="toggleGroup(sec.key + g.group)">
                     <td class="px-5 py-1.5 ps-8 font-semibold text-ink-2">
-                      <span class="text-[10px] text-ink-muted me-1">{{ openGroups.has(sec.key + g.group) ? "▾" : "▸" }}</span>{{ g.group }}
-                      <span class="text-[10px] text-ink-muted ms-1">({{ g.accounts.length }})</span>
+                      <span class="text-[11px] text-ink-muted me-1">{{ openGroups.has(sec.key + g.group) ? "▾" : "▸" }}</span>{{ g.group }}
+                      <span class="text-[11px] text-ink-muted ms-1">({{ g.accounts.length }})</span>
                     </td>
                     <td class="px-5 py-1.5 text-end tnum font-semibold" :class="g.total < 0 ? 'text-sale' : ''">{{ fmt(g.total) }}</td>
                     <template v-if="compare"><td class="px-5 py-1.5 text-end tnum text-ink-muted">{{ fmt(g.prior) }}</td><td class="px-5 py-1.5 text-end tnum" :class="delta(g.total, g.prior).c">{{ delta(g.total, g.prior).t }}</td></template>
@@ -54,9 +54,9 @@
                   <tr v-for="(a, i) in (openGroups.has(sec.key + g.group) ? g.accounts : [])" :key="sec.key + g.group + i"
                       class="border-t border-line-hair hover:bg-app-warm/40" :class="a.account && 'cursor-pointer'" @click="a.account && drill(a.account)"
                       style="background:#fcfcfb">
-                    <td class="px-5 py-1 ps-12 text-[11.5px] text-ink-3 truncate max-w-[280px] hover:text-accent-dark">{{ a.name }}</td>
-                    <td class="px-5 py-1 text-end tnum text-[11.5px]">{{ fmt(a.amount) }}</td>
-                    <template v-if="compare"><td class="px-5 py-1 text-end tnum text-[11.5px] text-ink-muted">{{ fmt(a.prior) }}</td><td class="px-5 py-1 text-end tnum text-[11.5px]" :class="delta(a.amount, a.prior).c">{{ delta(a.amount, a.prior).t }}</td></template>
+                    <td class="px-5 py-1 ps-12 text-[12px] text-ink-3 truncate max-w-[280px] hover:text-accent-dark">{{ a.name }}</td>
+                    <td class="px-5 py-1 text-end tnum text-[12px]">{{ fmt(a.amount) }}</td>
+                    <template v-if="compare"><td class="px-5 py-1 text-end tnum text-[12px] text-ink-muted">{{ fmt(a.prior) }}</td><td class="px-5 py-1 text-end tnum text-[12px]" :class="delta(a.amount, a.prior).c">{{ delta(a.amount, a.prior).t }}</td></template>
                   </tr>
                 </template>
               </template>
@@ -83,10 +83,10 @@
 
     <!-- ── Balance Sheet ── -->
     <div v-else-if="tab === 'bs'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-      <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="bank" :size="15" color="#0369a1" /><span class="text-[13px] font-bold">{{ L("Balance sheet","الميزانية العمومية","Bilan") }}</span><span class="text-[10px] text-ink-muted">{{ L("as on","حتى","au") }} {{ d.balance_sheet.as_on }}</span>
-        <span class="ms-auto text-[9.5px] font-bold px-2 py-0.5 rounded-full" :style="Math.abs(d.balance_sheet.check) < 2 ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'">{{ Math.abs(d.balance_sheet.check) < 2 ? L("Balanced","متوازنة","Équilibré") : L("Off by","فرق","Écart") + " " + money(d.balance_sheet.check) }}</span>
+      <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="bank" :size="15" color="#0369a1" /><span class="text-[13px] font-bold">{{ L("Balance sheet","الميزانية العمومية","Bilan") }}</span><span class="text-[11px] text-ink-muted">{{ L("as on","حتى","au") }} {{ d.balance_sheet.as_on }}</span>
+        <span class="ms-auto text-[11px] font-bold px-2 py-0.5 rounded-full" :style="Math.abs(d.balance_sheet.check) < 2 ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'">{{ Math.abs(d.balance_sheet.check) < 2 ? L("Balanced","متوازنة","Équilibré") : L("Off by","فرق","Écart") + " " + money(d.balance_sheet.check) }}</span>
       </div>
-      <table class="w-full text-[12.5px]">
+      <table class="w-full text-[13px]">
         <tbody>
           <BsBlock :title="L('Assets','الأصول','Actifs')" :sections="d.balance_sheet.assets" :total="d.balance_sheet.assets_total" :compare="compare" :on-drill="drill" />
           <BsBlock :title="L('Liabilities','الخصوم','Passifs')" :sections="d.balance_sheet.liabilities" :total="d.balance_sheet.liabilities_total" :compare="compare" :on-drill="drill" />
@@ -97,16 +97,16 @@
 
     <!-- ── Cash Flow ── -->
     <div v-else-if="tab === 'cf'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-      <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="15" color="#7c3aed" /><span class="text-[13px] font-bold">{{ L("Cash flow statement","قائمة التدفّق النقدي","Flux de trésorerie") }}</span><span class="text-[10px] text-ink-muted">{{ L("direct method","الطريقة المباشرة","méthode directe") }}</span>
-        <span class="ms-auto text-[9.5px] font-bold px-2 py-0.5 rounded-full" :style="d.cash_flow.reconciles ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ d.cash_flow.reconciles ? L("Reconciles","متطابق","Rapproché") : L("Check","راجع","Vérifier") }}</span>
+      <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="15" color="#7c3aed" /><span class="text-[13px] font-bold">{{ L("Cash flow statement","قائمة التدفّق النقدي","Flux de trésorerie") }}</span><span class="text-[11px] text-ink-muted">{{ L("direct method","الطريقة المباشرة","méthode directe") }}</span>
+        <span class="ms-auto text-[11px] font-bold px-2 py-0.5 rounded-full" :style="d.cash_flow.reconciles ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ d.cash_flow.reconciles ? L("Reconciles","متطابق","Rapproché") : L("Check","راجع","Vérifier") }}</span>
       </div>
-      <table class="w-full text-[12.5px]">
+      <table class="w-full text-[13px]">
         <tbody>
           <tr class="border-t border-line-hair"><td class="px-5 py-2 font-semibold">{{ L("Opening cash","نقد افتتاحي","Trésorerie d'ouverture") }}</td><td class="px-5 py-2 text-end tnum" :class="d.cash_flow.open_cash < 0 ? 'text-sale' : ''">{{ fmt(d.cash_flow.open_cash) }}</td></tr>
           <tr class="border-t border-line-hair"><td class="px-5 py-2 ps-8 text-success-dark">{{ L("Cash received","مقبوضات","Encaissements") }}</td><td class="px-5 py-2 text-end tnum text-success-dark">+{{ fmt(d.cash_flow.cash_in) }}</td></tr>
           <tr class="border-t border-line-hair"><td class="px-5 py-2 ps-8 text-sale">{{ L("Cash paid","مدفوعات","Décaissements") }}</td><td class="px-5 py-2 text-end tnum text-sale">−{{ fmt(d.cash_flow.cash_out) }}</td></tr>
           <tr class="border-t border-line-2 font-bold" style="background:#fafaf9"><td class="px-5 py-2">{{ L("Net change","صافي التغيّر","Variation nette") }}</td><td class="px-5 py-2 text-end tnum" :class="d.cash_flow.net_change < 0 ? 'text-sale' : ''">{{ fmt(d.cash_flow.net_change) }}</td></tr>
-          <tr class="border-t-2 border-ink font-extrabold" style="background:#faf6f4"><td class="px-5 py-2.5 text-[13px]">{{ L("Closing cash","نقد ختامي","Trésorerie de clôture") }}</td><td class="px-5 py-2.5 text-end tnum text-[14px]" :class="d.cash_flow.close_cash < 0 ? 'text-sale' : 'text-success-dark'">{{ fmt(d.cash_flow.close_cash) }} <span class="text-[10px] text-ink-muted">{{ d.currency }}</span></td></tr>
+          <tr class="border-t-2 border-ink font-extrabold" style="background:#faf6f4"><td class="px-5 py-2.5 text-[13px]">{{ L("Closing cash","نقد ختامي","Trésorerie de clôture") }}</td><td class="px-5 py-2.5 text-end tnum text-[14px]" :class="d.cash_flow.close_cash < 0 ? 'text-sale' : 'text-success-dark'">{{ fmt(d.cash_flow.close_cash) }} <span class="text-[11px] text-ink-muted">{{ d.currency }}</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -115,7 +115,7 @@
     <div v-else-if="tab === 'monthly'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-5 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap no-print">
         <Icon name="scale" :size="15" color="#0b5c4f" /><span class="text-[13px] font-bold">{{ L("P&L by month","الأرباح والخسائر بالشهر","Résultat par mois") }}</span>
-        <span class="text-[10px] text-ink-muted">{{ dm.currency }} · {{ mYear }}</span>
+        <span class="text-[11px] text-ink-muted">{{ dm.currency }} · {{ mYear }}</span>
         <div class="ms-auto flex items-center gap-1.5">
           <button v-if="dm.cogs_groups" @click="cleanView = !cleanView"
                   class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
@@ -131,9 +131,9 @@
       <div v-else-if="dm.months && dm.months.length" class="overflow-x-auto">
         <table class="text-[12px] min-w-full whitespace-nowrap">
           <thead><tr style="background:#fafaf9">
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted sticky start-0 z-10" style="background:#fafaf9">{{ L("Account","الحساب","Compte") }}</th>
-            <th v-for="ym in dm.months" :key="ym" class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ monLabel(ym) }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-2">{{ L("Total","الإجمالي","Total") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted sticky start-0 z-10" style="background:#fafaf9">{{ L("Account","الحساب","Compte") }}</th>
+            <th v-for="ym in dm.months" :key="ym" class="px-3 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ monLabel(ym) }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-2">{{ L("Total","الإجمالي","Total") }}</th>
           </tr></thead>
           <tbody>
             <template v-for="sk in ['revenue', 'cogs', 'opex']" :key="sk">
@@ -147,7 +147,7 @@
                   <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(cGroup('core').total) }}</td>
                 </tr>
                 <template v-if="showCore">
-                  <tr v-for="(a, i) in cGroup('core').accounts" :key="'core' + i" class="border-t border-line-hair text-[11.5px] hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
+                  <tr v-for="(a, i) in cGroup('core').accounts" :key="'core' + i" class="border-t border-line-hair text-[12px] hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
                     <td class="px-4 py-1 ps-9 truncate max-w-[220px] sticky start-0 bg-white text-ink-muted hover:text-accent-dark">{{ a.name }}</td>
                     <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1 text-end tnum text-ink-muted">{{ v ? money(v) : "·" }}</td>
                     <td class="px-4 py-1 text-end tnum text-ink-2">{{ money(a.total) }}</td>
@@ -164,10 +164,10 @@
                   <td class="px-4 pb-1.5 text-end tnum font-semibold text-success-dark">{{ gmPctTotal }}%</td>
                 </tr>
                 <tr v-if="cleanView && Math.abs(layersTotal) > 1" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="cleanView = false">
-                  <td :colspan="dm.months.length + 1" class="px-4 py-1 text-[10.5px] text-ink-muted sticky start-0 bg-white">
+                  <td :colspan="dm.months.length + 1" class="px-4 py-1 text-[11px] text-ink-muted sticky start-0 bg-white">
                     {{ L("Adjustments parked out of this view — tap to inspect","تسويات متركنة بره العرض ده — دوس للفحص","Ajustements masqués — cliquer pour voir") }}
                   </td>
-                  <td class="px-4 py-1 text-end tnum text-[10.5px] text-ink-muted">{{ money(layersTotal) }}</td>
+                  <td class="px-4 py-1 text-end tnum text-[11px] text-ink-muted">{{ money(layersTotal) }}</td>
                 </tr>
                 <tr v-if="!cleanView && Math.abs(layersTotal) > 1" class="border-t border-line-hair cursor-pointer hover:bg-app-warm/40" @click="showLayers = !showLayers">
                   <td class="px-4 py-1.5 sticky start-0 bg-white font-semibold text-ink-2">
@@ -178,7 +178,7 @@
                 </tr>
                 <template v-if="showLayers && !cleanView">
                   <template v-for="grp in cogsGroupOrder.filter(g => g.key !== 'core')" :key="grp.key">
-                    <tr v-if="cGroup(grp.key).accounts.length" class="border-t border-line-hair text-[11.5px]">
+                    <tr v-if="cGroup(grp.key).accounts.length" class="border-t border-line-hair text-[12px]">
                       <td class="px-4 py-1 ps-9 sticky start-0 bg-white" :style="'color:' + grp.color">{{ grp.label() }}</td>
                       <td v-for="(v, j) in cGroup(grp.key).monthly" :key="j" class="px-3 py-1 text-end tnum text-ink-muted">{{ v ? money(v) : "·" }}</td>
                       <td class="px-4 py-1 text-end tnum text-ink-2">{{ money(cGroup(grp.key).total) }}</td>
@@ -209,7 +209,7 @@
               <td v-for="(v, j) in opNet" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-success-dark'">{{ money(v) }}</td>
               <td class="px-4 py-1.5 text-end tnum">{{ money(opNetTotal) }}</td>
             </tr>
-            <tr :class="cleanView && dm.cogs_groups ? 'border-t border-line-hair text-[11.5px] text-ink-muted' : 'border-t-2 border-ink font-extrabold'" :style="cleanView && dm.cogs_groups ? '' : 'background:#faf6f4'">
+            <tr :class="cleanView && dm.cogs_groups ? 'border-t border-line-hair text-[12px] text-ink-muted' : 'border-t-2 border-ink font-extrabold'" :style="cleanView && dm.cogs_groups ? '' : 'background:#faf6f4'">
               <td class="px-4 sticky start-0" :class="cleanView && dm.cogs_groups ? 'py-1 bg-white' : 'py-2'" :style="cleanView && dm.cogs_groups ? '' : 'background:#faf6f4'">{{ cleanView && dm.cogs_groups ? L("Ledger net (after parked adjustments)","الصافي الدفتري (بعد التسويات المتركنة)","Résultat comptable") : L("Net profit","صافي الربح","Résultat net") }}</td>
               <td v-for="(v, j) in dm.net_monthly" :key="j" class="px-3 text-end tnum" :class="[cleanView && dm.cogs_groups ? 'py-1' : 'py-2', v < 0 ? 'text-sale' : (cleanView && dm.cogs_groups ? '' : 'text-success-dark')]">{{ money(v) }}</td>
               <td class="px-4 py-2 text-end tnum">{{ money(dm.net_total) }}</td>
@@ -422,14 +422,14 @@ const BsBlock = {
     return () => [
       h("tr", { style: "background:#fcfcfb", class: "border-t border-line-hair" }, [h("td", { class: "px-5 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3", colspan: p.compare ? 4 : 2 }, p.title)]),
       ...(p.sections || []).flatMap((s) => [
-        h("tr", { class: "border-t border-line-hair", style: "background:#fff" }, [h("td", { class: "px-5 py-1 ps-7 font-semibold text-ink-2 text-[11.5px]", colspan: p.compare ? 4 : 2 }, s.section)]),
+        h("tr", { class: "border-t border-line-hair", style: "background:#fff" }, [h("td", { class: "px-5 py-1 ps-7 font-semibold text-ink-2 text-[12px]", colspan: p.compare ? 4 : 2 }, s.section)]),
         ...(s.accounts || []).map((a) => h("tr", { class: "border-t border-line-hair hover:bg-app-warm/40" + (a.account ? " cursor-pointer" : ""), onClick: () => a.account && p.onDrill && p.onDrill(a.account) }, [
           h("td", { class: "px-5 py-1 ps-10 text-ink-3 truncate hover:text-accent-dark", style: "max-width:280px" }, a.name),
           h("td", { class: "px-5 py-1 text-end tnum" }, fmt(a.amount)),
           ...(p.compare ? [h("td", { class: "px-5 py-1 text-end tnum text-ink-muted" }, fmt(a.prior)), h("td", { class: "px-5 py-1 text-end tnum" })] : []),
         ])),
         h("tr", { class: "border-t border-line-hair font-semibold", style: "background:#fafaf9" }, [
-          h("td", { class: "px-5 py-1 ps-7 text-[11.5px]" }, s.section + " " + L("subtotal", "إجمالي", "s/total")),
+          h("td", { class: "px-5 py-1 ps-7 text-[12px]" }, s.section + " " + L("subtotal", "إجمالي", "s/total")),
           h("td", { class: "px-5 py-1 text-end tnum" }, fmt(s.total)),
           ...(p.compare ? [h("td", { class: "px-5 py-1 text-end tnum text-ink-muted" }, fmt(s.prior)), h("td")] : []),
         ]),

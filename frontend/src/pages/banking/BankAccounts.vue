@@ -4,29 +4,29 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="relative bg-white border border-line rounded-[16px] p-4 shadow-card overflow-hidden">
         <span class="absolute top-0 inset-x-0 h-[3px]" style="background:#0b5c4f;opacity:.3"></span>
-        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#faf6f4"><Icon name="scale" :size="15" color="#0b5c4f" /></span><span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Cash position", "المركز النقدي", "Trésorerie") }}</span></div>
+        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#faf6f4"><Icon name="scale" :size="15" color="#0b5c4f" /></span><span class="text-[11px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Cash position", "المركز النقدي", "Trésorerie") }}</span></div>
         <div class="text-[22px] font-extrabold tnum mt-2 leading-none" :class="ins.position < 0 ? 'text-sale' : ''">{{ money(ins.position) }}<span class="text-[11px] text-ink-muted ms-1">{{ baseCcy }}</span></div>
         <div v-if="byCcy.length > 1" class="flex flex-wrap gap-1 mt-1.5">
-          <span v-for="c in byCcy" :key="c.ccy" class="text-[10.5px] font-semibold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-2 tnum" :class="c.total < 0 ? 'text-sale' : ''">{{ fmt0(c.total) }} {{ c.ccy }}</span>
+          <span v-for="c in byCcy" :key="c.ccy" class="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-2 tnum" :class="c.total < 0 ? 'text-sale' : ''">{{ fmt0(c.total) }} {{ c.ccy }}</span>
         </div>
         <div class="text-[11px] text-ink-muted mt-1.5">{{ counts.operating }} {{ L("operating accounts", "حساب تشغيلي", "comptes actifs") }}</div>
       </div>
       <div class="relative bg-white border border-line rounded-[16px] p-4 shadow-card overflow-hidden">
         <span class="absolute top-0 inset-x-0 h-[3px]" style="background:#0369a1;opacity:.3"></span>
-        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="15" color="#0369a1" /></span><span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ L("In banks", "في البنوك", "En banque") }}</span></div>
+        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="15" color="#0369a1" /></span><span class="text-[11px] text-ink-muted font-bold uppercase tracking-wider">{{ L("In banks", "في البنوك", "En banque") }}</span></div>
         <div class="text-[22px] font-extrabold tnum mt-2 leading-none">{{ money(ins.bank) }}<span class="text-[11px] text-ink-muted ms-1">{{ baseCcy }}</span></div>
         <div class="text-[11px] text-ink-muted mt-1.5">{{ L("Cash on hand", "نقد بالخزينة", "Caisse") }} {{ money(ins.cash) }}</div>
       </div>
       <button @click="goRec" class="relative bg-white border rounded-[16px] p-4 shadow-card overflow-hidden text-start hover:-translate-y-0.5 hover:shadow-cardHover transition-all" style="border-color:#fde68a">
         <span class="absolute top-0 inset-x-0 h-[3px]" style="background:#b45309;opacity:.4"></span>
-        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#fffbeb"><Icon name="clock" :size="15" color="#b45309" /></span><span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Unreconciled", "غير مُسوّى", "Non rapproché") }}</span></div>
+        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#fffbeb"><Icon name="clock" :size="15" color="#b45309" /></span><span class="text-[11px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Unreconciled", "غير مُسوّى", "Non rapproché") }}</span></div>
         <div class="text-[22px] font-extrabold tnum mt-2 leading-none" style="color:#b45309">{{ money(ins.uncleared) }}<span class="text-[11px] text-ink-muted ms-1">{{ baseCcy }}</span></div>
         <div class="text-[11px] text-brand font-semibold mt-1.5">{{ ins.uncleared_n }} {{ L("entries → reconcile", "قيد → سوِّ", "écritures") }}</div>
       </button>
       <!-- Overdrafts among the OPERATING accounts (parked ones don't alarm) -->
       <div class="relative bg-white border rounded-[16px] p-4 shadow-card overflow-hidden" :style="{ borderColor: ins.overdraft_n ? '#fecaca' : '#e7e5e4' }">
         <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: ins.overdraft_n ? '#be123c' : '#a8a29e', opacity: .4 }"></span>
-        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" :style="{ background: ins.overdraft_n ? '#fef2f2' : '#f5f5f4' }"><Icon name="alert" :size="15" :color="ins.overdraft_n ? '#be123c' : '#a8a29e'" /></span><span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Overdrafts", "كشوفات مدينة", "Découverts") }}</span></div>
+        <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[10px] grid place-items-center" :style="{ background: ins.overdraft_n ? '#fef2f2' : '#f5f5f4' }"><Icon name="alert" :size="15" :color="ins.overdraft_n ? '#be123c' : '#a8a29e'" /></span><span class="text-[11px] text-ink-muted font-bold uppercase tracking-wider">{{ L("Overdrafts", "كشوفات مدينة", "Découverts") }}</span></div>
         <div class="text-[22px] font-extrabold tnum mt-2 leading-none" :class="ins.overdraft_n ? 'text-sale' : 'text-ink-muted'">{{ ins.overdraft_n }}</div>
         <div class="text-[11px] mt-1.5" :class="ins.overdraft_n ? 'text-sale font-semibold' : 'text-ink-muted'">{{ ins.overdraft_n ? money(ins.overdraft_v) + " " + baseCcy : L("all positive ✓", "كلها موجبة ✓", "tous positifs ✓") }}</div>
       </div>
@@ -38,14 +38,14 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="14" color="#0369a1" /></span>
         <span class="text-[13px] font-bold">{{ L("Bank & cash accounts", "حسابات البنوك والنقد", "Comptes bancaires & caisse") }}</span>
         <LiveBadge :live="live" />
-        <button v-if="canWrite" @click="showSettle = true" class="h-8 px-2.5 rounded-chip text-[11.5px] font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 inline-flex items-center gap-1.5"><Icon name="scale" :size="13" color="#4338ca" />{{ L("Monthly settlement","تسوية شهرية","Règlement") }}</button>
+        <button v-if="canWrite" @click="showSettle = true" class="h-8 px-2.5 rounded-chip text-[12px] font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 inline-flex items-center gap-1.5"><Icon name="scale" :size="13" color="#4338ca" />{{ L("Monthly settlement","تسوية شهرية","Règlement") }}</button>
         <!-- Operating / Under audit / All -->
-        <div class="inline-flex rounded-[10px] border border-line-2 overflow-hidden bg-app-warm/40 text-[11.5px] font-semibold">
-          <button v-for="m in modes" :key="m.k" @click="viewMode = m.k" class="px-2.5 h-8 transition-colors" :class="viewMode === m.k ? 'bg-white text-accent-dark shadow-sm' : 'text-ink-muted hover:text-ink-2'">{{ m.label }} <span class="text-[10px] opacity-70">{{ m.n }}</span></button>
+        <div class="inline-flex rounded-[10px] border border-line-2 overflow-hidden bg-app-warm/40 text-[12px] font-semibold">
+          <button v-for="m in modes" :key="m.k" @click="viewMode = m.k" class="px-2.5 h-8 transition-colors" :class="viewMode === m.k ? 'bg-white text-accent-dark shadow-sm' : 'text-ink-muted hover:text-ink-2'">{{ m.label }} <span class="text-[11px] opacity-70">{{ m.n }}</span></button>
         </div>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="tt.search.value" :placeholder="L('Account…', 'حساب…', 'Compte…')" class="w-40 sm:w-52 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="tt.search.value" :placeholder="L('Account…', 'حساب…', 'Compte…')" class="w-40 sm:w-52 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
@@ -72,7 +72,7 @@
           <thead><tr style="background:#fafaf9">
             <th v-if="canWrite" class="ps-4 pe-1 py-2.5 w-8"><input type="checkbox" :checked="allSelected" @change="toggleAll" class="align-middle accent-violet-600" /></th>
             <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
-                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2" :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
+                class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2" :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
               <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}<Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
             </th>
             <th v-if="canWrite" class="px-4 py-2.5"></th>
@@ -83,15 +83,15 @@
                 <input type="checkbox" :checked="selected.has(o.name)" @change="toggleSel(o.name)" class="align-middle accent-violet-600" />
               </td>
               <td v-show="!tt.hidden.value.has('account_name')" class="px-4 py-2.5">
-                <div class="font-semibold truncate max-w-[280px] inline-flex items-center gap-1.5">{{ o.account_name }}<span v-if="o.under_audit" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 whitespace-nowrap">{{ L("audit", "مراجعة", "audit") }}</span></div>
-                <div class="text-[10px] text-ink-muted font-mono">{{ o.name.split(' - ')[0] }}</div>
+                <div class="font-semibold truncate max-w-[280px] inline-flex items-center gap-1.5">{{ o.account_name }}<span v-if="o.under_audit" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 whitespace-nowrap">{{ L("audit", "مراجعة", "audit") }}</span></div>
+                <div class="text-[11px] text-ink-muted font-mono">{{ o.name.split(' - ')[0] }}</div>
               </td>
-              <td v-show="!tt.hidden.value.has('account_type')" class="px-4 py-2.5"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="o.account_type === 'Cash' ? 'background:#fffbeb;color:#b45309' : 'background:#eff6ff;color:#0369a1'">{{ o.account_type }}</span></td>
+              <td v-show="!tt.hidden.value.has('account_type')" class="px-4 py-2.5"><span class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="o.account_type === 'Cash' ? 'background:#fffbeb;color:#b45309' : 'background:#eff6ff;color:#0369a1'">{{ o.account_type }}</span></td>
               <td v-show="!tt.hidden.value.has('ccy')" class="px-4 py-2.5 text-ink-3">{{ o.ccy }}</td>
               <td v-show="!tt.hidden.value.has('uncleared_n')" class="px-4 py-2.5 text-end tnum" :class="o.uncleared_n ? 'text-brand font-semibold' : 'text-ink-muted'">{{ o.uncleared_n || "—" }}</td>
               <td v-show="!tt.hidden.value.has('book')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap" :class="(o.period ? o.closing : o.book) < 0 ? 'text-sale' : ''">
                 {{ fmt(o.period ? o.closing : o.book) }}
-                <div v-if="o.period" class="text-[9.5px] font-normal text-ink-muted tnum">{{ fmt(o.opening) }} <span class="text-teal-600">+{{ fmt(o.period_in) }}</span> <span class="text-rose-500">−{{ fmt(o.period_out) }}</span></div>
+                <div v-if="o.period" class="text-[11px] font-normal text-ink-muted tnum">{{ fmt(o.opening) }} <span class="text-teal-600">+{{ fmt(o.period_in) }}</span> <span class="text-rose-500">−{{ fmt(o.period_out) }}</span></div>
               </td>
               <td v-if="canWrite" class="px-4 py-2.5 text-end" @click.stop>
                 <button @click="togglePark(o)" :disabled="busy" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold border transition-colors disabled:opacity-50 inline-flex items-center gap-1"

@@ -9,7 +9,7 @@
         <span class="absolute top-0 inset-x-0 h-[3px]" :style="{ background: k.color, opacity: status === k.filter ? 1 : .25 }"></span>
         <div class="flex items-center gap-2">
           <span class="w-8 h-8 rounded-[10px] grid place-items-center" :style="{ background: k.tint }"><Icon :name="k.icon" :size="15" :color="k.color" /></span>
-          <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider leading-tight">{{ k.label() }}</span>
+          <span class="text-[11px] text-ink-muted font-bold uppercase tracking-wider leading-tight">{{ k.label() }}</span>
         </div>
         <div class="text-[22px] font-extrabold tnum mt-2 leading-none" :style="{ color: status === k.filter ? k.color : '#1c1917' }">{{ k.count }}</div>
         <div class="text-[11px] text-ink-3 font-semibold mt-1 tnum">{{ money(k.value) }} <span class="text-ink-muted font-normal">MAD</span></div>
@@ -35,11 +35,11 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fffbeb"><Icon name="doc" :size="14" color="#b45309" /></span>
         <span class="text-[13px] font-bold">{{ L("Cheque register", "سجل الشيكات", "Registre des chèques") }}</span>
         <LiveBadge :live="live" />
-        <span v-if="loadErr" class="text-[10px] text-rose-600 truncate max-w-[20rem]" :title="loadErr">{{ loadErr }}</span>
+        <span v-if="loadErr" class="text-[11px] text-rose-600 truncate max-w-[20rem]" :title="loadErr">{{ loadErr }}</span>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ rows.length }} {{ L("cheques", "شيك", "chèques") }}<span v-if="status"> · {{ statusLabel(status) }}</span></span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="srch" :placeholder="L('Cheque no / supplier…', 'رقم الشيك / المورّد…', 'N° chèque / fournisseur…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="srch" :placeholder="L('Cheque no / supplier…', 'رقم الشيك / المورّد…', 'N° chèque / fournisseur…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
@@ -57,7 +57,7 @@
             <tr style="background:#fafaf9">
               <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
-                  class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
+                  class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                   <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
@@ -74,8 +74,8 @@
               </td>
               <td v-show="!tt.hidden.value.has('bank')" class="px-4 py-2.5 text-ink-3 truncate max-w-[180px]">{{ o.bank }}</td>
               <td v-show="!tt.hidden.value.has('status')" class="px-4 py-2.5">
-                <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" :style="stStyle(o.status)"><span class="w-1.5 h-1.5 rounded-full" :style="{ background: ST[o.status].c }"></span>{{ statusLabel(o.status) }}</span>
-                <span v-if="o.stale" class="ms-1 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700" :title="L('Past cheque date by ' + o.age_days + ' days — likely already cashed, reconcile it', 'فات تاريخه بـ ' + o.age_days + ' يوم — غالبًا اتصرف، طابقه', '')"><Icon name="alert" :size="10" />{{ L("likely cleared", "غالبًا تصرّف", "encaissé ?") }}</span>
+                <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full" :style="stStyle(o.status)"><span class="w-1.5 h-1.5 rounded-full" :style="{ background: ST[o.status].c }"></span>{{ statusLabel(o.status) }}</span>
+                <span v-if="o.stale" class="ms-1 inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700" :title="L('Past cheque date by ' + o.age_days + ' days — likely already cashed, reconcile it', 'فات تاريخه بـ ' + o.age_days + ' يوم — غالبًا اتصرف، طابقه', '')"><Icon name="alert" :size="10" />{{ L("likely cleared", "غالبًا تصرّف", "encaissé ?") }}</span>
               </td>
               <td v-show="!tt.hidden.value.has('amount')" class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ o.currency }} {{ fmt(o.amount) }}</td>
             </tr>

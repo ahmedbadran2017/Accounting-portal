@@ -15,24 +15,24 @@
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="text-[11px] font-bold text-ink-3">{{ L("Charges to add to product cost","التكاليف اللي هتدخل التكلفة","Charges à capitaliser") }}</label>
-            <span class="text-[10.5px] text-ink-muted">{{ L("credited to the account it sits on","تُدائن على حسابها","compte d'origine") }}</span>
+            <span class="text-[11px] text-ink-muted">{{ L("credited to the account it sits on","تُدائن على حسابها","compte d'origine") }}</span>
           </div>
-          <div v-if="hasMatched" class="text-[10.5px] text-emerald-700 mb-1 flex items-center gap-1"><Icon name="check" :size="12" />{{ L("auto-matched to this shipment by the bill reference","اترابطت بالشحنة تلقائيًا من مرجع الفاتورة","liées automatiquement") }}</div>
+          <div v-if="hasMatched" class="text-[11px] text-emerald-700 mb-1 flex items-center gap-1"><Icon name="check" :size="12" />{{ L("auto-matched to this shipment by the bill reference","اترابطت بالشحنة تلقائيًا من مرجع الفاتورة","liées automatiquement") }}</div>
           <div class="border border-line rounded-[10px] divide-y divide-line-hair">
             <div v-for="(c,idx) in charges" :key="idx" class="flex items-center gap-2 px-2.5 py-2 text-[12px]" :class="c.include ? '' : 'opacity-55'">
               <input type="checkbox" v-model="c.include" class="shrink-0" />
               <div class="flex-1 min-w-0">
                 <div class="truncate">{{ c.label }}
-                  <span v-if="!c.matched" class="text-[10px] text-amber-600 ms-1">· {{ c.shipment ? L('other shipment','شحنة أخرى','autre') : L('unassigned — add if it belongs','غير مربوطة — أضِفها لو تخص الشحنة','non liée') }}</span>
+                  <span v-if="!c.matched" class="text-[11px] text-amber-600 ms-1">· {{ c.shipment ? L('other shipment','شحنة أخرى','autre') : L('unassigned — add if it belongs','غير مربوطة — أضِفها لو تخص الشحنة','non liée') }}</span>
                 </div>
-                <div v-if="c.is_legacy_pl" class="text-[10px] text-amber-600">{{ L("on a P&L account","على حساب مصروف","compte P&L") }}</div>
+                <div v-if="c.is_legacy_pl" class="text-[11px] text-amber-600">{{ L("on a P&L account","على حساب مصروف","compte P&L") }}</div>
               </div>
-              <select v-model="c.category" class="h-8 border border-line-2 rounded-[8px] px-1.5 text-[11.5px] bg-white">
+              <select v-model="c.category" class="h-8 border border-line-2 rounded-[8px] px-1.5 text-[12px] bg-white">
                 <option v-for="cat in CATS" :key="cat.k" :value="cat.k">{{ cat.label() }} · {{ cat.basis }}</option>
               </select>
               <span class="tnum font-semibold w-24 text-end">{{ fmt2(c.amount) }}</span>
             </div>
-            <div v-if="!charges.length" class="px-2.5 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No charges in the clearing inbox yet","مفيش تكاليف في صندوق الترسيم","Aucune charge") }}</div>
+            <div v-if="!charges.length" class="px-2.5 py-4 text-center text-[12px] text-ink-muted">{{ L("No charges in the clearing inbox yet","مفيش تكاليف في صندوق الترسيم","Aucune charge") }}</div>
           </div>
           <div class="flex justify-between mt-1 text-[11px] text-ink-3">
             <span>{{ included.length }} {{ L("selected","مختار","sélectionné") }}</span>
@@ -44,7 +44,7 @@
 
         <template v-else-if="pv">
           <!-- Guardrails -->
-          <div v-if="pv.blocked || (pv.legacy_pl_charges && pv.legacy_pl_charges.length)" class="text-[11.5px] rounded-[10px] px-3 py-2 space-y-1"
+          <div v-if="pv.blocked || (pv.legacy_pl_charges && pv.legacy_pl_charges.length)" class="text-[12px] rounded-[10px] px-3 py-2 space-y-1"
                :class="pv.blocked ? 'text-rose-700 bg-rose-50 border border-rose-200' : 'text-amber-700 bg-amber-50 border border-amber-200'">
             <div v-for="(f,i) in pv.fx_offenders" :key="'fx'+i" class="flex items-start gap-1.5"><Icon name="alert" :size="12" color="#e11d48" class="mt-px" />{{ L("FX out of band","سعر صرف خارج النطاق","FX hors bande") }}: {{ f.receipt }} {{ f.currency }}@{{ f.rate }}</div>
             <div v-if="pv.needs_weight" class="flex items-start gap-1.5"><Icon name="alert" :size="12" color="#e11d48" class="mt-px" />{{ L("Freight by weight but items have no weight — fill weights first.","شحن بالوزن بس الأصناف بلا وزن — املأ الأوزان الأول.","Poids manquant.") }}</div>
@@ -60,15 +60,15 @@
 
           <!-- Per-product table -->
           <div class="border border-line rounded-[10px] overflow-hidden">
-            <table class="w-full text-[11.5px]">
-              <thead class="bg-app-warm/50 text-[10px] uppercase text-ink-muted">
+            <table class="w-full text-[12px]">
+              <thead class="bg-app-warm/50 text-[11px] uppercase text-ink-muted">
                 <tr><th class="text-start px-2.5 py-1.5">{{ L("Product","المنتج","Produit") }}</th><th class="text-end px-2 py-1.5">{{ L("Qty","كمية","Qté") }}</th><th class="text-end px-2 py-1.5">{{ L("Old cost","تكلفة قديمة","Ancien") }}</th><th class="text-end px-2 py-1.5">+{{ L("Landed/u","واصل/قطعة","CR/u") }}</th><th class="text-end px-2.5 py-1.5">{{ L("New cost","تكلفة جديدة","Nouveau") }}</th></tr>
               </thead>
               <tbody class="divide-y divide-line-hair">
                 <tr v-for="r in pv.lines.slice(0,20)" :key="r.item_code">
                   <td class="px-2.5 py-1.5 max-w-[240px]">
                     <router-link :to="{ path: '/accounting/items/items', query: { id: r.item_code } }" class="text-accent-dark hover:underline block truncate">{{ r.item_name || r.item_code }}</router-link>
-                    <div v-if="r.item_name" class="text-[10px] text-ink-muted font-mono truncate">{{ r.item_code }}</div>
+                    <div v-if="r.item_name" class="text-[11px] text-ink-muted font-mono truncate">{{ r.item_code }}</div>
                   </td>
                   <td class="px-2 py-1.5 text-end tnum">{{ r.qty }}</td>
                   <td class="px-2 py-1.5 text-end tnum text-ink-muted">{{ fmt2(r.rate) }}</td>
@@ -77,12 +77,12 @@
                 </tr>
               </tbody>
             </table>
-            <div v-if="pv.lines_n>20" class="px-2.5 py-1 text-[10.5px] text-ink-muted bg-app-warm/30">+{{ pv.lines_n-20 }} {{ L("more","إضافي","de plus") }}</div>
+            <div v-if="pv.lines_n>20" class="px-2.5 py-1 text-[11px] text-ink-muted bg-app-warm/30">+{{ pv.lines_n-20 }} {{ L("more","إضافي","de plus") }}</div>
           </div>
           <div v-if="pv.later_moves_to_repost" class="text-[11px] text-ink-muted">{{ pv.later_moves_to_repost }} {{ L("later stock moves will be reposted (COGS heals automatically).","حركة مخزون لاحقة هتتعاد (الـCOGS يتصحّح تلقائيًا).","mouvements re-postés.") }}</div>
         </template>
 
-        <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+        <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
       </div>
 
       <footer class="flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30 rounded-b-[16px]">

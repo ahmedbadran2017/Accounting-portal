@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-3.5">
     <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-[15px] font-bold">{{ L("My work","مهامي","Mon travail") }}</span>
-      <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-app-warm text-ink-2">{{ open.length }} {{ L("open","مفتوح","ouvert") }}</span>
+      <span class="text-[16px] font-bold">{{ L("My work","مهامي","Mon travail") }}</span>
+      <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-app-warm text-ink-2">{{ open.length }} {{ L("open","مفتوح","ouvert") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("tasks assigned to you by the CFO / auditor","مهام مُسنَدة إليك من المدير/المدقّق","tâches qui vous sont assignées") }}</span>
       <button class="ms-auto text-[11px] font-semibold text-ink-3 hover:text-ink inline-flex items-center gap-1" @click="load"><Icon name="refresh" :size="13" />{{ L("Refresh","تحديث","Rafraîchir") }}</button>
     </div>
@@ -19,12 +19,12 @@
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5 flex-wrap">
             <span class="text-[13px] font-bold">{{ t.title }}</span>
-            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge" :style="prioChip(t.priority)">{{ t.priority }}</span>
-            <span v-if="t.is_audit" class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge bg-violet-50 text-violet-700">{{ L("Audit","تدقيق","Audit") }}</span>
-            <span v-if="overdue(t.due)" class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge bg-rose-50 text-rose-600">{{ L("Overdue","متأخّر","En retard") }}</span>
+            <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge" :style="prioChip(t.priority)">{{ t.priority }}</span>
+            <span v-if="t.is_audit" class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge bg-violet-50 text-violet-700">{{ L("Audit","تدقيق","Audit") }}</span>
+            <span v-if="overdue(t.due)" class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge bg-rose-50 text-rose-600">{{ L("Overdue","متأخّر","En retard") }}</span>
           </div>
-          <div v-if="t.detail" class="text-[11.5px] text-ink-3 mt-1 leading-snug">{{ t.detail }}</div>
-          <div class="text-[10.5px] text-ink-muted mt-1.5">{{ L("Due","الاستحقاق","Échéance") }} {{ t.due || "—" }}</div>
+          <div v-if="t.detail" class="text-[12px] text-ink-3 mt-1 leading-snug">{{ t.detail }}</div>
+          <div class="text-[11px] text-ink-muted mt-1.5">{{ L("Due","الاستحقاق","Échéance") }} {{ t.due || "—" }}</div>
         </div>
         <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
           <button v-if="canOpenRef(t)" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="openRef(t)">{{ L("Open","فتح","Ouvrir") }}</button>

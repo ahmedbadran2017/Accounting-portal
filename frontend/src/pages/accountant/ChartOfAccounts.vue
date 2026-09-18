@@ -16,22 +16,22 @@
       <div class="bg-white rounded-card shadow-pop w-full max-w-lg p-5 space-y-3">
         <div class="text-[14px] font-bold flex items-center gap-2"><Icon name="plus" :size="14" color="#0b5c4f" />{{ L("New account","حساب جديد","Nouveau compte") }} <span class="text-[11px] text-ink-muted font-normal">{{ np.company }}</span></div>
         <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Under group","تحت المجموعة","Groupe parent") }} *</label>
-          <SearchSelect v-model="nf.parent_account" :items="np.groups || []" :placeholder="L('Search groups…','ابحث في المجموعات…','Rechercher…')" inputClass="h-9 text-[12.5px] bg-white" /></div>
+          <SearchSelect v-model="nf.parent_account" :items="np.groups || []" :placeholder="L('Search groups…','ابحث في المجموعات…','Rechercher…')" inputClass="h-9 text-[13px] bg-white" /></div>
         <div class="grid grid-cols-[120px_1fr] gap-2">
-          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Number","الرقم","Numéro") }}</label><input v-model.trim="nf.account_number" dir="ltr" placeholder="770.012.031" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40" /></div>
-          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.account_name" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Number","الرقم","Numéro") }}</label><input v-model.trim="nf.account_number" dir="ltr" placeholder="770.012.031" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.account_name" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" /></div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Type","النوع","Type") }}</label>
-            <select v-model="nf.account_type" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40"><option v-for="t in (np.types || [])" :key="t" :value="t">{{ t || L("(untyped)","(بدون نوع)","(sans type)") }}</option></select></div>
-          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.account_currency" :placeholder="np.currency" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white focus:outline-none focus:border-accent/40" /></div>
+            <select v-model="nf.account_type" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40"><option v-for="t in (np.types || [])" :key="t" :value="t">{{ t || L("(untyped)","(بدون نوع)","(sans type)") }}</option></select></div>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.account_currency" :placeholder="np.currency" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" /></div>
         </div>
         <div v-if="(np.companies || []).length">
           <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Also create in","أنشئه أيضًا في","Créer aussi dans") }}</label>
           <div class="flex flex-wrap gap-3">
             <label v-for="c in np.companies" :key="c" class="inline-flex items-center gap-1.5 text-[12px]"><input type="checkbox" :value="c" v-model="nf.mirror" /> {{ c }}</label>
           </div>
-          <p class="text-[10px] text-ink-muted mt-1">{{ L("Mirrored under the group with the same number (or name) in each company; companies without that group are skipped.","بيتعمل تحت المجموعة بنفس الرقم (أو الاسم) في كل شركة؛ اللي مفيهاش المجموعة بتتخطى.","Créé sous le groupe équivalent de chaque société.") }}</p>
+          <p class="text-[11px] text-ink-muted mt-1">{{ L("Mirrored under the group with the same number (or name) in each company; companies without that group are skipped.","بيتعمل تحت المجموعة بنفس الرقم (أو الاسم) في كل شركة؛ اللي مفيهاش المجموعة بتتخطى.","Créé sous le groupe équivalent de chaque société.") }}</p>
         </div>
         <p v-if="newErr" class="text-[12px] text-sale">{{ newErr }}</p>
         <div class="flex gap-2 justify-end pt-1">
@@ -52,11 +52,11 @@
         <button type="button" @click="onlyAnomalies = !onlyAnomalies" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-[10px] border text-[12px] font-semibold transition" :class="onlyAnomalies ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white border-line-2 text-ink-2 hover:bg-app-warm/50'">
           <Icon name="alert" :size="13" :color="onlyAnomalies ? '#be123c' : '#9a8f86'" />
           {{ L("Anomalies","الشذوذ","Anomalies") }}
-          <span v-if="anomalyCount" class="tnum text-[10px] font-bold px-1.5 py-0.5 rounded-full" :class="onlyAnomalies ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-700'">{{ anomalyCount }}</span>
+          <span v-if="anomalyCount" class="tnum text-[11px] font-bold px-1.5 py-0.5 rounded-full" :class="onlyAnomalies ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-700'">{{ anomalyCount }}</span>
         </button>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="q" :placeholder="L('Search account…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="q" :placeholder="L('Search account…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
     </div>
@@ -64,23 +64,23 @@
     <!-- Summary strip -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
-        <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted"><Icon name="list" :size="12" color="#0b5c4f" />{{ L("Accounts","الحسابات","Comptes") }}</div>
+        <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted"><Icon name="list" :size="12" color="#0b5c4f" />{{ L("Accounts","الحسابات","Comptes") }}</div>
         <div class="text-[22px] font-extrabold tnum mt-1 leading-none">{{ rows.length.toLocaleString() }}</div>
         <div class="text-[11px] text-ink-3 mt-1">{{ L("with live balances","لها أرصدة حيّة","avec soldes") }}</div>
       </div>
       <button type="button" @click="anomalyCount && (onlyAnomalies = !onlyAnomalies)" class="text-start bg-white rounded-card border shadow-card px-4 py-3 transition" :class="anomalyCount ? (onlyAnomalies ? 'border-rose-300 ring-1 ring-rose-300' : 'border-line hover:border-rose-200') : 'border-line'">
-        <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider" :class="anomalyCount ? 'text-rose-600' : 'text-ink-muted'"><Icon name="alert" :size="12" :color="anomalyCount ? '#be123c' : '#9a8f86'" />{{ L("Anomalies","شذوذ","Anomalies") }}</div>
+        <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" :class="anomalyCount ? 'text-rose-600' : 'text-ink-muted'"><Icon name="alert" :size="12" :color="anomalyCount ? '#be123c' : '#9a8f86'" />{{ L("Anomalies","شذوذ","Anomalies") }}</div>
         <div class="text-[22px] font-extrabold tnum mt-1 leading-none" :class="anomalyCount ? 'text-rose-600' : 'text-ink'">{{ anomalyCount }}</div>
         <div class="text-[11px] mt-1" :class="anomalyCount ? 'text-rose-500' : 'text-ink-3'">{{ anomalyCount ? L("click to filter","اضغط للفلترة","cliquer pour filtrer") : L("none flagged","لا شيء","aucune") }}</div>
       </button>
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3">
-        <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted"><Icon name="wallet" :size="12" color="#0f766e" />{{ L("Total assets","إجمالي الأصول","Total actifs") }}</div>
+        <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted"><Icon name="wallet" :size="12" color="#0f766e" />{{ L("Total assets","إجمالي الأصول","Total actifs") }}</div>
         <div class="text-[22px] font-extrabold tnum mt-1 leading-none text-teal-700">{{ money(rootTotal('Asset')) }}</div>
         <div class="text-[11px] text-ink-3 mt-1">{{ ccy }}</div>
       </div>
       <div class="bg-white rounded-card border shadow-card px-4 py-3" :class="balanced ? 'border-line' : 'border-amber-200'">
-        <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted"><Icon name="scale" :size="12" color="#7c3aed" />{{ L("Trial balance","ميزان المراجعة","Balance") }}</div>
-        <div class="text-[15px] font-extrabold mt-1.5 leading-none flex items-center gap-1.5" :class="balanced ? 'text-teal-700' : 'text-amber-700'">
+        <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted"><Icon name="scale" :size="12" color="#7c3aed" />{{ L("Trial balance","ميزان المراجعة","Balance") }}</div>
+        <div class="text-[16px] font-extrabold mt-1.5 leading-none flex items-center gap-1.5" :class="balanced ? 'text-teal-700' : 'text-amber-700'">
           <Icon :name="balanced ? 'check' : 'alert'" :size="15" :color="balanced ? '#0f766e' : '#b45309'" />
           {{ balanced ? L("Balanced","متزن","Équilibré") : money(Math.abs(grandTotal)) }}
         </div>
@@ -98,10 +98,10 @@
             <span class="w-1 h-4 rounded-full" :style="`background:${g.color}`"></span>
             <svg :class="collapsed[g.key] ? '-rotate-90' : ''" class="transition-transform shrink-0" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 4.5L6 8l3.5-3.5" :stroke="g.color" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <Icon :name="g.icon" :size="14" :color="g.color" />
-            <span class="text-[11.5px] font-bold uppercase tracking-wider" :style="`color:${g.color}`">{{ g.label }}</span>
-            <span class="tnum text-[10px] font-bold text-ink-muted bg-white/70 border border-line-hair px-1.5 py-0.5 rounded-full">{{ g.rows.length }}</span>
-            <span v-if="g.anomalies" class="tnum text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full inline-flex items-center gap-1"><Icon name="alert" :size="9" color="#be123c" />{{ g.anomalies }}</span>
-            <span class="ms-auto tnum text-[12.5px] font-extrabold" :class="g.anomalies ? 'text-ink' : 'text-ink-2'">{{ money(g.total) }} <span class="text-[10px] font-semibold text-ink-muted">{{ ccy }}</span></span>
+            <span class="text-[12px] font-bold uppercase tracking-wider" :style="`color:${g.color}`">{{ g.label }}</span>
+            <span class="tnum text-[11px] font-bold text-ink-muted bg-white/70 border border-line-hair px-1.5 py-0.5 rounded-full">{{ g.rows.length }}</span>
+            <span v-if="g.anomalies" class="tnum text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full inline-flex items-center gap-1"><Icon name="alert" :size="9" color="#be123c" />{{ g.anomalies }}</span>
+            <span class="ms-auto tnum text-[13px] font-extrabold" :class="g.anomalies ? 'text-ink' : 'text-ink-2'">{{ money(g.total) }} <span class="text-[11px] font-semibold text-ink-muted">{{ ccy }}</span></span>
           </button>
 
           <!-- Rows -->
@@ -111,12 +111,12 @@
                  :class="c.anomaly ? 'bg-rose-50/40 hover:bg-rose-50' : 'hover:bg-app-warm/60'">
               <span class="font-mono text-[11px] text-ink-3 bg-app-warm/70 rounded px-1.5 py-0.5 whitespace-nowrap tnum">{{ c.code || "—" }}</span>
               <div class="min-w-0 flex items-center gap-2">
-                <span class="truncate text-[12.5px] group-hover:text-accent-dark" :class="c.anomaly ? 'font-semibold text-rose-900' : 'text-ink'">{{ c.name }}</span>
-                <span v-if="c.account_type" class="hidden sm:inline shrink-0 text-[9.5px] font-semibold text-ink-muted bg-app-warm border border-line-hair px-1.5 py-0.5 rounded">{{ c.account_type }}</span>
+                <span class="truncate text-[13px] group-hover:text-accent-dark" :class="c.anomaly ? 'font-semibold text-rose-900' : 'text-ink'">{{ c.name }}</span>
+                <span v-if="c.account_type" class="hidden sm:inline shrink-0 text-[11px] font-semibold text-ink-muted bg-app-warm border border-line-hair px-1.5 py-0.5 rounded">{{ c.account_type }}</span>
                 <span v-if="c.anomaly" class="shrink-0 inline-flex" :title="anomalyText(c)"><Icon name="alert" :size="12.5" color="#be123c" /></span>
               </div>
               <div class="flex flex-col items-end gap-1 w-[120px] sm:w-[150px]">
-                <span class="tnum text-[12.5px] font-bold whitespace-nowrap" :class="c.anomaly ? 'text-rose-600' : 'text-ink'">{{ money(c.bal) }}</span>
+                <span class="tnum text-[13px] font-bold whitespace-nowrap" :class="c.anomaly ? 'text-rose-600' : 'text-ink'">{{ money(c.bal) }}</span>
                 <span class="block h-[3px] rounded-full" :style="`width:${barW(c, g)}%;background:${c.anomaly ? '#f43f5e' : g.color};opacity:${c.anomaly ? 0.7 : 0.3}`"></span>
               </div>
             </div>
@@ -125,7 +125,7 @@
 
         <div v-if="!groups.length" class="px-4 py-14 text-center">
           <Icon :name="onlyAnomalies ? 'check' : 'search'" :size="24" :color="onlyAnomalies ? '#0f766e' : '#c4bdb5'" class="inline-block mb-2" />
-          <p class="text-[12.5px] text-ink-muted">{{ onlyAnomalies ? L("No anomalies — every account has the expected balance sign.","لا شذوذ — كل الحسابات بإشارة الرصيد المتوقعة.","Aucune anomalie.") : (q ? L("No account matches your search.","لا حساب يطابق بحثك.","Aucun compte.") : L("No accounts.","لا حسابات.","Aucun compte.")) }}</p>
+          <p class="text-[13px] text-ink-muted">{{ onlyAnomalies ? L("No anomalies — every account has the expected balance sign.","لا شذوذ — كل الحسابات بإشارة الرصيد المتوقعة.","Aucune anomalie.") : (q ? L("No account matches your search.","لا حساب يطابق بحثك.","Aucun compte.") : L("No accounts.","لا حسابات.","Aucun compte.")) }}</p>
         </div>
       </template>
     </div>

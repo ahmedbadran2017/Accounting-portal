@@ -10,8 +10,8 @@
           <span class="w-9 h-9 rounded-[11px] grid place-items-center flex-shrink-0" :style="{ background: b.tint }"><Icon :name="b.icon" :size="17" :color="b.color" /></span>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
-              <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
-              <span v-if="dateScope" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ dateScope }}</span>
+              <span class="text-[11px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
+              <span v-if="dateScope" class="text-[11px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ dateScope }}</span>
             </div>
             <!-- The count was the loudest thing on the screen and the money was
                  an 11px afterthought: 1,319 orders read bigger than the
@@ -20,7 +20,7 @@
           </div>
         </div>
         <div class="relative mt-1 text-[22px] font-extrabold tnum leading-tight tracking-tight" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ money(cardValue(b.key)) }} <span class="text-[11px] text-ink-muted font-normal">{{ ccy }}</span></div>
-        <div class="relative mt-1 text-[10px] text-ink-muted">{{ b.hint() }}</div>
+        <div class="relative mt-1 text-[11px] text-ink-muted">{{ b.hint() }}</div>
       </button>
     </div>
 
@@ -33,7 +33,7 @@
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("docs","مستند","docs") }} · {{ dateScope || "FY 2026" }}<span v-if="bucketCount > rows.length"> · {{ L("first","أول","premiers") }} {{ rows.length }}</span></span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="srch" :placeholder="L('Document / supplier…','مستند / مورّد…','Document / fournisseur…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="srch" :placeholder="L('Document / supplier…','مستند / مورّد…','Document / fournisseur…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
@@ -56,7 +56,7 @@
             <tr style="background:#fafaf9">
               <th v-if="selectable" class="px-3 py-2.5 w-9"><input type="checkbox" :checked="allPageSelected" @change="toggleAllPage" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
-                  class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
+                  class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ colLabel(c) }}
                   <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
@@ -81,7 +81,7 @@
                   </span>
                 </template>
                 <template v-else-if="bucket === 'paid'">
-                  <span v-if="o.method" class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="methodStyle(o.method)">{{ o.method }}</span>
+                  <span v-if="o.method" class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="methodStyle(o.method)">{{ o.method }}</span>
                   <span v-else class="text-ink-muted">—</span>
                 </template>
                 <span v-else class="tnum font-bold text-sale">{{ fmt(o.progress) }}</span>
@@ -99,7 +99,7 @@
     <transition name="fade">
       <div v-if="selected.size" class="fixed bottom-5 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
         <div class="pointer-events-auto bg-ink text-white rounded-[14px] shadow-xl flex items-center gap-3 ps-4 pe-2 py-2 max-w-full">
-          <span class="text-[12.5px] font-bold">{{ selected.size }} {{ L("selected","محدد","sél.") }}</span>
+          <span class="text-[13px] font-bold">{{ selected.size }} {{ L("selected","محدد","sél.") }}</span>
           <span class="text-[12px] text-white/70 tnum">{{ fmt(selTotal) }} {{ ccy }}</span>
           <span v-if="selSupplier" class="text-[11px] text-white/60 truncate max-w-[160px]">· {{ selSupplier }}</span>
           <span v-if="!sameSupplier" class="text-[11px] font-semibold text-amber-300">{{ L("mixed suppliers — pick one","موردون مختلفون","fournisseurs mixtes") }}</span>
@@ -124,7 +124,7 @@
         <template v-if="groupMode === 'pay'">
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Method","الطريقة","Méthode") }}</label>
-            <select v-model="payMode" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40">
+            <select v-model="payMode" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40">
               <option value="">{{ L("Select…","اختر…","Choisir…") }}</option>
               <option v-for="m in modes" :key="m.mode" :value="m.mode">{{ m.mode }}</option>
             </select>
@@ -132,15 +132,15 @@
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-[11px] font-bold text-ink-3">{{ L("Reference No","رقم المرجع","Référence") }}</label>
-              <input v-model.trim="payRef" :placeholder="L('Cheque / txn no','شيك / معاملة','Chèque / réf')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+              <input v-model.trim="payRef" :placeholder="L('Cheque / txn no','شيك / معاملة','Chèque / réf')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
             </div>
             <div>
               <label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label>
-              <input type="date" v-model="payDate" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+              <input type="date" v-model="payDate" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
             </div>
           </div>
         </template>
-        <p class="text-[10.5px] text-ink-muted">{{ groupMode === "bill" ? L("One Purchase Invoice with all selected receipts' lines · clears their GRNI.","فاتورة شراء واحدة بكل بنود الإيصالات المحددة.","Une seule facture avec toutes les lignes.") : L("One Payment Entry settles all selected bills · bank/cheque needs a reference.","قيد دفع واحد يسوّي كل الفواتير المحددة.","Une seule écriture règle toutes les factures.") }}</p>
+        <p class="text-[11px] text-ink-muted">{{ groupMode === "bill" ? L("One Purchase Invoice with all selected receipts' lines · clears their GRNI.","فاتورة شراء واحدة بكل بنود الإيصالات المحددة.","Une seule facture avec toutes les lignes.") : L("One Payment Entry settles all selected bills · bank/cheque needs a reference.","قيد دفع واحد يسوّي كل الفواتير المحددة.","Une seule écriture règle toutes les factures.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="payOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
           <button @click="confirmGroup" :disabled="posting || (groupMode === 'pay' && !payMode)" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50" :style="{ background: groupMode === 'bill' ? '#0891b2' : '#047857' }">{{ posting ? L("Working…","جارٍ…","…") : (groupMode === "bill" ? L("Create invoice","أنشئ الفاتورة","Créer facture") : L("Pay","دفع","Payer")) }}</button>

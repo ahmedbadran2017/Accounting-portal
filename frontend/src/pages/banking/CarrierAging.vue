@@ -11,13 +11,13 @@
       <table class="w-full text-[12px]">
         <thead>
           <tr style="background:#fafaf9">
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Carrier", "الناقل", "Transporteur") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">0–3d</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">4–7d</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">8–14d</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">15d+</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Total", "الإجمالي", "Total") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Avg days", "متوسط الأيام", "Jours moy.") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Carrier", "الناقل", "Transporteur") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">0–3d</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">4–7d</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">8–14d</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">15d+</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Total", "الإجمالي", "Total") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Avg days", "متوسط الأيام", "Jours moy.") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -36,7 +36,7 @@
     </div>
     <div v-if="worst" class="flex items-center gap-2.5 px-4 py-3 border-t border-line-hair" style="background:#fffbeb">
       <Icon name="alert" :size="15" color="#b45309" class="flex-shrink-0" />
-      <span class="text-[11.5px] flex-1" style="color:#92400e">{{ worst.carrier }} {{ L("holds", "يحتجز", "détient") }} {{ fmt(worst.aged) }} MAD {{ L("aged beyond 8 days — chase remittance before it slips past 15d.", "متجاوزة 8 أيام — تابِع التحصيل قبل تجاوز 15 يوماً.", "au-delà de 8 jours — relancer avant 15 j.") }}</span>
+      <span class="text-[12px] flex-1" style="color:#92400e">{{ worst.carrier }} {{ L("holds", "يحتجز", "détient") }} {{ fmt(worst.aged) }} MAD {{ L("aged beyond 8 days — chase remittance before it slips past 15d.", "متجاوزة 8 أيام — تابِع التحصيل قبل تجاوز 15 يوماً.", "au-delà de 8 jours — relancer avant 15 j.") }}</span>
     </div>
   </div>
 </template>

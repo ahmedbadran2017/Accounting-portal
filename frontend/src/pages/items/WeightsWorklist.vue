@@ -5,7 +5,7 @@
       <span class="text-[16px]">⚖️</span>
       <div>
         <div class="font-bold" style="color:#92400e">{{ L("Weights are the freight SPLIT KEY","الأوزان هي مفتاح توزيع الشحن","Les poids répartissent le fret") }}</div>
-        <div class="text-[11.5px] mt-px" style="color:#b45309">
+        <div class="text-[12px] mt-px" style="color:#b45309">
           {{ L("A zero-weight item rides free while honest items overpay. Every weight fixed here immediately improves the split — and shrinks the calibration scale toward 1.","الصنف اللي وزنه صفر بيركب ببلاش وجاره بيدفع عنه. كل وزن يتصلح هنا بيظبط التوزيع فورًا — ومعامل المعايرة بيقرب لـ1 لوحده.","Un article à poids nul voyage gratuitement. Chaque poids corrigé améliore la répartition.") }}
         </div>
       </div>
@@ -26,7 +26,7 @@
         <span v-if="est.loading" class="text-[11px] text-ink-muted">{{ L("computing…","بيحسب…","calcul…") }} {{ est.rows.length }}/{{ est.total || "…" }}</span>
         <template v-else>
           <span class="text-[11px] tnum"><b>{{ estCovered.length }}</b> {{ L("estimable","قابل للتقدير","estimables") }}</span>
-          <span class="text-[10.5px] text-ink-muted">👪 {{ estBySrc.family }} · 🔎 {{ estBySrc.similar }} · 🏷 {{ estBySrc.class }} · ✕ {{ est.rows.length - estCovered.length }} {{ L("no estimate","بلا تقدير","sans") }}</span>
+          <span class="text-[11px] text-ink-muted">👪 {{ estBySrc.family }} · 🔎 {{ estBySrc.similar }} · 🏷 {{ estBySrc.class }} · ✕ {{ est.rows.length - estCovered.length }} {{ L("no estimate","بلا تقدير","sans") }}</span>
         </template>
         <div class="flex-1"></div>
         <template v-if="est.applying">
@@ -36,25 +36,25 @@
           <span class="text-[11px] tnum text-ink-muted">{{ est.done }}/{{ estCovered.length }}</span>
         </template>
         <template v-else>
-          <button class="h-[28px] px-3 rounded-[8px] text-[11.5px] font-bold border border-line hover:bg-app-warm" @click="est = null">{{ L("Close","إغلاق","Fermer") }}</button>
-          <button v-if="!est.loading && estCovered.length" class="h-[28px] px-3.5 rounded-[9px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark"
+          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="est = null">{{ L("Close","إغلاق","Fermer") }}</button>
+          <button v-if="!est.loading && estCovered.length" class="h-[28px] px-3.5 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark"
                   @click="applyEstimates">{{ L("Apply","تطبيق","Appliquer") }} {{ estCovered.length }}</button>
         </template>
       </div>
       <div class="overflow-x-auto max-h-[320px] overflow-y-auto" v-if="est.rows.length">
-        <table class="w-full text-[11.5px]">
+        <table class="w-full text-[12px]">
           <thead class="sticky top-0" style="background:#fafaf9"><tr>
-            <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Current","الحالي","Actuel") }}</th>
-            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Estimate","التقدير","Estimation") }}</th>
-            <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("Source","المصدر","Source") }}</th>
+            <th class="px-4 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Current","الحالي","Actuel") }}</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Estimate","التقدير","Estimation") }}</th>
+            <th class="px-3 py-2 text-center text-[11px] font-bold text-ink-muted">{{ L("Source","المصدر","Source") }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="r in est.rows.slice(0, 400)" :key="r.item_code" class="border-t border-line-hair">
-              <td class="px-4 py-1.5 truncate max-w-[340px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><span class="text-[10px] text-ink-muted"> · {{ r.item_name }}</span></td>
+              <td class="px-4 py-1.5 truncate max-w-[340px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><span class="text-[11px] text-ink-muted"> · {{ r.item_name }}</span></td>
               <td class="px-3 py-1.5 text-end tnum" :class="r.current ? 'text-ink-3' : 'text-sale font-bold'">{{ r.current.toFixed(2) }}</td>
               <td class="px-3 py-1.5 text-end tnum font-bold" :class="r.est ? 'text-violet-700' : 'text-ink-3'">{{ r.est ? r.est.toFixed(2) : "—" }}</td>
-              <td class="px-3 py-1.5 text-center text-[10px] font-bold text-violet-700">{{ r.src ? srcFull(r.src) : "—" }}</td>
+              <td class="px-3 py-1.5 text-center text-[11px] font-bold text-violet-700">{{ r.src ? srcFull(r.src) : "—" }}</td>
             </tr>
           </tbody>
         </table>
@@ -75,8 +75,8 @@
           </button>
         </div>
         <input v-model="search" @keyup.enter="load" :placeholder="L('Search SKU / name…','بحث…','Recherche…')"
-               class="h-[28px] w-[180px] text-[11.5px] px-2.5 rounded-[8px] border border-line" />
-        <button v-if="canWrite" class="h-[28px] px-3 rounded-[9px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+               class="h-[28px] w-[180px] text-[12px] px-2.5 rounded-[8px] border border-line" />
+        <button v-if="canWrite" class="h-[28px] px-3 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                 :disabled="estBusy" @click="openEstimator">✨ {{ L("Estimate missing","تقدير الناقص","Estimer") }}</button>
       </div>
 
@@ -85,12 +85,12 @@
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-            <th class="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Problem","المشكلة","Problème") }}</th>
-            <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Units received","وحدات مستلمة","Unités reçues") }}</th>
-            <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("In stock","في المخزون","En stock") }}</th>
-            <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book kg","الوزن الدفتري","Poids") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Real kg / unit","الوزن الحقيقي/وحدة","Réel kg") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+            <th class="px-3 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Problem","المشكلة","Problème") }}</th>
+            <th class="px-3 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Units received","وحدات مستلمة","Unités reçues") }}</th>
+            <th class="px-3 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("In stock","في المخزون","En stock") }}</th>
+            <th class="px-3 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book kg","الوزن الدفتري","Poids") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Real kg / unit","الوزن الحقيقي/وحدة","Réel kg") }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="r in data.rows" :key="r.item_code" class="border-t border-line-hair" :class="saved[r.item_code] ? 'bg-emerald-50/40' : ''">
@@ -99,22 +99,22 @@
                   <img v-if="r.image" :src="r.image" class="w-8 h-8 rounded-[7px] object-cover flex-shrink-0 border border-line-hair" />
                   <span v-else class="w-8 h-8 rounded-[7px] bg-app-warm flex-shrink-0"></span>
                   <span class="min-w-0"><span class="block font-semibold truncate max-w-[280px]">{{ r.item_name }}</span>
-                    <span class="block text-[10px] text-ink-muted font-mono">{{ r.sku || r.item_code }}</span></span>
+                    <span class="block text-[11px] text-ink-muted font-mono">{{ r.sku || r.item_code }}</span></span>
                 </span>
               </td>
               <td class="px-3 py-2 text-center">
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" :style="flagChip(r.flag)">{{ flagLabel(r.flag) }}</span>
-                <span v-if="r.est_src" class="block text-[9.5px] text-violet-700 mt-0.5">≈ {{ srcLabel(r.est_src) }}</span>
+                <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" :style="flagChip(r.flag)">{{ flagLabel(r.flag) }}</span>
+                <span v-if="r.est_src" class="block text-[11px] text-violet-700 mt-0.5">≈ {{ srcLabel(r.est_src) }}</span>
               </td>
               <td class="px-3 py-2 text-end tnum text-ink-3">{{ fmt(r.units_in) }}</td>
               <td class="px-3 py-2 text-end tnum text-ink-3">{{ fmt(r.stock_qty) }}</td>
               <td class="px-3 py-2 text-end tnum" :class="r.flag === 'zero' ? 'text-sale font-bold' : 'text-ink-3'">{{ r.w.toFixed(2) }}</td>
               <td class="px-4 py-2 text-end">
-                <span v-if="saved[r.item_code]" class="text-[11.5px] font-bold text-emerald-700 tnum">✓ {{ saved[r.item_code].toFixed(2) }} kg</span>
+                <span v-if="saved[r.item_code]" class="text-[12px] font-bold text-emerald-700 tnum">✓ {{ saved[r.item_code].toFixed(2) }} kg</span>
                 <span v-else class="inline-flex items-center gap-1.5">
                   <input v-model.number="edits[r.item_code]" type="number" step="0.01" min="0.005" max="50"
-                         class="h-[26px] w-[72px] text-[11.5px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" placeholder="kg" />
-                  <button v-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                         class="h-[26px] w-[72px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" placeholder="kg" />
+                  <button v-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                           :disabled="!(edits[r.item_code] > 0) || savingKey === r.item_code" @click="save(r)">
                     {{ savingKey === r.item_code ? "…" : L("Save","حفظ","OK") }}
                   </button>
@@ -124,7 +124,7 @@
           </tbody>
         </table>
         <div v-if="!data.rows.length" class="py-10 text-center text-[12px] text-ink-muted">🎉 {{ L("Nothing suspect — the split key is clean.","مفيش أوزان مشكوك فيها — مفتاح التوزيع نضيف.","Rien de suspect.") }}</div>
-        <div class="px-4 py-2.5 border-t border-line-hair flex items-center gap-2 text-[11.5px] text-ink-muted" v-if="data.total > pageSize">
+        <div class="px-4 py-2.5 border-t border-line-hair flex items-center gap-2 text-[12px] text-ink-muted" v-if="data.total > pageSize">
           <button class="h-[26px] px-2.5 rounded-[7px] border border-line font-bold disabled:opacity-40" :disabled="start === 0" @click="start = Math.max(start - pageSize, 0); load()">‹</button>
           <span class="tnum">{{ start + 1 }}–{{ Math.min(start + pageSize, data.total) }} / {{ data.total }}</span>
           <button class="h-[26px] px-2.5 rounded-[7px] border border-line font-bold disabled:opacity-40" :disabled="start + pageSize >= data.total" @click="start += pageSize; load()">›</button>

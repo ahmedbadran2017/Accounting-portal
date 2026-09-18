@@ -1,6 +1,6 @@
 <template>
   <span class="inline-flex items-center gap-1.5 font-bold border whitespace-nowrap"
-        :class="small ? 'text-[10px] px-2 py-0.5 rounded-full' : 'text-[11px] px-2.5 py-1 rounded-[7px]'"
+        :class="small ? 'text-[11px] px-2 py-0.5 rounded-full' : 'text-[11px] px-2.5 py-1 rounded-[7px]'"
         :style="style">
     <span v-if="dot" class="w-1.5 h-1.5 rounded-full" :style="{ background: style.color }"></span>{{ label }}
   </span>

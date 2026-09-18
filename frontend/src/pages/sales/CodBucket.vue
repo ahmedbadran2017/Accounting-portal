@@ -12,12 +12,12 @@
           <span class="w-9 h-9 rounded-[11px] grid place-items-center flex-shrink-0" :style="{ background: b.tint }"><Icon :name="b.icon" :size="17" :color="b.color" /></span>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
-              <span class="text-[10.5px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
-              <span v-if="dateScope" class="text-[8.5px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ dateScope }}</span>
+              <span class="text-[11px] text-ink-muted font-bold uppercase tracking-wider">{{ b.label() }}</span>
+              <span v-if="dateScope" class="text-[11px] font-bold px-1.5 py-px rounded-full" :style="{ background: b.tint, color: b.color }">{{ dateScope }}</span>
             </div>
             <div class="text-[24px] font-extrabold tnum leading-tight tracking-tight transition-colors" :style="{ color: bucket === b.key ? b.color : '#1c1917' }">{{ cardCount(b.key).toLocaleString() }}</div>
           </div>
-          <span class="text-[10px] font-bold tnum mt-0.5" :style="{ color: b.color, opacity: .8 }">{{ cardShare(b.key) }}%</span>
+          <span class="text-[11px] font-bold tnum mt-0.5" :style="{ color: b.color, opacity: .8 }">{{ cardShare(b.key) }}%</span>
         </div>
         <div class="relative mt-2 text-[11px] text-ink-3 font-semibold tnum">{{ fmt(cardValue(b.key)) }} <span class="text-ink-muted font-normal">MAD</span></div>
         <div class="relative mt-2 h-1 rounded-full bg-app-warm overflow-hidden">
@@ -38,7 +38,7 @@
         </button>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="srch" :placeholder="L('Order / customer / invoice / ref…','أوردر / عميل / فاتورة / مرجع…','Commande / client / facture…')" class="w-40 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="srch" :placeholder="L('Order / customer / invoice / ref…','أوردر / عميل / فاتورة / مرجع…','Commande / client / facture…')" class="w-40 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
@@ -62,7 +62,7 @@
             <tr style="background:#fafaf9">
               <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
               <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
-                  class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
+                  class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                   :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
                 <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ colLabel(c) }}
                   <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
@@ -81,7 +81,7 @@
               <td v-show="!tt.hidden.value.has('reference')" class="px-4 py-2.5 whitespace-nowrap">
                 <span v-if="isReturnBucket && o.return_shipment" class="inline-flex items-center gap-1.5 hover:underline" @click.stop="openRet = o.return_shipment">
                   <span class="font-mono text-[11px] text-accent-dark font-semibold">{{ o.return_shipment }}</span>
-                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="retStatusStyle(o.return_status)">{{ o.return_status || "—" }}</span>
+                  <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" :style="retStatusStyle(o.return_status)">{{ o.return_status || "—" }}</span>
                 </span>
                 <span v-else class="font-mono text-[11px] text-ink-3">{{ o.reference || "—" }}</span>
               </td>

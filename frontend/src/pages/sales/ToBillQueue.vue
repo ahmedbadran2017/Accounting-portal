@@ -3,29 +3,29 @@
     <!-- Exposure header (full backlog — page/filter-invariant) -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <div class="bg-white rounded-[13px] border border-line px-4 py-3 shadow-card">
-        <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Awaiting invoice","بانتظار الفوترة","À facturer") }}</div>
-        <div class="text-[19px] font-bold tnum mt-0.5 text-sale">{{ money(sum.value) }} <span class="text-[11px] text-ink-muted font-normal">{{ sum.currency || 'MAD' }}</span></div>
+        <div class="text-[11px] text-ink-muted font-semibold">{{ L("Awaiting invoice","بانتظار الفوترة","À facturer") }}</div>
+        <div class="text-[20px] font-bold tnum mt-0.5 text-sale">{{ money(sum.value) }} <span class="text-[11px] text-ink-muted font-normal">{{ sum.currency || 'MAD' }}</span></div>
       </div>
       <div class="bg-white rounded-[13px] border border-line px-4 py-3 shadow-card">
-        <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Delivery notes","سندات التسليم","Bons") }}</div>
-        <div class="text-[19px] font-bold tnum mt-0.5">{{ (sum.count || 0).toLocaleString() }}</div>
+        <div class="text-[11px] text-ink-muted font-semibold">{{ L("Delivery notes","سندات التسليم","Bons") }}</div>
+        <div class="text-[20px] font-bold tnum mt-0.5">{{ (sum.count || 0).toLocaleString() }}</div>
       </div>
       <div class="bg-white rounded-[13px] border px-4 py-3 shadow-card" :style="(sum.value_over_60 ? 'border-color:#fecaca;background:#fff5f5' : 'border-color:#f0efed')">
-        <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Aged > 60 days","أقدم من 60 يوم","> 60 jours") }}</div>
-        <div class="text-[19px] font-bold tnum mt-0.5 text-sale">{{ money(sum.value_over_60) }} <span class="text-[11px] text-ink-muted font-normal">{{ sum.currency || 'MAD' }}</span></div>
+        <div class="text-[11px] text-ink-muted font-semibold">{{ L("Aged > 60 days","أقدم من 60 يوم","> 60 jours") }}</div>
+        <div class="text-[20px] font-bold tnum mt-0.5 text-sale">{{ money(sum.value_over_60) }} <span class="text-[11px] text-ink-muted font-normal">{{ sum.currency || 'MAD' }}</span></div>
       </div>
       <div class="bg-white rounded-[13px] border border-line px-4 py-3 shadow-card">
-        <div class="text-[10.5px] text-ink-muted font-semibold mb-1.5">{{ L("Aging","التقادم","Ancienneté") }}</div>
+        <div class="text-[11px] text-ink-muted font-semibold mb-1.5">{{ L("Aging","التقادم","Ancienneté") }}</div>
         <div class="flex items-end gap-1 h-[26px]">
           <div v-for="a in agingBars" :key="a.k" class="flex-1 rounded-t-sm" :style="{ height: a.h + '%', minHeight: '3px', background: a.color }" :title="`${a.label}: ${a.n}`"></div>
         </div>
-        <div class="flex justify-between text-[8px] text-ink-muted mt-1"><span>7d</span><span>30</span><span>60</span><span>60+</span></div>
+        <div class="flex justify-between text-[11px] text-ink-muted mt-1"><span>7d</span><span>30</span><span>60</span><span>60+</span></div>
       </div>
     </div>
 
     <div class="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2.5">
       <Icon name="alert" :size="15" color="#b45309" />
-      <span class="text-[11.5px] text-ink-2">{{ L("These orders are delivered but not yet invoiced — revenue isn't recognised until you bill them.","هذه الطلبات سُلّمت لكن لم تُفوتر بعد — لا يُعترف بالإيراد حتى تُفوتر.","Ces commandes sont livrées mais pas encore facturées — le revenu n'est pas reconnu.") }}</span>
+      <span class="text-[12px] text-ink-2">{{ L("These orders are delivered but not yet invoiced — revenue isn't recognised until you bill them.","هذه الطلبات سُلّمت لكن لم تُفوتر بعد — لا يُعترف بالإيراد حتى تُفوتر.","Ces commandes sont livrées mais pas encore facturées — le revenu n'est pas reconnu.") }}</span>
     </div>
 
     <DateFilterBar :df="df" />
@@ -38,24 +38,24 @@
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} · {{ L("oldest first","الأقدم أولاً","plus anciens") }}</span>
         <div class="ms-auto relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="st.search.value" :placeholder="L('Search DN / customer…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="st.search.value" :placeholder="L('Search DN / customer…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Delivery note","السند","Bon") }}</th>
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Age","العمر","Âge") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Value","القيمة","Valeur") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted"></th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Delivery note","السند","Bon") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Age","العمر","Âge") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Value","القيمة","Valeur") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted"></th>
           </tr></thead>
           <tbody>
             <tr v-for="r in st.rows.value" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50">
-              <td class="px-4 py-2.5 font-mono text-[11.5px] font-semibold cursor-pointer hover:text-accent-dark" @click="open(r.name)">{{ r.name }}</td>
+              <td class="px-4 py-2.5 font-mono text-[12px] font-semibold cursor-pointer hover:text-accent-dark" @click="open(r.name)">{{ r.name }}</td>
               <td class="px-4 py-2.5 truncate max-w-[220px] cursor-pointer" @click="open(r.name)">{{ r.customer }}</td>
-              <td class="px-4 py-2.5 text-end"><span class="text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="ageBadge(r.age)">{{ r.age }}{{ L("d","ي","j") }}</span></td>
+              <td class="px-4 py-2.5 text-end"><span class="text-[11px] font-bold px-2 py-0.5 rounded-badge" :style="ageBadge(r.age)">{{ r.age }}{{ L("d","ي","j") }}</span></td>
               <td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(r.value) }}</td>
               <td class="px-4 py-2.5 text-end">
                 <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50 inline-flex items-center gap-1" :disabled="busy === r.name" @click.stop="bill(r)">

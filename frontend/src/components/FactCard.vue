@@ -4,7 +4,7 @@
       <span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" :style="{ background: tint }">
         <Icon :name="icon" :size="13" :color="color" />
       </span>
-      <span class="text-[12.5px] font-bold">{{ title }}</span>
+      <span class="text-[13px] font-bold">{{ title }}</span>
       <slot name="header" />
     </div>
 
@@ -15,7 +15,7 @@
         <dd class="text-end" :class="[f.strong ? 'font-bold' : 'font-medium', f.mono ? 'font-mono' : '', f.num ? 'tnum' : '']">
           <a v-if="f.href" :href="f.href" target="_blank" rel="noopener" class="text-accent hover:text-accent-dark">{{ f.value }}</a>
           <template v-else>{{ f.value }}</template>
-          <span v-if="f.note" class="ms-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ f.note }}</span>
+          <span v-if="f.note" class="ms-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ f.note }}</span>
         </dd>
       </div>
     </dl>
@@ -23,7 +23,7 @@
     <!-- Nothing is known yet. One sentence beats a column of dashes: the dashes
          read as missing data, and the accountant cannot tell "not shipped yet"
          from "we failed to load the carrier". -->
-    <div v-else class="text-[11.5px] text-ink-muted py-1">{{ empty }}</div>
+    <div v-else class="text-[12px] text-ink-muted py-1">{{ empty }}</div>
 
     <slot />
   </div>

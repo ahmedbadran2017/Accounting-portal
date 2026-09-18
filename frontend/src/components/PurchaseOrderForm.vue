@@ -13,7 +13,7 @@
           <label class="text-[11px] font-semibold text-ink-3">{{ L("Supplier","المورّد","Fournisseur") }}</label>
           <input v-model="supplierSearch" @input="searchSuppliers" @focus="supOpen = true" :placeholder="L('Search supplier…','بحث عن مورّد…','Rechercher…')" class="mt-1 w-full h-9 bg-app-warm/40 border border-line-2 rounded-[8px] px-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
           <div v-if="supOpen && supList.length" class="absolute z-20 mt-1 w-full bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-52 overflow-auto">
-            <button v-for="s in supList" :key="s.name" @click="pickSupplier(s)" class="w-full text-start px-3 py-1.5 text-[12.5px] hover:bg-app-warm flex items-center justify-between"><span class="truncate">{{ s.supplier_name || s.name }}</span><span class="text-[10px] text-ink-muted">{{ s.ccy }}</span></button>
+            <button v-for="s in supList" :key="s.name" @click="pickSupplier(s)" class="w-full text-start px-3 py-1.5 text-[13px] hover:bg-app-warm flex items-center justify-between"><span class="truncate">{{ s.supplier_name || s.name }}</span><span class="text-[11px] text-ink-muted">{{ s.ccy }}</span></button>
           </div>
           <div v-if="supplier" class="mt-1 text-[11px] text-success-dark font-semibold">✓ {{ supplier }}</div>
         </div>
@@ -35,16 +35,16 @@
               <div class="relative flex-1">
                 <input v-model="ln.search" @input="searchItems(i)" @focus="ln.open = true" :placeholder="L('Item…','صنف…','Article…')" class="w-full h-8 bg-white border border-line-2 rounded-[8px] px-2.5 text-[12px] focus:outline-none focus:border-accent/40" />
                 <div v-if="ln.open && ln.opts && ln.opts.length" class="absolute z-30 mt-1 w-full bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-48 overflow-auto">
-                  <button v-for="o in ln.opts" :key="o.item_code" @click="pickItem(i, o)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm"><div class="font-semibold truncate">{{ o.item_name || o.item_code }}</div><div class="text-[10px] text-ink-muted">{{ o.sku || o.item_code }} · {{ money(o.rate) }}</div></button>
+                  <button v-for="o in ln.opts" :key="o.item_code" @click="pickItem(i, o)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm"><div class="font-semibold truncate">{{ o.item_name || o.item_code }}</div><div class="text-[11px] text-ink-muted">{{ o.sku || o.item_code }} · {{ money(o.rate) }}</div></button>
                 </div>
-                <div v-if="ln.item_code" class="text-[10px] text-success-dark mt-0.5 truncate">✓ {{ ln.item_code }}</div>
+                <div v-if="ln.item_code" class="text-[11px] text-success-dark mt-0.5 truncate">✓ {{ ln.item_code }}</div>
               </div>
               <input v-model.number="ln.qty" type="number" min="0" step="any" :placeholder="L('Qty','كمية','Qté')" class="w-16 h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" />
               <input v-model.number="ln.rate" type="number" min="0" step="any" :placeholder="L('Rate','السعر','Prix')" class="w-24 h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" />
               <button @click="lines.splice(i, 1)" :disabled="lines.length === 1" class="text-ink-muted hover:text-sale disabled:opacity-30"><Icon name="x" :size="14" /></button>
             </div>
           </div>
-          <button @click="addLine" class="mt-2 text-[11.5px] font-semibold text-accent-dark hover:underline inline-flex items-center gap-1"><Icon name="plus" :size="12" />{{ L("Add line","إضافة سطر","Ajouter") }}</button>
+          <button @click="addLine" class="mt-2 text-[12px] font-semibold text-accent-dark hover:underline inline-flex items-center gap-1"><Icon name="plus" :size="12" />{{ L("Add line","إضافة سطر","Ajouter") }}</button>
         </div>
 
         <label class="flex items-center gap-2 text-[12px] text-ink-2 cursor-pointer">
@@ -54,8 +54,8 @@
       </div>
 
       <div class="flex justify-end gap-2 px-5 py-3.5 border-t border-line-hair sticky bottom-0 bg-white">
-        <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="close">{{ L("Cancel","إلغاء","Annuler") }}</button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="busy || !canSave" @click="save">{{ busy ? L("Saving…","جارٍ…","…") : L("Create PO","إنشاء الأمر","Créer") }}</button>
+        <UiButton variant="quiet" @click="close">{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+        <UiButton variant="primary" :busy="busy" :disabled="busy || !canSave" @click="save">{{ busy ? L("Saving…","جارٍ…","…") : L("Create PO","إنشاء الأمر","Créer") }}</UiButton>
       </div>
     </div>
   </div>
@@ -66,6 +66,7 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";

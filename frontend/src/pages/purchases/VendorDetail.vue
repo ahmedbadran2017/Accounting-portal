@@ -16,7 +16,7 @@
     <!-- Header -->
     <div class="bg-white rounded-[16px] border border-line px-5 py-[18px] shadow-card">
       <div class="flex items-center gap-3.5 flex-wrap">
-        <span class="w-12 h-12 rounded-[12px] grid place-items-center text-white text-[15px] font-bold flex-shrink-0" :style="{ background: badge }">{{ ini(d.supplier_name) }}</span>
+        <span class="w-12 h-12 rounded-[12px] grid place-items-center text-white text-[16px] font-bold flex-shrink-0" :style="{ background: badge }">{{ ini(d.supplier_name) }}</span>
         <div class="flex-1 min-w-[180px]">
           <div class="text-[18px] font-bold">{{ d.supplier_name }}</div>
           <div class="text-[12px] text-ink-3 mt-0.5">
@@ -24,13 +24,13 @@
           </div>
         </div>
         <div class="text-end">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Outstanding payable","المستحق","Dû") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ L("Outstanding payable","المستحق","Dû") }}</div>
           <div class="text-[24px] font-bold tnum leading-tight" :class="d.payable < 0 ? 'text-success-dark' : 'text-sale'">{{ fmt(d.payable) }} <span class="text-[12px] text-ink-muted font-normal">{{ d.currency }}</span></div>
         </div>
       </div>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-[15px]">
         <div v-for="s in statCards" :key="s.label" class="rounded-[11px] px-[13px] py-[11px]" style="background:#fafaf9;border:1px solid #f0efed">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ s.label }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ s.label }}</div>
           <div class="text-[18px] font-bold tnum mt-[3px]">{{ s.value }}</div>
         </div>
       </div>
@@ -40,13 +40,13 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <button v-for="cn in connections" :key="cn.label" class="yo-card bg-white border border-line rounded-[12px] p-3.5 shadow-card text-start" @click="go(cn.sub)">
         <div class="flex items-center justify-between">
-          <span class="text-[10.5px] text-ink-muted font-semibold">{{ cn.label }}</span>
+          <span class="text-[11px] text-ink-muted font-semibold">{{ cn.label }}</span>
           <Icon name="chevDown" :size="14" color="#cbb5ad" class="-rotate-90 rtl:rotate-90" />
         </div>
         <!-- These are counts. They were set at the same size as the payable
              balance, so a tile reading "4" shouted as loudly as one reading
              1,204,338. -->
-        <div class="text-[15px] font-bold tnum mt-[3px]">{{ cn.value }}</div>
+        <div class="text-[16px] font-bold tnum mt-[3px]">{{ cn.value }}</div>
       </button>
     </div>
 
@@ -57,12 +57,12 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Document","المستند","Document") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Type","النوع","Type") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance","الرصيد","Solde") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Document","المستند","Document") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Type","النوع","Type") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance","الرصيد","Solde") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -86,12 +86,12 @@
     <div v-if="editOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="editOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
         <div class="text-[14px] font-bold">{{ L("Edit supplier","تعديل المورّد","Modifier le fournisseur") }}</div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }}</label><input v-model.trim="ef.supplier_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }}</label><input v-model.trim="ef.supplier_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
         <div><label class="text-[11px] font-bold text-ink-3">{{ L("Group","المجموعة","Groupe") }}</label>
-          <select v-model="ef.supplier_group" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] bg-white focus:outline-none focus:border-accent/40"><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
+          <select v-model="ef.supplier_group" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40"><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
         <div class="grid grid-cols-2 gap-2">
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="ef.tax_id" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="ef.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="ef.tax_id" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="ef.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
         </div>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>

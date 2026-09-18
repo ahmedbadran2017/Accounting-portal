@@ -36,13 +36,13 @@
             <Field :label="L('Phone','الهاتف','Téléphone')"><input v-model.trim="f.cell_number" class="fi" /></Field>
             <Field :label="L('Company email','إيميل الشركة','Email pro')"><input v-model.trim="f.company_email" class="fi" /></Field>
           </div>
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted pt-1">{{ L("Bank", "البنك", "Banque") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted pt-1">{{ L("Bank", "البنك", "Banque") }}</div>
           <div class="grid grid-cols-2 gap-3">
             <Field :label="L('Bank name','اسم البنك','Banque')"><input v-model.trim="f.bank_name" class="fi" /></Field>
             <Field :label="L('Account no','رقم الحساب','N° compte')"><input v-model.trim="f.bank_ac_no" class="fi" /></Field>
           </div>
           <Field :label="L('IBAN','IBAN','IBAN')"><input v-model.trim="f.iban" class="fi" /></Field>
-          <div v-if="err" class="text-[11.5px] text-sale">{{ err }}</div>
+          <div v-if="err" class="text-[12px] text-sale">{{ err }}</div>
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>

@@ -20,7 +20,7 @@
             <span v-if="uploading" class="text-[11px] text-ink-muted">{{ L("uploading…", "جارٍ الرفع…", "…") }}</span>
             <input type="file" accept=".csv,.xlsx,.xlsm,.pdf" class="hidden" @change="onFile" />
           </label>
-          <div v-if="parseErr" class="text-[11.5px] text-sale mt-1.5">{{ parseErr }}</div>
+          <div v-if="parseErr" class="text-[12px] text-sale mt-1.5">{{ parseErr }}</div>
         </div>
 
         <!-- step 2: parsed preview + mapping -->
@@ -31,7 +31,7 @@
           </div>
           <!-- column mapping (override auto-detect) -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-            <label v-for="f in MAP_FIELDS" :key="f.k" class="text-[10.5px]">
+            <label v-for="f in MAP_FIELDS" :key="f.k" class="text-[11px]">
               <span class="text-ink-3 font-semibold">{{ f.label() }}</span>
               <select v-model.number="mapping[f.k]" class="mt-0.5 w-full h-8 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none" @change="reparse">
                 <option :value="null">—</option>
@@ -40,7 +40,7 @@
             </label>
           </div>
           <div class="border border-line rounded-[10px] overflow-x-auto max-h-32 overflow-y-auto">
-            <table class="w-full text-[10.5px]"><tbody>
+            <table class="w-full text-[11px]"><tbody>
               <tr v-for="(row, i) in parsed.preview" :key="i" :class="i === 0 ? 'bg-app-warm/60 font-bold' : 'border-t border-line-hair'">
                 <td v-for="(c, j) in row" :key="j" class="px-2 py-1 truncate max-w-[120px]">{{ c }}</td>
               </tr>
@@ -53,19 +53,19 @@
           <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted mb-1.5">{{ L("3 · Match", "3 · المطابقة", "3 · Rapprochement") }}</div>
           <div class="grid grid-cols-3 gap-2">
             <div class="rounded-card border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">{{ L("Matched", "مطابَق", "Rapprochés") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">{{ L("Matched", "مطابَق", "Rapprochés") }}</div>
               <div class="text-[18px] font-extrabold tnum text-emerald-700">{{ result.matched_n }}</div>
-              <div class="text-[10px] text-ink-muted tnum">{{ money(result.matched_value) }}</div>
+              <div class="text-[11px] text-ink-muted tnum">{{ money(result.matched_value) }}</div>
             </div>
             <div class="rounded-card border border-amber-200 bg-amber-50/60 px-3 py-2.5">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700">{{ L("On bank only", "في البنك فقط", "Banque seule") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">{{ L("On bank only", "في البنك فقط", "Banque seule") }}</div>
               <div class="text-[18px] font-extrabold tnum text-amber-700">{{ result.statement_only_n }}</div>
-              <div class="text-[10px] text-ink-muted">{{ L("missing in books", "ناقص بالدفاتر", "manquant") }}</div>
+              <div class="text-[11px] text-ink-muted">{{ L("missing in books", "ناقص بالدفاتر", "manquant") }}</div>
             </div>
             <div class="rounded-card border border-sky-200 bg-sky-50/60 px-3 py-2.5">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-sky-700">{{ L("In books only", "بالدفاتر فقط", "Livres seuls") }}</div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-sky-700">{{ L("In books only", "بالدفاتر فقط", "Livres seuls") }}</div>
               <div class="text-[18px] font-extrabold tnum text-sky-700">{{ result.book_only_n }}</div>
-              <div class="text-[10px] text-ink-muted">{{ L("still outstanding", "لسه معلّق", "en attente") }}</div>
+              <div class="text-[11px] text-ink-muted">{{ L("still outstanding", "لسه معلّق", "en attente") }}</div>
             </div>
           </div>
           <!-- detail toggler -->
@@ -86,7 +86,7 @@
       </div>
 
       <div class="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
-        <span class="text-[10.5px] text-ink-muted">{{ L("Reconciling only stamps a clearance date — no ledger impact, reversible.", "التسوية بتحط تاريخ مطابقة فقط — بدون أثر على الأستاذ.", "Rapprochement seul — réversible.") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ L("Reconciling only stamps a clearance date — no ledger impact, reversible.", "التسوية بتحط تاريخ مطابقة فقط — بدون أثر على الأستاذ.", "Rapprochement seul — réversible.") }}</span>
         <div class="flex items-center gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
           <button v-if="parsed && !result" class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-50" :disabled="matching || !parsed.count" @click="doMatch">{{ matching ? "…" : L("Match", "طابِق", "Rapprocher") }}</button>

@@ -21,24 +21,24 @@
       <!-- the size of the hole -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Still on hand","لسه في المخزن","Encore en stock") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Still on hand","لسه في المخزن","Encore en stock") }}</div>
           <div class="text-[18px] font-extrabold tnum" style="color:#047857" dir="ltr">{{ money(s.onhand_value) }}</div>
-          <div class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ n(s.onhand_units) }} {{ L("units","قطعة","u") }} · {{ L("cheap reprice","إعادة تسعير سهلة","reprix simple") }}</div>
+          <div class="text-[11px] text-ink-muted tnum" dir="ltr">{{ n(s.onhand_units) }} {{ L("units","قطعة","u") }} · {{ L("cheap reprice","إعادة تسعير سهلة","reprix simple") }}</div>
         </div>
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Already sold","اتباع خلاص","Déjà vendu") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Already sold","اتباع خلاص","Déjà vendu") }}</div>
           <div class="text-[18px] font-extrabold tnum" style="color:#b45309" dir="ltr">{{ money(s.sold_value) }}</div>
-          <div class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ n(s.sold_units) }} {{ L("units","قطعة","u") }} · {{ L("historical COGS","COGS تاريخية","COGS histor.") }}</div>
+          <div class="text-[11px] text-ink-muted tnum" dir="ltr">{{ n(s.sold_units) }} {{ L("units","قطعة","u") }} · {{ L("historical COGS","COGS تاريخية","COGS histor.") }}</div>
         </div>
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Total not booked","إجمالي غير محسوب","Total non comptab.") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Total not booked","إجمالي غير محسوب","Total non comptab.") }}</div>
           <div class="text-[18px] font-extrabold tnum" dir="ltr">{{ money(s.total_value) }}</div>
-          <div class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ n(s.total_units) }} {{ L("units","قطعة","u") }}</div>
+          <div class="text-[11px] text-ink-muted tnum" dir="ltr">{{ n(s.total_units) }} {{ L("units","قطعة","u") }}</div>
         </div>
         <div class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Items with no cost","أصناف بلا تكلفة","Sans coût") }}</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Items with no cost","أصناف بلا تكلفة","Sans coût") }}</div>
           <div class="text-[18px] font-extrabold tnum" :style="s.no_cost_items ? 'color:#b91c1c' : ''" dir="ltr">{{ n(s.no_cost_items) }}</div>
-          <div class="text-[10.5px] text-ink-muted">{{ L("need a manual price","محتاجة تسعير يدوي","prix manuel requis") }}</div>
+          <div class="text-[11px] text-ink-muted">{{ L("need a manual price","محتاجة تسعير يدوي","prix manuel requis") }}</div>
         </div>
       </div>
 
@@ -46,7 +46,7 @@
       <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
           <span class="text-[13px] font-bold">{{ L("Zero-cost receipts by item","الاستلامات الصفرية حسب الصنف","Réceptions par article") }}</span>
-          <span class="text-[10.5px] text-ink-muted">{{ n(d.rows.length) }} {{ L("items","صنف","articles") }}</span>
+          <span class="text-[11px] text-ink-muted">{{ n(d.rows.length) }} {{ L("items","صنف","articles") }}</span>
           <div class="flex-1"></div>
           <label class="flex items-center gap-1.5 text-[11px] text-ink-muted cursor-pointer">
             <input type="checkbox" v-model="hidePriced" class="accent-emerald-600" />
@@ -54,22 +54,22 @@
           </label>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-              <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("Receipts","استلامات","Réceptions") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Zero qty","كمية بصفر","Qté nulle") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("On hand","في المخزن","En stock") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Sold","مباع","Vendu") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Model rate","سعر النموذج","Coût modèle") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("On-hand value","قيمة المخزون","Valeur stock") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Sold value","قيمة المباع","Valeur vendu") }}</th>
+              <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+              <th class="px-3 py-2 text-center text-[11px] font-bold text-ink-muted">{{ L("Receipts","استلامات","Réceptions") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Zero qty","كمية بصفر","Qté nulle") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("On hand","في المخزن","En stock") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Sold","مباع","Vendu") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Model rate","سعر النموذج","Coût modèle") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("On-hand value","قيمة المخزون","Valeur stock") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Sold value","قيمة المباع","Valeur vendu") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="r in shown" :key="r.item_code" class="border-t border-line-hair hover:bg-[#fafaf9]">
                 <td class="px-3 py-2">
                   <div class="font-bold truncate max-w-[240px]">{{ r.item_name || r.item_code }}</div>
-                  <div class="text-[9.5px] text-ink-muted tnum" dir="ltr">{{ r.item_code }} · {{ r.first_date }}→{{ r.last_date }}</div>
+                  <div class="text-[11px] text-ink-muted tnum" dir="ltr">{{ r.item_code }} · {{ r.first_date }}→{{ r.last_date }}</div>
                 </td>
                 <td class="px-3 py-2 text-center tnum" dir="ltr">{{ r.docs }}<span class="text-ink-muted">/{{ r.lines }}</span></td>
                 <td class="px-3 py-2 text-end tnum" dir="ltr">{{ n(r.zero_qty) }}</td>
@@ -77,7 +77,7 @@
                 <td class="px-3 py-2 text-end tnum text-ink-muted" dir="ltr">{{ n(r.sold) }}</td>
                 <td class="px-3 py-2 text-end tnum" dir="ltr">
                   <span v-if="r.model_rate">{{ money(r.model_rate) }}</span>
-                  <span v-else class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">{{ L("no cost","بلا تكلفة","sans coût") }}</span>
+                  <span v-else class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">{{ L("no cost","بلا تكلفة","sans coût") }}</span>
                 </td>
                 <td class="px-3 py-2 text-end tnum font-bold" :style="r.onhand_value ? 'color:#047857' : ''" dir="ltr">{{ r.onhand_value ? money(r.onhand_value) : "—" }}</td>
                 <td class="px-3 py-2 text-end tnum" :style="r.sold_value ? 'color:#b45309' : ''" dir="ltr">{{ r.sold_value ? money(r.sold_value) : "—" }}</td>
@@ -86,7 +86,7 @@
             </tbody>
           </table>
         </div>
-        <div class="px-4 py-2.5 border-t border-line-hair text-[10.5px] text-ink-muted">
+        <div class="px-4 py-2.5 border-t border-line-hair text-[11px] text-ink-muted">
           {{ L("Priced against the modelled landed cost — verified against " + (s.model_verified||0) + " team-checked items, calibration " + (s.model_factor||1) + ". The reprice itself runs through the Valuation Doctor once this list is agreed.",
                "متسعّر بتكلفة النموذج — معايَر على " + (s.model_verified||0) + " صنف متحقق منها، معامل " + (s.model_factor||1) + ". إعادة التسعير نفسها بتتم من خلال Valuation Doctor بعد الاتفاق على القايمة.",
                "Évalué au coût modélisé.") }}

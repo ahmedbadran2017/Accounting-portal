@@ -20,9 +20,9 @@
                 @click="pick(r.item_code)">
           <div class="flex-1 min-w-0">
             <div class="text-[12px] font-semibold truncate">{{ r.sku || r.item_code }}</div>
-            <div class="text-[10.5px] text-ink-muted truncate">{{ r.item_name }}</div>
+            <div class="text-[11px] text-ink-muted truncate">{{ r.item_name }}</div>
           </div>
-          <span v-if="r.stock_qty > 0" class="text-[10px] font-bold text-emerald-700 whitespace-nowrap">{{ fmtNum(r.stock_qty) }} {{ L("in stock","بالمخزن","stock") }}</span>
+          <span v-if="r.stock_qty > 0" class="text-[11px] font-bold text-emerald-700 whitespace-nowrap">{{ fmtNum(r.stock_qty) }} {{ L("in stock","بالمخزن","stock") }}</span>
         </button>
       </div>
     </div>
@@ -31,7 +31,7 @@
 
     <!-- ══ Shipment costing file (opened from the queue below or from Purchases → Shipments) ══ -->
     <template v-if="openPr">
-      <button class="text-[11.5px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="openPr = null; loadTower();">
+      <button class="text-[12px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="openPr = null; loadTower();">
         <Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ L("Back to catalogue","رجوع للكتالوج","Retour") }}
       </button>
       <ShipmentCostSheet :pr="openPr" :year="openPrYear" @saved="loadTower" />
@@ -50,7 +50,7 @@
         </div>
         <div class="text-[11px] text-ink-muted mt-1.5 flex items-center gap-2 flex-wrap">
           <span class="flex-1">{{ nextHint }}</span>
-          <span v-if="tower" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+          <span v-if="tower" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
                 :style="tower.guard.enabled ? 'background:#ecfdf5;color:#047857' : 'background:#fef2f2;color:#b91c1c'"
                 :title="L('Every new purchase document with an implausible FX rate is rejected at entry.','أي مستند شراء بسعر صرف غير منطقي بيترفض لحظة الإدخال.','Garde FX.')">
             {{ tower.guard.enabled ? L("FX guard ON","حارس الصرف شغّال","Garde FX ON") : L("FX guard OFF!","الحارس متوقف!","Garde OFF!") }}</span>
@@ -72,24 +72,24 @@
 
       <div v-if="ov && !modelSeed" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         <div class="bg-white rounded-[12px] border border-line p-3.5 shadow-card">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Current book value","القيمة الحالية","Valeur actuelle") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ L("Current book value","القيمة الحالية","Valeur actuelle") }}</div>
           <div class="text-[18px] font-bold tnum mt-[3px]">{{ fmtNum(ov.current_value) }}</div>
-          <div class="text-[10px] text-ink-3">{{ fmtNum(ov.items) }} {{ L("stocked items","صنف بالمخزن","articles") }}</div>
+          <div class="text-[11px] text-ink-3">{{ fmtNum(ov.items) }} {{ L("stocked items","صنف بالمخزن","articles") }}</div>
         </div>
         <div class="bg-white rounded-[12px] border border-line p-3.5 shadow-card">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("True value (priced)","القيمة الحقيقية","Valeur vraie") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ L("True value (priced)","القيمة الحقيقية","Valeur vraie") }}</div>
           <div class="text-[18px] font-bold tnum mt-[3px] text-emerald-700">{{ fmtNum(ov.true_value_priced) }}</div>
-          <div class="text-[10px] text-ink-3">{{ fmtNum(ov.maslak_pi + ov.morocco_pr) }} {{ L("priced","مسعّر","tarifés") }}</div>
+          <div class="text-[11px] text-ink-3">{{ fmtNum(ov.maslak_pi + ov.morocco_pr) }} {{ L("priced","مسعّر","tarifés") }}</div>
         </div>
         <div class="bg-white rounded-[12px] border p-3.5 shadow-card" style="border-color:#fecaca">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Overvaluation","التشوّه","Survalorisation") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ L("Overvaluation","التشوّه","Survalorisation") }}</div>
           <div class="text-[18px] font-bold tnum mt-[3px]" style="color:#b91c1c">{{ fmtNum(ov.overvaluation) }}</div>
-          <div class="text-[10px] text-ink-3">{{ L("to remove from stock","يتشال من المخزون","à retirer") }}</div>
+          <div class="text-[11px] text-ink-3">{{ L("to remove from stock","يتشال من المخزون","à retirer") }}</div>
         </div>
         <div class="bg-white rounded-[12px] border p-3.5 shadow-card" style="border-color:#fde68a">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ L("Unpriced (no source)","بلا مصدر","sans source") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ L("Unpriced (no source)","بلا مصدر","sans source") }}</div>
           <div class="text-[18px] font-bold tnum mt-[3px]" style="color:#b45309">{{ fmtNum(ov.unpriced) }}</div>
-          <div class="text-[10px] text-ink-3">{{ L("need manual cost","محتاجة تسعير يدوي","coût manuel") }}</div>
+          <div class="text-[11px] text-ink-3">{{ L("need manual cost","محتاجة تسعير يدوي","coût manuel") }}</div>
         </div>
       </div>
 
@@ -102,28 +102,28 @@
       <!-- 📅 the MONTH WORKBENCH — pick a month, close it, move on -->
       <div v-if="!modelSeed" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3 space-y-2.5">
         <div class="flex items-center gap-1.5 flex-wrap">
-          <span class="text-[12.5px] font-bold">📅 {{ L("Working month","شهر الشغل","Mois de travail") }}</span>
+          <span class="text-[13px] font-bold">📅 {{ L("Working month","شهر الشغل","Mois de travail") }}</span>
           <button v-for="mm in monthChips" :key="mm.v"
                   class="h-[26px] px-2.5 rounded-[8px] text-[11px] font-bold border"
                   :class="workMonth === mm.v ? 'text-white bg-brand border-brand' : 'text-ink-3 border-line hover:bg-app-warm'"
                   @click="setWorkMonth(workMonth === mm.v ? '' : mm.v)">{{ mm.l }}</button>
-          <span class="text-[10.5px] text-ink-muted">{{ L("saved — stays selected until you close the month","محفوظ — بيفضل مختار لحد ما تقفل الشهر","enregistré") }}</span>
+          <span class="text-[11px] text-ink-muted">{{ L("saved — stays selected until you close the month","محفوظ — بيفضل مختار لحد ما تقفل الشهر","enregistré") }}</span>
         </div>
         <div v-if="workMonth && msb" class="flex items-center gap-4 flex-wrap pt-2 border-t border-line-hair">
-          <span class="text-[11.5px]"><b class="tnum">{{ msb.n_models_fixed }}</b>/<b class="tnum">{{ msb.n_models }}</b> {{ L("models fixed","موديل متظبط","modèles corrigés") }} · <span class="tnum text-ink-muted">{{ msb.n_items }} {{ L("items","صنف","articles") }} / {{ fmtNum(msb.units) }} {{ L("units sold","وحدة مباعة","unités") }}</span></span>
+          <span class="text-[12px]"><b class="tnum">{{ msb.n_models_fixed }}</b>/<b class="tnum">{{ msb.n_models }}</b> {{ L("models fixed","موديل متظبط","modèles corrigés") }} · <span class="tnum text-ink-muted">{{ msb.n_items }} {{ L("items","صنف","articles") }} / {{ fmtNum(msb.units) }} {{ L("units sold","وحدة مباعة","unités") }}</span></span>
           <div class="h-[8px] rounded-full overflow-hidden flex-1 min-w-[120px] max-w-[220px]" style="background:#f5f5f4">
             <div class="h-full rounded-full transition-all" style="background:#059669" :style="{ width: (msb.n_models_fixed / Math.max(msb.n_models, 1) * 100) + '%' }"></div>
           </div>
-          <span v-if="msb.meter" class="text-[11.5px] tnum inline-flex items-center gap-2 flex-wrap" dir="ltr"
+          <span v-if="msb.meter" class="text-[12px] tnum inline-flex items-center gap-2 flex-wrap" dir="ltr"
                 :title="L('booked = this month\'s COGS in the ledger RIGHT NOW (repost-corrected live). corrected = the slice already rewritten by your fixes. projected = where the month lands when every model is done (product + landed).','المسجل = COGS الشهر في الدفاتر دلوقتي (بيتحدث مع كل repost). المصحح = الجزء اللي اتكتب فعلًا بالتكلفة الصح. المتوقع = الشهر هيقف فين لما كل الموديلات تخلص.','comptabilisé / corrigé / projeté')">
             <span><span class="text-ink-muted">{{ L("COGS booked","COGS المسجل","comptab.") }}</span> <b>{{ fmtNum(msb.meter.booked) }}</b></span>
             <span class="text-emerald-700">✓ {{ L("corrected","اتصحح","corrigé") }} {{ fmtNum(msb.meter.corrected) }} ({{ msb.meter.corrected_pct }}%)</span>
             <span>→ <span class="text-ink-muted">{{ L("projected","المتوقع","projeté") }}</span> <b>{{ fmtNum(msb.meter.projected) }}</b></span>
             <b :style="{ color: Math.abs(msb.meter.delta_remaining) < 5000 ? '#047857' : '#b45309' }">Δ {{ msb.meter.delta_remaining > 0 ? "+" : "" }}{{ fmtNum(msb.meter.delta_remaining) }}</b>
-            <span v-if="msb.meter.unpriced_booked" class="text-[10px] text-amber-600">({{ fmtNum(msb.meter.unpriced_booked) }} {{ L("unpriced","بلا مصدر","sans prix") }})</span>
+            <span v-if="msb.meter.unpriced_booked" class="text-[11px] text-amber-600">({{ fmtNum(msb.meter.unpriced_booked) }} {{ L("unpriced","بلا مصدر","sans prix") }})</span>
           </span>
-          <span v-if="monthDone" class="text-[11.5px] font-bold text-emerald-700">✅ {{ L("Month looks done","الشهر شكله خلص","Mois terminé") }}</span>
-          <button v-if="nextMonth" class="h-[28px] px-3 rounded-[9px] text-[11.5px] font-bold border"
+          <span v-if="monthDone" class="text-[12px] font-bold text-emerald-700">✅ {{ L("Month looks done","الشهر شكله خلص","Mois terminé") }}</span>
+          <button v-if="nextMonth" class="h-[28px] px-3 rounded-[9px] text-[12px] font-bold border"
                   :class="monthDone ? 'text-white bg-emerald-600 border-emerald-600 hover:bg-emerald-700' : 'text-ink-3 border-line hover:bg-app-warm'"
                   @click="setWorkMonth(nextMonth)">{{ L("Next month","الشهر التالي","Mois suivant") }} ←</button>
         </div>
@@ -132,10 +132,10 @@
       <!-- catalogue: models (default) ⇄ items -->
       <div v-if="!modelSeed" class="flex items-center gap-1.5">
         <button v-for="m in [['models', L('Models','موديلات','Modèles')], ['items', L('Items','أصناف','Articles')]]" :key="m[0]"
-                class="h-[28px] px-3 rounded-[9px] text-[11.5px] font-bold border"
+                class="h-[28px] px-3 rounded-[9px] text-[12px] font-bold border"
                 :class="catMode === m[0] ? 'text-white bg-brand border-brand' : 'text-ink-3 border-line hover:bg-app-warm'"
                 @click="catMode = m[0]">{{ m[1] }}</button>
-        <span class="text-[10.5px] text-ink-muted">{{ L("models group every variant family — one review, one Submit","الموديلات بتجمع عيلة الـvariants — تحقق واحد واعتماد واحد","un modèle = toute la famille") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ L("models group every variant family — one review, one Submit","الموديلات بتجمع عيلة الـvariants — تحقق واحد واعتماد واحد","un modèle = toute la famille") }}</span>
       </div>
 
       <ModelCatalogue v-show="!modelSeed && catMode === 'models'" ref="modelCat" :month="workMonth" @open="openModel" />
@@ -145,15 +145,15 @@
           <span class="text-[13px] font-bold">{{ L("③ Catalogue — true cost vs book","③ الكتالوج — الحقيقة مقابل الدفاتر","③ Catalogue") }}</span>
           <div class="flex-1"></div>
           <!-- supplier → month audit filter -->
-          <select v-model="supFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line max-w-[180px]">
+          <select v-model="supFilter" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line max-w-[180px]">
             <option value="">{{ L("All suppliers","كل الموردين","Fournisseurs") }}</option>
             <option v-for="s in filters.suppliers" :key="s.supplier" :value="s.supplier">{{ shortSup(s.supplier) }} ({{ s.items }})</option>
           </select>
-          <select v-model="moFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+          <select v-model="moFilter" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
             <option value="">{{ L("All months","كل الشهور","Mois") }}</option>
             <option v-for="m in filters.months" :key="m" :value="m">{{ m }}</option>
           </select>
-          <select v-model="srcFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+          <select v-model="srcFilter" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
             <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
             <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
             <option value="local_pi">{{ L("Local suppliers","موردين محليين","Fourn. locaux") }}</option>
@@ -161,13 +161,13 @@
             <option value="morocco_pr">{{ L("Morocco-direct","مغرب مباشر","Maroc") }}</option>
             <option value="unpriced">{{ L("Unpriced","بلا سعر","Sans prix") }}</option>
           </select>
-          <select v-model="fixFilter" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+          <select v-model="fixFilter" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
             <option value="">{{ L("All statuses","كل الحالات","Tous") }}</option>
             <option value="pending">{{ L("Pending review","في انتظار المراجعة","En attente") }}</option>
             <option value="fixed">{{ L("Fixed ✓","متظبطة ✓","Corrigés ✓") }}</option>
           </select>
           <button v-if="canWrite && srcFilter === 'local_pi'" @click="openLocalBulk"
-                  class="h-[28px] px-3 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark">
+                  class="h-[28px] px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark">
             ⚡ {{ L("Apply all local","تطبيق كل المحلي","Tout appliquer") }}
           </button>
         </div>
@@ -176,21 +176,21 @@
           <table class="w-full text-[12px]">
             <thead>
               <tr style="background:#fafaf9">
-                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Product","المنتج","Produit") }}</th>
-                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Supplier","المورّد","Fournisseur") }}</th>
-                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Source","المصدر","Source") }}</th>
-                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
-                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
-                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("True","الحقيقي","Vrai") }}</th>
-                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Overvaluation","التشوّه","Survalo.") }}</th>
-                <th class="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Fixed","متظبط","OK") }}</th>
+                <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Product","المنتج","Produit") }}</th>
+                <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Supplier","المورّد","Fournisseur") }}</th>
+                <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Source","المصدر","Source") }}</th>
+                <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
+                <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("True","الحقيقي","Vrai") }}</th>
+                <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Overvaluation","التشوّه","Survalo.") }}</th>
+                <th class="px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Fixed","متظبط","OK") }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="r in ct.rows.value" :key="r.item_code" class="border-t border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="pick(r.item_code)">
-                <td class="px-4 py-2.5 truncate max-w-[220px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><div class="text-[10px] text-ink-muted truncate">{{ r.item_name }}</div></td>
+                <td class="px-4 py-2.5 truncate max-w-[220px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><div class="text-[11px] text-ink-muted truncate">{{ r.item_name }}</div></td>
                 <td class="px-4 py-2.5 text-ink-3 truncate max-w-[130px] text-[11px]">{{ shortSup(r.supplier) || "—" }}</td>
-                <td class="px-4 py-2.5"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" :style="srcChip(r.source)">{{ srcShort(r.source) }}</span></td>
+                <td class="px-4 py-2.5"><span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" :style="srcChip(r.source)">{{ srcShort(r.source) }}</span></td>
                 <td class="px-4 py-2.5 text-end tnum text-ink-3">{{ fmtNum(r.qty) }}</td>
                 <td class="px-4 py-2.5 text-end tnum">{{ fmtNum(r.current_rate, 1) }}</td>
                 <td class="px-4 py-2.5 text-end tnum font-semibold text-emerald-700">{{ r.true_cost != null ? fmtNum(r.true_cost, 1) : "—" }}</td>
@@ -211,32 +211,32 @@
       <div v-if="tu && !modelSeed" class="bg-white border rounded-[14px] shadow-card overflow-hidden" :style="tu.basis_frozen ? 'border-color:#e7e5e4' : 'border-color:#fde68a'">
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap cursor-pointer" @click="tuOpen = !tuOpen">
           <span class="text-[13px] font-bold">④ {{ L("Monthly COGS true-up","تسوية COGS الشهرية","Régularisation COGS mensuelle") }} {{ tu.year }}</span>
-          <span v-if="!tu.basis_frozen" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("landed basis not frozen — posting blocked","أساس الشحن مش مجمّد — الترحيل متقفل","base non gelée") }}</span>
+          <span v-if="!tu.basis_frozen" class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("landed basis not frozen — posting blocked","أساس الشحن مش مجمّد — الترحيل متقفل","base non gelée") }}</span>
           <span class="text-[11px] text-ink-muted flex-1">{{ L("Restates each month's ledger COGS to the true full cost — GL-only, reversible, zero net-profit impact.","بتظبط COGS كل شهر في الدفاتر على التكلفة الكاملة — GL فقط، قابلة للعكس، صافي الربح لا يتغيّر.","GL uniquement, réversible.") }}</span>
           <span class="text-ink-3">{{ tuOpen ? "▾" : "▸" }}</span>
         </div>
         <div v-if="tuOpen" class="overflow-x-auto">
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Booked COGS","المسجّل","Comptabilisé") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("True COGS","الحقيقي","Vrai") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">Δ</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Coverage","تغطية","Couv.") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold text-ink-muted"></th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Booked COGS","المسجّل","Comptabilisé") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("True COGS","الحقيقي","Vrai") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold text-ink-muted">Δ</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Coverage","تغطية","Couv.") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold text-ink-muted"></th>
             </tr></thead>
             <tbody>
               <tr v-for="r in tu.rows" :key="r.month" class="border-t border-line-hair">
                 <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.month }}
-                  <span v-if="r.open_month" class="text-[9.5px] font-bold text-amber-600">· {{ L("open","مفتوح","ouvert") }}</span>
+                  <span v-if="r.open_month" class="text-[11px] font-bold text-amber-600">· {{ L("open","مفتوح","ouvert") }}</span>
                 </td>
                 <td class="px-4 py-2 text-end tnum">{{ fmtNum(r.booked) }}</td>
                 <td class="px-4 py-2 text-end tnum text-emerald-700 font-semibold">{{ fmtNum(r.true) }}</td>
                 <td class="px-4 py-2 text-end tnum font-bold" :style="{ color: r.delta > 0 ? '#b91c1c' : '#2563eb' }">{{ fmtNum(r.delta) }}</td>
                 <td class="px-4 py-2 text-end tnum text-ink-3">{{ r.coverage_pct }}%</td>
                 <td class="px-4 py-2 text-end whitespace-nowrap">
-                  <span v-if="r.posted" class="text-[10.5px] font-bold" :class="(r.posted.stale_basis || r.posted.stale_amount) ? 'text-amber-600' : 'text-emerald-700'">{{ (r.posted.stale_basis || r.posted.stale_amount) ? '⚠' : '✅' }} <span dir="ltr">{{ r.posted.voucher_no }}</span><template v-if="r.posted.stale_basis"> · {{ L("basis changed — revert & re-post","الأساس اتغيّر — اعكسوه ورحّلوه تاني","base modifiée") }}</template><template v-else-if="r.posted.stale_amount"> · {{ L("retro healed this month underneath — revert & re-post","الـretro صلّح الشهر من تحته — اعكسوه ورحّلوه تاني","rétro a corrigé ce mois — annuler et reposter") }}</template></span>
-                  <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                  <span v-if="r.posted" class="text-[11px] font-bold" :class="(r.posted.stale_basis || r.posted.stale_amount) ? 'text-amber-600' : 'text-emerald-700'">{{ (r.posted.stale_basis || r.posted.stale_amount) ? '⚠' : '✅' }} <span dir="ltr">{{ r.posted.voucher_no }}</span><template v-if="r.posted.stale_basis"> · {{ L("basis changed — revert & re-post","الأساس اتغيّر — اعكسوه ورحّلوه تاني","base modifiée") }}</template><template v-else-if="r.posted.stale_amount"> · {{ L("retro healed this month underneath — revert & re-post","الـretro صلّح الشهر من تحته — اعكسوه ورحّلوه تاني","rétro a corrigé ce mois — annuler et reposter") }}</template></span>
+                  <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                           :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1"
                           @click="postTrueup(r)">
                     {{ tuBusy === r.month ? L("…","…","…") : L("Post true-up","رحّل التسوية","Poster") }}
@@ -252,7 +252,7 @@
       <div v-if="tower && !modelSeed" class="bg-white border border-line rounded-[14px] shadow-card px-4 py-3">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-[13px] font-bold">⑤ {{ L("Closings","الإقفالات","Clôtures") }}</span>
-          <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
+          <span class="text-[11px] font-bold px-2 py-0.5 rounded-full"
                 :style="tower.close2025.done ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">
             {{ L("2025 dummy-customer residual","متبقّي العميل المجمّع 2025","résidu 2025") }}: {{ fmtNum(tower.close2025.dummy_balance) }}
           </span>
@@ -276,7 +276,7 @@
 
     <!-- Trace result -->
     <div v-if="trace" class="space-y-3">
-      <button class="text-[11.5px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="backFromTrace">
+      <button class="text-[12px] font-semibold text-brand hover:underline inline-flex items-center gap-1" @click="backFromTrace">
         <Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ cameFromModel ? L("Back to the model","رجوع للموديل","Retour au modèle") : L("Back to catalogue","رجوع للكتالوج","Retour") }}
       </button>
       <!-- Product header + KPIs -->
@@ -284,28 +284,28 @@
         <div class="flex items-start gap-3 flex-wrap">
           <div class="flex-1 min-w-[200px]">
             <div class="text-[14px] font-bold">{{ trace.sku || trace.item_code }}</div>
-            <div class="text-[11.5px] text-ink-muted">{{ trace.item_name }}</div>
-            <div class="text-[10.5px] text-ink-3 mt-0.5">{{ trace.item_code }} · {{ trace.uom }} · {{ trace.weight_per_unit }}kg</div>
+            <div class="text-[12px] text-ink-muted">{{ trace.item_name }}</div>
+            <div class="text-[11px] text-ink-3 mt-0.5">{{ trace.item_code }} · {{ trace.uom }} · {{ trace.weight_per_unit }}kg</div>
           </div>
           <div class="grid grid-cols-3 gap-2.5">
             <div class="text-center px-3">
-              <div class="text-[10px] text-ink-muted font-semibold">{{ L("True cost","التكلفة الحقيقية","Vrai coût") }}</div>
+              <div class="text-[11px] text-ink-muted font-semibold">{{ L("True cost","التكلفة الحقيقية","Vrai coût") }}</div>
               <div class="text-[18px] font-bold tnum text-emerald-700">{{ trace.true_cost.cost_mad != null ? fmtNum(trace.true_cost.cost_mad) : "—" }}</div>
-              <div class="text-[9.5px]" :class="srcColor">{{ srcLabel }}</div>
+              <div class="text-[11px]" :class="srcColor">{{ srcLabel }}</div>
             </div>
             <div class="text-center px-3">
-              <div class="text-[10px] text-ink-muted font-semibold">{{ L("Current book","الدفاتر الحالية","Livre actuel") }}</div>
+              <div class="text-[11px] text-ink-muted font-semibold">{{ L("Current book","الدفاتر الحالية","Livre actuel") }}</div>
               <div class="text-[18px] font-bold tnum">{{ trace.current_valuation_mad != null ? fmtNum(trace.current_valuation_mad) : "—" }}</div>
-              <div class="text-[9.5px] text-ink-3">{{ fmtNum(trace.current_qty) }} {{ L("units","وحدة","u.") }}</div>
+              <div class="text-[11px] text-ink-3">{{ fmtNum(trace.current_qty) }} {{ L("units","وحدة","u.") }}</div>
             </div>
             <div class="text-center px-3">
-              <div class="text-[10px] text-ink-muted font-semibold">{{ L("Distortion","التشوّه","Distorsion") }}</div>
+              <div class="text-[11px] text-ink-muted font-semibold">{{ L("Distortion","التشوّه","Distorsion") }}</div>
               <div class="text-[18px] font-bold tnum" :style="{ color: distColor }">{{ trace.distortion_pct != null ? (trace.distortion_pct > 0 ? "+" : "") + fmtNum(trace.distortion_pct) + "%" : "—" }}</div>
-              <div class="text-[9.5px] text-ink-3">{{ L("vs true cost","مقابل الحقيقة","vs vrai") }}</div>
+              <div class="text-[11px] text-ink-3">{{ L("vs true cost","مقابل الحقيقة","vs vrai") }}</div>
             </div>
           </div>
         </div>
-        <div class="text-[10.5px] text-ink-muted mt-2.5 pt-2.5 border-t border-line-hair">
+        <div class="text-[11px] text-ink-muted mt-2.5 pt-2.5 border-t border-line-hair">
           ⓘ {{ L("Product cost only — the freight of this product is added on top in section ② below.","تكلفة المنتج فقط — شحن المنتج بيتضاف فوقها في سكشن ② تحت.","Coût produit uniquement — le fret est ajouté en ② ci-dessous.") }}
         </div>
       </div>
@@ -315,22 +315,22 @@
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
           <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#fffbeb"><Icon name="shield" :size="14" color="#b45309" /></span>
           <span class="text-[13px] font-bold">① {{ L("Product cost — verify & save","تكلفة المنتج — تحقق واحفظ","① Coût produit") }}</span>
-          <span v-if="savedCost != null" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">
+          <span v-if="savedCost != null" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">
             💾 {{ L("saved","محفوظ","enregistré") }} {{ fmtNum(savedCost, 2) }}</span>
-          <span v-if="costDirty" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unsaved changes","تغييرات مش محفوظة","non enregistré") }}</span>
+          <span v-if="costDirty" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unsaved changes","تغييرات مش محفوظة","non enregistré") }}</span>
         </div>
         <div class="p-4 space-y-2.5">
-          <table class="w-full text-[11.5px] border border-line rounded-[8px] overflow-hidden">
+          <table class="w-full text-[12px] border border-line rounded-[8px] overflow-hidden">
             <thead><tr style="background:#fafaf9">
-              <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Document","المستند","Doc") }}</th>
-              <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورّد","Fourn.") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Rate","السعر","Taux") }}</th>
-              <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">→ MAD</th>
+              <th class="px-3 py-1.5 text-start text-[11px] font-bold text-ink-muted">{{ L("Document","المستند","Doc") }}</th>
+              <th class="px-3 py-1.5 text-start text-[11px] font-bold text-ink-muted">{{ L("Supplier","المورّد","Fourn.") }}</th>
+              <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+              <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">{{ L("Rate","السعر","Taux") }}</th>
+              <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">→ MAD</th>
             </tr></thead>
             <tbody>
               <tr v-for="e in fixPrev.evidence" :key="e.doc" class="border-t border-line-hair">
-                <td class="px-3 py-1.5 font-mono text-[10.5px]" dir="ltr">{{ e.doc }}<span class="text-ink-muted font-sans"> · {{ e.dt }}</span><span v-if="e.via" class="font-sans text-[10px] text-violet-700" :title="L('Family evidence — this line is on a sibling variant of the same model','دليل العائلة — السطر ده على مقاس/لون شقيق من نفس الموديل','Preuve de la famille')"> 👪 {{ e.via }}</span></td>
+                <td class="px-3 py-1.5 font-mono text-[11px]" dir="ltr">{{ e.doc }}<span class="text-ink-muted font-sans"> · {{ e.dt }}</span><span v-if="e.via" class="font-sans text-[11px] text-violet-700" :title="L('Family evidence — this line is on a sibling variant of the same model','دليل العائلة — السطر ده على مقاس/لون شقيق من نفس الموديل','Preuve de la famille')"> 👪 {{ e.via }}</span></td>
                 <td class="px-3 py-1.5 truncate max-w-[140px]">{{ shortSup(e.supplier) }}</td>
                 <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(e.qty) }}</td>
                 <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmtNum(e.rate, 2) }} {{ e.cur }}</td>
@@ -341,12 +341,12 @@
           </table>
           <div v-if="!fixPrev.evidence.length" class="text-[11px] text-amber-700">{{ L("No purchase documents — enter the verified cost manually (a note is required).","مفيش مستندات شراء — أدخلوا التكلفة يدويًا (الملاحظة إجبارية).","Aucun document — saisir manuellement.") }}</div>
           <div v-if="canWrite && !fixPrev.fixed" class="flex items-center gap-2 flex-wrap pt-1 border-t border-line-hair">
-            <label class="text-[11.5px] text-ink-2 font-semibold">{{ L("Verified cost (MAD/unit)","التكلفة المعتمدة (درهم/وحدة)","Coût vérifié") }}</label>
-            <input v-model.number="fixRate" type="number" step="0.01" class="h-[30px] w-[110px] text-[12.5px] px-2 rounded-[8px] border tnum outline-none focus:border-accent"
+            <label class="text-[12px] text-ink-2 font-semibold">{{ L("Verified cost (MAD/unit)","التكلفة المعتمدة (درهم/وحدة)","Coût vérifié") }}</label>
+            <input v-model.number="fixRate" type="number" step="0.01" class="h-[30px] w-[110px] text-[13px] px-2 rounded-[8px] border tnum outline-none focus:border-accent"
                    :style="costDirty ? 'border-color:#fde68a;background:#fffbeb' : savedCost != null ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
             <input v-model.trim="fixNote" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيّرتوا الرقم)','Note')"
                    class="h-[30px] flex-1 min-w-[180px] text-[12px] px-2 rounded-[8px] border border-line outline-none" />
-            <button class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+            <button class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                     :disabled="fixing || !(fixRate > 0)" @click="saveItemCost">{{ L("Save","حفظ","Enregistrer") }}</button>
           </div>
         </div>
@@ -357,66 +357,66 @@
         <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
           <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eef6ff"><Icon name="box" :size="14" color="#2563eb" /></span>
           <span class="text-[13px] font-bold">② {{ L("Freight — this product's shipments","الشحن — شحنات المنتج","② Fret") }}</span>
-          <span v-if="itemLanded.complete" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">✓ {{ L("complete","مكتمل","complet") }} · <span class="tnum">{{ fmtNum(itemLanded.landed_unit, 2) }}</span>/{{ L("unit","وحدة","u") }}</span>
-          <span v-else-if="itemLanded.waiting.length" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">⏳ {{ itemLanded.waiting.length }} {{ L("shipment(s) missing freight","شحنة ناقصة شحن","exp. sans fret") }}</span>
+          <span v-if="itemLanded.complete" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">✓ {{ L("complete","مكتمل","complet") }} · <span class="tnum">{{ fmtNum(itemLanded.landed_unit, 2) }}</span>/{{ L("unit","وحدة","u") }}</span>
+          <span v-else-if="itemLanded.waiting.length" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">⏳ {{ itemLanded.waiting.length }} {{ L("shipment(s) missing freight","شحنة ناقصة شحن","exp. sans fret") }}</span>
         </div>
         <div class="p-4 space-y-2">
           <!-- unit WEIGHT — the multiplier of every freight figure below; fix it right here -->
           <div class="flex items-center gap-2 flex-wrap rounded-[9px] px-3 py-2"
                :style="wInfo && wInfo.flag ? 'background:#fffbeb;border:1px solid #fde68a' : 'background:#fafaf9;border:1px solid #f0efed'">
-            <span class="text-[11.5px] font-bold">⚖️ {{ L("Unit weight","وزن الوحدة","Poids unitaire") }}</span>
+            <span class="text-[12px] font-bold">⚖️ {{ L("Unit weight","وزن الوحدة","Poids unitaire") }}</span>
             <span class="text-[12px] tnum font-bold" :class="wInfo && wInfo.flag ? 'text-amber-700' : 'text-ink-2'" dir="ltr">{{ (trace.weight_per_unit || 0).toFixed(2) }} kg</span>
-            <span v-if="wInfo && wInfo.flag" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">
+            <span v-if="wInfo && wInfo.flag" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">
               {{ wInfo.flag === 'zero' ? L("missing — freight uses the shipment average","ناقص — الشحن بياخد متوسط الشحنة","manquant") : wInfo.flag === 'default' ? L("0.50 default — probably never measured","0.50 افتراضي — غالبًا ما اتقاسش","défaut") : L("suspiciously low","منخفض بشكل مريب","suspect") }}
             </span>
-            <span v-else-if="wInfo && wInfo.est_src" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f3ff;color:#6d28d9">≈ {{ L("estimated","مقدر","estimé") }} — {{ L("a manual entry overrides","الإدخال اليدوي بيغلبه","manuel prioritaire") }}</span>
-            <span class="text-[10px] text-ink-muted">{{ L("every freight share below = this × rate/kg","كل نصيب شحن تحت = الوزن ده × سعر الكيلو","part = poids × taux/kg") }}</span>
+            <span v-else-if="wInfo && wInfo.est_src" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f3ff;color:#6d28d9">≈ {{ L("estimated","مقدر","estimé") }} — {{ L("a manual entry overrides","الإدخال اليدوي بيغلبه","manuel prioritaire") }}</span>
+            <span class="text-[11px] text-ink-muted">{{ L("every freight share below = this × rate/kg","كل نصيب شحن تحت = الوزن ده × سعر الكيلو","part = poids × taux/kg") }}</span>
             <div class="flex-1"></div>
             <template v-if="canWrite">
-              <span v-if="wEst && wEst.est" class="text-[10.5px] text-violet-700 font-bold tnum" dir="ltr">✨ {{ wEst.est.toFixed(2) }}kg <span class="font-normal">({{ { family: L('family','عائلة','famille'), similar: L('similar','أشباه','similaires'), class: L('class','فئة','classe') }[wEst.src] || wEst.src }})</span></span>
-              <button v-else class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold border border-line hover:bg-app-warm disabled:opacity-40"
+              <span v-if="wEst && wEst.est" class="text-[11px] text-violet-700 font-bold tnum" dir="ltr">✨ {{ wEst.est.toFixed(2) }}kg <span class="font-normal">({{ { family: L('family','عائلة','famille'), similar: L('similar','أشباه','similaires'), class: L('class','فئة','classe') }[wEst.src] || wEst.src }})</span></span>
+              <button v-else class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line hover:bg-app-warm disabled:opacity-40"
                       :disabled="wBusy" @click="suggestWeight">{{ wBusy ? "…" : "✨ " + L("Suggest","اقتراح","Suggérer") }}</button>
               <input v-model.number="wEdit" type="number" step="0.01" min="0.005" max="50" :placeholder="wEst && wEst.est ? String(wEst.est) : 'kg'"
-                     class="h-[26px] w-[76px] text-[11.5px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
-              <button class="h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                     class="h-[26px] w-[76px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
+              <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                       :disabled="!((wEdit ?? wEst?.est) > 0) || wBusy" @click="saveWeight">{{ L("Save","حفظ","OK") }}</button>
             </template>
           </div>
           <div v-if="itemLanded.receipts.length" class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
-            <table class="w-full text-[11.5px]">
+            <table class="w-full text-[12px]">
               <thead><tr style="background:#fafaf9" class="sticky top-0">
-                <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Shipment","الشحنة","Expédition") }}</th>
-                <th class="px-3 py-1.5 text-center text-[10px] font-bold text-ink-muted" :title="L('Channel: 🛫 air · 🚢 sea','القناة: 🛫 جوي · 🚢 بحري','Canal')">{{ L("Ch.","قناة","Can.") }}</th>
-                <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
-                <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
-                <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Item's share","نصيب الصنف","Part") }}</th>
+                <th class="px-3 py-1.5 text-start text-[11px] font-bold text-ink-muted">{{ L("Shipment","الشحنة","Expédition") }}</th>
+                <th class="px-3 py-1.5 text-center text-[11px] font-bold text-ink-muted" :title="L('Channel: 🛫 air · 🚢 sea','القناة: 🛫 جوي · 🚢 بحري','Canal')">{{ L("Ch.","قناة","Can.") }}</th>
+                <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                <th class="px-3 py-1.5 text-start text-[11px] font-bold text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
+                <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">{{ L("Item's share","نصيب الصنف","Part") }}</th>
               </tr></thead>
               <tbody>
                 <tr v-for="r in itemLanded.receipts" :key="r.pr" class="border-t border-line-hair">
-                  <td class="px-3 py-1.5 font-mono text-[10.5px] whitespace-nowrap" dir="ltr">{{ r.pr }}<div class="text-[10px] text-ink-muted font-sans">{{ r.dt }}</div></td>
+                  <td class="px-3 py-1.5 font-mono text-[11px] whitespace-nowrap" dir="ltr">{{ r.pr }}<div class="text-[11px] text-ink-muted font-sans">{{ r.dt }}</div></td>
                   <td class="px-3 py-1.5 text-center whitespace-nowrap">
                     <button v-if="canWrite && !itemLanded.frozen" class="text-[12px]"
                             :title="r.channel_confirmed ? L('confirmed — click to flip','مؤكدة — دوس للقلب','confirmé') : L('SUGGESTED only — click to flip','اقتراح بس — دوس للقلب','suggestion')"
-                            @click="flipPrChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></button>
-                    <button v-if="canWrite && !itemLanded.frozen && !r.channel_confirmed" class="ms-0.5 text-[10px] font-bold text-emerald-700 hover:underline"
+                            @click="flipPrChannel(r)">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[11px] text-amber-600 font-bold">?</span></button>
+                    <button v-if="canWrite && !itemLanded.frozen && !r.channel_confirmed" class="ms-0.5 text-[11px] font-bold text-emerald-700 hover:underline"
                             :title="L('confirm the suggested channel as-is','تأكيد القناة المقترحة زي ما هي','confirmer tel quel')"
                             @click="confirmPrChannel(r)">✓</button>
-                    <template v-if="!canWrite || itemLanded.frozen">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[10px] text-amber-600 font-bold">?</span></template>
+                    <template v-if="!canWrite || itemLanded.frozen">{{ r.channel === "air" ? "🛫" : "🚢" }}<span v-if="!r.channel_confirmed" class="text-[11px] text-amber-600 font-bold">?</span></template>
                   </td>
                   <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.qty) }}</td>
                   <td class="px-3 py-1.5 whitespace-nowrap">
                     <template v-if="['bills','rate'].includes(r.source)">
-                      <FreightChip :source="r.source" /> <span class="text-[10px] text-ink-muted" dir="ltr">@{{ r.rate_kg }}/kg</span>
+                      <FreightChip :source="r.source" /> <span class="text-[11px] text-ink-muted" dir="ltr">@{{ r.rate_kg }}/kg</span>
                     </template>
                     <template v-else-if="r.channel === 'air' && (r.channel_confirmed || (r.pr_qty || r.qty) < 500) && canWrite && !itemLanded.frozen">
                       <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
                              class="w-[62px] h-[26px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
-                      <button class="ms-1 h-[26px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+                      <button class="ms-1 h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
                               :disabled="!( (r._draft ?? r.band_rate) > 0 ) || fixing" @click="confirmPrRate(r)">✓ {{ L("confirm rate","اعتماد السعر","confirmer") }}</button>
                     </template>
                     <template v-else>
                       <FreightChip source="none" />
-                      <span class="text-[10px] text-ink-muted ms-1">{{ L("attach its bills in Shipments","ارفقوا فواتيرها في الشحنات","joindre dans Expéditions") }}</span>
+                      <span class="text-[11px] text-ink-muted ms-1">{{ L("attach its bills in Shipments","ارفقوا فواتيرها في الشحنات","joindre dans Expéditions") }}</span>
                     </template>
                   </td>
                   <td class="px-3 py-1.5 text-end tnum font-semibold">{{ r.share ? fmtNum(r.share) : "—" }}</td>
@@ -424,14 +424,14 @@
               </tbody>
             </table>
           </div>
-          <div v-if="itemLanded.historical" class="rounded-[8px] px-3 py-2 text-[11.5px] flex items-center gap-2 flex-wrap" style="background:#faf5ff;border:1px solid #e9d5ff">
+          <div v-if="itemLanded.historical" class="rounded-[8px] px-3 py-2 text-[12px] flex items-center gap-2 flex-wrap" style="background:#faf5ff;border:1px solid #e9d5ff">
             <span class="font-bold" style="color:#7c3aed">🕰 {{ L("Historical shipments (pre-2026)","شحنات تاريخية (قبل 2026)","Expéditions historiques") }}</span>
             <span class="tnum">{{ itemLanded.historical.n_prs }} {{ L("receipt(s)","استلام","réc.") }} · {{ fmtNum(itemLanded.historical.qty) }} {{ L("pcs","قطعة","pcs") }}</span>
             <span>{{ itemLanded.historical.channels.includes("sea") ? "🚢" : "" }}{{ itemLanded.historical.channels.includes("air") ? "🛫" : "" }}</span>
             <span class="tnum font-semibold flex-1 text-end" dir="ltr">{{ fmtNum(itemLanded.historical.unit, 2) }} / {{ L("unit","وحدة","u") }}</span>
-            <span class="text-[10px] text-ink-muted">{{ L("contract tariff × receipt date, calibrated to the ACTUAL 2025 bills (book weights = split key only)","تعريفة العقد بتاريخ الاستلام، مُعايَرة على فواتير 2025 الفعلية (الأوزان الدفترية مفتاح توزيع بس)","tarif contractuel calibré sur les factures réelles 2025") }}</span>
+            <span class="text-[11px] text-ink-muted">{{ L("contract tariff × receipt date, calibrated to the ACTUAL 2025 bills (book weights = split key only)","تعريفة العقد بتاريخ الاستلام، مُعايَرة على فواتير 2025 الفعلية (الأوزان الدفترية مفتاح توزيع بس)","tarif contractuel calibré sur les factures réelles 2025") }}</span>
           </div>
-          <div v-if="itemLanded.local" class="rounded-[8px] px-3 py-2 text-[11.5px]" style="background:#fff7ed;border:1px solid #fed7aa">
+          <div v-if="itemLanded.local" class="rounded-[8px] px-3 py-2 text-[12px]" style="background:#fff7ed;border:1px solid #fed7aa">
             🏠 <b style="color:#c2410c">{{ L("Local product","منتج محلي","Produit local") }}</b> —
             {{ L("bought inside Morocco: no freight layer by nature. The fix = match the receipt value to the supplier invoice (① evidence).","مشتريات داخل المغرب: مفيش طبقة شحن بطبيعته. الإصلاح = مطابقة قيمة الاستلام بفاتورة المورد (الدليل في ①).","Acheté au Maroc : pas de fret ; alignement sur la facture fournisseur.") }}
           </div>
@@ -454,19 +454,19 @@
             = <b class="text-emerald-700">{{ fmtNum(appliedRate, 2) }} {{ L("applied","المعتمد","appliqué") }}</b>
           </div>
           <div v-if="fixPrev.bins.length" class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
-            <table class="w-full text-[11.5px]">
+            <table class="w-full text-[12px]">
               <thead><tr style="background:#fafaf9" class="sticky top-0">
-                <th class="px-3 py-1.5 text-start text-[10px] font-bold text-ink-muted">{{ L("Warehouse","المخزن","Entrepôt") }}</th>
-                <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
-                <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">{{ L("Rate: old → new","السعر: قديم → جديد","Taux") }}</th>
-                <th class="px-3 py-1.5 text-end text-[10px] font-bold text-ink-muted">Δ MAD</th>
+                <th class="px-3 py-1.5 text-start text-[11px] font-bold text-ink-muted">{{ L("Warehouse","المخزن","Entrepôt") }}</th>
+                <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">{{ L("Rate: old → new","السعر: قديم → جديد","Taux") }}</th>
+                <th class="px-3 py-1.5 text-end text-[11px] font-bold text-ink-muted">Δ MAD</th>
               </tr></thead>
               <tbody>
                 <tr v-for="b in fixPrev.bins" :key="b.warehouse" class="border-t border-line-hair first:border-0" :style="b.disabled ? 'opacity:.55' : ''">
                   <td class="px-3 py-1.5 truncate max-w-[180px]">{{ b.warehouse }}
-                    <span v-if="b.cycle" class="ms-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#eef2ff;color:#4338ca"
+                    <span v-if="b.cycle" class="ms-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#eef2ff;color:#4338ca"
                           :title="L('The reservation is released, the fix posts, then it re-reserves automatically — one atomic operation.','الحجز بيتفك، الفيكس بيترحّل، والحجز بيرجع تلقائيًا — عملية واحدة.','Réservation recyclée automatiquement.')">🔓 {{ b.reserved }} {{ L("reserved — auto-cycled","محجوز — هيتفك ويرجع","recyclé") }}</span>
-                    <span v-else-if="b.disabled" class="ms-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f5f4;color:#78716c">{{ L("disabled wh — skipped","مخزن موقوف — هيتعدّى","désactivé") }}</span>
+                    <span v-else-if="b.disabled" class="ms-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f5f5f4;color:#78716c">{{ L("disabled wh — skipped","مخزن موقوف — هيتعدّى","désactivé") }}</span>
                   </td>
                   <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ fmtNum(b.qty) }}</td>
                   <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(b.old_rate, 1) }} → <b>{{ b.disabled ? fmtNum(b.old_rate, 1) : fmtNum(appliedRate || b.new_rate, 1) }}</b></td>
@@ -497,15 +497,15 @@
           <span class="text-[13px] font-bold">④ {{ L("Submit — apply the full cost","الاعتماد النهائي — تطبيق التكلفة الكاملة","④ Soumettre") }}</span>
         </div>
         <div class="p-4 space-y-2">
-          <div v-if="fixPrev.batch_tracked" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[11.5px]">
+          <div v-if="fixPrev.batch_tracked" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[12px]">
             🧬 {{ L("Batch/serial-tracked item — revaluation needs a batch bundle; handle via ERPNext for now.","منتج متتبع بباتش/سيريال — إعادة التقييم محتاجة bundle؛ اتعامل معاه من ERPNext مؤقتًا.","Article à lot/série — via ERPNext pour le moment.") }}
           </div>
-          <div v-if="itemLanded && itemLanded.waiting.length" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[11.5px]">
+          <div v-if="itemLanded && itemLanded.waiting.length" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[12px]">
             🔒 {{ L("Waiting for freight of:","مستني شحن:","En attente du fret de :") }}
-            <span class="font-mono text-[10.5px]" dir="ltr">{{ itemLanded.waiting.join(", ") }}</span>
+            <span class="font-mono text-[11px]" dir="ltr">{{ itemLanded.waiting.join(", ") }}</span>
             — {{ L("finish step ② first.","كمّلوا خطوة ② الأول.","finir ② d'abord.") }}
           </div>
-          <div v-else-if="costDirty || (fixRate > 0 && savedCost == null)" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[11.5px]">
+          <div v-else-if="costDirty || (fixRate > 0 && savedCost == null)" class="rounded-[8px] border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-[12px]">
             💾 {{ L("Save the product cost first (①).","احفظوا تكلفة المنتج الأول (①).","Enregistrer le coût d'abord (①).") }}
           </div>
           <label class="flex items-center gap-2 text-[12px] text-ink-2 cursor-pointer">
@@ -516,7 +516,7 @@
             <input type="checkbox" v-model="fixRetro" class="accent-accent w-3.5 h-3.5" />
             🕰 {{ L("Retro — apply from the item's first 2026 receipt and heal past months (reposts its old moves)","رجعي — يتطبق من أول استلام في 2026 ويصلح الشهور اللي فاتت (بيعيد حساب حركاته القديمة)","Rétro — depuis la première réception 2026") }}
           </label>
-          <button class="h-[30px] px-3.5 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+          <button class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                   :disabled="!canSubmit || fixing"
                   :title="!canSubmit ? submitBlockReason : ''"
                   @click="applyFix">
@@ -535,20 +535,20 @@
           <table class="w-full text-[12px]">
             <thead>
               <tr style="background:#fafaf9">
-                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Stage","المرحلة","Étape") }}</th>
-                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Company","الشركة","Société") }}</th>
-                <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Document","المستند","Document") }}</th>
-                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Taux") }}</th>
-                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("→ MAD","→ MAD","→ MAD") }}</th>
-                <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Δ vs true","Δ الحقيقة","Δ") }}</th>
+                <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Stage","المرحلة","Étape") }}</th>
+                <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Company","الشركة","Société") }}</th>
+                <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Document","المستند","Document") }}</th>
+                <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Taux") }}</th>
+                <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("→ MAD","→ MAD","→ MAD") }}</th>
+                <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Δ vs true","Δ الحقيقة","Δ") }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(h, i) in trace.ladder" :key="i" class="border-t border-line-hair" :style="rowStyle(h)">
                 <td class="px-4 py-2.5 font-semibold whitespace-nowrap">{{ stageLabel(h.stage) }}</td>
                 <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ h.company }}</td>
-                <td class="px-4 py-2.5 font-mono text-[11px] whitespace-nowrap" dir="ltr">{{ h.name }}<div class="text-[10px] text-ink-muted font-sans">{{ h.date }}</div></td>
-                <td class="px-4 py-2.5 text-end tnum whitespace-nowrap">{{ fmtNum(h.rate, 2) }} {{ h.currency }}<span v-if="h.conversion_rate" class="text-[10px] text-ink-muted"> @{{ h.conversion_rate }}</span></td>
+                <td class="px-4 py-2.5 font-mono text-[11px] whitespace-nowrap" dir="ltr">{{ h.name }}<div class="text-[11px] text-ink-muted font-sans">{{ h.date }}</div></td>
+                <td class="px-4 py-2.5 text-end tnum whitespace-nowrap">{{ fmtNum(h.rate, 2) }} {{ h.currency }}<span v-if="h.conversion_rate" class="text-[11px] text-ink-muted"> @{{ h.conversion_rate }}</span></td>
                 <td class="px-4 py-2.5 text-end tnum font-bold">{{ fmtNum(h.rate_mad, 2) }}</td>
                 <td class="px-4 py-2.5 text-end tnum">
                   <span v-if="h.dev_pct != null" :style="{ color: devColor(h) }" class="font-semibold">{{ h.dev_pct > 0 ? "+" : "" }}{{ fmtNum(h.dev_pct) }}%</span>
@@ -582,8 +582,8 @@
         <div v-if="lb.loading" class="py-14 text-center text-[12px] text-ink-muted">{{ L("Scanning the local catalogue…","بجهّز المعاينة…","Analyse…") }}</div>
 
         <template v-else>
-          <div class="px-5 py-3 flex items-center gap-4 flex-wrap border-b border-line-hair text-[11.5px]">
-            <span><b class="text-[15px] tnum">{{ lb.stats.ready }}</b> {{ L("ready","جاهز","prêts") }}</span>
+          <div class="px-5 py-3 flex items-center gap-4 flex-wrap border-b border-line-hair text-[12px]">
+            <span><b class="text-[16px] tnum">{{ lb.stats.ready }}</b> {{ L("ready","جاهز","prêts") }}</span>
             <span class="text-ink-muted">{{ L("weak basis (manual)","أساس ضعيف (يدوي)","base faible") }}: <b class="tnum">{{ lb.stats.weak_basis }}</b></span>
             <span class="text-ink-muted">{{ L("already fixed","متظبط","corrigés") }}: <b class="tnum">{{ lb.stats.already_fixed }}</b></span>
             <span class="flex-1"></span>
@@ -592,20 +592,20 @@
           </div>
 
           <div class="flex-1 overflow-y-auto">
-            <table class="w-full text-[11.5px]">
+            <table class="w-full text-[12px]">
               <thead class="sticky top-0" style="background:#fafaf9">
                 <tr>
-                  <th class="px-4 py-2 text-start text-[10px] font-bold uppercase text-ink-muted">{{ L("Product","المنتج","Produit") }}</th>
-                  <th class="px-3 py-2 text-end text-[10px] font-bold uppercase text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
-                  <th class="px-3 py-2 text-end text-[10px] font-bold uppercase text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
-                  <th class="px-3 py-2 text-end text-[10px] font-bold uppercase text-ink-muted">{{ L("Invoice","الفاتورة","Facture") }}</th>
-                  <th class="px-3 py-2 text-end text-[10px] font-bold uppercase text-ink-muted">Δ MAD</th>
-                  <th class="px-3 py-2 text-center text-[10px] font-bold uppercase text-ink-muted"></th>
+                  <th class="px-4 py-2 text-start text-[11px] font-bold uppercase text-ink-muted">{{ L("Product","المنتج","Produit") }}</th>
+                  <th class="px-3 py-2 text-end text-[11px] font-bold uppercase text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                  <th class="px-3 py-2 text-end text-[11px] font-bold uppercase text-ink-muted">{{ L("Book","الدفاتر","Livre") }}</th>
+                  <th class="px-3 py-2 text-end text-[11px] font-bold uppercase text-ink-muted">{{ L("Invoice","الفاتورة","Facture") }}</th>
+                  <th class="px-3 py-2 text-end text-[11px] font-bold uppercase text-ink-muted">Δ MAD</th>
+                  <th class="px-3 py-2 text-center text-[11px] font-bold uppercase text-ink-muted"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="r in lb.rows" :key="r.item_code" class="border-t border-line-hair">
-                  <td class="px-4 py-1.5 truncate max-w-[240px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><span class="text-[10px] text-ink-muted"> · {{ r.item_name }}</span></td>
+                  <td class="px-4 py-1.5 truncate max-w-[240px]"><span class="font-semibold">{{ r.sku || r.item_code }}</span><span class="text-[11px] text-ink-muted"> · {{ r.item_name }}</span></td>
                   <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ fmtNum(r.qty) }}</td>
                   <td class="px-3 py-1.5 text-end tnum">{{ fmtNum(r.book_rate, 2) }}</td>
                   <td class="px-3 py-1.5 text-end tnum font-semibold text-emerald-700">{{ fmtNum(r.rate, 2) }}</td>
@@ -624,7 +624,7 @@
               <div class="flex-1 h-[8px] rounded-full overflow-hidden" style="background:#f5f5f4">
                 <div class="h-full rounded-full transition-all" style="background:#059669" :style="{ width: (lb.progress / Math.max(lb.stats.ready, 1) * 100) + '%' }"></div>
               </div>
-              <span class="text-[11.5px] tnum text-ink-muted">{{ lb.progress }} / {{ lb.stats.ready }}</span>
+              <span class="text-[12px] tnum text-ink-muted">{{ lb.progress }} / {{ lb.stats.ready }}</span>
             </template>
             <template v-else-if="lb.finished">
               <span class="text-[12px] font-bold text-emerald-700">✓ {{ L("Posted","اترحّل","Comptabilisé") }} {{ lb.posted }}</span>
@@ -635,7 +635,7 @@
               <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="lb = null">{{ L("Close","إغلاق","Fermer") }}</button>
             </template>
             <template v-else>
-              <label class="flex items-center gap-1.5 text-[11.5px] text-ink-2 cursor-pointer">
+              <label class="flex items-center gap-1.5 text-[12px] text-ink-2 cursor-pointer">
                 <input type="checkbox" v-model="lbRetro" class="accent-accent w-3.5 h-3.5" />
                 🕰 {{ L("Retro from first 2026 receipt","رجعي من أول استلام 2026","Rétro 2026") }}
               </label>

@@ -4,15 +4,15 @@
       <span class="text-[13px] font-bold">③ {{ L("Catalogue — by model","③ الكتالوج — بالموديل","③ Catalogue par modèle") }}</span>
       <span v-if="data" class="text-[11px] text-ink-muted tnum">{{ data.total }} {{ L("models","موديل","modèles") }}</span>
       <div class="flex-1"></div>
-      <select v-model="supFilter" @change="start = 0; load()" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line max-w-[170px]">
+      <select v-model="supFilter" @change="start = 0; load()" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line max-w-[170px]">
         <option value="">{{ L("All suppliers","كل الموردين","Fournisseurs") }}</option>
         <option v-for="sp in filters.suppliers" :key="sp.supplier" :value="sp.supplier">{{ shortSup(sp.supplier) }} ({{ sp.items }})</option>
       </select>
-      <select v-model="moFilter" @change="start = 0; load()" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+      <select v-model="moFilter" @change="start = 0; load()" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
         <option value="">{{ L("All months","كل الشهور","Mois") }}</option>
         <option v-for="mo in filters.months" :key="mo" :value="mo">{{ mo }}</option>
       </select>
-      <select v-model="srcFilter" @change="start = 0; load()" class="h-[28px] text-[11.5px] px-2 rounded-[8px] border border-line">
+      <select v-model="srcFilter" @change="start = 0; load()" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
         <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
         <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
         <option value="local_pi">{{ L("Local suppliers","موردين محليين","Locaux") }}</option>
@@ -28,31 +28,31 @@
         </button>
       </div>
       <input v-model="search" @keyup.enter="start = 0; load()" :placeholder="L('Search model…','بحث…','Recherche…')"
-             class="h-[28px] w-[170px] text-[11.5px] px-2.5 rounded-[8px] border border-line" />
+             class="h-[28px] w-[170px] text-[12px] px-2.5 rounded-[8px] border border-line" />
     </div>
     <div v-if="loading" class="py-12 text-center text-[12px] text-ink-muted">{{ L("Grouping the catalogue…","بيجمع الكتالوج…","Chargement…") }}</div>
     <div v-else-if="err" class="py-12 text-center text-[12px] text-sale">{{ err }} <button class="underline" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button></div>
     <div v-else-if="data" class="overflow-x-auto">
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Model","الموديل","Modèle") }}</th>
-          <th class="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Variants","الأصناف","Var.") }}</th>
-          <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Stock","المخزون","Stock") }}</th>
-          <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ month ? L("Month impact","أثر الشهر","Impact mois") : L("Value","القيمة","Valeur") }}</th>
-          <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book range","مدى الدفاتر","Livre") }}</th>
-          <th class="px-3 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("True","الحقيقي","Vrai") }}</th>
-          <th class="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-ink-muted">✓</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Model","الموديل","Modèle") }}</th>
+          <th class="px-3 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Variants","الأصناف","Var.") }}</th>
+          <th class="px-3 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Stock","المخزون","Stock") }}</th>
+          <th class="px-3 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ month ? L("Month impact","أثر الشهر","Impact mois") : L("Value","القيمة","Valeur") }}</th>
+          <th class="px-3 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Book range","مدى الدفاتر","Livre") }}</th>
+          <th class="px-3 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("True","الحقيقي","Vrai") }}</th>
+          <th class="px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-ink-muted">✓</th>
         </tr></thead>
         <tbody>
           <tr v-for="r in data.rows" :key="r.key" class="border-t border-line-hair hover:bg-app-warm/60 cursor-pointer" @click="$emit('open', r.key)">
-            <td class="px-4 py-2.5"><span class="font-semibold truncate block max-w-[280px]">{{ r.name }}</span><span class="text-[10px] text-ink-muted font-mono">{{ r.base }}</span></td>
-            <td class="px-3 py-2.5 text-center"><span class="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-2">×{{ r.n_variants }}</span></td>
+            <td class="px-4 py-2.5"><span class="font-semibold truncate block max-w-[280px]">{{ r.name }}</span><span class="text-[11px] text-ink-muted font-mono">{{ r.base }}</span></td>
+            <td class="px-3 py-2.5 text-center"><span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-app-warm text-ink-2">×{{ r.n_variants }}</span></td>
             <td class="px-3 py-2.5 text-end tnum text-ink-3">{{ fmt(r.qty) }}</td>
             <td class="px-3 py-2.5 text-end tnum" :class="month && r.month_impact ? 'font-bold text-amber-700' : ''">{{ month ? fmt(r.month_impact) : fmt(r.value) }}</td>
             <td class="px-3 py-2.5 text-end tnum text-ink-3" dir="ltr">{{ r.book_min === r.book_max ? fmt2(r.book_min) : fmt2(r.book_min) + "–" + fmt2(r.book_max) }}</td>
             <td class="px-3 py-2.5 text-end tnum font-semibold" :class="r.true_cost != null ? 'text-emerald-700' : 'text-amber-600'">{{ r.true_cost != null ? fmt2(r.true_cost) : "—" }}</td>
             <td class="px-4 py-2.5 text-center">
-              <span class="text-[10.5px] font-bold tnum" :class="r.n_fixed >= r.n_variants ? 'text-emerald-700' : r.n_fixed ? 'text-amber-600' : 'text-ink-3'">
+              <span class="text-[11px] font-bold tnum" :class="r.n_fixed >= r.n_variants ? 'text-emerald-700' : r.n_fixed ? 'text-amber-600' : 'text-ink-3'">
                 {{ r.n_fixed }}/{{ r.n_variants }}
               </span>
             </td>
@@ -60,7 +60,7 @@
         </tbody>
       </table>
       <div v-if="!data.rows.length" class="py-10 text-center text-[12px] text-ink-muted">{{ L("No models.","لا موديلات.","Aucun.") }}</div>
-      <div class="px-4 py-2.5 border-t border-line-hair flex items-center gap-2 text-[11.5px] text-ink-muted" v-if="data.total > pageSize">
+      <div class="px-4 py-2.5 border-t border-line-hair flex items-center gap-2 text-[12px] text-ink-muted" v-if="data.total > pageSize">
         <button class="h-[26px] px-2.5 rounded-[7px] border border-line font-bold disabled:opacity-40" :disabled="start === 0" @click="start = Math.max(start - pageSize, 0); load()">‹</button>
         <span class="tnum">{{ start + 1 }}–{{ Math.min(start + pageSize, data.total) }} / {{ data.total }}</span>
         <button class="h-[26px] px-2.5 rounded-[7px] border border-line font-bold disabled:opacity-40" :disabled="start + pageSize >= data.total" @click="start += pageSize; load()">›</button>

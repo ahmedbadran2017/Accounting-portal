@@ -17,9 +17,9 @@
     <div class="bg-white rounded-card border border-line p-5">
       <div class="flex flex-wrap items-start gap-3">
         <div class="min-w-0">
-          <div class="text-[17px] font-bold tracking-tight font-mono">{{ inv.id }}</div>
-          <div class="text-[12.5px] text-ink-3">{{ L("Bill to","الفاتورة إلى","Facturé à") }}: {{ inv.customer }} · {{ inv.date }}</div>
-          <div v-if="inv.phone || inv.city" class="text-[11.5px] text-ink-muted mt-0.5 flex items-center gap-2.5">
+          <div class="text-[18px] font-bold tracking-tight font-mono">{{ inv.id }}</div>
+          <div class="text-[13px] text-ink-3">{{ L("Bill to","الفاتورة إلى","Facturé à") }}: {{ inv.customer }} · {{ inv.date }}</div>
+          <div v-if="inv.phone || inv.city" class="text-[12px] text-ink-muted mt-0.5 flex items-center gap-2.5">
             <span v-if="inv.phone" class="inline-flex items-center gap-1"><Icon name="user" :size="11" />{{ inv.phone }}</span>
             <span v-if="inv.city" class="inline-flex items-center gap-1"><Icon name="building" :size="11" />{{ inv.city }}</span>
           </div>
@@ -29,25 +29,25 @@
              largest type on the page was the document id. It is the figure an
              AR clerk opens an invoice to read. -->
         <div class="ms-auto text-end">
-          <div class="text-[10.5px] text-ink-muted font-semibold">{{ Number(inv.outstanding) > 0 ? L("Outstanding","المستحق","Restant dû") : L("Total","الإجمالي","Total") }}</div>
+          <div class="text-[11px] text-ink-muted font-semibold">{{ Number(inv.outstanding) > 0 ? L("Outstanding","المستحق","Restant dû") : L("Total","الإجمالي","Total") }}</div>
           <div class="text-[24px] font-bold tnum leading-tight" :class="Number(inv.outstanding) > 0 ? 'text-sale' : 'text-ink'">
             {{ fmt2(Number(inv.outstanding) > 0 ? inv.outstanding : inv.gross) }} <span class="text-[12px] text-ink-muted font-normal">{{ inv.currency }}</span>
           </div>
-          <div v-if="Number(inv.outstanding) > 0" class="text-[11.5px] text-ink-3 mt-0.5 tnum">{{ L("of","من","sur") }} {{ fmt2(inv.gross) }}<span v-if="inv.due_date"> · {{ L("due","الاستحقاق","échéance") }} {{ inv.due_date }}</span></div>
+          <div v-if="Number(inv.outstanding) > 0" class="text-[12px] text-ink-3 mt-0.5 tnum">{{ L("of","من","sur") }} {{ fmt2(inv.gross) }}<span v-if="inv.due_date"> · {{ L("due","الاستحقاق","échéance") }} {{ inv.due_date }}</span></div>
         </div>
         <div class="flex items-center gap-2 h-fit">
           <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-badge border"
                 :style="{ background: st.bg, color: st.fg, borderColor: st.bd }">{{ invStatusLabel(inv.status, locale) }}</span>
-          <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand px-2.5 py-1 rounded-chip" @click="openPay">
+          <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand px-2.5 py-1 rounded-chip" @click="openPay">
             <Icon name="coins" :size="13" color="#fff" />{{ L("Record payment","تسجيل دفعة","Encaisser") }}
           </button>
-          <button v-if="canRefund" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="openRefund">
+          <button v-if="canRefund" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="openRefund">
             <Icon name="refresh" :size="13" />{{ L("Credit note","إشعار دائن","Note de crédit") }}
           </button>
-          <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm px-2.5 py-1 rounded-chip" @click="refundCash" :disabled="busy">
+          <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm px-2.5 py-1 rounded-chip" @click="refundCash" :disabled="busy">
             <Icon name="cash" :size="13" />{{ L("Refund cash","استرداد نقدي","Rembourser") }}
           </button>
-          <button v-if="inv && inv.outstanding > 0 && inv.outstanding <= 200" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm px-2.5 py-1 rounded-chip" @click="writeOff" :disabled="busy">
+          <button v-if="inv && inv.outstanding > 0 && inv.outstanding <= 200" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm px-2.5 py-1 rounded-chip" @click="writeOff" :disabled="busy">
             {{ L("Write off","شطب","Passer en perte") }} {{ fmt2(inv.outstanding) }}
           </button>
         </div>
@@ -72,8 +72,8 @@
           <div class="text-[14px] font-bold">{{ L("Create credit note","إنشاء إشعار دائن","Note de crédit") }}</div>
         </div>
         <p class="text-[12px] text-ink-3 mb-3">{{ L("Reverses the invoice — credits the customer's debtor and reverses the revenue.","يعكس الفاتورة — يقفل مديونية العميل ويعكس الإيراد.","Annule la facture — crédite le débiteur.") }} <b class="font-mono">{{ inv.id }}</b></p>
-        <textarea v-model="reason" rows="2" :placeholder="L('Reason (optional)','السبب (اختياري)','Motif (facultatif)')" class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[12.5px] focus:outline-none focus:border-accent/40 mb-3"></textarea>
-        <label class="flex items-center gap-2 mb-2 text-[12.5px] cursor-pointer">
+        <textarea v-model="reason" rows="2" :placeholder="L('Reason (optional)','السبب (اختياري)','Motif (facultatif)')" class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[13px] focus:outline-none focus:border-accent/40 mb-3"></textarea>
+        <label class="flex items-center gap-2 mb-2 text-[13px] cursor-pointer">
           <input type="checkbox" v-model="alsoRefund" class="accent-sale w-4 h-4" />
           <span>{{ L("Also refund the cash to the customer","استرداد الكاش للعميل أيضًا","Rembourser aussi le client") }}</span>
         </label>
@@ -81,7 +81,7 @@
           <label class="text-[11px] font-bold text-ink-3">{{ L("Refund from","الاسترداد من","Rembourser depuis") }}</label>
           <div class="mt-1"><SearchSelect v-model="refundAccount" :items="accountItems" :placeholder="L('Search bank/cash account','ابحث عن حساب بنك/كاش','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div>
         </div>
-        <div v-if="refundError" class="text-[11.5px] text-sale mb-2">{{ refundError }}</div>
+        <div v-if="refundError" class="text-[12px] text-sale mb-2">{{ refundError }}</div>
         <div class="flex justify-end gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="showRefund = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
           <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-sale hover:opacity-90 disabled:opacity-50" :disabled="busy" @click="createReturn">
@@ -100,15 +100,15 @@
         </div>
         <p class="text-[12px] text-ink-3 mb-3">{{ L("Collect against","تحصيل مقابل","Encaisser pour") }} <b class="font-mono">{{ inv.id }}</b> · {{ L("outstanding","المتبقّي","restant") }} <b class="tnum">{{ fmt2(inv.outstanding) }}</b></p>
         <div class="space-y-2.5">
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Amount","المبلغ","Montant") }}</label><input v-model.number="pay.amount" type="number" min="0" :max="inv.outstanding" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Amount","المبلغ","Montant") }}</label><input v-model.number="pay.amount" type="number" min="0" :max="inv.outstanding" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
           <div><label class="text-[11px] font-bold text-ink-3">{{ L("Deposit to","الإيداع في","Déposer sur") }}</label>
             <div class="mt-1"><SearchSelect v-model="pay.account" :items="accountItems" :placeholder="L('Search account','ابحث عن حساب','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div></div>
           <div class="grid grid-cols-2 gap-2">
-            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Reference","المرجع","Référence") }}</label><input v-model.trim="pay.reference_no" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" :placeholder="L('e.g. COD batch','مثال: تحصيل','réf')" /></div>
-            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label><input v-model="pay.posting_date" type="date" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" /></div>
+            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Reference","المرجع","Référence") }}</label><input v-model.trim="pay.reference_no" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" :placeholder="L('e.g. COD batch','مثال: تحصيل','réf')" /></div>
+            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label><input v-model="pay.posting_date" type="date" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
           </div>
         </div>
-        <div v-if="payError" class="text-[11.5px] text-sale mt-2">{{ payError }}</div>
+        <div v-if="payError" class="text-[12px] text-sale mt-2">{{ payError }}</div>
         <div class="flex justify-end gap-2 mt-4">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="showPay = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
           <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !pay.amount || !pay.account" @click="submitPay">
@@ -124,10 +124,10 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr class="border-b border-line">
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","الكمية","Qté") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","PU") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Qty","الكمية","Qté") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","PU") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Amount","المبلغ","Montant") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -158,7 +158,7 @@
       <div class="bg-white rounded-card border border-line p-4">
         <div class="text-[13px] font-bold mb-2">{{ L("Payment","الدفع","Paiement") }}</div>
         <div class="rounded-card p-3 border" :style="paid ? 'background:#ecfdf5;border-color:#a7f3d0' : 'background:#fffbeb;border-color:#fde68a'">
-          <div class="flex items-center gap-1.5 text-[12.5px] font-semibold" :style="{ color: paid ? '#047857' : '#b45309' }">
+          <div class="flex items-center gap-1.5 text-[13px] font-semibold" :style="{ color: paid ? '#047857' : '#b45309' }">
             <Icon :name="paid ? 'check' : 'clock'" :size="15" />
             {{ paid ? L("Payment received","تم استلام الدفعة","Paiement reçu") : L("Awaiting COD collection","بانتظار تحصيل الدفع","En attente d’encaissement") }}
           </div>

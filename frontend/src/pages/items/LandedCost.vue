@@ -10,23 +10,23 @@
     <div v-else class="overflow-x-auto">
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher","السند","Bon") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customs","الجمارك","Douane") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Duties","الرسوم","Droits") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Total","الإجمالي","Total") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Basis","الأساس","Base") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher","السند","Bon") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Freight","الشحن","Fret") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customs","الجمارك","Douane") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Duties","الرسوم","Droits") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Total","الإجمالي","Total") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Basis","الأساس","Base") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="r in rows" :key="r.name" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="open(r.name)">
-            <td class="px-4 py-2.5 font-mono text-[11.5px] font-semibold">{{ r.name }}<div v-if="r.shipment && r.shipment !== '—'" class="text-[10px] text-ink-muted font-sans">{{ r.shipment }}</div></td>
+            <td class="px-4 py-2.5 font-mono text-[12px] font-semibold">{{ r.name }}<div v-if="r.shipment && r.shipment !== '—'" class="text-[11px] text-ink-muted font-sans">{{ r.shipment }}</div></td>
             <td class="px-4 py-2.5 text-end tnum">{{ r.freight ? fmt(r.freight) : "—" }}</td>
             <td class="px-4 py-2.5 text-end tnum">{{ r.customs ? fmt(r.customs) : "—" }}</td>
             <td class="px-4 py-2.5 text-end tnum">{{ r.duties ? fmt(r.duties) : "—" }}</td>
             <td class="px-4 py-2.5 text-end tnum font-bold">{{ fmt(r.total) }}</td>
             <td class="px-4 py-2.5 text-ink-3">{{ L("By","حسب","Par") }} {{ r.basis }}</td>
-            <td class="px-4 py-2.5"><span class="text-[10.5px] font-bold px-2 py-0.5 rounded-badge" :style="statusBadge(r.status)">{{ r.status }}</span></td>
+            <td class="px-4 py-2.5"><span class="text-[11px] font-bold px-2 py-0.5 rounded-badge" :style="statusBadge(r.status)">{{ r.status }}</span></td>
           </tr>
           <tr v-if="err"><td colspan="7" class="px-4 py-12 text-center text-rose-600 text-[12px]">{{ L("Couldn't load vouchers","تعذّر تحميل السندات","Échec de chargement") }} — <button @click="load" class="underline font-semibold">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button></td></tr>
           <tr v-else-if="!rows.length"><td colspan="7" class="px-4 py-12 text-center text-ink-muted text-[12px]">{{ L("No landed-cost vouchers.","لا سندات.","Aucun bon.") }}</td></tr>

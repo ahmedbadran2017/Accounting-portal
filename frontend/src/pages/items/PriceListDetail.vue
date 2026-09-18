@@ -9,13 +9,13 @@
         <span class="w-11 h-11 rounded-[12px] grid place-items-center flex-shrink-0" style="background:#faf6f4"><Icon name="scale" :size="20" color="#0b5c4f" /></span>
         <div class="flex-1 min-w-0">
           <div class="text-[16px] font-bold">{{ d.name }}</div>
-          <div class="text-[11.5px] text-ink-muted">
-            <span v-if="d.selling" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-badge me-1" style="background:#ecfdf5;color:#047857">{{ L("Selling","بيع","Vente") }}</span>
-            <span v-if="d.buying" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-badge" style="background:#eff6ff;color:#0369a1">{{ L("Buying","شراء","Achat") }}</span>
+          <div class="text-[12px] text-ink-muted">
+            <span v-if="d.selling" class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge me-1" style="background:#ecfdf5;color:#047857">{{ L("Selling","بيع","Vente") }}</span>
+            <span v-if="d.buying" class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge" style="background:#eff6ff;color:#0369a1">{{ L("Buying","شراء","Achat") }}</span>
             <span class="ms-1">{{ d.currency }}</span>
           </div>
         </div>
-        <div class="text-end"><div class="text-[22px] font-extrabold tnum">{{ (d.total || 0).toLocaleString() }}</div><div class="text-[10.5px] text-ink-muted">{{ L("items priced","صنف مُسعّر","articles") }}</div></div>
+        <div class="text-end"><div class="text-[22px] font-extrabold tnum">{{ (d.total || 0).toLocaleString() }}</div><div class="text-[11px] text-ink-muted">{{ L("items priced","صنف مُسعّر","articles") }}</div></div>
       </div>
 
       <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
@@ -23,14 +23,14 @@
           <span class="text-[12px] font-bold">{{ L("Prices","الأسعار","Prix") }}</span>
           <div class="ms-auto relative">
             <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-            <input v-model.trim="search" @input="onSearch" :placeholder="L('Search SKU / item…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+            <input v-model.trim="search" @input="onSearch" :placeholder="L('Search SKU / item…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
           </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Prix") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Prix") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="(r, i) in d.rows" :key="i" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="goItem(r.item_code)">
@@ -38,10 +38,10 @@
                   <span class="flex items-center gap-2.5">
                     <img v-if="r.image" :src="r.image" class="w-8 h-8 rounded-[7px] object-cover flex-shrink-0 border border-line-hair" />
                     <span v-else class="w-8 h-8 rounded-[7px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="13" color="#a8a29e" /></span>
-                    <span class="min-w-0"><span class="block font-medium truncate max-w-[300px]">{{ r.item_name || r.item_code }}</span><span v-if="r.sku" class="block text-[10px] text-ink-muted font-mono">{{ r.sku }}</span></span>
+                    <span class="min-w-0"><span class="block font-medium truncate max-w-[300px]">{{ r.item_name || r.item_code }}</span><span v-if="r.sku" class="block text-[11px] text-ink-muted font-mono">{{ r.sku }}</span></span>
                   </span>
                 </td>
-                <td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(r.rate) }} <span class="text-[10px] text-ink-muted">{{ d.currency }}</span></td>
+                <td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(r.rate) }} <span class="text-[11px] text-ink-muted">{{ d.currency }}</span></td>
               </tr>
               <tr v-if="!d.rows.length"><td colspan="2" class="px-4 py-10 text-center text-ink-muted">{{ L("No items.","لا أصناف.","Aucun.") }}</td></tr>
             </tbody>

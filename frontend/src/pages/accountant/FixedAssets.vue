@@ -8,8 +8,8 @@
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div v-for="m in cards" :key="m.label" class="bg-white border border-line rounded-[14px] p-4 shadow-card">
-        <div class="text-[10.5px] font-semibold text-ink-3">{{ m.label }}</div>
-        <div class="text-[19px] font-bold tnum mt-1.5">{{ m.value }}</div>
+        <div class="text-[11px] font-semibold text-ink-3">{{ m.label }}</div>
+        <div class="text-[20px] font-bold tnum mt-1.5">{{ m.value }}</div>
       </div>
     </div>
 
@@ -17,11 +17,11 @@
       <TableLoading v-if="loading" :rows="8" />
       <table v-else class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Asset","الأصل","Actif") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Category","الفئة","Catégorie") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Gross","الإجمالي","Brut") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Net book value","القيمة الدفترية","VNC") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Asset","الأصل","Actif") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Category","الفئة","Catégorie") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Gross","الإجمالي","Brut") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Net book value","القيمة الدفترية","VNC") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="(a, i) in d.rows" :key="i" class="border-t border-line-hair hover:bg-app-warm/40">
@@ -29,7 +29,7 @@
             <td class="px-4 py-2.5 text-ink-3 truncate max-w-[180px]">{{ a.category }}</td>
             <td class="px-4 py-2.5 text-end tnum">{{ money(a.gross) }}</td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">{{ money(a.nbv) }}</td>
-            <td class="px-4 py-2.5"><span class="text-[10px] font-bold px-2 py-0.5 rounded-badge" :style="statusStyle(a.status)">{{ a.status }}</span></td>
+            <td class="px-4 py-2.5"><span class="text-[11px] font-bold px-2 py-0.5 rounded-badge" :style="statusStyle(a.status)">{{ a.status }}</span></td>
           </tr>
           <tr v-if="!d.rows.length"><td colspan="5" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ L("No assets for this entity.","لا أصول لهذه الشركة.","Aucun actif.") }}</td></tr>
         </tbody>

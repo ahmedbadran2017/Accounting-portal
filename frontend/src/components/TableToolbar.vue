@@ -15,17 +15,17 @@
 
     <!-- Faceted filters (carrier / city / status …) -->
     <select v-for="f in t.facets" :key="f.key" :value="t.facetActive.value[f.key] || ''" @change="t.setFacet(f.key, $event.target.value)"
-            class="h-[30px] border rounded-chip px-2 text-[11.5px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer max-w-[140px]"
+            class="h-[30px] border rounded-chip px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer max-w-[140px]"
             :class="t.facetActive.value[f.key] ? 'border-accent/50 text-accent-dark font-semibold' : 'border-line-2 text-ink-3'">
       <option value="">{{ L("All","الكل","Tous") }} {{ f.label }}</option>
       <option v-for="opt in t.facetOptions.value[f.key]" :key="opt" :value="opt">{{ f.format ? f.format(opt) : opt }}</option>
     </select>
 
-    <button class="ms-auto inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="t.exportCSV(filename)" :title="L('Export current view to CSV','تصدير العرض الحالي CSV','Exporter en CSV')">
+    <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="t.exportCSV(filename)" :title="L('Export current view to CSV','تصدير العرض الحالي CSV','Exporter en CSV')">
       <Icon name="doc" :size="13" />{{ L("Export","تصدير","Exporter") }}
     </button>
     <div class="relative" ref="menu">
-      <button class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="open = !open">
+      <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 px-2.5 py-1.5 rounded-chip hover:bg-app-warm" @click="open = !open">
         <Icon name="layers" :size="13" />{{ L("Columns","الأعمدة","Colonnes") }}
       </button>
       <div v-if="open" class="absolute end-0 mt-1 z-20 w-52 bg-white border border-line rounded-[10px] shadow-cardHover p-1.5 max-h-64 overflow-y-auto">
@@ -36,9 +36,9 @@
       </div>
     </div>
 
-    <div class="inline-flex items-center gap-1.5 text-[11.5px] text-ink-3">
+    <div class="inline-flex items-center gap-1.5 text-[12px] text-ink-3">
       <span class="hidden sm:inline">{{ L("Rows","صفوف","Lignes") }}</span>
-      <select v-model.number="t.pageSize.value" class="h-[30px] border border-line-2 rounded-chip px-2 text-[11.5px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer">
+      <select v-model.number="t.pageSize.value" class="h-[30px] border border-line-2 rounded-chip px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer">
         <option v-for="n in [20, 50, 100, 500]" :key="n" :value="n">{{ n }}</option>
       </select>
     </div>

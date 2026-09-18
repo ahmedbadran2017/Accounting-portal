@@ -15,14 +15,14 @@
         <div v-for="f in cfg.fields" :key="f.key">
           <label class="block text-[12px] font-medium text-ink-2 mb-1">{{ f.label }}</label>
           <input v-model="form[f.key]" :type="f.type || 'text'" :required="f.req" :placeholder="f.ph || ''"
-                 class="w-full rounded-chip border border-line-2 bg-app-warm px-3 py-2 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+                 class="w-full rounded-chip border border-line-2 bg-app-warm px-3 py-2 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
 
         <div class="flex items-center gap-2 pt-1">
           <button type="submit" class="flex-1 inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark py-2.5 rounded-chip shadow-brand">
             <Icon name="check" :size="15" />{{ cfg.cta }}
           </button>
-          <button type="button" class="text-[12.5px] font-medium text-ink-3 px-3 py-2.5 hover:text-ink" @click="$emit('close')">{{ L('Cancel','إلغاء','Annuler') }}</button>
+          <button type="button" class="text-[13px] font-medium text-ink-3 px-3 py-2.5 hover:text-ink" @click="$emit('close')">{{ L('Cancel','إلغاء','Annuler') }}</button>
         </div>
       </form>
     </div>

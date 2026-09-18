@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3.5">
     <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
+      <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-chip"
             :class="live ? 'text-success-dark bg-success-soft' : 'text-amber-700 bg-amber-50'">
         <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}
       </span>
@@ -19,23 +19,23 @@
         </div>
         <div class="text-end">
           <div class="text-[22px] font-extrabold tnum" :style="{ color: nextDue.net >= 0 ? '#be123c' : '#047857' }">{{ money0(Math.abs(nextDue.net)) }}<span class="text-[11px] text-ink-muted ms-1">MAD</span></div>
-          <div class="text-[10.5px] text-ink-muted">{{ nextDue.net >= 0 ? L("net payable","صافي مستحق","net à payer") : L("credit","رصيد دائن","crédit") }}</div>
+          <div class="text-[11px] text-ink-muted">{{ nextDue.net >= 0 ? L("net payable","صافي مستحق","net à payer") : L("credit","رصيد دائن","crédit") }}</div>
         </div>
       </div>
     </div>
 
     <!-- Monthly tracker -->
     <div class="bg-white rounded-card border border-line overflow-hidden shadow-card">
-      <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="clock" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Declaration tracker","متتبّع التصاريح","Suivi des déclarations") }}</span><span class="text-[10px] text-ink-muted">{{ periods.length }} {{ L("months","شهر","mois") }}</span></div>
+      <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="clock" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Declaration tracker","متتبّع التصاريح","Suivi des déclarations") }}</span><span class="text-[11px] text-ink-muted">{{ periods.length }} {{ L("months","شهر","mois") }}</span></div>
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Period","الفترة","Période") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Output","المخرجات","Collectée") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Input","المدخلات","Déductible") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Net payable","الصافي المستحق","Net à payer") }}</th>
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Deadline","الموعد","Échéance") }}</th>
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Period","الفترة","Période") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Output","المخرجات","Collectée") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Input","المدخلات","Déductible") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Net payable","الصافي المستحق","Net à payer") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Deadline","الموعد","Échéance") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Status","الحالة","Statut") }}</th>
           </tr></thead>
           <tbody>
             <tr v-for="p in periods" :key="p.month" class="border-t border-line-hair hover:bg-app-warm/60">
@@ -44,7 +44,7 @@
               <td class="px-4 py-2.5 text-end tnum text-ink-3">{{ money0(p.input) }}</td>
               <td class="px-4 py-2.5 text-end tnum font-bold" :class="p.net >= 0 ? '' : 'text-success-dark'">{{ money0(Math.abs(p.net)) }}{{ p.net < 0 ? " CR" : "" }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ p.deadline }}</td>
-              <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" :style="{ background: stat(p).bg, color: stat(p).c }"><span class="w-1.5 h-1.5 rounded-full" :style="{ background: stat(p).c }"></span>{{ stat(p).label }}</span></td>
+              <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full" :style="{ background: stat(p).bg, color: stat(p).c }"><span class="w-1.5 h-1.5 rounded-full" :style="{ background: stat(p).c }"></span>{{ stat(p).label }}</span></td>
             </tr>
             <tr v-if="!periods.length"><td colspan="6" class="px-4 py-8 text-center text-ink-muted text-[12px]">{{ L("No VAT activity.","لا نشاط ضريبي.","Aucune activité TVA.") }}</td></tr>
           </tbody>

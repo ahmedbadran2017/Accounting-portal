@@ -13,27 +13,27 @@
         <div class="flex items-start gap-3 flex-wrap">
           <span class="w-11 h-11 rounded-[12px] grid place-items-center flex-shrink-0" :style="{ background: h.type === 'Cash' ? '#fffbeb' : '#eff6ff' }"><Icon :name="h.type === 'Cash' ? 'coins' : 'bank'" :size="20" :color="h.type === 'Cash' ? '#b45309' : '#0369a1'" /></span>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 flex-wrap"><span class="text-[16px] font-bold">{{ h.name }}</span><span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="h.type === 'Cash' ? 'background:#fffbeb;color:#b45309' : 'background:#eff6ff;color:#0369a1'">{{ h.type }}</span></div>
+            <div class="flex items-center gap-2 flex-wrap"><span class="text-[16px] font-bold">{{ h.name }}</span><span class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="h.type === 'Cash' ? 'background:#fffbeb;color:#b45309' : 'background:#eff6ff;color:#0369a1'">{{ h.type }}</span></div>
             <div class="text-[11px] text-ink-muted mt-0.5 font-mono">{{ h.account }}</div>
           </div>
           <div class="text-end">
-            <div class="text-[10.5px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Balance", "الرصيد", "Solde") }}</div>
+            <div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Balance", "الرصيد", "Solde") }}</div>
             <div class="text-[26px] font-extrabold tnum" :class="h.balance < 0 ? 'text-sale' : ''">{{ fmt(h.balance) }}<span class="text-[12px] text-ink-muted ms-1">{{ h.currency }}</span></div>
-            <div v-if="h.is_fx" class="text-[10.5px] text-ink-muted tnum">≈ {{ fmt(h.base_balance) }} {{ h.base_currency }} {{ L("in the books","في الدفاتر","comptable") }}</div>
+            <div v-if="h.is_fx" class="text-[11px] text-ink-muted tnum">≈ {{ fmt(h.base_balance) }} {{ h.base_currency }} {{ L("in the books","في الدفاتر","comptable") }}</div>
           </div>
         </div>
         <!-- Fiscal-year view: opening (carried forward) → in/out → closing -->
         <div v-if="h.opening != null" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-3 border-t border-line-hair">
-          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Opening", "افتتاحي", "Ouverture") }}</div><div class="text-[14px] font-bold tnum mt-0.5" :class="h.opening < 0 ? 'text-sale' : ''">{{ fmt(h.opening) }}</div></div>
-          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("In", "وارد", "Entrées") }}</div><div class="text-[14px] font-bold tnum text-success-dark mt-0.5">+{{ money(h.inflow) }}</div></div>
-          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Out", "صادر", "Sorties") }}</div><div class="text-[14px] font-bold tnum text-sale mt-0.5">−{{ money(h.outflow) }}</div></div>
-          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Closing", "ختامي", "Clôture") }}</div><div class="text-[14px] font-extrabold tnum mt-0.5" :class="h.closing < 0 ? 'text-sale' : 'text-accent-dark'">{{ fmt(h.closing) }}</div></div>
-          <button @click="goRec" class="text-start"><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Unreconciled", "غير مُسوّى", "Non rappr.") }}</div><div class="text-[14px] font-bold tnum mt-0.5" :class="h.uncleared_n ? 'text-brand' : 'text-ink-muted'">{{ h.uncleared_n }} <Icon v-if="h.uncleared_n" name="arrow" :size="11" color="#c2562f" class="inline rtl:rotate-180" /></div></button>
+          <div><div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Opening", "افتتاحي", "Ouverture") }}</div><div class="text-[14px] font-bold tnum mt-0.5" :class="h.opening < 0 ? 'text-sale' : ''">{{ fmt(h.opening) }}</div></div>
+          <div><div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("In", "وارد", "Entrées") }}</div><div class="text-[14px] font-bold tnum text-success-dark mt-0.5">+{{ money(h.inflow) }}</div></div>
+          <div><div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Out", "صادر", "Sorties") }}</div><div class="text-[14px] font-bold tnum text-sale mt-0.5">−{{ money(h.outflow) }}</div></div>
+          <div><div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Closing", "ختامي", "Clôture") }}</div><div class="text-[14px] font-extrabold tnum mt-0.5" :class="h.closing < 0 ? 'text-sale' : 'text-accent-dark'">{{ fmt(h.closing) }}</div></div>
+          <button @click="goRec" class="text-start"><div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Unreconciled", "غير مُسوّى", "Non rappr.") }}</div><div class="text-[14px] font-bold tnum mt-0.5" :class="h.uncleared_n ? 'text-brand' : 'text-ink-muted'">{{ h.uncleared_n }} <Icon v-if="h.uncleared_n" name="arrow" :size="11" color="#c2562f" class="inline rtl:rotate-180" /></div></button>
         </div>
         <div v-else class="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-line-hair">
-          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("In (30d)", "وارد (30ي)", "Entrées 30j") }}</div><div class="text-[15px] font-bold tnum text-success-dark mt-0.5">+{{ money(h.inflow) }}</div></div>
-          <div><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Out (30d)", "صادر (30ي)", "Sorties 30j") }}</div><div class="text-[15px] font-bold tnum text-sale mt-0.5">−{{ money(h.outflow) }}</div></div>
-          <button @click="goRec" class="text-start"><div class="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Unreconciled", "غير مُسوّى", "Non rappr.") }}</div><div class="text-[15px] font-bold tnum mt-0.5" :class="h.uncleared_n ? 'text-brand' : 'text-ink-muted'">{{ h.uncleared_n }} <Icon v-if="h.uncleared_n" name="arrow" :size="11" color="#c2562f" class="inline rtl:rotate-180" /></div></button>
+          <div><div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("In (30d)", "وارد (30ي)", "Entrées 30j") }}</div><div class="text-[16px] font-bold tnum text-success-dark mt-0.5">+{{ money(h.inflow) }}</div></div>
+          <div><div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Out (30d)", "صادر (30ي)", "Sorties 30j") }}</div><div class="text-[16px] font-bold tnum text-sale mt-0.5">−{{ money(h.outflow) }}</div></div>
+          <button @click="goRec" class="text-start"><div class="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">{{ L("Unreconciled", "غير مُسوّى", "Non rappr.") }}</div><div class="text-[16px] font-bold tnum mt-0.5" :class="h.uncleared_n ? 'text-brand' : 'text-ink-muted'">{{ h.uncleared_n }} <Icon v-if="h.uncleared_n" name="arrow" :size="11" color="#c2562f" class="inline rtl:rotate-180" /></div></button>
         </div>
       </div>
 
@@ -50,20 +50,20 @@
 
       <!-- Ledger -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="ledger" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Ledger", "الحركات", "Grand livre") }}</span><span class="text-[10px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }}</span></div>
+        <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="ledger" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Ledger", "الحركات", "Grand livre") }}</span><span class="text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }}</span></div>
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date", "التاريخ", "Date") }}</th>
-              <th class="px-4 py-2 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher", "المستند", "Pièce") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("In", "وارد", "Entrée") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Out", "صادر", "Sortie") }}</th>
-              <th class="px-4 py-2 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance", "الرصيد", "Solde") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date", "التاريخ", "Date") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher", "المستند", "Pièce") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("In", "وارد", "Entrée") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Out", "صادر", "Sortie") }}</th>
+              <th class="px-4 py-2 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance", "الرصيد", "Solde") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="(e, i) in st.rows.value" :key="i" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="openVoucher(e)">
                 <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ e.date }}</td>
-                <td class="px-4 py-2.5"><div class="font-mono font-semibold">{{ e.voucher }}</div><div class="text-[10px] text-ink-muted">{{ e.type }}</div></td>
+                <td class="px-4 py-2.5"><div class="font-mono font-semibold">{{ e.voucher }}</div><div class="text-[11px] text-ink-muted">{{ e.type }}</div></td>
                 <td class="px-4 py-2.5 text-end tnum text-success-dark">{{ e.debit ? fmt(e.debit) : "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum text-sale">{{ e.credit ? fmt(e.credit) : "—" }}</td>
                 <td class="px-4 py-2.5 text-end tnum font-semibold" :class="e.balance < 0 ? 'text-sale' : ''">{{ fmt(e.balance) }}</td>

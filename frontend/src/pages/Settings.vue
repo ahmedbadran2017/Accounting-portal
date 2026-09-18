@@ -17,12 +17,12 @@
 
     <!-- Taxes -->
     <div v-else-if="activeSub === 'taxconf'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Taxes","الضرائب","Taxes") }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span></div>
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Taxes","الضرائب","Taxes") }}</span><span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span></div>
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Tax template","قالب الضريبة","Modèle") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","النسبة","Taux") }}</th>
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Company","الشركة","Société") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Tax template","قالب الضريبة","Modèle") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","النسبة","Taux") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Company","الشركة","Société") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="x in taxRows" :key="x.name" class="border-t border-line-hair">
@@ -37,12 +37,12 @@
 
     <!-- Currencies -->
     <div v-else-if="activeSub === 'currencies'" class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
-      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Currency exchange rates","أسعار صرف العملات","Taux de change") }}</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span></div>
+      <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2"><span class="text-[13px] font-bold">{{ L("Currency exchange rates","أسعار صرف العملات","Taux de change") }}</span><span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" :style="refLive ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ refLive ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}</span></div>
       <table class="w-full text-[12px]">
         <thead><tr style="background:#fafaf9">
-          <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Pair","الزوج","Paire") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Taux") }}</th>
-          <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("As of","حتى","Au") }}</th>
+          <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Pair","الزوج","Paire") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Rate","السعر","Taux") }}</th>
+          <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("As of","حتى","Au") }}</th>
         </tr></thead>
         <tbody>
           <tr v-for="(c, i) in fxRows" :key="i" class="border-t border-line-hair">
@@ -67,7 +67,7 @@
         <input v-model.trim="nf.too" :placeholder="L('To','إلى','Vers')" class="w-16 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] uppercase" maxlength="3" />
         <input v-model.number="nf.rate" type="number" step="any" :placeholder="L('Rate','السعر','Taux')" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end" />
         <input v-model="nf.date" type="date" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px]" />
-        <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="fxBusy || !nf.frm || !nf.too || !nf.rate" @click="addRate">{{ L("Add / update","إضافة/تحديث","Ajouter") }}</button>
+        <button class="h-8 px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="fxBusy || !nf.frm || !nf.too || !nf.rate" @click="addRate">{{ L("Add / update","إضافة/تحديث","Ajouter") }}</button>
       </div>
     </div>
 

@@ -8,7 +8,7 @@
 
     <!-- 7-day liquidity check -->
     <div class="rounded-card p-5 text-white" :style="d.liquidity_7d_ok ? 'background:linear-gradient(115deg,#064e3b,#047857 60%,#059669)' : 'background:linear-gradient(115deg,#7f1d1d,#b91c1c 60%,#dc2626)'">
-      <div class="flex items-center gap-2 mb-1.5"><Icon :name="d.liquidity_7d_ok ? 'check' : 'alert'" :size="16" color="#fff" /><span class="text-[12.5px] font-bold">{{ L("7-day liquidity","سيولة 7 أيام","Liquidité 7 j") }}</span></div>
+      <div class="flex items-center gap-2 mb-1.5"><Icon :name="d.liquidity_7d_ok ? 'check' : 'alert'" :size="16" color="#fff" /><span class="text-[13px] font-bold">{{ L("7-day liquidity","سيولة 7 أيام","Liquidité 7 j") }}</span></div>
       <div class="text-[26px] font-extrabold tnum">{{ money(d.proj_7d) }} <span class="text-[13px] font-normal opacity-80">{{ d.currency }}</span></div>
       <p class="text-[12px] mt-1 opacity-90">{{ d.liquidity_7d_ok ? L("Cash covers the next 7 days of cheques and near-term bills.","النقد يغطّي الشيكات والفواتير القريبة.","La trésorerie couvre les 7 prochains jours.") : L("Projected short within 7 days — cheques and bills due exceed cash on hand and expected COD.","عجز متوقّع خلال 7 أيام — المستحقات تتجاوز النقد والتحصيل المتوقّع.","Déficit projeté sous 7 jours.") }}</p>
     </div>
@@ -16,18 +16,18 @@
     <!-- Components -->
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
       <div v-for="c in comps" :key="c.label" class="bg-white rounded-[13px] border px-4 py-3 shadow-card" :style="{ borderColor: c.bd || '#f0efed' }">
-        <div class="flex items-center gap-1.5"><Icon :name="c.icon" :size="13" :color="c.ic" /><span class="text-[10.5px] text-ink-muted font-semibold uppercase tracking-wide">{{ c.label }}</span></div>
-        <div class="text-[19px] font-bold tnum mt-1" :style="c.color ? { color: c.color } : {}">{{ c.sign }}{{ money(c.value) }}</div>
-        <div class="text-[10px] text-ink-muted mt-0.5">{{ c.sub }}</div>
+        <div class="flex items-center gap-1.5"><Icon :name="c.icon" :size="13" :color="c.ic" /><span class="text-[11px] text-ink-muted font-semibold uppercase tracking-wide">{{ c.label }}</span></div>
+        <div class="text-[20px] font-bold tnum mt-1" :style="c.color ? { color: c.color } : {}">{{ c.sign }}{{ money(c.value) }}</div>
+        <div class="text-[11px] text-ink-muted mt-0.5">{{ c.sub }}</div>
       </div>
     </div>
 
     <!-- Waterfall -->
     <div class="bg-white rounded-card border border-line p-5 shadow-card">
-      <div class="text-[12.5px] font-bold mb-3">{{ L("30-day projection","توقّع 30 يوم","Projection 30 j") }}</div>
+      <div class="text-[13px] font-bold mb-3">{{ L("30-day projection","توقّع 30 يوم","Projection 30 j") }}</div>
       <div class="space-y-2.5">
         <div v-for="w in waterfall" :key="w.label" class="flex items-center gap-3">
-          <span class="text-[11.5px] w-32 flex-shrink-0" :class="w.bold ? 'font-bold' : 'text-ink-3'">{{ w.label }}</span>
+          <span class="text-[12px] w-32 flex-shrink-0" :class="w.bold ? 'font-bold' : 'text-ink-3'">{{ w.label }}</span>
           <div class="flex-1 h-6 bg-app-warm/40 rounded-[6px] relative overflow-hidden">
             <div class="h-full rounded-[6px]" :style="{ width: w.pct + '%', background: w.color, marginInlineStart: w.offset + '%' }"></div>
           </div>
@@ -35,12 +35,12 @@
         </div>
       </div>
       <div class="flex items-center justify-between mt-4 pt-3 border-t border-line-hair">
-        <span class="text-[12.5px] font-bold">{{ L("Projected cash in 30 days","النقد المتوقّع خلال 30 يوم","Trésorerie projetée à 30 j") }}</span>
+        <span class="text-[13px] font-bold">{{ L("Projected cash in 30 days","النقد المتوقّع خلال 30 يوم","Trésorerie projetée à 30 j") }}</span>
         <span class="text-[20px] font-extrabold tnum" :class="d.proj_30d < 0 ? 'text-sale' : 'text-success-dark'">{{ money(d.proj_30d) }} <span class="text-[11px] text-ink-muted font-normal">{{ d.currency }}</span></span>
       </div>
     </div>
 
-    <p class="text-[10.5px] text-ink-muted">{{ L("Carrier float is delivered COD still with the carrier (expected to land). 7-day view assumes ~40% of float collects and half of bills fall due. Modeled timing — actuals vary.","رصيد الناقل هو COD المسلَّم لدى الناقل (متوقّع وصوله). توقيت تقديري.","Le flottant transporteur = COD livré chez le transporteur. Calendrier estimé.") }}</p>
+    <p class="text-[11px] text-ink-muted">{{ L("Carrier float is delivered COD still with the carrier (expected to land). 7-day view assumes ~40% of float collects and half of bills fall due. Modeled timing — actuals vary.","رصيد الناقل هو COD المسلَّم لدى الناقل (متوقّع وصوله). توقيت تقديري.","Le flottant transporteur = COD livré chez le transporteur. Calendrier estimé.") }}</p>
   </div>
 </template>
 

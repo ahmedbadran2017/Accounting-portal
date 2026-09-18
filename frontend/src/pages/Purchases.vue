@@ -3,9 +3,7 @@
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div v-if="newLabel" class="flex items-center gap-2 ms-auto">
-          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="onNew">
-            <Icon name="plus" :size="14" />{{ newLabel }}
-          </button>
+          <UiButton variant="create" icon="plus" @click="onNew">{{ newLabel }}</UiButton>
         </div>
       </template>
     </PageHeader>
@@ -41,6 +39,7 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
 import PurchaseOrderForm from "@/components/PurchaseOrderForm.vue";

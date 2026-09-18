@@ -41,8 +41,8 @@
                 <span v-else class="w-10 h-10 rounded-[7px] grid place-items-center bg-app-warm border border-line flex-shrink-0"><Icon name="box" :size="14" color="#a8a29e" /></span>
                 <span class="flex-1 min-w-0">
                   <span class="font-medium truncate block">{{ it.item_name || it.item_code }}</span>
-                  <span class="text-[10px] text-ink-muted font-mono">{{ it.item_code }}</span><span v-if="it.sku" class="text-[10px] text-ink-muted"> · {{ it.sku }}</span>
-                  <span v-if="it.variant_of_name" class="text-[10px] text-ink-muted block truncate">{{ L("variant of", "نوع من", "variante de") }} {{ it.variant_of_name }}</span>
+                  <span class="text-[11px] text-ink-muted font-mono">{{ it.item_code }}</span><span v-if="it.sku" class="text-[11px] text-ink-muted"> · {{ it.sku }}</span>
+                  <span v-if="it.variant_of_name" class="text-[11px] text-ink-muted block truncate">{{ L("variant of", "نوع من", "variante de") }} {{ it.variant_of_name }}</span>
                 </span>
                 <span class="text-[11px] tnum text-ink-3">{{ it.rate ? fmt(it.rate) : "" }}</span>
               </button>
@@ -57,7 +57,7 @@
                     <img v-if="ln.image" :src="ln.image" class="w-9 h-9 rounded-[7px] object-cover border border-line flex-shrink-0" loading="lazy" @error="$event.target.style.display='none'" />
                     <div class="min-w-0">
                       <div class="font-medium truncate max-w-[230px]">{{ ln.item_name }}</div>
-                      <div class="text-[10px] text-ink-muted font-mono">{{ ln.item_code }}</div>
+                      <div class="text-[11px] text-ink-muted font-mono">{{ ln.item_code }}</div>
                     </div>
                   </div>
                 </td>
@@ -66,7 +66,7 @@
                 <td class="px-3 py-2 text-end tnum font-semibold w-24">{{ fmt(ln.qty * ln.rate) }}</td>
                 <td class="px-2 text-center w-8"><button class="text-ink-muted hover:text-sale" @click="lines.splice(i, 1)"><Icon name="close" :size="13" /></button></td>
               </tr>
-              <tr v-if="!lines.length"><td colspan="5" class="px-3 py-4 text-center text-[11.5px] text-ink-muted">{{ L("No items yet — search above to add.", "لا أصناف بعد — ابحث للإضافة.", "Aucun article.") }}</td></tr>
+              <tr v-if="!lines.length"><td colspan="5" class="px-3 py-4 text-center text-[12px] text-ink-muted">{{ L("No items yet — search above to add.", "لا أصناف بعد — ابحث للإضافة.", "Aucun article.") }}</td></tr>
             </tbody>
           </table>
           </div>
@@ -89,14 +89,14 @@
           <span class="text-ink-3">{{ L("Total", "الإجمالي", "Total") }} <b class="tnum text-ink text-[14px]">{{ fmt(gross) }}</b> MAD</span>
         </div>
         <div v-if="gross >= 10000" class="text-[11px] text-amber-700 inline-flex items-center gap-1"><Icon name="shield" :size="12" />{{ L("≥ 10,000 — recorded as proposed, needs an approver", "≥ 10,000 — يُسجَّل كمقترح ويحتاج موافِق", "≥ 10 000 — proposé") }}</div>
-        <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+        <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
       </div>
 
       <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
-        <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-        <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canPost || posting" @click="post">
+        <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+        <UiButton variant="primary" :disabled="!canPost || posting" @click="post">
           {{ posting ? L("Creating…", "جارٍ…", "…") : L("Create order", "إنشاء الطلب", "Créer") }}
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>
@@ -106,6 +106,7 @@
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";

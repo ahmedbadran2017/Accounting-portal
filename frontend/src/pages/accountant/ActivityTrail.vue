@@ -5,11 +5,11 @@
       <div class="flex items-center gap-2 flex-wrap mb-3">
         <Icon name="clock" :size="14" color="#0b5c4f" />
         <span class="text-[12px] font-bold">{{ L("Working rhythm","إيقاع العمل","Rythme de travail") }}</span>
-        <span v-if="a.tz" class="inline-flex items-center gap-1 text-[10px] font-semibold rounded-chip px-2 py-0.5 bg-app-warm text-ink-2" :title="tzTitle">
+        <span v-if="a.tz" class="inline-flex items-center gap-1 text-[11px] font-semibold rounded-chip px-2 py-0.5 bg-app-warm text-ink-2" :title="tzTitle">
           <Icon name="clock" :size="10" color="#78716c" />{{ shortTz(a.tz.local) }}
           <span v-if="a.tz.shifted" class="text-accent-dark">{{ a.tz.label }}</span>
         </span>
-        <span v-if="loading" class="text-[10.5px] text-ink-muted">{{ L("loading…","جارٍ التحميل…","chargement…") }}</span>
+        <span v-if="loading" class="text-[11px] text-ink-muted">{{ L("loading…","جارٍ التحميل…","chargement…") }}</span>
       </div>
 
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -47,7 +47,7 @@
           <!-- hour ruler — same 74px label gutter and 34px total column as the
                rows below, so the columns line up -->
           <div class="flex items-end gap-px ps-[74px] mb-1">
-            <div v-for="h in 24" :key="'r'+h" class="flex-1 text-center text-[8.5px] text-ink-muted tnum">
+            <div v-for="h in 24" :key="'r'+h" class="flex-1 text-center text-[11px] text-ink-muted tnum">
               <span v-if="(h-1)%3===0">{{ String(h-1).padStart(2,'0') }}</span>
             </div>
             <div class="w-[34px] shrink-0"></div>
@@ -58,13 +58,13 @@
                class="flex items-center gap-px mb-px group"
                :class="row.clickable ? 'cursor-pointer' : ''"
                @click="row.clickable && pick(row.key)">
-            <div class="w-[74px] shrink-0 pe-2 text-[10px] tnum truncate"
+            <div class="w-[74px] shrink-0 pe-2 text-[11px] tnum truncate"
                  :class="picked===row.key ? 'font-bold text-accent-dark' : 'text-ink-muted group-hover:text-ink-2'">{{ row.label }}</div>
             <div v-for="(n,h) in row.h" :key="h"
                  class="flex-1 h-[17px] rounded-[2px]"
                  :style="cell(n)"
                  :title="`${row.label} · ${String(h).padStart(2,'0')}:00 — ${n} ${n===1?'action':'actions'}`"></div>
-            <div class="w-[34px] shrink-0 ps-1.5 text-[10px] tnum text-end"
+            <div class="w-[34px] shrink-0 ps-1.5 text-[11px] tnum text-end"
                  :class="picked===row.key ? 'font-bold text-accent-dark' : 'text-ink-3'">{{ row.total || '' }}</div>
           </div>
 
@@ -77,8 +77,8 @@
             <div class="w-[34px] shrink-0"></div>
           </div>
           <div class="flex items-center gap-2 ps-[74px] mt-1.5">
-            <span class="text-[9.5px] text-ink-muted">{{ L("total by hour of day","الإجمالي حسب ساعة اليوم","total par heure") }}</span>
-            <span class="ms-auto inline-flex items-center gap-1 text-[9.5px] text-ink-muted">
+            <span class="text-[11px] text-ink-muted">{{ L("total by hour of day","الإجمالي حسب ساعة اليوم","total par heure") }}</span>
+            <span class="ms-auto inline-flex items-center gap-1 text-[11px] text-ink-muted">
               {{ L("less","أقل","moins") }}
               <span v-for="s in 6" :key="s" class="w-3 h-3 rounded-[2px]" :style="swatch(s-1)"></span>
               {{ L("more","أكثر","plus") }}
@@ -93,16 +93,16 @@
       <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
         <Icon name="list" :size="14" color="#0b5c4f" />
         <span class="text-[12px] font-bold">{{ L("Action trail","سجل الحركات","Journal d'activité") }}</span>
-        <span class="text-[10.5px] text-ink-muted">{{ feed.length.toLocaleString() }}<span v-if="a.truncated"> / {{ (st.actions||0).toLocaleString() }}</span></span>
-        <button v-if="picked" type="button" class="inline-flex items-center gap-1 h-6 px-2 rounded-chip bg-app-warm text-[10.5px] font-semibold text-ink-2 hover:bg-line" @click="picked=null">
+        <span class="text-[11px] text-ink-muted">{{ feed.length.toLocaleString() }}<span v-if="a.truncated"> / {{ (st.actions||0).toLocaleString() }}</span></span>
+        <button v-if="picked" type="button" class="inline-flex items-center gap-1 h-6 px-2 rounded-chip bg-app-warm text-[11px] font-semibold text-ink-2 hover:bg-line" @click="picked=null">
           {{ pickedLabel }} <span class="text-ink-muted">×</span>
         </button>
-        <span v-if="shortfall" class="text-[10.5px] text-amber-700">
+        <span v-if="shortfall" class="text-[11px] text-amber-700">
           {{ L("showing","معروض","affiché") }} {{ feed.length }} {{ L("of","من","de") }} {{ shortfall }} — {{ L("narrow the date range for the rest","ضيّق الفترة لرؤية الباقي","affinez la période pour le reste") }}
         </span>
         <div class="ms-auto flex items-center gap-1.5">
           <button v-for="k in kindChips" :key="k.k" type="button"
-                  class="h-7 px-2 rounded-chip text-[10.5px] font-semibold border transition"
+                  class="h-7 px-2 rounded-chip text-[11px] font-semibold border transition"
                   :class="kindF===k.k ? 'bg-ink text-white border-ink' : 'bg-white border-line-2 text-ink-2 hover:bg-app-warm'"
                   @click="kindF = kindF===k.k ? null : k.k">{{ k.label() }} <span class="tnum opacity-70">{{ st[k.k] ?? '' }}</span></button>
         </div>
@@ -113,9 +113,9 @@
           <tr v-for="(e,i) in feed" :key="i" class="border-t border-line-hair first:border-t-0 hover:bg-app-warm/40"
               :class="canOpen(e) ? 'cursor-pointer group' : ''" @click="openDoc(e)">
             <td class="px-4 py-2 w-px whitespace-nowrap tnum text-ink-3">{{ e.at.slice(11,16) }}</td>
-            <td class="px-1 py-2 w-px text-[9.5px] text-ink-muted tnum hidden sm:table-cell">{{ sameDay ? '' : e.at.slice(5,10) }}</td>
-            <td class="px-2 py-2 w-px"><span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap" :class="kindClass(e.kind)">{{ kindLabel(e.kind) }}</span></td>
-            <td class="px-2 py-2 w-px"><span class="text-[10px] font-bold rounded px-1.5 py-0.5 tnum" :style="`background:${tint(e.code)};color:${ink(e.code)}`">{{ e.code }}</span></td>
+            <td class="px-1 py-2 w-px text-[11px] text-ink-muted tnum hidden sm:table-cell">{{ sameDay ? '' : e.at.slice(5,10) }}</td>
+            <td class="px-2 py-2 w-px"><span class="text-[11px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap" :class="kindClass(e.kind)">{{ kindLabel(e.kind) }}</span></td>
+            <td class="px-2 py-2 w-px"><span class="text-[11px] font-bold rounded px-1.5 py-0.5 tnum" :style="`background:${tint(e.code)};color:${ink(e.code)}`">{{ e.code }}</span></td>
             <td class="px-2 py-2 font-mono text-[11px] whitespace-nowrap group-hover:text-accent-dark">{{ e.name }}</td>
             <td class="px-3 py-2 text-[11px] text-ink-muted truncate max-w-0 w-full" :title="e.note">{{ e.note }}</td>
             <td class="px-4 py-2 text-end tnum text-ink-2 whitespace-nowrap">{{ e.amount ? money(e.amount) : '' }}</td>
@@ -142,12 +142,12 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const money = (n) => fmtAmount(n);
 
 const Stat = (p) => h("div", { class: "rounded-card border border-line-hair bg-app-warm/40 px-3 py-2" }, [
-  h("div", { class: "text-[9.5px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
+  h("div", { class: "text-[11px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
   // `ltr` wraps the value in a bidi isolate: a range like 10:05–18:19 is otherwise
   // reordered to 18:19–10:05 when the page is Arabic.
   h("div", { class: "text-[16px] font-extrabold mt-0.5 tnum", style: `color:${p.color}` },
     p.ltr ? [h("bdi", { dir: "ltr" }, p.value)] : p.value),
-  h("div", { class: "text-[10px] text-ink-muted mt-0.5 truncate", title: p.sub }, p.sub),
+  h("div", { class: "text-[11px] text-ink-muted mt-0.5 truncate", title: p.sub }, p.sub),
 ]);
 Stat.props = ["label", "value", "sub", "color", "ltr"];
 

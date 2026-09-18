@@ -7,7 +7,7 @@
         <input ref="box" v-model="q" :placeholder="L('Jump to… orders, journals, COD remittance','اذهب إلى… طلبات، قيود، تحصيل','Aller à… commandes, écritures…')"
                class="flex-1 py-3 text-[13px] bg-transparent focus:outline-none"
                @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter.prevent="choose(items[active])" @keydown.esc="$emit('close')" />
-        <kbd class="text-[10px] text-ink-muted border border-line-2 rounded px-1.5 py-0.5">esc</kbd>
+        <kbd class="text-[11px] text-ink-muted border border-line-2 rounded px-1.5 py-0.5">esc</kbd>
       </div>
       <div ref="list" class="max-h-[52vh] overflow-y-auto p-2">
         <button v-for="(it, i) in items" :key="it.key"
@@ -18,8 +18,8 @@
             <Icon :name="it.icon" :size="15" :color="it.create ? '#0b5c4f' : '#78716c'" />
           </span>
           <span class="flex-1 min-w-0">
-            <span class="block text-[12.5px] font-medium truncate">{{ it.label }}</span>
-            <span v-if="it.sub" class="block text-[10.5px] text-ink-muted truncate">{{ it.sub }}</span>
+            <span class="block text-[13px] font-medium truncate">{{ it.label }}</span>
+            <span v-if="it.sub" class="block text-[11px] text-ink-muted truncate">{{ it.sub }}</span>
           </span>
           <Icon name="arrow" :size="14" color="#cfc9c4" class="rtl:rotate-180" />
         </button>

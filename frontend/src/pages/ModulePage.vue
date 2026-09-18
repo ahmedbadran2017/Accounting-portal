@@ -3,8 +3,8 @@
     <!-- Title + toolbar -->
     <div class="flex flex-wrap items-center gap-3">
       <div class="min-w-0">
-        <h2 class="text-[17px] font-bold tracking-tight">{{ title }}</h2>
-        <div class="text-[11.5px] text-ink-muted">{{ entityName }}</div>
+        <h2 class="text-[18px] font-bold tracking-tight">{{ title }}</h2>
+        <div class="text-[12px] text-ink-muted">{{ entityName }}</div>
       </div>
       <div class="flex items-center gap-2 ms-auto">
         <div class="relative hidden sm:block">

@@ -7,13 +7,13 @@
       <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("records", "سجل", "enreg.") }}</span>
       <div class="relative ms-auto">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-        <input v-model.trim="st.search.value" :placeholder="L('Payment / vendor / ref…', 'دفعة / مورّد / مرجع…', 'Paiement / fournisseur…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+        <input v-model.trim="st.search.value" :placeholder="L('Payment / vendor / ref…', 'دفعة / مورّد / مرجع…', 'Paiement / fournisseur…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
       </div>
     </div>
 
     <div v-if="adv.count" class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair flex-wrap" style="background:#fffbeb66">
       <span class="w-1.5 h-1.5 rounded-full bg-brand"></span>
-      <span class="text-[11.5px] text-ink-2"><b>{{ adv.count }}</b> {{ L("advances", "دفعة مقدّمة", "avances") }} · <b class="text-sale tnum">{{ fmt(adv.total) }} MAD</b> {{ L("paid but not matched to any bill", "مدفوعة بلا مطابقة لفواتير", "non affecté à une facture") }}</span>
+      <span class="text-[12px] text-ink-2"><b>{{ adv.count }}</b> {{ L("advances", "دفعة مقدّمة", "avances") }} · <b class="text-sale tnum">{{ fmt(adv.total) }} MAD</b> {{ L("paid but not matched to any bill", "مدفوعة بلا مطابقة لفواتير", "non affecté à une facture") }}</span>
       <button @click="toggleAdvances" class="ms-auto text-[11px] font-bold px-2.5 py-1 rounded-full border transition" :class="advancesOnly ? 'bg-brand text-white border-brand' : 'bg-white text-brand border-brand/40 hover:bg-brand/5'">{{ advancesOnly ? L("Showing advances", "عرض المقدّمات", "Avances") : L("Show advances only", "اعرض المقدّمات فقط", "Voir les avances") }}</button>
     </div>
 
@@ -31,7 +31,7 @@
           <tr style="background:#fafaf9">
             <th class="w-8 px-3"><input type="checkbox" :checked="st.allSelected.value" @change="st.toggleAll()" /></th>
             <th v-for="c in cols" :key="c.key"
-                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
+                class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
                 :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
               <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                 <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
@@ -41,13 +41,13 @@
         <tbody>
           <tr v-for="o in displayRows" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o.name)">
             <td class="px-3 py-2" @click.stop><input type="checkbox" :checked="st.selected.value.has(o.name)" @change="st.toggle(o.name)" /></td>
-            <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}<span v-if="o.docstatus === 0" class="ms-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
+            <td class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.name }}<span v-if="o.docstatus === 0" class="ms-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full font-sans" style="background:#fffbeb;color:#b45309">{{ L("Draft","مسودة","Brouillon") }}</span></td>
             <td class="px-4 py-2.5 truncate max-w-[220px]">{{ o.party_name }}</td>
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
             <td class="px-4 py-2.5 whitespace-nowrap">
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="methodStyle(o.method)">{{ o.method }}</span>
-              <span v-if="o.unallocated > 0" class="ms-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("advance", "مقدّم", "avance") }} {{ fmt(o.unallocated) }}</span>
-              <span v-else-if="o.n_bills > 1" class="ms-1.5 text-[10px] text-ink-muted">· {{ o.n_bills }} {{ L("bills", "فاتورة", "factures") }}</span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="methodStyle(o.method)">{{ o.method }}</span>
+              <span v-if="o.unallocated > 0" class="ms-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("advance", "مقدّم", "avance") }} {{ fmt(o.unallocated) }}</span>
+              <span v-else-if="o.n_bills > 1" class="ms-1.5 text-[11px] text-ink-muted">· {{ o.n_bills }} {{ L("bills", "فاتورة", "factures") }}</span>
             </td>
             <td class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap">{{ o.currency }} {{ fmt(o.amount) }}</td>
           </tr>

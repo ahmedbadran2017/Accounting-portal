@@ -35,7 +35,7 @@
           </button>
         </div>
         <table class="w-full text-[12px]">
-          <thead class="bg-amber-100/40 text-[10px] uppercase text-amber-800/70">
+          <thead class="bg-amber-100/40 text-[11px] uppercase text-amber-800/70">
             <tr><th class="text-start px-3 py-1.5">{{ L("Receipt","الاستلام","Réception") }}</th><th class="text-end px-2 py-1.5">{{ L("Shown","المعروض","Affiché") }}</th><th class="text-end px-2 py-1.5">{{ L("Correct","الصحيح","Correct") }}</th><th class="text-center px-2 py-1.5">×</th><th class="px-3 py-1.5"></th></tr>
           </thead>
           <tbody class="divide-y divide-amber-200/60">
@@ -52,7 +52,7 @@
             </tr>
           </tbody>
         </table>
-        <div class="px-4 py-2 text-[10.5px] text-amber-700/80 border-t border-amber-200">
+        <div class="px-4 py-2 text-[11px] text-amber-700/80 border-t border-amber-200">
           {{ L("Recomputes base grand total at the corrected rate (base net + taxes). No GL/stock impact — a display field only. Audited & reversible.","بيعيد حساب الإجمالي بالسعر المصحّح (صافي + ضرائب). مايمسّش القيود/المخزون — حقل عرض فقط. مدقّق وقابل للتراجع.","Recalcule le total. Aucun impact comptable.") }}
         </div>
       </div>
@@ -67,7 +67,7 @@
                  class="ms-auto h-8 w-56 px-3 rounded-chip text-[12px] border border-line-2 bg-app-warm/30 focus:bg-white outline-none" />
         </div>
         <table class="w-full text-[12px]">
-          <thead class="bg-app-warm/40 text-[10px] uppercase text-ink-muted">
+          <thead class="bg-app-warm/40 text-[11px] uppercase text-ink-muted">
             <tr>
               <th class="text-start px-3 py-1.5">{{ L("Receipt","الاستلام","Réception") }}</th>
               <th class="text-start px-2 py-1.5">{{ L("Supplier","المورد","Fournisseur") }}</th>
@@ -107,7 +107,7 @@
         <table class="w-full text-[12px]">
           <tbody class="divide-y divide-line-hair">
             <tr v-for="(c,i) in inbox.slice(0,12)" :key="i">
-              <td class="px-3 py-1.5 truncate max-w-[240px]">{{ c.account_name }} <span v-if="c.is_legacy_pl" class="text-[10px] text-amber-600">· {{ L('P&L','مصروف','P&L') }}</span></td>
+              <td class="px-3 py-1.5 truncate max-w-[240px]">{{ c.account_name }} <span v-if="c.is_legacy_pl" class="text-[11px] text-amber-600">· {{ L('P&L','مصروف','P&L') }}</span></td>
               <td class="px-2 py-1.5 text-ink-muted truncate max-w-[160px]">{{ c.remarks }}</td>
               <td class="px-3 py-1.5 text-end tnum font-semibold">{{ fmt0(c.amount) }}</td>
             </tr>
@@ -119,10 +119,10 @@
       <div v-if="posted.length" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="flex items-center gap-2 px-4 py-2.5 border-b border-line-hair">
           <h3 class="text-[13px] font-bold">{{ L("Posted landed cost","تكاليف مُرحّلة","Coûts capitalisés") }}</h3>
-          <span v-if="onPlCount" class="text-[10.5px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-chip px-2 py-0.5">{{ onPlCount }} {{ L("on P&L → un-capitalise & rebuild","على P&L → ألغِ وأعد البناء","sur P&L") }}</span>
+          <span v-if="onPlCount" class="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-chip px-2 py-0.5">{{ onPlCount }} {{ L("on P&L → un-capitalise & rebuild","على P&L → ألغِ وأعد البناء","sur P&L") }}</span>
         </div>
         <table class="w-full text-[12px]">
-          <thead class="bg-app-warm/40 text-[10px] uppercase text-ink-muted">
+          <thead class="bg-app-warm/40 text-[11px] uppercase text-ink-muted">
             <tr><th class="text-start px-2.5 py-1.5">{{ L("Voucher","السند","Bon") }}</th><th class="text-start px-2 py-1.5">{{ L("Shipment","الشحنة","Expédition") }}</th><th class="text-end px-2 py-1.5">{{ L("Total","الإجمالي","Total") }}</th><th class="px-2 py-1.5">{{ L("Account","الحساب","Compte") }}</th><th class="px-3 py-1.5"></th></tr>
           </thead>
           <tbody class="divide-y divide-line-hair">
@@ -131,8 +131,8 @@
               <td class="px-2 py-1.5 truncate max-w-[150px]"><router-link v-if="v.shipment && v.shipment !== '—'" :to="{ path: '/accounting/purchases/received', query: { id: v.shipment } }" class="text-accent-dark hover:underline">{{ v.shipment }}</router-link><span v-else class="text-ink-3">{{ v.shipment }}</span></td>
               <td class="px-2 py-1.5 text-end tnum">{{ fmt0(v.total) }}</td>
               <td class="px-2 py-1.5 text-center">
-                <span v-if="v.on_pl" class="text-[10px] font-bold text-amber-700">770.07 (P&L)</span>
-                <span v-else class="text-[10px] font-bold text-emerald-700">153.03 ✓</span>
+                <span v-if="v.on_pl" class="text-[11px] font-bold text-amber-700">770.07 (P&L)</span>
+                <span v-else class="text-[11px] font-bold text-emerald-700">153.03 ✓</span>
               </td>
               <td class="px-3 py-1.5 text-end">
                 <button v-if="canWrite && v.on_pl" @click="uncapitalise(v)" :disabled="busy===v.name"
@@ -143,7 +143,7 @@
             </tr>
           </tbody>
         </table>
-        <div v-if="onPlCount" class="px-4 py-2 text-[10.5px] text-ink-muted border-t border-line-hair">
+        <div v-if="onPlCount" class="px-4 py-2 text-[11px] text-ink-muted border-t border-line-hair">
           {{ L("After un-capitalising, kick the repost queue (Valuation → reposts) so stock & COGS revert, then rebuild the shipment above onto 153.03.","بعد الإلغاء، كِك الـrepost queue (Valuation) عشان المخزون وCOGS يرجعوا، وبعدين أعد بناء الشحنة على 153.03.","Relancer les reposts puis reconstruire.") }}
         </div>
       </div>

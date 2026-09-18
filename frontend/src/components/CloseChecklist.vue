@@ -8,7 +8,7 @@
       </span>
       <div class="flex-1 min-w-0">
         <div class="text-[12px] font-semibold">{{ L(c.en, c.ar, c.fr) }}</div>
-        <div v-if="detail(c)" class="text-[10.5px] text-ink-muted tnum" dir="ltr">{{ detail(c) }}</div>
+        <div v-if="detail(c)" class="text-[11px] text-ink-muted tnum" dir="ltr">{{ detail(c) }}</div>
       </div>
       <StatusPill :label="stateLabel(c)" :tone="tone(c).pill" :small="true" />
       <Icon name="arrow" :size="12" color="#cfc9c4" class="rtl:rotate-180 flex-shrink-0" />

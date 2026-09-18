@@ -26,19 +26,19 @@
         <span class="w-9 h-9 rounded-[10px] grid place-items-center flex-shrink-0" style="background:#fef3c7"><Icon name="alert" :size="18" color="#b45309" /></span>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-[13.5px] font-bold text-amber-900">{{ L("Inventory health — perpetual stock isn't relieving to COGS","صحة المخزون — الجرد المستمر لا يُرحّل لتكلفة المبيعات","Santé du stock — non soldé en CMV") }}</span>
-            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">{{ healthLive ? L("LIVE","مباشر","LIVE") : L("LOAD FAILED","فشل التحميل","ÉCHEC") }}</span>
+            <span class="text-[14px] font-bold text-amber-900">{{ L("Inventory health — perpetual stock isn't relieving to COGS","صحة المخزون — الجرد المستمر لا يُرحّل لتكلفة المبيعات","Santé du stock — non soldé en CMV") }}</span>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">{{ healthLive ? L("LIVE","مباشر","LIVE") : L("LOAD FAILED","فشل التحميل","ÉCHEC") }}</span>
           </div>
           <p class="text-[12px] text-amber-800 mt-1 leading-relaxed">{{ L("Stock-in-hand carries "+money0(health.stock_in_hand)+" MAD while “"+(health.adjustment_account||'Stock Adjustment')+"” absorbs "+money0(health.adjustment_balance)+". Deliveries aren't posting cost of goods sold, so per-order margin is unmeasurable and the balance sheet is overstated.","المخزون يحمل "+money0(health.stock_in_hand)+" درهم بينما يمتص حساب التسوية "+money0(health.adjustment_balance)+". التسليمات لا تُرحّل تكلفة المبيعات، فالهامش غير قابل للقياس.","Le stock porte "+money0(health.stock_in_hand)+" MAD.") }}</p>
         </div>
       </div>
       <div class="flex items-center gap-3 px-4 py-2.5 border-t border-amber-200 bg-amber-100/40">
         <div class="flex-1 grid grid-cols-3 gap-2 text-center">
-          <div><div class="text-[10px] font-bold uppercase tracking-wider text-amber-700">{{ L("Stock in hand","المخزون","Stock") }}</div><div class="text-[13.5px] font-extrabold tnum text-amber-900">{{ money0(health.stock_in_hand) }}</div></div>
-          <div><div class="text-[10px] font-bold uppercase tracking-wider text-amber-700">{{ L("Adjustment","التسوية","Ajustement") }}</div><div class="text-[13.5px] font-extrabold tnum text-amber-900">{{ money0(health.adjustment_balance) }}</div></div>
-          <div><div class="text-[10px] font-bold uppercase tracking-wider text-amber-700">{{ L("Revenue (FY)","الإيراد","Produits") }}</div><div class="text-[13.5px] font-extrabold tnum text-amber-900">{{ money0(health.revenue) }}</div></div>
+          <div><div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">{{ L("Stock in hand","المخزون","Stock") }}</div><div class="text-[14px] font-extrabold tnum text-amber-900">{{ money0(health.stock_in_hand) }}</div></div>
+          <div><div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">{{ L("Adjustment","التسوية","Ajustement") }}</div><div class="text-[14px] font-extrabold tnum text-amber-900">{{ money0(health.adjustment_balance) }}</div></div>
+          <div><div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">{{ L("Revenue (FY)","الإيراد","Produits") }}</div><div class="text-[14px] font-extrabold tnum text-amber-900">{{ money0(health.revenue) }}</div></div>
         </div>
-        <button class="h-8 px-3.5 rounded-[9px] bg-amber-600 hover:bg-amber-700 text-white text-[11.5px] font-bold inline-flex items-center gap-1.5" @click="proposeFix">
+        <button class="h-8 px-3.5 rounded-[9px] bg-amber-600 hover:bg-amber-700 text-white text-[12px] font-bold inline-flex items-center gap-1.5" @click="proposeFix">
           <Icon name="shield" :size="13" />{{ L("Propose correcting entry","اقترح قيد تصحيح","Proposer une écriture") }}
         </button>
       </div>

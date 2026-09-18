@@ -21,7 +21,7 @@
       <TableLoading v-if="loading" :rows="8" />
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[12px]">
-          <thead><tr style="background:#fafaf9" class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <thead><tr style="background:#fafaf9" class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <th class="px-4 py-2 text-start">{{ L('Account','الحساب','Compte') }}</th>
             <th class="px-3 py-2 text-start">{{ L('Type','النوع','Type') }}</th>
             <th class="px-3 py-2 text-end">{{ L('Balance','الرصيد','Solde') }}</th>
@@ -31,13 +31,13 @@
           </tr></thead>
           <tbody>
             <tr v-for="r in shown" :key="r.name" class="border-t border-line-hair" :class="r.disabled ? 'opacity-50' : ''">
-              <td class="px-4 py-2.5"><div class="font-semibold truncate max-w-[280px]">{{ r.nm }}</div><div class="text-[10px] text-ink-muted font-mono">{{ r.num }}<span v-if="r.last"> · {{ r.last }}</span></div></td>
-              <td class="px-3 py-2.5"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-chip" :class="r.typ==='Cash' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'">{{ r.typ }}</span></td>
-              <td class="px-3 py-2.5 text-end tnum font-semibold" :class="r.bal < 0 ? 'text-rose-600' : ''">{{ money(r.bal) }} <span class="text-[9px] text-ink-muted">{{ r.ccy }}</span></td>
+              <td class="px-4 py-2.5"><div class="font-semibold truncate max-w-[280px]">{{ r.nm }}</div><div class="text-[11px] text-ink-muted font-mono">{{ r.num }}<span v-if="r.last"> · {{ r.last }}</span></div></td>
+              <td class="px-3 py-2.5"><span class="text-[11px] font-bold px-1.5 py-0.5 rounded-chip" :class="r.typ==='Cash' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'">{{ r.typ }}</span></td>
+              <td class="px-3 py-2.5 text-end tnum font-semibold" :class="r.bal < 0 ? 'text-rose-600' : ''">{{ money(r.bal) }} <span class="text-[11px] text-ink-muted">{{ r.ccy }}</span></td>
               <td class="px-3 py-2.5 text-end tnum text-ink-3 hidden sm:table-cell">{{ r.n }}</td>
-              <td class="px-3 py-2.5"><span class="text-[10.5px] font-semibold px-1.5 py-0.5 rounded-chip" :style="`background:${bColor(r.bucket)}18;color:${bColor(r.bucket)}`">{{ r.suggestion }}</span></td>
+              <td class="px-3 py-2.5"><span class="text-[11px] font-semibold px-1.5 py-0.5 rounded-chip" :style="`background:${bColor(r.bucket)}18;color:${bColor(r.bucket)}`">{{ r.suggestion }}</span></td>
               <td class="px-4 py-2.5 text-end whitespace-nowrap">
-                <span v-if="r.disabled" class="text-[10px] text-ink-muted">{{ L('closed','مقفول','fermé') }}</span>
+                <span v-if="r.disabled" class="text-[11px] text-ink-muted">{{ L('closed','مقفول','fermé') }}</span>
                 <template v-else-if="isAdmin">
                   <button v-if="r.dead" type="button" :disabled="busy===r.name" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</button>
                   <select v-else-if="r.misclassified" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none" :disabled="busy===r.name" @change="reclass(r, $event.target.value)">
@@ -46,16 +46,16 @@
                     <option value="Receivable">Receivable</option>
                     <option value="Payable">Payable</option>
                   </select>
-                  <span v-else class="text-[10px] text-ink-muted">—</span>
+                  <span v-else class="text-[11px] text-ink-muted">—</span>
                 </template>
-                <span v-else class="text-[10px] text-ink-muted">{{ L('admin only','للمشرف فقط','admin') }}</span>
+                <span v-else class="text-[11px] text-ink-muted">{{ L('admin only','للمشرف فقط','admin') }}</span>
               </td>
             </tr>
             <tr v-if="!shown.length"><td colspan="6" class="px-4 py-10 text-center text-ink-muted">{{ L('Nothing here.','لا شيء هنا.','Rien.') }}</td></tr>
           </tbody>
         </table>
       </div>
-      <div class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted flex items-center gap-1.5">
+      <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
         <Icon name="shield" :size="11" color="#9a8f86" />{{ L('Closing hides only dead (empty) accounts; reclassifying removes it from the cash picture. Both are audited & reversible in Activity.','الإقفال يخفي الحسابات الميّتة فقط؛ إعادة التصنيف تشيله من صورة الكاش. الاتنين مدقّقين وقابلين للتراجع.','Réversible & audité.') }}
       </div>
     </div>
@@ -82,9 +82,9 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 const money = (n) => fmtAmount(n);
 const isAdmin = computed(() => can("manage_users"));
 const Kpi = (p) => h("div", { class: "bg-white rounded-card border border-line shadow-card px-4 py-3 w-full" }, [
-  h("div", { class: "text-[10px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
+  h("div", { class: "text-[11px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
   h("div", { class: "text-[20px] font-extrabold mt-1 tnum", style: `color:${p.color}` }, p.value),
-  h("div", { class: "text-[10px] text-ink-muted mt-0.5" }, p.sub)]);
+  h("div", { class: "text-[11px] text-ink-muted mt-0.5" }, p.sub)]);
 Kpi.props = ["label", "value", "color", "sub"];
 
 const BCOLOR = { bank: "#0369a1", petty: "#b45309", credit_card: "#be123c", clearing: "#7c3aed", interco: "#0891b2", junk: "#78716c", advance: "#db2777" };

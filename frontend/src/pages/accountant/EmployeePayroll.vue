@@ -11,11 +11,11 @@
       <div class="bg-white rounded-card border border-line shadow-card px-4 py-3.5 flex items-center gap-3.5 flex-wrap">
         <span class="w-11 h-11 rounded-full grid place-items-center text-[13px] font-bold text-white shrink-0" style="background:#0f766e">{{ initials(e.employee_name) }}</span>
         <div class="min-w-0">
-          <div class="text-[15px] font-extrabold">{{ e.employee_name }}</div>
-          <div class="text-[11.5px] text-ink-muted">{{ e.designation || "—" }}<span v-if="e.department"> · {{ e.department }}</span></div>
-          <div class="text-[10.5px] text-ink-muted mt-0.5">{{ e.name }}<span v-if="e.date_of_joining"> · {{ L("joined","انضم","embauché") }} {{ e.date_of_joining }}</span></div>
+          <div class="text-[16px] font-extrabold">{{ e.employee_name }}</div>
+          <div class="text-[12px] text-ink-muted">{{ e.designation || "—" }}<span v-if="e.department"> · {{ e.department }}</span></div>
+          <div class="text-[11px] text-ink-muted mt-0.5">{{ e.name }}<span v-if="e.date_of_joining"> · {{ L("joined","انضم","embauché") }} {{ e.date_of_joining }}</span></div>
         </div>
-        <span class="ms-auto text-[10px] font-bold px-2 py-1 rounded-chip" :class="e.status==='Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-muted'">{{ e.status }}</span>
+        <span class="ms-auto text-[11px] font-bold px-2 py-1 rounded-chip" :class="e.status==='Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-muted'">{{ e.status }}</span>
         <button v-if="canWrite" type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="editing = true">
           <Icon name="gear" :size="13" />{{ L("Edit","تعديل","Modifier") }}
         </button>
@@ -84,9 +84,9 @@ const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? 
 // Accounting precision: exact, grouped, 2 decimals — no K/M abbreviation.
 const money = (n) => fmtMoney(n);
 const Kpi = (p) => h("div", { class: "bg-white rounded-card border border-line shadow-card px-4 py-3" }, [
-  h("div", { class: "text-[10px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
-  h("div", { class: "text-[19px] font-extrabold mt-1 tnum", style: `color:${p.color}` }, p.value),
-  p.sub ? h("div", { class: "text-[10px] text-ink-muted mt-0.5" }, p.sub) : null]);
+  h("div", { class: "text-[11px] font-bold uppercase tracking-wider text-ink-muted" }, p.label),
+  h("div", { class: "text-[20px] font-extrabold mt-1 tnum", style: `color:${p.color}` }, p.value),
+  p.sub ? h("div", { class: "text-[11px] text-ink-muted mt-0.5" }, p.sub) : null]);
 Kpi.props = ["label", "value", "color", "sub"];
 
 const d = ref({ components: [], slips: [], ytd: {} });

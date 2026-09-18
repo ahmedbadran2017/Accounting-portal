@@ -6,7 +6,7 @@
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#f5f3ff"><Icon name="ledger" :size="14" color="#7c3aed" /></span>
       <span class="text-[13px] font-bold">{{ L("General ledger","الأستاذ العام","Grand livre") }}</span>
       <span v-if="d.total" class="text-[11px] text-ink-muted tnum">{{ d.total.toLocaleString() }} {{ L("entries","قيد","écritures") }}</span>
-      <span v-if="loadError" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full border" style="background:#fef2f2;color:#b91c1c;border-color:#fecaca">{{ L("Load failed","فشل التحميل","Échec") }}</span>
+      <span v-if="loadError" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full border" style="background:#fef2f2;color:#b91c1c;border-color:#fecaca">{{ L("Load failed","فشل التحميل","Échec") }}</span>
       <button @click="exportCsv" :disabled="!rows.length" class="ms-auto h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 border border-line-2 bg-white hover:bg-app-warm inline-flex items-center gap-1 disabled:opacity-40">CSV <span class="opacity-60">({{ L("page","الصفحة","page") }})</span></button>
       <a :href="excelUrl" :class="d.total ? '' : 'pointer-events-none opacity-40'" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1" :title="L('Excel of the whole filtered set (up to 50,000 rows)','Excel للمجموعة المفلترة كلها (حتى 50,000 صف)','Excel de tout le filtre')"><Icon name="download" :size="12" color="#fff" />Excel <span class="opacity-70 tnum">({{ (d.total || 0).toLocaleString() }})</span></a>
     </div>
@@ -21,20 +21,20 @@
       <input v-model="fromDate" type="date" class="h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
       <span class="text-ink-muted text-[11px]">→</span>
       <input v-model="toDate" type="date" class="h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
-      <label class="inline-flex items-center gap-1.5 text-[11.5px] text-ink-3"><input type="checkbox" v-model="includeCancelled" @change="apply" /> {{ L("Cancelled too","مع الملغي","Annulées aussi") }}</label>
-      <label class="inline-flex items-center gap-1.5 text-[11.5px] text-ink-3" :title="L('One line per document instead of per GL row','سطر لكل مستند بدل كل قيد','Une ligne par document')"><input type="checkbox" v-model="groupVoucher" @change="apply" /> {{ L("Group by voucher","تجميع بالسند","Par pièce") }}</label>
-      <button @click="apply" class="h-8 px-3 rounded-[8px] text-[11.5px] font-bold text-white bg-brand hover:bg-brand-dark">{{ L("Apply","تطبيق","Appliquer") }}</button>
-      <button v-if="party||voucher||fromDate||toDate||acct" @click="resetFilters" class="h-8 px-2.5 rounded-[8px] text-[11.5px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm">{{ L("Clear","مسح","Effacer") }}</button>
+      <label class="inline-flex items-center gap-1.5 text-[12px] text-ink-3"><input type="checkbox" v-model="includeCancelled" @change="apply" /> {{ L("Cancelled too","مع الملغي","Annulées aussi") }}</label>
+      <label class="inline-flex items-center gap-1.5 text-[12px] text-ink-3" :title="L('One line per document instead of per GL row','سطر لكل مستند بدل كل قيد','Une ligne par document')"><input type="checkbox" v-model="groupVoucher" @change="apply" /> {{ L("Group by voucher","تجميع بالسند","Par pièce") }}</label>
+      <button @click="apply" class="h-8 px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark">{{ L("Apply","تطبيق","Appliquer") }}</button>
+      <button v-if="party||voucher||fromDate||toDate||acct" @click="resetFilters" class="h-8 px-2.5 rounded-[8px] text-[12px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm">{{ L("Clear","مسح","Effacer") }}</button>
     </div>
 
     <!-- Totals of the WHOLE filtered set (server-side), not of this page -->
-    <div v-if="!loading && d.total" class="flex items-center gap-4 px-4 py-2 border-b border-line-hair text-[11.5px] tnum flex-wrap bg-app-warm/10">
+    <div v-if="!loading && d.total" class="flex items-center gap-4 px-4 py-2 border-b border-line-hair text-[12px] tnum flex-wrap bg-app-warm/10">
       <span v-if="acct" class="text-ink-3">{{ L("Opening","افتتاحي","Ouverture") }} <b class="text-ink">{{ money(d.opening) }}</b></span>
       <span class="text-ink-3">{{ L("Debit","مدين","Débit") }} <b class="text-ink">{{ money(d.total_dr) }}</b></span>
       <span class="text-ink-3">{{ L("Credit","دائن","Crédit") }} <b class="text-ink">{{ money(d.total_cr) }}</b></span>
       <span v-if="acct" class="text-ink-3">{{ L("Closing","ختامي","Clôture") }} <b class="text-ink">{{ money(d.closing) }}</b></span>
       <span class="text-ink-muted">{{ d.currency }}</span>
-      <span v-if="d.include_cancelled" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">{{ L("includes cancelled","يشمل الملغي","annulées incluses") }}</span>
+      <span v-if="d.include_cancelled" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">{{ L("includes cancelled","يشمل الملغي","annulées incluses") }}</span>
     </div>
 
     <div class="overflow-x-auto">
@@ -42,23 +42,23 @@
       <table v-else class="w-full text-[12px]">
         <thead>
           <tr class="border-b border-line">
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher","السند","Pièce") }}</th>
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
-            <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Party","الطرف","Tiers") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
-            <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
-            <th v-if="acct && !d.grouped" class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance","الرصيد","Solde") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Voucher","السند","Pièce") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Account","الحساب","Compte") }}</th>
+            <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Party","الطرف","Tiers") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Debit","مدين","Débit") }}</th>
+            <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Credit","دائن","Crédit") }}</th>
+            <th v-if="acct && !d.grouped" class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Balance","الرصيد","Solde") }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(g, i) in rows" :key="i" class="border-b border-line-hair hover:bg-app-warm/60 cursor-pointer" :class="g.is_cancelled ? 'opacity-60 line-through' : ''" @click="openVoucher(g)">
             <td class="px-4 py-2.5 whitespace-nowrap text-ink-3">{{ g.date }}</td>
-            <td class="px-4 py-2.5 font-mono whitespace-nowrap hover:text-accent-dark">{{ g.ref }}<span class="block text-[10px] text-ink-muted font-sans">{{ g.voucher_type }}</span></td>
+            <td class="px-4 py-2.5 font-mono whitespace-nowrap hover:text-accent-dark">{{ g.ref }}<span class="block text-[11px] text-ink-muted font-sans">{{ g.voucher_type }}</span></td>
             <td class="px-4 py-2.5 font-mono text-ink-2">{{ g.account }}</td>
             <td class="px-4 py-2.5 text-ink-muted whitespace-nowrap">{{ g.party || "—" }}</td>
-            <td class="px-4 py-2.5 text-end tnum font-semibold">{{ g.dr ? money(g.dr) : "—" }}<span v-if="g.account_currency && g.account_currency !== d.currency && g.dr_acc" class="block text-[10px] text-ink-muted font-normal">{{ money(g.dr_acc) }} {{ g.account_currency }}</span></td>
-            <td class="px-4 py-2.5 text-end tnum font-semibold">{{ g.cr ? money(g.cr) : "—" }}<span v-if="g.account_currency && g.account_currency !== d.currency && g.cr_acc" class="block text-[10px] text-ink-muted font-normal">{{ money(g.cr_acc) }} {{ g.account_currency }}</span></td>
+            <td class="px-4 py-2.5 text-end tnum font-semibold">{{ g.dr ? money(g.dr) : "—" }}<span v-if="g.account_currency && g.account_currency !== d.currency && g.dr_acc" class="block text-[11px] text-ink-muted font-normal">{{ money(g.dr_acc) }} {{ g.account_currency }}</span></td>
+            <td class="px-4 py-2.5 text-end tnum font-semibold">{{ g.cr ? money(g.cr) : "—" }}<span v-if="g.account_currency && g.account_currency !== d.currency && g.cr_acc" class="block text-[11px] text-ink-muted font-normal">{{ money(g.cr_acc) }} {{ g.account_currency }}</span></td>
             <td v-if="acct && !d.grouped" class="px-4 py-2.5 text-end tnum text-ink-3">{{ money(g.balance) }}</td>
           </tr>
           <tr v-if="!rows.length"><td :colspan="acct && !d.grouped ? 7 : 6" class="px-4 py-10 text-center text-ink-muted text-[12px]">{{ loadError || L("No entries for these filters.","لا قيود.","Aucune écriture.") }}</td></tr>
@@ -70,10 +70,10 @@
     <div v-if="d.total > pageSize || pageSize !== 100" class="flex items-center justify-between px-4 py-3 border-t border-line-hair text-[12px] flex-wrap gap-2">
       <span class="text-ink-muted">{{ L("Showing","عرض","Affichage") }} <b class="tnum">{{ d.total ? start + 1 : 0 }}–{{ Math.min(start + pageSize, d.total) }}</b> {{ L("of","من","sur") }} <b class="tnum">{{ (d.total || 0).toLocaleString() }}</b></span>
       <div class="flex items-center gap-1.5">
-        <select v-model.number="pageSize" @change="start = 0; load()" class="h-8 rounded-[8px] border border-line-2 px-1.5 text-[11.5px] bg-white"><option :value="50">50</option><option :value="100">100</option><option :value="200">200</option><option :value="500">500</option></select>
-        <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-semibold border border-line-2 disabled:opacity-40" :disabled="start <= 0 || loading" @click="start = Math.max(0, start - pageSize); load()">{{ L("Prev","السابق","Préc.") }}</button>
+        <select v-model.number="pageSize" @change="start = 0; load()" class="h-8 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option :value="50">50</option><option :value="100">100</option><option :value="200">200</option><option :value="500">500</option></select>
+        <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold border border-line-2 disabled:opacity-40" :disabled="start <= 0 || loading" @click="start = Math.max(0, start - pageSize); load()">{{ L("Prev","السابق","Préc.") }}</button>
         <span class="text-ink-3 px-1 tnum">{{ Math.floor(start / pageSize) + 1 }} / {{ Math.max(1, Math.ceil((d.total || 0) / pageSize)) }}</span>
-        <button class="h-8 px-3 rounded-[8px] text-[11.5px] font-semibold border border-line-2 disabled:opacity-40" :disabled="start + pageSize >= (d.total || 0) || loading" @click="start += pageSize; load()">{{ L("Next","التالي","Suiv.") }}</button>
+        <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold border border-line-2 disabled:opacity-40" :disabled="start + pageSize >= (d.total || 0) || loading" @click="start += pageSize; load()">{{ L("Next","التالي","Suiv.") }}</button>
       </div>
     </div>
   </div>

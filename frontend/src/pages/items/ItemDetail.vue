@@ -22,31 +22,31 @@
           <span v-else class="w-16 h-16 rounded-[12px] bg-app-warm grid place-items-center flex-shrink-0"><Icon name="box" :size="26" color="#a8a29e" /></span>
           <div class="flex-1 min-w-0">
             <div class="text-[16px] font-bold leading-snug">{{ d.item_name }}</div>
-            <div class="text-[11.5px] text-ink-muted mt-0.5"><span v-if="d.sku" class="font-mono">{{ d.sku }}</span><span v-if="d.item_group"> · {{ d.item_group }}</span><span v-if="d.uom"> · {{ d.uom }}</span></div>
+            <div class="text-[12px] text-ink-muted mt-0.5"><span v-if="d.sku" class="font-mono">{{ d.sku }}</span><span v-if="d.item_group"> · {{ d.item_group }}</span><span v-if="d.uom"> · {{ d.uom }}</span></div>
           </div>
           <div class="text-end">
             <div v-if="d.avg_sold" class="text-[24px] font-extrabold tnum" :class="d.margin >= 0 ? 'text-success-dark' : 'text-sale'">{{ d.margin_pct }}%</div>
-            <div class="text-[10.5px] text-ink-muted">{{ L("gross margin","الهامش الإجمالي","marge brute") }}</div>
+            <div class="text-[11px] text-ink-muted">{{ L("gross margin","الهامش الإجمالي","marge brute") }}</div>
           </div>
         </div>
         <!-- margin breakdown -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
           <div class="rounded-[10px] px-3 py-2" style="background:#fafaf9;border:1px solid #f0efed">
-            <div class="text-[9.5px] text-ink-muted font-bold uppercase tracking-wide">{{ L("Cost","التكلفة","Coût") }}</div>
-            <div class="text-[15px] font-bold tnum">{{ fmt(d.cost) }}</div>
-            <div v-if="d.valuation_broken" class="text-[9px] text-amber-600">{{ L("last purchase","آخر شراء","dernier achat") }}</div>
+            <div class="text-[11px] text-ink-muted font-bold uppercase tracking-wide">{{ L("Cost","التكلفة","Coût") }}</div>
+            <div class="text-[16px] font-bold tnum">{{ fmt(d.cost) }}</div>
+            <div v-if="d.valuation_broken" class="text-[11px] text-amber-600">{{ L("last purchase","آخر شراء","dernier achat") }}</div>
           </div>
           <div class="rounded-[10px] px-3 py-2" style="background:#fafaf9;border:1px solid #f0efed">
-            <div class="text-[9.5px] text-ink-muted font-bold uppercase tracking-wide">{{ L("Avg sold","متوسط البيع","Vente moy.") }}</div>
-            <div class="text-[15px] font-bold tnum">{{ d.avg_sold ? fmt(d.avg_sold) : "—" }}</div>
+            <div class="text-[11px] text-ink-muted font-bold uppercase tracking-wide">{{ L("Avg sold","متوسط البيع","Vente moy.") }}</div>
+            <div class="text-[16px] font-bold tnum">{{ d.avg_sold ? fmt(d.avg_sold) : "—" }}</div>
           </div>
           <div class="rounded-[10px] px-3 py-2" style="background:#f0fdf4;border:1px solid #bbf7d0">
-            <div class="text-[9.5px] text-ink-muted font-bold uppercase tracking-wide">{{ L("Margin / unit","الهامش/وحدة","Marge/u") }}</div>
-            <div class="text-[15px] font-bold tnum text-success-dark">{{ d.avg_sold ? fmt(d.margin) : "—" }}</div>
+            <div class="text-[11px] text-ink-muted font-bold uppercase tracking-wide">{{ L("Margin / unit","الهامش/وحدة","Marge/u") }}</div>
+            <div class="text-[16px] font-bold tnum text-success-dark">{{ d.avg_sold ? fmt(d.margin) : "—" }}</div>
           </div>
           <div class="rounded-[10px] px-3 py-2" style="background:#fafaf9;border:1px solid #f0efed">
-            <div class="text-[9.5px] text-ink-muted font-bold uppercase tracking-wide">{{ L("Units sold","الكمية المباعة","Vendus") }}</div>
-            <div class="text-[15px] font-bold tnum">{{ Math.round(d.qty_sold).toLocaleString() }}<span class="text-[10px] text-ink-muted ms-1">· {{ d.orders }} {{ L("ord","طلب","cmd") }}</span></div>
+            <div class="text-[11px] text-ink-muted font-bold uppercase tracking-wide">{{ L("Units sold","الكمية المباعة","Vendus") }}</div>
+            <div class="text-[16px] font-bold tnum">{{ Math.round(d.qty_sold).toLocaleString() }}<span class="text-[11px] text-ink-muted ms-1">· {{ d.orders }} {{ L("ord","طلب","cmd") }}</span></div>
           </div>
         </div>
       </div>
@@ -58,8 +58,8 @@
           <table class="w-full text-[12px]">
             <tbody>
               <tr v-for="(p, i) in d.prices" :key="i" class="border-t border-line-hair">
-                <td class="px-4 py-2"><span class="font-medium">{{ p.price_list }}</span> <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-badge" :style="p.selling ? 'background:#ecfdf5;color:#047857' : 'background:#eff6ff;color:#0369a1'">{{ p.selling ? L("sell","بيع","vente") : L("buy","شراء","achat") }}</span></td>
-                <td class="px-4 py-2 text-end tnum font-semibold">{{ fmt(p.rate) }} <span class="text-[10px] text-ink-muted">{{ p.currency }}</span></td>
+                <td class="px-4 py-2"><span class="font-medium">{{ p.price_list }}</span> <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-badge" :style="p.selling ? 'background:#ecfdf5;color:#047857' : 'background:#eff6ff;color:#0369a1'">{{ p.selling ? L("sell","بيع","vente") : L("buy","شراء","achat") }}</span></td>
+                <td class="px-4 py-2 text-end tnum font-semibold">{{ fmt(p.rate) }} <span class="text-[11px] text-ink-muted">{{ p.currency }}</span></td>
               </tr>
               <tr v-if="!d.prices.length"><td class="px-4 py-4 text-center text-ink-muted">{{ L("No price-list entries.","لا أسعار.","Aucun prix.") }}</td></tr>
             </tbody>
@@ -85,7 +85,7 @@
             <table class="w-full text-[12px]">
               <tbody>
                 <tr v-for="(p, i) in d.purchases" :key="i" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer group" @click="openPO(p.doc)">
-                  <td class="px-4 py-2 font-mono text-[10.5px] group-hover:text-accent-dark">{{ p.doc }}</td>
+                  <td class="px-4 py-2 font-mono text-[11px] group-hover:text-accent-dark">{{ p.doc }}</td>
                   <td class="px-4 py-2 text-ink-3 truncate max-w-[120px]">{{ p.supplier }}</td>
                   <td class="px-4 py-2 text-end tnum">{{ p.qty }} × {{ fmt(p.rate) }}<Icon name="arrow" :size="11" color="#cbd5e1" class="inline ms-1 opacity-0 group-hover:opacity-100" /></td>
                 </tr>

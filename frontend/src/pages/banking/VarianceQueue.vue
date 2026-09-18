@@ -9,9 +9,9 @@
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <div v-for="s in stats" :key="s.label" class="bg-white rounded-[12px] border p-3.5 shadow-card" :style="{ borderColor: s.bd || '#efe9e6' }">
-        <div class="text-[10.5px] text-ink-muted font-semibold">{{ s.label }}</div>
-        <div class="text-[19px] font-bold tnum mt-[3px]" :style="{ color: s.color || '#1c1917' }">{{ s.value }}</div>
-        <div class="text-[10.5px] text-ink-3 mt-0.5">{{ s.sub }}</div>
+        <div class="text-[11px] text-ink-muted font-semibold">{{ s.label }}</div>
+        <div class="text-[20px] font-bold tnum mt-[3px]" :style="{ color: s.color || '#1c1917' }">{{ s.value }}</div>
+        <div class="text-[11px] text-ink-3 mt-0.5">{{ s.sub }}</div>
       </div>
     </div>
 
@@ -26,12 +26,12 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Receipt","السند","Reçu") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Channel","القناة","Canal") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Unallocated","غير مخصّص","Non lettré") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted"></th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Receipt","السند","Reçu") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Customer","العميل","Client") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Channel","القناة","Canal") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Unallocated","غير مخصّص","Non lettré") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Date","التاريخ","Date") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted"></th>
             </tr>
           </thead>
           <tbody>
@@ -42,7 +42,7 @@
               <td class="px-4 py-2.5 text-end tnum font-bold">{{ fmtNum(r.unallocated_amount) }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ r.date }}</td>
               <td class="px-4 py-2.5 text-end">
-                <button class="h-[27px] px-2.5 rounded-[7px] text-[10.5px] font-bold text-white bg-brand hover:bg-brand-dark" @click="openMatch(r)">{{ L("Match","طابِق","Lettrer") }}</button>
+                <button class="h-[27px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark" @click="openMatch(r)">{{ L("Match","طابِق","Lettrer") }}</button>
               </td>
             </tr>
           </tbody>
@@ -67,13 +67,13 @@
               <tbody>
                 <tr v-for="ci in cands" :key="ci.name" class="border-t border-line-hair first:border-0 hover:bg-app-warm/50 cursor-pointer" @click="toggle(ci.name)">
                   <td class="px-3 py-2 w-8"><input type="checkbox" :checked="picked.has(ci.name)" class="accent-accent w-3.5 h-3.5" @click.stop="toggle(ci.name)" /></td>
-                  <td class="px-3 py-2 font-mono text-[11px]">{{ ci.name }}<div class="text-[10px] text-ink-muted font-sans">{{ ci.date }}</div></td>
+                  <td class="px-3 py-2 font-mono text-[11px]">{{ ci.name }}<div class="text-[11px] text-ink-muted font-sans">{{ ci.date }}</div></td>
                   <td class="px-3 py-2 text-end tnum font-semibold">{{ fmtNum(ci.outstanding_amount) }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <div v-if="matchError" class="text-[11.5px] text-sale mt-2">{{ matchError }}</div>
+          <div v-if="matchError" class="text-[12px] text-sale mt-2">{{ matchError }}</div>
           <div class="flex items-center justify-between mt-3">
             <span class="text-[11px] text-ink-muted">{{ picked.size }} {{ L("selected","محدّد","sélectionnées") }}</span>
             <div class="flex gap-2">

@@ -30,8 +30,8 @@
               <input type="number" min="0" step="0.01" v-model.number="base" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] tnum text-end focus:outline-none focus:border-accent/40" placeholder="0.00" />
             </label>
           </div>
-          <div class="text-[10.5px] text-ink-muted">{{ L("Most structures already encode the salary — leave Base at 0 unless the structure needs it.", "أغلب الهياكل بتحدّد الراتب — سيب الأساسي 0 إلا لو الهيكل محتاجه.", "Laissez Base à 0 sauf si nécessaire.") }}</div>
-          <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+          <div class="text-[11px] text-ink-muted">{{ L("Most structures already encode the salary — leave Base at 0 unless the structure needs it.", "أغلب الهياكل بتحدّد الراتب — سيب الأساسي 0 إلا لو الهيكل محتاجه.", "Laissez Base à 0 sauf si nécessaire.") }}</div>
+          <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>

@@ -20,13 +20,13 @@
         <table class="w-full text-[12px]">
           <thead>
             <tr style="background:#fafaf9">
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Order month","شهر الطلب","Mois") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Orders","الطلبات","Cmds") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Invoiced","المفوتر","Facturé") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Delivered","المُسلّم","Livré") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected","المحصّل","Encaissé") }}</th>
-              <th class="px-4 py-2.5 text-start text-[10px] font-bold uppercase tracking-wider text-ink-muted w-[140px]">{{ L("Collection","التحصيل","Encaiss.") }}</th>
-              <th class="px-4 py-2.5 text-end text-[10px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Outstanding","غير محصّل","Souffrance") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Order month","شهر الطلب","Mois") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Orders","الطلبات","Cmds") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Invoiced","المفوتر","Facturé") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Delivered","المُسلّم","Livré") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Collected","المحصّل","Encaissé") }}</th>
+              <th class="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wider text-ink-muted w-[140px]">{{ L("Collection","التحصيل","Encaiss.") }}</th>
+              <th class="px-4 py-2.5 text-end text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Outstanding","غير محصّل","Souffrance") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -41,7 +41,7 @@
                   <div class="flex-1 h-1.5 rounded-full bg-app-warm overflow-hidden min-w-[60px]">
                     <div class="h-full rounded-full" :style="{ width: Math.min(100, m.collection_rate) + '%', background: rateColor(m.collection_rate) }"></div>
                   </div>
-                  <span class="text-[10.5px] font-bold tnum w-9 text-end" :style="{ color: rateColor(m.collection_rate) }">{{ Math.round(m.collection_rate) }}%</span>
+                  <span class="text-[11px] font-bold tnum w-9 text-end" :style="{ color: rateColor(m.collection_rate) }">{{ Math.round(m.collection_rate) }}%</span>
                 </div>
               </td>
               <td class="px-4 py-2.5 text-end tnum">

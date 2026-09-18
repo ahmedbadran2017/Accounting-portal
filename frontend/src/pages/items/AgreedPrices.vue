@@ -24,27 +24,27 @@
       <div v-if="!started" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-5 py-4 border-b border-line-hair">
           <div class="text-[14px] font-bold">{{ L("Nothing is priced yet — start here","لسه مفيش أسعار متفق عليها — ابدأ من هنا","Rien n'est encore tarifé") }}</div>
-          <div class="text-[11.5px] text-ink-3 mt-1 leading-relaxed max-w-3xl">
+          <div class="text-[12px] text-ink-3 mt-1 leading-relaxed max-w-3xl">
             {{ L("Right now no product has a price anybody agreed to, so its cost is whatever someone happened to type on a receipt. Pick a supplier below and press Propose: we read what he actually invoiced (or what his receipts were paid at) and fill a grid for you to check — you review and approve, and from then on the PO, the receipt and the stock value all take that one number.",
                  "دلوقتي مفيش منتج ليه سعر حد اتفق عليه، فتكلفته هي أي رقم حد كتبه في إيصال. اختار مورد من تحت واضغط اقترح: بنقرا اللي فوتره فعلاً (أو اللي إيصالاته اتدفعت بيه) ونملّي لك جدول تراجعه — تعتمد، ومن ساعتها أمر الشراء والاستلام وقيمة المخزون كلهم بياخدوا الرقم ده.",
                  "Aucun produit n'a de prix convenu. Choisissez un fournisseur et lancez Proposer.") }}
           </div>
         </div>
         <div class="px-5 py-3 flex flex-wrap gap-x-8 gap-y-2 border-b border-line-hair" style="background:#fffbeb">
-          <div><span class="text-[17px] font-bold tnum" style="color:#b45309">{{ n(unp.count) }}</span>
-            <span class="text-[11.5px] text-ink-3 ms-1.5">{{ L("products on sale with no agreed price","منتج بيتباع بدون سعر متفق","produits sans prix convenu") }}</span></div>
-          <div><span class="text-[17px] font-bold tnum" style="color:#b45309">{{ n(unp.units) }}</span>
-            <span class="text-[11.5px] text-ink-3 ms-1.5">{{ L("units","قطعة","unités") }}</span></div>
-          <div><span class="text-[17px] font-bold tnum" style="color:#be123c">{{ n(unp.zero_rate) }}</span>
-            <span class="text-[11.5px] text-ink-3 ms-1.5">{{ L("of them cost nothing — they will sell at zero","منهم تكلفتهم صفر — هيتباعوا بتكلفة صفر","à coût nul") }}</span></div>
+          <div><span class="text-[18px] font-bold tnum" style="color:#b45309">{{ n(unp.count) }}</span>
+            <span class="text-[12px] text-ink-3 ms-1.5">{{ L("products on sale with no agreed price","منتج بيتباع بدون سعر متفق","produits sans prix convenu") }}</span></div>
+          <div><span class="text-[18px] font-bold tnum" style="color:#b45309">{{ n(unp.units) }}</span>
+            <span class="text-[12px] text-ink-3 ms-1.5">{{ L("units","قطعة","unités") }}</span></div>
+          <div><span class="text-[18px] font-bold tnum" style="color:#be123c">{{ n(unp.zero_rate) }}</span>
+            <span class="text-[12px] text-ink-3 ms-1.5">{{ L("of them cost nothing — they will sell at zero","منهم تكلفتهم صفر — هيتباعوا بتكلفة صفر","à coût nul") }}</span></div>
         </div>
         <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
           <table class="w-full text-[12px]">
             <thead class="sticky top-0"><tr style="background:#fafaf9">
-              <th class="px-5 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورد","Fournisseur") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Products","منتجات","Produits") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Units on the shelf","قطع على الرف","Unités") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Cost nothing","تكلفتهم صفر","Coût nul") }}</th>
+              <th class="px-5 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Supplier","المورد","Fournisseur") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Products","منتجات","Produits") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Units on the shelf","قطع على الرف","Unités") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Cost nothing","تكلفتهم صفر","Coût nul") }}</th>
               <th class="px-5 py-2"></th>
             </tr></thead>
             <tbody>
@@ -69,21 +69,21 @@
         <div v-for="k in kpis" :key="k.label" class="bg-white border border-line rounded-card p-3.5">
           <div class="text-[20px] font-bold tnum" :style="{ color: k.color }">{{ n(k.value) }}</div>
           <div class="text-[11px] text-ink-3 mt-0.5">{{ k.label }}</div>
-          <div class="text-[10px] text-ink-muted mt-1">{{ k.sub }}</div>
+          <div class="text-[11px] text-ink-muted mt-1">{{ k.sub }}</div>
         </div>
       </div>
 
       <!-- ── the queue ── -->
       <div v-if="started || q.pending.length" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
-          <span class="text-[12.5px] font-bold">{{ L("Waiting for review","مستني مراجعة","À examiner") }}</span>
-          <span class="text-[10.5px] text-ink-muted">{{ L("worst deviation first","الأبعد عن الفاتورة الأول","écart le plus fort en premier") }}</span>
+          <span class="text-[13px] font-bold">{{ L("Waiting for review","مستني مراجعة","À examiner") }}</span>
+          <span class="text-[11px] text-ink-muted">{{ L("worst deviation first","الأبعد عن الفاتورة الأول","écart le plus fort en premier") }}</span>
           <div class="flex-1"></div>
-          <select v-model="seedFor" class="h-[28px] px-2 rounded-[8px] border border-line text-[11.5px] bg-white max-w-[240px]">
+          <select v-model="seedFor" class="h-[28px] px-2 rounded-[8px] border border-line text-[12px] bg-white max-w-[240px]">
             <option value="">{{ L("Seed a supplier from history…","ازرع مورد من تاريخه…","Amorcer un fournisseur…") }}</option>
             <option v-for="s in suppliers" :key="s" :value="s">{{ s }}</option>
           </select>
-          <button class="h-[28px] px-3 rounded-[8px] text-[11.5px] font-bold text-white bg-brand disabled:opacity-40"
+          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand disabled:opacity-40"
                   :disabled="!seedFor || busy" @click="seed">{{ L("Propose","اقترح","Proposer") }}</button>
         </div>
 
@@ -92,11 +92,11 @@
         </div>
         <table v-else class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
-            <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورد","Fournisseur") }}</th>
-            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Rows","صفوف","Lignes") }}</th>
-            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Flagged","مُعلَّم","Signalés") }}</th>
-            <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Worst gap","أكبر فرق","Écart max") }}</th>
-            <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Came from","المصدر","Source") }}</th>
+            <th class="px-4 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Supplier","المورد","Fournisseur") }}</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Rows","صفوف","Lignes") }}</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Flagged","مُعلَّم","Signalés") }}</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Worst gap","أكبر فرق","Écart max") }}</th>
+            <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Came from","المصدر","Source") }}</th>
             <th class="px-4 py-2"></th>
           </tr></thead>
           <tbody>
@@ -119,49 +119,49 @@
       <div v-if="rv" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
           <button class="h-[26px] px-2.5 rounded-[8px] border border-line text-[11px] bg-white" @click="rv = null">←</button>
-          <span class="text-[12.5px] font-bold">{{ rv.supplier }}</span>
-          <span class="text-[10.5px] text-ink-muted">{{ rv.currency }} · {{ rv.items.length }} {{ L("rows","صف","lignes") }}</span>
-          <span v-if="rv.flagged" class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+          <span class="text-[13px] font-bold">{{ rv.supplier }}</span>
+          <span class="text-[11px] text-ink-muted">{{ rv.currency }} · {{ rv.items.length }} {{ L("rows","صف","lignes") }}</span>
+          <span v-if="rv.flagged" class="text-[11px] font-bold px-2 py-0.5 rounded-full"
                 style="background:#fef2f2;color:#be123c">{{ rv.flagged }} {{ L("past the guard","تعدّوا الحارس","au-delà du garde-fou") }}</span>
           <div class="flex-1"></div>
           <span class="text-[11px] text-ink-3">{{ chosen.length }} {{ L("selected","محدد","sélectionnés") }}</span>
-          <button class="h-[28px] px-3 rounded-[8px] border border-line text-[11.5px] bg-white"
+          <button class="h-[28px] px-3 rounded-[8px] border border-line text-[12px] bg-white"
                   :disabled="busy" @click="doReject">{{ L("Reject","ارفض","Rejeter") }}</button>
-          <button class="h-[28px] px-3 rounded-[8px] text-[11.5px] font-bold text-white bg-brand disabled:opacity-40"
+          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand disabled:opacity-40"
                   :disabled="!chosen.length || busy" @click="doApprove">{{ L("Approve","اعتمد","Approuver") }}</button>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-[11.5px]">
+          <table class="w-full text-[12px]">
             <thead><tr style="background:#fafaf9">
               <th class="px-3 py-2 w-[34px]"><input type="checkbox" :checked="allOn" @change="toggleAll" /></th>
-              <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Agreed now","المتفق حاليًا","Convenu") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Proposed","المقترح","Proposé") }}</th>
-              <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("He billed","اللي فوتره","Facturé") }}</th>
-              <th class="px-3 py-2 text-center text-[10px] font-bold text-ink-muted">{{ L("Gap","الفرق","Écart") }}</th>
-              <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("From","سريان من","À partir de") }}</th>
+              <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Agreed now","المتفق حاليًا","Convenu") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Proposed","المقترح","Proposé") }}</th>
+              <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("He billed","اللي فوتره","Facturé") }}</th>
+              <th class="px-3 py-2 text-center text-[11px] font-bold text-ink-muted">{{ L("Gap","الفرق","Écart") }}</th>
+              <th class="px-4 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("From","سريان من","À partir de") }}</th>
             </tr></thead>
             <tbody>
               <tr v-for="it in rv.items" :key="it.item_code" class="border-t border-line-hair"
                   :style="it.flagged ? 'background:#fff7f7' : ''">
                 <td class="px-3 py-1.5"><input type="checkbox" v-model="sel[it.item_code]" /></td>
                 <td class="px-3 py-1.5">
-                  <span class="block font-mono text-[10.5px]" dir="ltr">{{ it.item_code }}</span>
-                  <span class="block text-[10px] text-ink-muted">{{ (it.item_name || "").slice(0, 46) }}</span>
+                  <span class="block font-mono text-[11px]" dir="ltr">{{ it.item_code }}</span>
+                  <span class="block text-[11px] text-ink-muted">{{ (it.item_name || "").slice(0, 46) }}</span>
                 </td>
                 <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ it.current_agreed ? money(it.current_agreed) : "—" }}</td>
                 <td class="px-3 py-1.5 text-end tnum font-semibold">{{ money(it.proposed) }}</td>
                 <td class="px-3 py-1.5 text-end tnum text-ink-3">
                   {{ it.benchmark ? money(it.benchmark) : "—" }}
-                  <span v-if="it.benchmark_source === 'receipt'" class="text-[9px] text-ink-muted">{{ L("(receipt)","(إيصال)","(réception)") }}</span>
+                  <span v-if="it.benchmark_source === 'receipt'" class="text-[11px] text-ink-muted">{{ L("(receipt)","(إيصال)","(réception)") }}</span>
                 </td>
                 <td class="px-3 py-1.5 text-center">
-                  <span v-if="it.dev_pct !== null" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                  <span v-if="it.dev_pct !== null" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full"
                         :style="it.flagged ? 'background:#fef2f2;color:#be123c' : 'background:#ecfdf5;color:#047857'"
                         dir="ltr">{{ it.dev_pct > 0 ? "+" : "" }}{{ it.dev_pct }}%</span>
-                  <span v-else class="text-[10px] text-ink-muted">{{ L("no history","بدون تاريخ","—") }}</span>
+                  <span v-else class="text-[11px] text-ink-muted">{{ L("no history","بدون تاريخ","—") }}</span>
                 </td>
-                <td class="px-4 py-1.5 text-[10.5px] text-ink-3" dir="ltr">{{ it.valid_from }}</td>
+                <td class="px-4 py-1.5 text-[11px] text-ink-3" dir="ltr">{{ it.valid_from }}</td>
               </tr>
             </tbody>
           </table>
@@ -179,22 +179,22 @@
       <!-- ── the audit: is every product priced, and priced consistently? ── -->
       <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
-          <span class="text-[12.5px] font-bold">🔍 {{ L("Price audit","تدقيق الأسعار","Audit des prix") }}</span>
-          <span class="text-[10.5px] text-ink-muted">{{ L("every sellable product against the price agreed, the rate its stock is valued at, and what he billed","كل منتج قابل للبيع مقابل السعر المتفق وقيمة المخزون واللي فوتره","chaque produit vs prix convenu, valorisation et facture") }}</span>
+          <span class="text-[13px] font-bold">🔍 {{ L("Price audit","تدقيق الأسعار","Audit des prix") }}</span>
+          <span class="text-[11px] text-ink-muted">{{ L("every sellable product against the price agreed, the rate its stock is valued at, and what he billed","كل منتج قابل للبيع مقابل السعر المتفق وقيمة المخزون واللي فوتره","chaque produit vs prix convenu, valorisation et facture") }}</span>
           <div class="flex-1"></div>
-          <button class="h-[28px] px-3 rounded-[8px] border border-line text-[11.5px] bg-white font-semibold"
+          <button class="h-[28px] px-3 rounded-[8px] border border-line text-[12px] bg-white font-semibold"
                   :disabled="auditing" @click="runAudit">
             {{ auditing ? L("Checking…","بيفحص…","Analyse…") : (au ? L("Re-run","أعد الفحص","Relancer") : L("Run audit","افحص","Lancer")) }}
           </button>
         </div>
-        <div v-if="!au" class="py-8 text-center text-[11.5px] text-ink-muted">
+        <div v-if="!au" class="py-8 text-center text-[12px] text-ink-muted">
           {{ L("Not run yet.","ماتعملش لسه.","Pas encore lancé.") }}
         </div>
         <template v-else>
           <div class="px-4 py-3 grid grid-cols-2 lg:grid-cols-6 gap-3">
             <div v-for="v in verdicts" :key="v.key" class="text-center">
               <div class="text-[18px] font-bold tnum" :style="{ color: v.color }">{{ n(au.summary[v.key] || 0) }}</div>
-              <div class="text-[10px] text-ink-3 leading-tight mt-0.5">{{ v.label }}</div>
+              <div class="text-[11px] text-ink-3 leading-tight mt-0.5">{{ v.label }}</div>
             </div>
           </div>
           <div class="px-4 pb-2.5 text-[11px] text-ink-3">
@@ -208,19 +208,19 @@
           <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
             <table class="w-full text-[11px]">
               <thead class="sticky top-0"><tr style="background:#fafaf9">
-                <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
-                <th class="px-3 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Supplier","المورد","Fournisseur") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Books","الدفاتر","Livres") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("Agreed","المتفق","Convenu") }}</th>
-                <th class="px-3 py-2 text-end text-[10px] font-bold text-ink-muted">{{ L("He billed","فوتره","Facturé") }}</th>
-                <th class="px-4 py-2 text-start text-[10px] font-bold text-ink-muted">{{ L("Verdict","الحكم","Verdict") }}</th>
+                <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Item","الصنف","Article") }}</th>
+                <th class="px-3 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Supplier","المورد","Fournisseur") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Qty","كمية","Qté") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Books","الدفاتر","Livres") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Agreed","المتفق","Convenu") }}</th>
+                <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("He billed","فوتره","Facturé") }}</th>
+                <th class="px-4 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Verdict","الحكم","Verdict") }}</th>
               </tr></thead>
               <tbody>
                 <tr v-for="r in au.rows" :key="r.item_code" class="border-t border-line-hair">
                   <td class="px-3 py-1.5">
-                    <span class="block font-mono text-[10px]" dir="ltr">{{ r.item_code }}</span>
-                    <span class="block text-[9.5px] text-ink-muted">{{ (r.item_name || "").slice(0, 40) }}</span>
+                    <span class="block font-mono text-[11px]" dir="ltr">{{ r.item_code }}</span>
+                    <span class="block text-[11px] text-ink-muted">{{ (r.item_name || "").slice(0, 40) }}</span>
                   </td>
                   <td class="px-3 py-1.5 text-ink-3">{{ (r.supplier || "—").slice(0, 22) }}</td>
                   <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ n(r.qty) }}</td>
@@ -228,15 +228,15 @@
                   <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ r.agreed ? money(r.agreed) : "—" }}</td>
                   <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ r.billed ? money(r.billed) : "—" }}</td>
                   <td class="px-4 py-1.5">
-                    <span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                    <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
                           :style="vStyle(r.verdict)">{{ vLabel(r.verdict) }}</span>
-                    <span v-if="r.gap_pct !== null" class="ms-1 text-[9.5px] tnum" dir="ltr">{{ r.gap_pct > 0 ? "+" : "" }}{{ r.gap_pct }}%</span>
+                    <span v-if="r.gap_pct !== null" class="ms-1 text-[11px] tnum" dir="ltr">{{ r.gap_pct > 0 ? "+" : "" }}{{ r.gap_pct }}%</span>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <div v-if="au.flagged > au.rows.length" class="px-4 py-2 border-t border-line-hair text-[10.5px] text-ink-muted">
+          <div v-if="au.flagged > au.rows.length" class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted">
             {{ L("Showing the worst","بيعرض الأسوأ","Les pires") }} {{ au.rows.length }} {{ L("of","من","sur") }} {{ n(au.flagged) }}.
           </div>
         </template>
@@ -247,17 +247,17 @@
         <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
             <span class="text-[12px] font-bold">{{ L("Billed above the agreed price","فوتر أعلى من المتفق","Facturé au-dessus") }}</span>
-            <span v-if="ba.total_overcharge" class="text-[10.5px] font-bold" style="color:#be123c">{{ money(ba.total_overcharge) }}</span>
+            <span v-if="ba.total_overcharge" class="text-[11px] font-bold" style="color:#be123c">{{ money(ba.total_overcharge) }}</span>
           </div>
           <div class="max-h-[280px] overflow-y-auto">
-            <div v-if="!ba.cases.length" class="py-8 text-center text-[11.5px] text-ink-muted">
+            <div v-if="!ba.cases.length" class="py-8 text-center text-[12px] text-ink-muted">
               {{ L("Nothing — or no agreed prices to compare against yet.","ولا حاجة — أو مفيش أسعار متفقة نقارن بيها لسه.","Rien à comparer.") }}
             </div>
             <div v-for="c in ba.cases.slice(0, 60)" :key="c.invoice + c.item_code"
                  class="px-4 py-1.5 border-t border-line-hair flex items-center gap-2 text-[11px]">
               <span class="truncate flex-1">{{ c.supplier }}</span>
               <span class="tnum text-ink-3" dir="ltr">{{ money(c.agreed) }} → {{ money(c.billed) }}</span>
-              <span class="text-[9.5px] font-bold" style="color:#be123c" dir="ltr">+{{ c.over_pct }}%</span>
+              <span class="text-[11px] font-bold" style="color:#be123c" dir="ltr">+{{ c.over_pct }}%</span>
             </div>
           </div>
         </div>

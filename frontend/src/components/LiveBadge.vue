@@ -1,6 +1,6 @@
 <template>
   <span v-if="live !== null && live !== undefined"
-        class="inline-flex items-center gap-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap"
+        class="inline-flex items-center gap-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap"
         :style="live ? OK : BAD">
     <span v-if="dot" class="w-1.5 h-1.5 rounded-full" :style="{ background: live ? '#047857' : '#b45309' }"></span>
     {{ live ? L("Live", "مباشر", "Live") : L("Load failed", "فشل التحميل", "Échec") }}

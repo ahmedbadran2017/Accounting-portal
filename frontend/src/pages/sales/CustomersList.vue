@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
       <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#e1f5ee"><Icon name="users" :size="14" color="#0b5c4f" /></span>
       <span class="text-[13px] font-bold">{{ L("Customers","العملاء","Clients") }}</span>
-      <span v-if="live !== null" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+      <span v-if="live !== null" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full border"
             :style="live ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">
         {{ live ? L("Live","مباشر","En direct") : L("Load failed","فشل التحميل","Échec") }}
       </span>
@@ -16,7 +16,7 @@
 
     <!-- Tag filter -->
     <div class="flex items-center gap-1.5 px-4 py-2.5 border-b border-line-hair flex-wrap">
-      <span class="text-[10px] font-bold uppercase tracking-wider text-ink-muted me-1">{{ L("Filter","تصفية","Filtrer") }}</span>
+      <span class="text-[11px] font-bold uppercase tracking-wider text-ink-muted me-1">{{ L("Filter","تصفية","Filtrer") }}</span>
       <button class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
               :class="activeTag === null ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'"
               @click="activeTag = null">{{ L("All","الكل","Tous") }} <span class="opacity-60">{{ rows.length }}</span></button>
@@ -37,7 +37,7 @@
           <tr style="background:#fafaf9">
             <th class="px-3 py-2.5 w-9"><input type="checkbox" :checked="tt.allFilteredSelected.value" @change="tt.toggleAllFiltered()" class="accent-accent w-3.5 h-3.5 align-middle" /></th>
             <th v-for="c in cols" v-show="!tt.hidden.value.has(c.key)" :key="c.key"
-                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
+                class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap cursor-pointer select-none hover:text-ink-2"
                 :class="c.align === 'e' ? 'text-end' : 'text-start'" @click="tt.toggleSort(c.key)">
               <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                 <Icon v-if="tt.sortKey.value === c.key" name="chevDown" :size="11" :class="tt.sortDir.value === 1 ? '' : 'rotate-180'" color="#0b5c4f" /></span>
@@ -49,11 +49,11 @@
             <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(c)" @change="tt.toggleRow(c)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
             <td v-show="!tt.hidden.value.has('customer_name')" class="px-4 py-2.5">
               <span class="flex items-center gap-2.5">
-                <span class="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold flex-shrink-0" :style="{ background: AV[c.av] || AV[avKeys[i % avKeys.length]] }">{{ initials(c.customer_name || c.name) }}</span>
+                <span class="w-7 h-7 rounded-full grid place-items-center text-white text-[11px] font-bold flex-shrink-0" :style="{ background: AV[c.av] || AV[avKeys[i % avKeys.length]] }">{{ initials(c.customer_name || c.name) }}</span>
                 <span class="min-w-0">
                   <span class="font-semibold whitespace-nowrap">{{ c.customer_name || c.name }}</span>
                   <span v-if="c.tags && c.tags.length" class="flex items-center gap-1 mt-0.5">
-                    <span v-for="tg in c.tags" :key="tg" class="text-[9px] font-bold px-1.5 py-px rounded-full border leading-tight"
+                    <span v-for="tg in c.tags" :key="tg" class="text-[11px] font-bold px-1.5 py-px rounded-full border leading-tight"
                           :style="`background:${TAG_META[tg].bg};color:${TAG_META[tg].fg};border-color:${TAG_META[tg].bd}`">{{ TAG_META[tg].label(L) }}</span>
                   </span>
                 </span>

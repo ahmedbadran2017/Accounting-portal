@@ -51,7 +51,7 @@
           <!-- cross-currency: received amount in the target's currency -->
           <label v-if="crossCurrency" class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Amount received","المبلغ المُستلَم","Reçu") }} ({{ toCcy }})</span>
             <input type="number" min="0" step="0.01" v-model.number="receivedAmount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum text-end font-semibold focus:outline-none focus:border-accent/40" :placeholder="String(amount || 0)" />
-            <span class="text-[10px] text-ink-muted">{{ L("different currency — enter what actually landed; ERPNext books the FX difference.","عملة مختلفة — اكتب اللي وصل فعلاً؛ ERPNext بيسجّل فرق الصرف.","devise différente") }}</span>
+            <span class="text-[11px] text-ink-muted">{{ L("different currency — enter what actually landed; ERPNext books the FX difference.","عملة مختلفة — اكتب اللي وصل فعلاً؛ ERPNext بيسجّل فرق الصرف.","devise différente") }}</span>
           </label>
 
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Reference #","المرجع","Référence") }} <span class="text-ink-muted font-normal">({{ L("optional","اختياري","opt.") }})</span></span>
@@ -61,25 +61,25 @@
           <div class="border border-dashed border-line-2 rounded-[12px] px-3 py-2.5">
             <div v-if="!fileUrl" class="flex items-center gap-2">
               <Icon name="doc" :size="14" color="#9a8f86" />
-              <label class="text-[11.5px] font-semibold text-accent-dark cursor-pointer hover:underline">
+              <label class="text-[12px] font-semibold text-accent-dark cursor-pointer hover:underline">
                 {{ uploading ? L("Uploading…","جارٍ الرفع…","…") : L("Attach receipt (PDF / photo)","أرفق الإيصال (PDF / صورة)","Joindre le reçu") }}
                 <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.heic" class="hidden" @change="onFile" :disabled="uploading" />
               </label>
-              <span class="text-[10px] text-ink-muted">{{ L("pinned to the payment entry","بتتعلق على سند الدفع","liée à l'écriture") }}</span>
+              <span class="text-[11px] text-ink-muted">{{ L("pinned to the payment entry","بتتعلق على سند الدفع","liée à l'écriture") }}</span>
             </div>
             <div v-else class="flex items-center gap-2">
               <Icon name="check" :size="14" color="#047857" />
-              <span class="text-[11.5px] font-medium truncate flex-1">{{ fileName }}</span>
+              <span class="text-[12px] font-medium truncate flex-1">{{ fileName }}</span>
               <button type="button" class="text-[11px] text-rose-500 hover:underline" @click="fileUrl=''; fileName=''">{{ L("remove","إزالة","retirer") }}</button>
             </div>
           </div>
 
           <div v-if="amount >= threshold" class="text-[11px] text-amber-700 inline-flex items-center gap-1.5"><Icon name="shield" :size="12" />{{ L("Material — goes for approval first.","مبلغ جوهري — للموافقة الأول.","Approbation requise.") }}</div>
-          <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+          <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
-          <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!canSubmit || posting || uploading" @click="submit">{{ posting ? "…" : L("Transfer","حوّل","Transférer") }}</button>
+          <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+          <UiButton variant="primary" :disabled="!canSubmit || posting || uploading" @click="submit">{{ posting ? "…" : L("Transfer","حوّل","Transférer") }}</UiButton>
         </div>
       </template>
     </div>
@@ -90,6 +90,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";

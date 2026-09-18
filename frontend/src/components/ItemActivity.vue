@@ -4,13 +4,13 @@
   <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
     <button class="w-full px-4 py-3 flex items-center gap-2 text-start hover:bg-[#fafaf9]" @click="toggle">
       <span class="text-[13px] font-bold">🕘 {{ L("Activity — who did what","السجل — مين عمل إيه","Activité") }}</span>
-      <span v-if="counts.apply" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#eef2ff;color:#4338ca">
+      <span v-if="counts.apply" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#eef2ff;color:#4338ca">
         {{ counts.apply }} {{ L("applies","تطبيق","applic.") }}
       </span>
-      <span v-if="counts.save" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f0fdf4;color:#15803d">
+      <span v-if="counts.save" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#f0fdf4;color:#15803d">
         {{ counts.save }} {{ L("saves","حفظ","enreg.") }}
       </span>
-      <span v-if="counts.edit" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fefce8;color:#a16207">
+      <span v-if="counts.edit" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fefce8;color:#a16207">
         {{ counts.edit }} {{ L("edits","تعديل","modif.") }}
       </span>
       <div class="flex-1"></div>
@@ -28,12 +28,12 @@
           <span class="text-[13px] leading-none mt-0.5">{{ icon(r) }}</span>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-[11.5px] font-bold">{{ title(r) }}</span>
-              <span v-if="r.status" class="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full" :style="badge(r.status)">{{ r.status }}</span>
+              <span class="text-[12px] font-bold">{{ title(r) }}</span>
+              <span v-if="r.status" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" :style="badge(r.status)">{{ r.status }}</span>
               <span v-if="r.rate" class="text-[11px] tnum font-bold" dir="ltr">{{ fmt(r.rate, 2) }}</span>
-              <span v-if="multi" class="text-[10px] text-ink-muted tnum" dir="ltr">{{ r.item }}</span>
+              <span v-if="multi" class="text-[11px] text-ink-muted tnum" dir="ltr">{{ r.item }}</span>
             </div>
-            <div class="text-[10.5px] text-ink-muted mt-0.5 break-words">
+            <div class="text-[11px] text-ink-muted mt-0.5 break-words">
               <span v-if="r.kind === 'apply' && r.anchor" dir="ltr">
                 {{ L("from","من","depuis") }} {{ r.anchor }}<span v-if="r.pins"> · {{ r.pins }} {{ L("pin(s)","تثبيت","points") }}</span>
                 <span v-if="r.voucher"> · {{ r.voucher }}</span>
@@ -44,8 +44,8 @@
             </div>
           </div>
           <div class="text-end shrink-0">
-            <div class="text-[10px] text-ink-muted tnum" dir="ltr">{{ (r.ts || "").slice(0, 16) }}</div>
-            <div class="text-[10px] font-bold truncate max-w-[150px]">{{ who(r.who) }}</div>
+            <div class="text-[11px] text-ink-muted tnum" dir="ltr">{{ (r.ts || "").slice(0, 16) }}</div>
+            <div class="text-[11px] font-bold truncate max-w-[150px]">{{ who(r.who) }}</div>
           </div>
         </div>
       </div>

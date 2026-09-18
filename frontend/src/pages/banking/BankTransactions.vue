@@ -9,14 +9,14 @@
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("movements", "حركة", "mouvements") }}</span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="st.search.value" :placeholder="L('Voucher / account…', 'مستند / حساب…', 'Pièce / compte…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[12.5px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="st.search.value" :placeholder="L('Voucher / account…', 'مستند / حساب…', 'Pièce / compte…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
-            <th v-for="c in cols" :key="c.key" class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
+            <th v-for="c in cols" :key="c.key" class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted whitespace-nowrap select-none"
                 :class="[c.align === 'e' ? 'text-end' : 'text-start', c.sort ? 'cursor-pointer hover:text-ink-2' : '']" @click="c.sort && st.setSort(c.sort)">
               <span class="inline-flex items-center gap-1" :class="c.align === 'e' ? 'flex-row-reverse' : ''">{{ c.label }}
                 <Icon v-if="c.sort && st.sortField.value === c.sort" name="chevDown" :size="11" :class="st.sortDir.value === 'asc' ? 'rotate-180' : ''" color="#0b5c4f" /></span>
@@ -25,7 +25,7 @@
           <tbody>
             <tr v-for="o in st.rows.value" :key="o.voucher + o.date" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" @click="open(o)">
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ o.date }}</td>
-              <td class="px-4 py-2.5"><div class="font-mono font-semibold">{{ o.voucher }}</div><div class="text-[10px] text-ink-muted">{{ o.type }}<span v-if="o.against"> · {{ o.against }}</span></div></td>
+              <td class="px-4 py-2.5"><div class="font-mono font-semibold">{{ o.voucher }}</div><div class="text-[11px] text-ink-muted">{{ o.type }}<span v-if="o.against"> · {{ o.against }}</span></div></td>
               <td class="px-4 py-2.5 text-ink-2 truncate max-w-[200px]">{{ o.account }}</td>
               <td class="px-4 py-2.5 text-end font-bold tnum whitespace-nowrap" :class="o.amount < 0 ? 'text-sale' : 'text-success-dark'">{{ o.amount < 0 ? "−" : "+" }}{{ fmt(Math.abs(o.amount)) }}</td>
             </tr>

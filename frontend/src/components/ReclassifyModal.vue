@@ -21,13 +21,13 @@
         </div>
         <div>
           <label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label>
-          <input type="date" v-model="asOf" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="asOf" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
         </div>
 
         <div v-if="loading" class="py-4 text-center text-[12px] text-ink-muted">{{ L("Loading balances…","جارٍ التحميل…","Chargement…") }}</div>
 
         <template v-else-if="pv && fromAccount && toAccount">
-          <div v-if="pv.problems && pv.problems.length" class="text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[10px] px-3 py-2 space-y-0.5">
+          <div v-if="pv.problems && pv.problems.length" class="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[10px] px-3 py-2 space-y-0.5">
             <div v-for="(p,i) in pv.problems" :key="i" class="flex items-start gap-1.5"><Icon name="alert" :size="12" color="#b45309" class="mt-px flex-shrink-0" />{{ p }}</div>
           </div>
           <div v-else class="rounded-[10px] bg-indigo-50/60 border border-indigo-100 px-3 py-2.5 text-[12px] space-y-1">
@@ -37,8 +37,8 @@
           </div>
         </template>
 
-        <input v-model.trim="remark" :placeholder="L('Note (optional)','ملاحظة (اختياري)','Note (facultatif)')" class="w-full h-9 border border-line-2 rounded-[9px] px-2 text-[12.5px] focus:outline-none focus:border-accent/40" />
-        <div v-if="error" class="text-[11.5px] text-sale">{{ error }}</div>
+        <input v-model.trim="remark" :placeholder="L('Note (optional)','ملاحظة (اختياري)','Note (facultatif)')" class="w-full h-9 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+        <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
       </div>
 
       <footer class="flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30 rounded-b-[16px]">
