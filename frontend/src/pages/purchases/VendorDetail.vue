@@ -95,7 +95,7 @@
         </div>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button @click="saveEdit" :disabled="saving" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ saving ? L("Saving…","حفظ…","…") : L("Save","حفظ","Enregistrer") }}</button>
+          <button @click="saveEdit" :disabled="saving" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ saving ? L("Saving…","حفظ…","…") : L("Save","حفظ","Enregistrer") }}</button>
         </div>
       </div>
     </div>

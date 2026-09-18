@@ -39,7 +39,7 @@
           <span class="text-ink-muted">{{ L("Paid from", "مدفوع من", "Payé depuis") }}</span>
           <span class="font-semibold text-ink-2">{{ d.paid_from }}</span>
           <span v-if="d.unallocated > 0" class="ms-2 text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unallocated", "غير مخصص", "non affecté") }} {{ fmt(d.unallocated) }}</span>
-          <button v-if="d.unallocated > 0" @click="openMatch" class="ms-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-bold text-white bg-accent hover:bg-accent-dark shadow-prim">
+          <button v-if="d.unallocated > 0" @click="openMatch" class="ms-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-semibold text-white bg-accent hover:bg-accent-dark shadow-prim">
             <Icon name="scale" :size="12" color="#fff" />{{ L("Match to bills", "طابق بالفواتير", "Affecter") }}
           </button>
         </div>

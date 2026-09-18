@@ -54,7 +54,7 @@
                 <td class="px-3 py-2 text-end tnum font-semibold">{{ n(r.units) }}</td>
                 <td class="px-3 py-2 text-end tnum" :style="r.zero_rate ? 'color:#be123c;font-weight:700' : 'color:#a8a29e'">{{ r.zero_rate || "—" }}</td>
                 <td class="px-5 py-2 text-end">
-                  <button class="h-[26px] px-3 rounded-[8px] text-[11px] font-bold text-white bg-brand disabled:opacity-40"
+                  <button class="h-[26px] px-3 rounded-[8px] text-[11px] font-semibold text-white bg-brand disabled:opacity-40"
                           :disabled="busy || r.supplier.startsWith('(')"
                           @click="seedFor = r.supplier; seed()">{{ L("Propose","اقترح","Proposer") }}</button>
                 </td>
@@ -83,7 +83,7 @@
             <option value="">{{ L("Seed a supplier from history…","ازرع مورد من تاريخه…","Amorcer un fournisseur…") }}</option>
             <option v-for="s in suppliers" :key="s" :value="s">{{ s }}</option>
           </select>
-          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand disabled:opacity-40"
+          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-semibold text-white bg-brand disabled:opacity-40"
                   :disabled="!seedFor || busy" @click="seed">{{ L("Propose","اقترح","Proposer") }}</button>
         </div>
 
@@ -127,7 +127,7 @@
           <span class="text-[11px] text-ink-3">{{ chosen.length }} {{ L("selected","محدد","sélectionnés") }}</span>
           <button class="h-[28px] px-3 rounded-[8px] border border-line text-[12px] bg-white"
                   :disabled="busy" @click="doReject">{{ L("Reject","ارفض","Rejeter") }}</button>
-          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand disabled:opacity-40"
+          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-semibold text-white bg-brand disabled:opacity-40"
                   :disabled="!chosen.length || busy" @click="doApprove">{{ L("Approve","اعتمد","Approuver") }}</button>
         </div>
         <div class="overflow-x-auto">

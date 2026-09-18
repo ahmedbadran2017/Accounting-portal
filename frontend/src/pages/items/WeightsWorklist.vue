@@ -37,7 +37,7 @@
         </template>
         <template v-else>
           <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="est = null">{{ L("Close","إغلاق","Fermer") }}</button>
-          <button v-if="!est.loading && estCovered.length" class="h-[28px] px-3.5 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark"
+          <button v-if="!est.loading && estCovered.length" class="h-[28px] px-3.5 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark"
                   @click="applyEstimates">{{ L("Apply","تطبيق","Appliquer") }} {{ estCovered.length }}</button>
         </template>
       </div>
@@ -76,7 +76,7 @@
         </div>
         <input v-model="search" @keyup.enter="load" :placeholder="L('Search SKU / name…','بحث…','Recherche…')"
                class="h-[28px] w-[180px] text-[12px] px-2.5 rounded-[8px] border border-line" />
-        <button v-if="canWrite" class="h-[28px] px-3 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+        <button v-if="canWrite" class="h-[28px] px-3 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                 :disabled="estBusy" @click="openEstimator">✨ {{ L("Estimate missing","تقدير الناقص","Estimer") }}</button>
       </div>
 
@@ -114,7 +114,7 @@
                 <span v-else class="inline-flex items-center gap-1.5">
                   <input v-model.number="edits[r.item_code]" type="number" step="0.01" min="0.005" max="50"
                          class="h-[26px] w-[72px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" placeholder="kg" />
-                  <button v-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+                  <button v-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                           :disabled="!(edits[r.item_code] > 0) || savingKey === r.item_code" @click="save(r)">
                     {{ savingKey === r.item_code ? "…" : L("Save","حفظ","OK") }}
                   </button>

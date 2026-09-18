@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Salary structures", "هياكل المرتبات", "Structures salariales") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("fixed-amount earnings and deductions; assign one to each employee", "استحقاقات وخصومات بمبالغ ثابتة؛ اربط واحدة بكل موظف", "gains et retenues à montant fixe") }}</span>
-      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew()"><Icon name="plus" :size="14" />{{ L("New structure", "هيكل جديد", "Nouvelle structure") }}</button>
+      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew()"><Icon name="plus" :size="14" />{{ L("New structure", "هيكل جديد", "Nouvelle structure") }}</button>
     </div>
 
     <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
@@ -61,7 +61,7 @@
         </div>
         <div class="px-5 py-3 border-t border-line-hair flex justify-end gap-2">
           <button class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="edOpen = false">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button class="h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || (!ed.name && !ed.structure_name)" @click="save">{{ busy ? "…" : L("Save", "حفظ", "Enregistrer") }}</button>
+          <button class="h-9 px-4 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || (!ed.name && !ed.structure_name)" @click="save">{{ busy ? "…" : L("Save", "حفظ", "Enregistrer") }}</button>
         </div>
       </div>
     </div>

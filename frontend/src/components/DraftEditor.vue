@@ -82,7 +82,7 @@
               </table>
             </div>
             <div v-if="d.child.fill === 'outstanding'" class="px-3 py-2 border-t border-line-hair flex items-center gap-2 flex-wrap">
-              <button type="button" class="inline-flex items-center gap-1 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark h-7 px-2.5 rounded-chip disabled:opacity-50" :disabled="outLoading" @click="loadOutstanding">
+              <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark h-7 px-2.5 rounded-chip disabled:opacity-50" :disabled="outLoading" @click="loadOutstanding">
                 <Icon name="search" :size="12" color="#fff" />{{ outLoading ? "…" : L("Get outstanding invoices", "جلب الفواتير المستحقة", "Factures en attente") }}
               </button>
               <span v-if="out.unallocated" class="text-[12px] text-ink-3">{{ L("Unallocated", "غير مخصّص", "Non affecté") }} <b class="tnum">{{ fmt(out.unallocated) }}</b></span>
@@ -102,7 +102,7 @@
               </table>
               <div class="px-3 py-2 flex items-center gap-2 border-t border-line-hair">
                 <span class="text-[12px] text-ink-3">{{ L("Selected", "المحدّد", "Sélection") }} <b class="tnum">{{ fmt(selectedAlloc) }}</b></span>
-                <button type="button" class="ms-auto h-7 px-3 rounded-chip text-[12px] font-bold text-white bg-ink disabled:opacity-50" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</button>
+                <button type="button" class="ms-auto h-7 px-3 rounded-chip text-[12px] font-semibold text-white bg-ink disabled:opacity-50" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</button>
               </div>
             </div>
             <div v-if="d.child.can_add" class="px-3 py-2 border-t border-line-hair flex items-center gap-4 flex-wrap">
@@ -124,7 +124,7 @@
               </label>
               <div class="flex justify-end gap-2 pt-0.5">
                 <button type="button" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3 hover:bg-white" @click="poOpen = false">{{ L("Back", "رجوع", "Retour") }}</button>
-                <button type="button" class="h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-ink disabled:opacity-40" :disabled="!poPicked.length || poBusy" @click="pullPo">{{ poBusy ? "…" : L("Add the lines", "أضف السطور", "Ajouter les lignes") }}</button>
+                <button type="button" class="h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-ink disabled:opacity-40" :disabled="!poPicked.length || poBusy" @click="pullPo">{{ poBusy ? "…" : L("Add the lines", "أضف السطور", "Ajouter les lignes") }}</button>
               </div>
             </div>
           </div>
@@ -414,7 +414,7 @@ const ItemPick = {
                     h("div", { class: "flex justify-end gap-2" }, [
                       h("button", { type: "button", class: "h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3",
                                     onClick: () => qi.close() }, "Back"),
-                      h("button", { type: "button", class: "h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-ink disabled:opacity-40",
+                      h("button", { type: "button", class: "h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-ink disabled:opacity-40",
                                     disabled: qi.busy.value,
                                     onClick: async () => { const made = await qi.create(); if (made) pick(made); } },
                         qi.busy.value ? "…" : "Create and use"),

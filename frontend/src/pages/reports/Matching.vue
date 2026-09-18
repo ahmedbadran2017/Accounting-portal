@@ -66,7 +66,7 @@
                 <td class="px-4 py-2 font-mono text-[11px] text-ink-muted">{{ d.so }}</td>
                 <td class="px-4 py-2 text-end tnum">{{ n(d.amount) }}</td>
                 <td class="px-4 py-2 text-end w-32">
-                  <button v-if="d.action === 'bill'" class="h-6 px-2 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="busy === d.doc" @click="bill(d)">{{ busy === d.doc ? "…" : L("Make invoice","اعمل فاتورة","Facturer") }}</button>
+                  <button v-if="d.action === 'bill'" class="h-6 px-2 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="busy === d.doc" @click="bill(d)">{{ busy === d.doc ? "…" : L("Make invoice","اعمل فاتورة","Facturer") }}</button>
                   <button v-else-if="d.action === 'credit_note'" class="h-6 px-2 rounded-[7px] text-[11px] font-bold text-white hover:opacity-90 disabled:opacity-50" style="background:#b45309" :disabled="busy === d.doc" @click="creditNote(d)">{{ busy === d.doc ? "…" : L("Credit note","إشعار دائن","Avoir") }}</button>
                   <span v-else class="text-[11px] text-ink-muted">{{ L("review","مراجعة","à revoir") }}</span>
                 </td>
@@ -125,7 +125,7 @@
                         <td class="px-3 py-2 truncate max-w-[220px]">{{ d.customer || "—" }}</td>
                         <td class="px-3 py-2 text-end tnum">{{ n(d.amount) }}</td>
                         <td class="px-3 py-2 text-end w-32">
-                          <button v-if="d.action === 'bill'" class="h-6 px-2 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+                          <button v-if="d.action === 'bill'" class="h-6 px-2 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
                                   :disabled="busy === d.doc" @click="bill(d)">
                             {{ busy === d.doc ? "…" : L("Make invoice","اعمل فاتورة","Facturer") }}
                           </button>

@@ -6,7 +6,7 @@
         <span class="w-1.5 h-1.5 rounded-full" :class="live ? 'bg-success' : 'bg-amber-500'"></span>{{ live ? L("Live","مباشر","Live") : L("Load failed","فشل التحميل","Échec") }}
       </span>
       <span class="text-[11px] text-ink-muted">{{ L("Everyone with portal access and their role.","كل من لديه صلاحية الدخول ودوره.","Chaque utilisateur du portail et son rôle.") }}</span>
-      <button v-if="canManage" @click="openInvite" class="ms-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand"><Icon name="plus" :size="13" color="#fff" />{{ L("Invite","دعوة","Inviter") }}</button>
+      <button v-if="canManage" @click="openInvite" class="ms-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand"><Icon name="plus" :size="13" color="#fff" />{{ L("Invite","دعوة","Inviter") }}</button>
     </div>
 
     <div class="bg-white border border-line rounded-[14px] shadow-card overflow-hidden">
@@ -71,7 +71,7 @@
         <p class="text-[11px] text-ink-muted">{{ L("They receive a welcome email to set a password.","سيصلهم إيميل ترحيبي لتعيين كلمة المرور.","Ils reçoivent un e-mail de bienvenue.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="inviteOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button @click="sendInvite" :disabled="inviting || !inv.email" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ inviting ? L("Inviting…","جارٍ…","…") : L("Send invite","إرسال","Envoyer") }}</button>
+          <button @click="sendInvite" :disabled="inviting || !inv.email" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ inviting ? L("Inviting…","جارٍ…","…") : L("Send invite","إرسال","Envoyer") }}</button>
         </div>
       </div>
     </div>

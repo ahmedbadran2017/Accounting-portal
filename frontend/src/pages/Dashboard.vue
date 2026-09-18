@@ -156,7 +156,7 @@
           <div class="h-full rounded-full transition-all" :style="{ width: Math.max(2, cod.reconciled_pct || 0) + '%', background: '#0f766e' }"></div>
         </div>
         <div class="text-[12px] text-ink-3 mt-2">{{ L("of delivered cash matched to remittances.","من كاش المُسلّم مطابق للتحويلات.","du livré rapproché.") }}</div>
-        <button class="mt-auto inline-flex items-center justify-center gap-1.5 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand mt-3" @click="goBucket('delivered')">
+        <button class="mt-auto inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand mt-3" @click="goBucket('delivered')">
           <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher Cathedis") }}
         </button>
       </div>

@@ -76,7 +76,7 @@
           <div v-for="y in years" :key="y.name" class="flex items-center gap-2 text-[12px] px-2.5 py-1.5 rounded-[9px] bg-app-warm/40">
             <span class="flex-1 font-semibold">{{ y.name }} <span class="text-[11px] text-ink-muted">{{ y.sd }} → {{ y.ed }}</span></span>
             <span v-if="y.closed" class="text-[11px] font-bold text-emerald-700">{{ L("closed ✓","مُقفلة ✓","clôturé") }}</span>
-            <button v-else class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="closeBusy===y.name" @click="closeYear(y)">{{ closeBusy===y.name ? '…' : L("Close","إقفال","Clôturer") }}</button>
+            <button v-else class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="closeBusy===y.name" @click="closeYear(y)">{{ closeBusy===y.name ? '…' : L("Close","إقفال","Clôturer") }}</button>
           </div>
           <p class="text-[11px] text-ink-muted">{{ L("Posts a Period Closing Voucher — reversible. Do this after the year is otherwise final.", "يرحّل Period Closing Voucher — قابل للتراجع. بعد ما السنة تخلص فعليًا.", "Réversible.") }}</p>
         </div>

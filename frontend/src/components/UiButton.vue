@@ -44,20 +44,23 @@ const SIZE = {
   sm: "h-8 px-3 text-[12px] gap-1.5 rounded-[9px]",
   md: "h-9 px-4 text-[13px] gap-2 rounded-[10px]",
 };
+// No halos. A filled button gets a hairline of neutral shadow to seat it and
+// nothing else; the colour is already the emphasis. `active` presses it a
+// hair instead of flashing a third colour.
 const VARIANT = {
-  primary: "text-white bg-accent hover:bg-accent-dark shadow-prim",
-  create: "text-white bg-brand hover:bg-brand-dark shadow-brand",
-  secondary: "text-ink-2 bg-white border border-line-2 hover:bg-app-warm hover:border-ink-muted/40",
-  quiet: "text-ink-3 hover:text-ink hover:bg-app-warm",
-  danger: "text-sale bg-sale/5 border border-sale/25 hover:bg-sale/10",
+  primary: "text-white bg-accent hover:bg-accent-dark active:bg-accent-dark shadow-prim",
+  create: "text-white bg-brand hover:bg-brand-dark active:bg-brand-dark shadow-brand",
+  secondary: "text-ink-2 bg-white border border-line-2 hover:bg-app-warm hover:border-ink-muted/40 active:bg-line",
+  quiet: "text-ink-3 hover:text-ink hover:bg-app-warm active:bg-line",
+  danger: "text-sale bg-sale/5 border border-sale/25 hover:bg-sale/10 active:bg-sale/15",
 };
 const ICON_COLOR = { primary: "#fff", create: "#fff", secondary: "#57534e", quiet: "#78716c", danger: "#c4301c" };
 
 const iconColor = computed(() => ICON_COLOR[props.variant] || "#57534e");
 const cls = computed(() => [
-  "inline-flex items-center justify-center font-semibold whitespace-nowrap select-none",
-  "transition-colors duration-150",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-1",
+  "inline-flex items-center justify-center font-medium whitespace-nowrap select-none",
+  "transition-colors duration-150 active:translate-y-px",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-1",
   "disabled:opacity-45 disabled:pointer-events-none",
   SIZE[props.size] || SIZE.md,
   VARIANT[props.variant] || VARIANT.secondary,

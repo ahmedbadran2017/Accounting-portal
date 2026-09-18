@@ -31,7 +31,7 @@
                class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" />
         <div class="flex justify-end gap-2">
           <button class="h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3 hover:bg-app-warm" @click="cancelAsk">{{ L("Back", "رجوع", "Retour") }}</button>
-          <button class="h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-ink disabled:opacity-40" :disabled="!answer || busy" @click="confirmAsk">{{ asking.label }}</button>
+          <button class="h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-ink disabled:opacity-40" :disabled="!answer || busy" @click="confirmAsk">{{ asking.label }}</button>
         </div>
       </div>
     </div>

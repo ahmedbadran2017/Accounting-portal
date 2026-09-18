@@ -9,7 +9,7 @@
         </select>
       </div>
       <span class="text-[11px] text-ink-muted hidden sm:inline">{{ L("bonuses & deductions reviewed before the slip is generated", "حوافز وخصومات تُراجَع قبل إنشاء المسيّر", "revus avant génération") }}</span>
-      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openAdd()">
+      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openAdd()">
         <Icon name="plus" :size="14" />{{ L("Add adjustment", "إضافة", "Ajouter") }}
       </button>
     </div>
@@ -85,7 +85,7 @@
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="adding=false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!form.employee || !form.component || !(form.amount>0) || saving" @click="save">{{ saving ? "…" : L("Add","إضافة","Ajouter") }}</button>
+          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!form.employee || !form.component || !(form.amount>0) || saving" @click="save">{{ saving ? "…" : L("Add","إضافة","Ajouter") }}</button>
         </div>
       </div>
     </div>

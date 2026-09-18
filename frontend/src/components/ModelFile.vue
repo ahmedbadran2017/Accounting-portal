@@ -58,7 +58,7 @@
                    :class="noteNeeded ? 'border-amber-400' : 'border-line'" />
             <span v-if="savedCost && rate === savedCost" class="text-[11px] font-bold text-emerald-700">✓ {{ L("saved","محفوظ","enregistré") }}</span>
             <span v-else-if="savedCost && rate !== savedCost" class="text-[11px] font-bold text-amber-600" :title="L('differs from the saved draft','مختلف عن المحفوظ','différent')">✎ {{ savedCost }}</span>
-            <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+            <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                     :disabled="!(rate >= 0.5) || savingCost || posting" @click="saveCost">{{ savingCost ? "…" : L("Save","حفظ","OK") }}</button>
           </div>
         </div>
@@ -100,7 +100,7 @@
                   <template v-else-if="r.channel === 'air' && (r.channel_confirmed || r.pr_qty < 500) && canWrite && !d.frozen">
                     <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
                            class="w-[58px] h-[24px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
-                    <button class="ms-1 h-[24px] px-2 rounded-[6px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+                    <button class="ms-1 h-[24px] px-2 rounded-[6px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
                             :disabled="!((r._draft ?? r.band_rate) > 0) || fBusy" @click="confirmRate(r)">✓ {{ L("rate","السعر","taux") }}</button>
                   </template>
                   <template v-else>
@@ -145,7 +145,7 @@
           </span>
           <span v-if="mlEst > 0" class="text-[12px] tnum font-bold" dir="ltr">= {{ mlEst.toFixed(2) }}</span>
           <span v-if="mlEst > 0" class="text-[11px] text-ink-muted tnum" dir="ltr">→ {{ L("full","الشامل","total") }} {{ ((rate || d.model.suggested || 0) + mlEst).toFixed(2) }}</span>
-          <button v-if="mlEst > 0" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark"
+          <button v-if="mlEst > 0" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark"
                   @click="applyManualLanded">{{ L("Fold into the cost","اجمعها على التكلفة","Ajouter au coût") }}</button>
         </div>
       </div>
@@ -157,7 +157,7 @@
         <div class="flex-1"></div>
         <input v-model.number="famWeight" type="number" step="0.01" min="0.005" max="50" placeholder="kg"
                class="h-[26px] w-[76px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
-        <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+        <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                 :disabled="!(famWeight > 0) || fBusy" @click="applyFamilyWeight">{{ L("Fill the suspects","املأ الناقصين","Remplir") }}</button>
       </div>
 
@@ -240,7 +240,7 @@
         <template v-else>
           <span v-if="finished" class="text-[12px] font-bold text-emerald-700">✓ {{ posted }} {{ L("posted","اترحّل","comptabilisés") }}<span v-if="failed" class="text-sale"> · {{ failed }} {{ L("failed","فشل","échoués") }}</span></span>
           <span v-if="draining" class="text-[11px] text-ink-muted">⏳ {{ L("reposting old moves…","بيعاد حساب الحركات القديمة…","recalcul…") }}</span>
-          <button class="h-[34px] px-5 rounded-[10px] text-[13px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
+          <button class="h-[34px] px-5 rounded-[10px] text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
                   :disabled="!canSubmit" @click="runSubmit">
             {{ L("Submit","اعتماد","Soumettre") }} {{ targetCount }}
           </button>

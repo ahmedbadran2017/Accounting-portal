@@ -42,7 +42,7 @@
               <td class="px-4 py-2.5 text-end tnum font-bold">{{ fmtNum(r.unallocated_amount) }}</td>
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ r.date }}</td>
               <td class="px-4 py-2.5 text-end">
-                <button class="h-[27px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark" @click="openMatch(r)">{{ L("Match","طابِق","Lettrer") }}</button>
+                <button class="h-[27px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark" @click="openMatch(r)">{{ L("Match","طابِق","Lettrer") }}</button>
               </td>
             </tr>
           </tbody>
@@ -78,7 +78,7 @@
             <span class="text-[11px] text-ink-muted">{{ picked.size }} {{ L("selected","محدّد","sélectionnées") }}</span>
             <div class="flex gap-2">
               <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="matchRow = null">{{ L("Cancel","إلغاء","Annuler") }}</button>
-              <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="matching || !picked.size" @click="reconcile">{{ matching ? L("Matching…","جارٍ…","…") : L("Reconcile","تسوية","Lettrer") }}</button>
+              <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="matching || !picked.size" @click="reconcile">{{ matching ? L("Matching…","جارٍ…","…") : L("Reconcile","تسوية","Lettrer") }}</button>
             </div>
           </div>
         </div>

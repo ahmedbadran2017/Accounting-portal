@@ -34,8 +34,8 @@
 
       <div class="px-4 py-2 bg-app-warm/30 border-b border-line-hair text-[11px] text-ink-2 flex items-center gap-2 flex-wrap">
         <Icon name="alert" :size="12" color="#b45309" /><span>{{ tabHint() }}</span>
-        <button v-if="tab==='dead' && isAdmin && count('dead')" type="button" :disabled="busy==='bulk'" class="ms-auto h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableDead">{{ L('Close all dead','اقفل الميّتة','Fermer morts') }} ({{ count('dead') }})</button>
-        <button v-if="tab==='empty_group' && isAdmin && count('empty_group')" type="button" :disabled="busy==='bulk'" class="ms-auto h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="makePostableAll">{{ L('Make all postable','خلّيهم قابلين للترحيل','Rendre saisissables') }} ({{ count('empty_group') }})</button>
+        <button v-if="tab==='dead' && isAdmin && count('dead')" type="button" :disabled="busy==='bulk'" class="ms-auto h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableDead">{{ L('Close all dead','اقفل الميّتة','Fermer morts') }} ({{ count('dead') }})</button>
+        <button v-if="tab==='empty_group' && isAdmin && count('empty_group')" type="button" :disabled="busy==='bulk'" class="ms-auto h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="makePostableAll">{{ L('Make all postable','خلّيهم قابلين للترحيل','Rendre saisissables') }} ({{ count('empty_group') }})</button>
       </div>
 
       <TableLoading v-if="loading" :rows="8" />
@@ -60,9 +60,9 @@
                   <span v-if="r.suggestion" class="text-[11px] text-amber-700 me-2">{{ r.suggestion }}</span>
                   <span v-if="r.expected" class="text-[11px] text-rose-600 me-2">{{ L('should be','المفروض','devrait') }} {{ r.expected }}</span>
                   <template v-if="isAdmin && !r.disabled">
-                    <button v-if="tab==='dead' || (tab==='junk' && r.n===0)" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</button>
-                    <button v-else-if="tab==='spaces'" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="trim(r)">{{ L('Trim','قصّ','Nettoyer') }}</button>
-                    <button v-else-if="tab==='empty_group'" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="makePostable(r)">{{ L('Make postable','قابل للترحيل','Rendre saisissable') }}</button>
+                    <button v-if="tab==='dead' || (tab==='junk' && r.n===0)" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</button>
+                    <button v-else-if="tab==='spaces'" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="trim(r)">{{ L('Trim','قصّ','Nettoyer') }}</button>
+                    <button v-else-if="tab==='empty_group'" type="button" :disabled="busy===r.account" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50" @click="makePostable(r)">{{ L('Make postable','قابل للترحيل','Rendre saisissable') }}</button>
                     <select v-else-if="tab==='miscash'" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px]" :disabled="busy===r.account" @change="reclass(r,$event.target.value)">
                       <option value="__">{{ L('reclassify…','أعِد التصنيف…','reclasser…') }}</option>
                       <option value="">{{ L('Remove type','شيل النوع','Retirer type') }}</option>

@@ -55,7 +55,7 @@
         <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
         <div class="flex justify-end gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="$emit('close')">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !balanced || !totalDr" @click="submit">
+          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !balanced || !totalDr" @click="submit">
             {{ busy ? L("Submitting…","جارٍ…","…") : L("Submit for approval","إرسال للموافقة","Soumettre") }}
           </button>
         </div>

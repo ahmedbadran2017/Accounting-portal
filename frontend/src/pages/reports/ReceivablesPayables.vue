@@ -4,7 +4,7 @@
     <div v-else-if="loadError" class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-10 text-center">
       <p class="text-[13px] font-bold text-rose-700">{{ L("Couldn't load the receivables / payables reconciliation.","تعذّر تحميل مطابقة الذمم.","Impossible de charger le rapprochement.") }}</p>
       <p class="text-[12px] text-ink-muted mt-1 font-mono">{{ loadError }}</p>
-      <button class="mt-3 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-brand" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+      <button class="mt-3 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-brand" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
     </div>
     <template v-else>
       <!-- Toolbar: net working capital + export -->
@@ -49,7 +49,7 @@
         <div class="px-4 py-2.5 bg-sale/5 border-t border-line-hair text-[11px] text-sale flex items-start gap-2 flex-wrap">
           <Icon name="alert" :size="13" class="mt-0.5 flex-shrink-0" />
           <span class="flex-1 min-w-[200px]">{{ L("GL Debtors is a credit balance (wrong sign) — COD collections aren't applied to invoices. Run the Cathedis reconciliation to clear it.", "مدينون برصيد دائن (إشارة عكسية) — تحصيلات الـ COD غير مطبّقة على الفواتير. شغّل مطابقة كاتدييس.", "Débiteurs créditeur — encaissements COD non affectés.") }}</span>
-          <button @click="goReconcile" class="inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand flex-shrink-0"><Icon name="trend" :size="12" color="#fff" />{{ L("Reconcile now", "صالِح الآن", "Réconcilier") }}<Icon name="arrow" :size="11" color="#fff" class="rtl:rotate-180" /></button>
+          <button @click="goReconcile" class="inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand flex-shrink-0"><Icon name="trend" :size="12" color="#fff" />{{ L("Reconcile now", "صالِح الآن", "Réconcilier") }}<Icon name="arrow" :size="11" color="#fff" class="rtl:rotate-180" /></button>
         </div>
       </div>
 

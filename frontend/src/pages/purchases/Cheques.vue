@@ -24,7 +24,7 @@
         <span class="font-bold text-amber-800">{{ sum.stale_n }} {{ L("cheque(s) look already cashed", "شيك غالبًا اتصرفوا بالفعل", "chèque(s) probabl. encaissés") }}</span>
         <span class="text-amber-700"> — {{ money(sum.stale) }} MAD {{ L("past their cheque date by 45+ days but still Outstanding (unreconciled). The cash already left the books — review and mark cleared.", "فات تاريخهم بأكثر من 45 يوم وما زالوا معلّقين (غير مطابَقين). النقد خرج بالفعل من الدفاتر — راجعهم وعلّم تصرّف.", "en retard de 45+ jours mais toujours en cours — à rapprocher.") }}</span>
       </div>
-      <button type="button" class="ms-auto shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700" @click="setStatus('stale')">
+      <button type="button" class="ms-auto shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-amber-600 hover:bg-amber-700" @click="setStatus('stale')">
         <Icon name="filter" :size="13" />{{ L("Review", "راجِع", "Revoir") }}
       </button>
     </div>

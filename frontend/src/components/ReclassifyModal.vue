@@ -43,7 +43,7 @@
 
       <footer class="flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30 rounded-b-[16px]">
         <button @click="$emit('close')" class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-        <button @click="post" :disabled="busy || !(pv && pv.ok)" class="ms-auto h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+        <button @click="post" :disabled="busy || !(pv && pv.ok)" class="ms-auto h-9 px-4 rounded-chip text-[12px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
           {{ busy ? L("Posting…","جارٍ…","…") : L("Post reclass","ترحيل إعادة التصنيف","Passer") }}
         </button>
       </footer>

@@ -20,7 +20,7 @@
       <p v-if="err" class="text-[12px] text-sale">{{ err }}</p>
       <div class="flex gap-2 justify-end pt-1">
         <button @click="$emit('close')" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-        <button @click="save" :disabled="busy || !f.item_code || !f.item_group" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ busy ? "…" : L("Create", "إنشاء", "Créer") }}</button>
+        <button @click="save" :disabled="busy || !f.item_code || !f.item_group" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ busy ? "…" : L("Create", "إنشاء", "Créer") }}</button>
       </div>
     </div>
   </div>

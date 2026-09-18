@@ -17,7 +17,7 @@
           </select>
           <button @click="compare = compare ? 0 : 1, load()" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="compare ? 'bg-accent/10 text-accent-dark border-accent/30' : 'bg-white text-ink-3 border-line-2'">{{ L("Compare","مقارنة","Comparer") }}</button>
         </template>
-        <button @click="printIt" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />{{ L("Print","طباعة","Imprimer") }}</button>
+        <button @click="printIt" class="h-7 px-2.5 rounded-full text-[11px] font-semibold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />{{ L("Print","طباعة","Imprimer") }}</button>
           <button type="button" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :disabled="pdfBusy" @click="downloadPdf">
             <Icon name="doc" :size="13" />{{ pdfBusy ? "…" : "PDF" }}
           </button>
@@ -124,7 +124,7 @@
             {{ cleanView ? L("Clean view ✓","عرض نضيف ✓","Vue épurée ✓") : L("Full (ledger)","كامل (دفتري)","Complet") }}
           </button>
           <button v-for="yr in [y, y - 1]" :key="yr" @click="setYear(yr)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="mYear === yr ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ yr }}</button>
-          <button @click="mCsv" class="h-7 px-2.5 rounded-full text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />CSV</button>
+          <button @click="mCsv" class="h-7 px-2.5 rounded-full text-[11px] font-semibold text-white bg-ink inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />CSV</button>
         </div>
       </div>
       <div v-if="mLoading" class="py-16 text-center text-ink-muted text-[12px]">{{ L("Loading…","تحميل…","…") }}</div>

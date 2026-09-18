@@ -60,7 +60,7 @@
         <div class="text-[12px] text-ink-3 mt-1.5">{{ L("Posts a return against this bill (reverses it / claws back the payable). Amounts over 10,000 need approval.","يسجّل مرتجعًا مقابل هذه الفاتورة. ما فوق 10٬000 يحتاج موافقة.","Enregistre un retour sur cette facture.") }}</div>
         <div class="flex justify-end gap-2 mt-4">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="confirmDebit = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-sale disabled:opacity-50" :disabled="busy" @click="makeDebit">{{ busy ? L("Working…","جارٍ…","…") : L("Create","إنشاء","Créer") }}</button>
+          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-sale disabled:opacity-50" :disabled="busy" @click="makeDebit">{{ busy ? L("Working…","جارٍ…","…") : L("Create","إنشاء","Créer") }}</button>
         </div>
       </div>
     </div>

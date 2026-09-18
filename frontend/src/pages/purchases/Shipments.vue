@@ -40,7 +40,7 @@
                      class="w-[64px] h-[22px] px-1 text-end tnum text-[11px] border rounded-[5px] outline-none"
                      :style="b.kg ? 'border-color:#a7f3d0' : 'border-color:#fde68a;background:#fffbeb'" />
               <button v-if="canWrite && (kgDraft[b.voucher] ?? null) != null && kgDraft[b.voucher] !== b.kg" :disabled="busy"
-                      class="text-[11px] font-bold px-1.5 py-0.5 rounded-[5px] text-white bg-brand disabled:opacity-40" @click="saveBillKg(b)">✓</button>
+                      class="text-[11px] font-semibold px-1.5 py-0.5 rounded-[5px] text-white bg-brand disabled:opacity-40" @click="saveBillKg(b)">✓</button>
               <span v-if="b.implied_rate" class="text-[11px] tnum text-ink-muted" dir="ltr">→ {{ b.implied_rate }}/kg</span>
               <span v-else class="text-[11px] font-bold" style="color:#b45309">{{ L("enter kg","أدخلوا الكيلو","kg ?") }}</span>
             </template>
@@ -125,7 +125,7 @@
               :style="b.suggested_pr ? 'border-color:#c7d2fe' : 'border-color:#e7e5e4'">
           <span class="font-mono" dir="ltr">{{ b.voucher.slice(-9) }}</span><span class="tnum font-semibold">{{ fmt0(b.amount) }}</span>
           <button v-if="b.suggested_pr && canWrite && !data.frozen" :disabled="busy"
-                  class="text-[11px] font-bold px-1 py-0.5 rounded-[4px] text-white bg-brand disabled:opacity-40"
+                  class="text-[11px] font-semibold px-1 py-0.5 rounded-[4px] text-white bg-brand disabled:opacity-40"
                   :title="(b.suggested_why || '') + ' → ' + b.suggested_pr"
                   @click="acceptSuggestion(b)">✨ {{ L("accept","اعتماد","ok") }}</button>
         </span>
@@ -211,7 +211,7 @@
           </div>
           <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
                   :disabled="busy" @click="previewApply">{{ L("Preview next wave","معاينة الدفعة الجاية","Aperçu") }}</button>
-          <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+          <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                   :disabled="busy || !ready?.items_ready"
                   :title="!ready?.items_ready ? L('Nothing ready — items are waiting for freight or verification','مفيش جاهز — الأصناف مستنية شحن أو تحقق','Rien de prêt') : ''"
                   @click="runApply">{{ L("Apply 20","طبّق 20","Appliquer 20") }}</button>

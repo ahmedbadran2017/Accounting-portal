@@ -8,7 +8,7 @@
       <span v-if="d.total" class="text-[11px] text-ink-muted tnum">{{ d.total.toLocaleString() }} {{ L("entries","قيد","écritures") }}</span>
       <span v-if="loadError" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full border" style="background:#fef2f2;color:#b91c1c;border-color:#fecaca">{{ L("Load failed","فشل التحميل","Échec") }}</span>
       <button @click="exportCsv" :disabled="!rows.length" class="ms-auto h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 border border-line-2 bg-white hover:bg-app-warm inline-flex items-center gap-1 disabled:opacity-40">CSV <span class="opacity-60">({{ L("page","الصفحة","page") }})</span></button>
-      <a :href="excelUrl" :class="d.total ? '' : 'pointer-events-none opacity-40'" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-ink inline-flex items-center gap-1" :title="L('Excel of the whole filtered set (up to 50,000 rows)','Excel للمجموعة المفلترة كلها (حتى 50,000 صف)','Excel de tout le filtre')"><Icon name="download" :size="12" color="#fff" />Excel <span class="opacity-70 tnum">({{ (d.total || 0).toLocaleString() }})</span></a>
+      <a :href="excelUrl" :class="d.total ? '' : 'pointer-events-none opacity-40'" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-ink inline-flex items-center gap-1" :title="L('Excel of the whole filtered set (up to 50,000 rows)','Excel للمجموعة المفلترة كلها (حتى 50,000 صف)','Excel de tout le filtre')"><Icon name="download" :size="12" color="#fff" />Excel <span class="opacity-70 tnum">({{ (d.total || 0).toLocaleString() }})</span></a>
     </div>
 
     <!-- Filters -->
@@ -23,7 +23,7 @@
       <input v-model="toDate" type="date" class="h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
       <label class="inline-flex items-center gap-1.5 text-[12px] text-ink-3"><input type="checkbox" v-model="includeCancelled" @change="apply" /> {{ L("Cancelled too","مع الملغي","Annulées aussi") }}</label>
       <label class="inline-flex items-center gap-1.5 text-[12px] text-ink-3" :title="L('One line per document instead of per GL row','سطر لكل مستند بدل كل قيد','Une ligne par document')"><input type="checkbox" v-model="groupVoucher" @change="apply" /> {{ L("Group by voucher","تجميع بالسند","Par pièce") }}</label>
-      <button @click="apply" class="h-8 px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark">{{ L("Apply","تطبيق","Appliquer") }}</button>
+      <button @click="apply" class="h-8 px-3 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark">{{ L("Apply","تطبيق","Appliquer") }}</button>
       <button v-if="party||voucher||fromDate||toDate||acct" @click="resetFilters" class="h-8 px-2.5 rounded-[8px] text-[12px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm">{{ L("Clear","مسح","Effacer") }}</button>
     </div>
 

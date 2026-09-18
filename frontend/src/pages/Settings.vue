@@ -67,7 +67,7 @@
         <input v-model.trim="nf.too" :placeholder="L('To','إلى','Vers')" class="w-16 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] uppercase" maxlength="3" />
         <input v-model.number="nf.rate" type="number" step="any" :placeholder="L('Rate','السعر','Taux')" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end" />
         <input v-model="nf.date" type="date" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px]" />
-        <button class="h-8 px-3 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="fxBusy || !nf.frm || !nf.too || !nf.rate" @click="addRate">{{ L("Add / update","إضافة/تحديث","Ajouter") }}</button>
+        <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="fxBusy || !nf.frm || !nf.too || !nf.rate" @click="addRate">{{ L("Add / update","إضافة/تحديث","Ajouter") }}</button>
       </div>
     </div>
 

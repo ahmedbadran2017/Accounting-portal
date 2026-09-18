@@ -98,27 +98,27 @@
           <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <!-- 1. Generate -->
             <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
-              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-bold text-white bg-ink">1</span><span class="text-[12px] font-bold">{{ L('Generate slips','إنشاء المسيّرات','Générer') }}</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-semibold text-white bg-ink">1</span><span class="text-[12px] font-semibold">{{ L('Generate slips','إنشاء المسيّرات','Générer') }}</span></div>
               <div class="text-[11px] text-ink-muted flex-1">{{ pv.eligible_count || 0 }} {{ L('eligible staff with no slip yet','موظف مؤهّل بلا مسيّر','éligibles sans bulletin') }}</div>
-              <button type="button" :disabled="runBusy || !(pv.eligible_count>0)" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-40" @click="doGenerate">
+              <button type="button" :disabled="runBusy || !(pv.eligible_count>0)" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-40" @click="doGenerate">
                 <Icon :name="runBusy==='gen' ? 'clock' : 'plus'" :size="12" class="inline -mt-0.5 me-1" />{{ pv.eligible_count>0 ? L('Generate','إنشاء','Générer')+' '+pv.eligible_count : L('None eligible','لا مؤهّلين','Aucun') }}
               </button>
             </div>
             <!-- 2. Submit -->
             <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
-              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-bold text-white bg-ink">2</span><span class="text-[12px] font-bold">{{ L('Submit slips','اعتماد المسيّرات','Soumettre') }}</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-semibold text-white bg-ink">2</span><span class="text-[12px] font-semibold">{{ L('Submit slips','اعتماد المسيّرات','Soumettre') }}</span></div>
               <div class="text-[11px] text-ink-muted flex-1">{{ pv.draft_count || 0 }} {{ L('draft slips → posts the accrual','مسودّة ← ترحيل الاستحقاق','brouillons → comptabilise') }}</div>
-              <button type="button" :disabled="runBusy || !(pv.draft_count>0)" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-sky-700 hover:bg-sky-800 disabled:opacity-40" @click="doSubmitSlips">
+              <button type="button" :disabled="runBusy || !(pv.draft_count>0)" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-sky-700 hover:bg-sky-800 disabled:opacity-40" @click="doSubmitSlips">
                 <Icon :name="runBusy==='sub' ? 'clock' : 'check'" :size="12" class="inline -mt-0.5 me-1" />{{ pv.draft_count>0 ? L('Submit','اعتماد','Soumettre')+' '+pv.draft_count : L('No drafts','لا مسودّات','Aucun') }}
               </button>
             </div>
             <!-- 3. Pay -->
             <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
-              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-bold text-white bg-ink">3</span><span class="text-[12px] font-bold">{{ L('Pay salaries','دفع الرواتب','Payer') }}</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-semibold text-white bg-ink">3</span><span class="text-[12px] font-semibold">{{ L('Pay salaries','دفع الرواتب','Payer') }}</span></div>
               <div class="text-[11px] text-ink-muted flex-1">{{ money(pv.to_pay_net) }} {{ ccy }} · {{ pv.to_pay_count || 0 }} {{ L('unpaid','غير مدفوع','non payés') }}</div>
               <div class="flex gap-1.5">
                 <div class="min-w-0 flex-1"><SearchSelect v-model="payBank" :items="payBankItems" :placeholder="L('bank…','البنك…','banque…')" :empty-text="L('No bank','لا بنك','Aucun')" input-class="h-8 text-[11px] bg-app-warm/40" /></div>
-                <button type="button" :disabled="runBusy || !(pv.to_pay_count>0) || !payBank" class="h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" @click="doPay">
+                <button type="button" :disabled="runBusy || !(pv.to_pay_count>0) || !payBank" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" @click="doPay">
                   <Icon :name="runBusy==='pay' ? 'clock' : 'wallet'" :size="12" class="inline -mt-0.5" />
                 </button>
               </div>
@@ -192,7 +192,7 @@
     <div v-else-if="view==='employees'" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2.5 flex-wrap">
         <Icon name="layers" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Employees','الموظفون','Employés') }}</span>
-        <button v-if="can('post_entries')" type="button" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="newEmp = true">
+        <button v-if="can('post_entries')" type="button" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="newEmp = true">
           <Icon name="plus" :size="13" />{{ L('New employee','موظف جديد','Nouvel employé') }}
         </button>
         <div class="ms-auto flex items-center gap-2 flex-wrap">
@@ -229,7 +229,7 @@
               <td class="px-3 py-2.5"><span class="text-[11px] font-bold px-1.5 py-0.5 rounded-chip" :class="r.status==='Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-muted'">{{ r.status || "—" }}</span></td>
               <td class="px-3 py-2.5" @click.stop>
                 <span v-if="r.has_structure" class="text-[11px] text-ink-2 truncate max-w-[150px] inline-block align-middle">{{ r.structure }}</span>
-                <button v-else-if="r.status==='Active' && can('post_entries')" type="button" class="inline-flex items-center gap-1 h-6 px-2 rounded-chip text-[11px] font-bold text-white bg-teal-700 hover:bg-teal-800" @click="assignFor(r)">
+                <button v-else-if="r.status==='Active' && can('post_entries')" type="button" class="inline-flex items-center gap-1 h-6 px-2 rounded-chip text-[11px] font-semibold text-white bg-teal-700 hover:bg-teal-800" @click="assignFor(r)">
                   <Icon name="plus" :size="11" />{{ L('Assign','تعيين','Affecter') }}
                 </button>
                 <span v-else class="text-[11px] text-ink-muted">—</span>

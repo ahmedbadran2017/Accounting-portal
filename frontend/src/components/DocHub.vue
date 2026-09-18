@@ -22,7 +22,7 @@
               <select v-model="printLh" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option value="">{{ L("None", "بدون", "Aucune") }}</option><option v-for="l in printOpts.letterheads" :key="l" :value="l">{{ l }}</option></select></div>
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Language", "اللغة", "Langue") }}</label>
               <select v-model="printLang" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option value="">{{ L("Default", "الافتراضي", "Défaut") }}</option><option value="en">English</option><option value="ar">العربية</option><option value="fr">Français</option></select></div>
-            <a :href="printUrl" target="_blank" rel="noopener" class="block text-center h-8 leading-8 rounded-chip text-[12px] font-bold text-white bg-ink" @click="printOpen = false">{{ L("Open PDF", "افتح PDF", "Ouvrir le PDF") }}</a>
+            <a :href="printUrl" target="_blank" rel="noopener" class="block text-center h-8 leading-8 rounded-chip text-[12px] font-semibold text-white bg-ink" @click="printOpen = false">{{ L("Open PDF", "افتح PDF", "Ouvrir le PDF") }}</a>
           </div>
         </div>
       </div>
@@ -68,7 +68,7 @@
     <div v-else-if="tab === 'attachments'" class="p-4 transition" :class="dragOver ? 'bg-accent-soft/40 ring-2 ring-inset ring-accent/40' : ''"
          @dragover.prevent="dragOver = true" @dragenter.prevent="dragOver = true" @dragleave.prevent="dragOver = false" @drop.prevent="onDrop">
       <div class="flex items-center gap-2 mb-3">
-        <label class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-accent hover:bg-accent-dark cursor-pointer" :class="uploading ? 'opacity-60 pointer-events-none' : ''">
+        <label class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark cursor-pointer" :class="uploading ? 'opacity-60 pointer-events-none' : ''">
           <Icon name="plus" :size="13" color="#fff" />{{ uploading ? L("Uploading…", "جارٍ الرفع…", "…") : L("Upload file", "ارفع ملف", "Téléverser") }}
           <input type="file" multiple class="hidden" @change="onFile" />
         </label>
@@ -92,7 +92,7 @@
       <textarea v-model="note" :placeholder="L('Add a note or reference…', 'أضف ملاحظة أو مرجعًا…', 'Ajouter une note…')" rows="3"
                 class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[13px] focus:outline-none focus:border-accent/40 resize-y"></textarea>
       <div class="flex justify-end mt-2">
-        <button @click="postNote" :disabled="posting || !note.trim()" class="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-accent hover:bg-accent-dark disabled:opacity-50">
+        <button @click="postNote" :disabled="posting || !note.trim()" class="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark disabled:opacity-50">
           <Icon name="check" :size="13" color="#fff" />{{ posting ? L("Posting…", "جارٍ…", "…") : L("Post note", "أضف", "Publier") }}
         </button>
       </div>
@@ -123,7 +123,7 @@
         </div>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button v-if="editFields.length" @click="saveEdit" :disabled="savingEdit" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-accent disabled:opacity-50">{{ savingEdit ? L("Saving…", "حفظ…", "…") : L("Save", "حفظ", "Enregistrer") }}</button>
+          <button v-if="editFields.length" @click="saveEdit" :disabled="savingEdit" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-accent disabled:opacity-50">{{ savingEdit ? L("Saving…", "حفظ…", "…") : L("Save", "حفظ", "Enregistrer") }}</button>
         </div>
       </div>
     </div>
@@ -138,7 +138,7 @@
         <p class="text-[11px] text-ink-muted">{{ L("The document PDF is attached automatically.", "ملف PDF يُرفق تلقائيًا.", "Le PDF est joint automatiquement.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
           <button @click="emailOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button @click="sendEmail" :disabled="sending || !em.recipients" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white bg-accent disabled:opacity-50">{{ sending ? L("Sending…", "إرسال…", "…") : L("Send", "إرسال", "Envoyer") }}</button>
+          <button @click="sendEmail" :disabled="sending || !em.recipients" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-accent disabled:opacity-50">{{ sending ? L("Sending…", "إرسال…", "…") : L("Send", "إرسال", "Envoyer") }}</button>
         </div>
       </div>
     </div>

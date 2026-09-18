@@ -137,7 +137,7 @@
                 <input type="file" accept=".csv,.txt" class="hidden" @change="importFile" />
               </label>
               <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border border-line bg-white" @click="fillFamily">{{ L("Inherit within family","توريث داخل العائلة","Hériter famille") }}</button>
-              <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold text-white bg-accent disabled:opacity-50" :disabled="!dirtyW.length || saving" @click="saveWeights">
+              <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-semibold text-white bg-accent disabled:opacity-50" :disabled="!dirtyW.length || saving" @click="saveWeights">
                 {{ saving ? "…" : L("Save "+dirtyW.length,"حفظ "+dirtyW.length,"Enregistrer") }}
               </button>
               <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border" :class="det.state.weights ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-line bg-white'" @click="markStep('weights')">
@@ -170,7 +170,7 @@
                              :value="wval(it)" @input="e => setW(it, e.target.value)"
                              @keyup.enter="saveOne(it)" dir="ltr" />
                       <button v-if="wDirty[it.item_code] !== undefined && parseFloat(wDirty[it.item_code]) > 0"
-                              class="h-[26px] px-2 rounded-[7px] text-[11px] font-bold text-white bg-accent disabled:opacity-50"
+                              class="h-[26px] px-2 rounded-[7px] text-[11px] font-semibold text-white bg-accent disabled:opacity-50"
                               :disabled="savingOne === it.item_code" @click="saveOne(it)">
                         {{ savingOne === it.item_code ? "…" : L("Save","حفظ","OK") }}
                       </button>
@@ -207,7 +207,7 @@
               <div class="flex gap-1.5 items-center">
                 <input type="number" step="0.01" min="0" v-model="rateEdit"
                        class="w-[92px] h-[28px] px-2 rounded-[8px] border border-line text-end tnum text-[12px]" dir="ltr" />
-                <button class="h-[28px] px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-accent" @click="saveRate(false)">{{ L("Set for vendor","ثبّت للمورّد","Fixer") }}</button>
+                <button class="h-[28px] px-2.5 rounded-[8px] text-[11px] font-semibold text-white bg-accent" @click="saveRate(false)">{{ L("Set for vendor","ثبّت للمورّد","Fixer") }}</button>
                 <button class="h-[28px] px-2.5 rounded-[8px] text-[11px] font-bold border border-line bg-white" :title="L('make this the shared rate for every '+(fr?.channel||'')+' vendor','خلّيه السعر الموحد لكل موردين القناة دي','taux partagé du canal')" @click="saveRate(true)">{{ L("Set for channel","ثبّت للقناة","Canal") }}</button>
                 <button v-if="fr?.rate_source==='vendor'" class="h-[28px] px-2 rounded-[8px] text-[11px] border border-line bg-white text-ink-muted" @click="clearVendorRate">{{ L("clear","امسح","×") }}</button>
               </div>
@@ -226,7 +226,7 @@
                 </div>
                 <div class="flex gap-2">
                   <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line bg-white" @click="schedEdit.push({date:'',rate:''})">+ {{ L("era","حقبة","ère") }}</button>
-                  <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-accent" @click="saveSched">{{ L("Save eras","حفظ الحقب","Enregistrer") }}</button>
+                  <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-accent" @click="saveSched">{{ L("Save eras","حفظ الحقب","Enregistrer") }}</button>
                 </div>
                 <p class="text-[11px] text-ink-muted">{{ L("Each date opens an era at its MAD/kg — the retro prices every month's freight at ITS era (product avg of the month + era rate × weight). No dates = flat rate.","كل تاريخ بيفتح حقبة بسعرها — الرترو بيسعّر شحن كل شهر بحقبته (متوسط منتج الشهر + سعر الحقبة × الوزن). من غير تواريخ = سعر ثابت.","Chaque date ouvre une ère.") }}</p>
               </div>
@@ -480,7 +480,7 @@
                         <span class="text-[11px] font-bold">{{ L("Verified cost (MAD)","التكلفة المعتمدة (درهم)","Coût vérifié") }}:</span>
                         <input type="number" step="0.01" min="0" v-model="ovRate" class="w-[90px] h-[26px] px-2 rounded-[7px] border border-line text-end tnum text-[11px]" dir="ltr" />
                         <input type="text" v-model="ovNote" :placeholder="L('why? (required)','السبب؟ (إجباري)','pourquoi ?')" class="flex-1 min-w-[180px] h-[26px] px-2 rounded-[7px] border border-line text-[11px]" />
-                        <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-accent disabled:opacity-50" :disabled="ovSaving" @click="saveOverride(it)">{{ ovSaving ? "…" : L("Save","حفظ","OK") }}</button>
+                        <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-accent disabled:opacity-50" :disabled="ovSaving" @click="saveOverride(it)">{{ ovSaving ? "…" : L("Save","حفظ","OK") }}</button>
                         <button v-if="it.cost_override" class="h-[26px] px-2 rounded-[7px] text-[11px] border border-line bg-white text-ink-muted" @click="clearOverride(it)">{{ L("clear","امسح","×") }}</button>
                       </div>
                     </template>
@@ -512,7 +512,7 @@
               {{ L("Applied rate = product cost + freight (","السعر المُطبّق = تكلفة المنتج + الشحن (","Taux = produit + fret (") }}<b class="tnum" dir="ltr">{{ pv.rate_kg }} MAD/kg</b>{{ L(" × item weight). Items without weight are blocked, not guessed."," × وزن الصنف). اللي من غير وزن بيتحجب مش بيتخمّن."," × poids).") }}
             </p>
             <div v-if="pv" class="mt-3 flex items-center gap-2 flex-wrap">
-              <button class="h-[34px] px-4 rounded-[9px] text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+              <button class="h-[34px] px-4 rounded-[9px] text-[12px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                       :disabled="submitting || !readyQueue.length" @click="runAll">
                 {{ submitting ? L("Running…","شغّال…","En cours…")
                   : L("Run all in background ("+readyQueue.length+")","شغّل الكل في الخلفية ("+readyQueue.length+")","Tout exécuter en arrière-plan ("+readyQueue.length+")") }}

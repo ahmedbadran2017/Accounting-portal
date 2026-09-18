@@ -75,7 +75,7 @@
         <input v-model="note" :placeholder="L('Note (which invoice was checked…)','ملاحظة (اتراجعت على أنهي فاتورة…)','Note…')"
                class="h-[30px] px-2.5 text-[12px] border border-line rounded-[8px] outline-none flex-1 min-w-[200px]" />
         <span class="text-[11px] text-ink-muted" v-if="s.sheet.on" dir="ltr">💾 {{ s.sheet.by }} · {{ s.sheet.on }}</span>
-        <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+        <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                 :disabled="busy" @click="saveSheet">{{ L("Save draft","حفظ المسودة","Enregistrer") }}</button>
       </div>
     </div>
@@ -96,7 +96,7 @@
                :style="s.freight.confirmed_rate ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
         <span class="text-[11px] text-ink-muted">MAD/kg × {{ fmt0(s.kg) }}kg = <b class="tnum">{{ fmt0((rateEdit || 0) * s.kg) }}</b></span>
         <span v-if="s.freight.band_rate && !s.freight.confirmed_rate" class="text-[11px] text-amber-700">{{ L("prefilled from the tariff band — confirm it","متعبّي من التعريفة — أكّدوه","préremp. du barème") }}</span>
-        <button v-if="canWrite && !s.frozen" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
+        <button v-if="canWrite && !s.frozen" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
                 :disabled="busy || !(rateEdit > 0)" @click="confirmRate">✓ {{ L("Confirm rate","اعتماد السعر","Confirmer") }}</button>
         <button v-if="canWrite && !s.frozen && s.freight.confirmed_rate" class="h-[28px] px-2 rounded-[7px] text-[11px] border border-line text-ink-3 hover:bg-app-warm"
                 :disabled="busy" @click="clearRate">✕</button>
@@ -164,7 +164,7 @@
         </div>
         <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
                 :disabled="busy" @click="previewSubmit">{{ L("Preview","معاينة","Aperçu") }}</button>
-        <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+        <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                 :disabled="busy || !subPrev || !readyCount"
                 :title="!subPrev ? L('Loading preview…','بيحمّل المعاينة…','Aperçu…') : !readyCount ? L('Nothing ready — see the preview below','مفيش جاهز — شوف المعاينة تحت','Rien de prêt') : ''"
                 @click="runSubmit">{{ L("Submit","اعتماد","Soumettre") }} ({{ readyCount }})</button>

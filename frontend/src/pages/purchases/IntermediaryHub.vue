@@ -2,7 +2,7 @@
   <div class="space-y-3.5">
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[11px] text-ink-muted">{{ L("Pay a foreign supplier via a Moroccan intermediary — funded in MAD, settled in the supplier's currency.", "ادفع لمورّد أجنبي عبر وسيط مغربي — تموّله بالدرهم، ويسدّد بعملة المورّد.", "Payer un fournisseur étranger via un intermédiaire.") }}</span>
-      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openFund()">
+      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openFund()">
         <Icon name="plus" :size="14" />{{ L("Fund intermediary", "تمويل وسيط", "Financer") }}
       </button>
     </div>
@@ -47,7 +47,7 @@
               <td class="px-4 py-2.5 text-end whitespace-nowrap">
                 <div v-if="canWrite" class="inline-flex items-center gap-1.5">
                   <div class="w-[160px]"><SearchSelect v-model="settleWith[b.name]" :items="interItems" :placeholder="L('via…','عبر…','via…')" :empty-text="L('None','لا شيء','Aucun')" input-class="h-7 text-[11px] bg-app-warm/40" /></div>
-                  <button type="button" :disabled="!settleWith[b.name] || busy===b.name" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" @click="settle(b)">{{ busy===b.name ? '…' : L('Settle','سدّد','Régler') }}</button>
+                  <button type="button" :disabled="!settleWith[b.name] || busy===b.name" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" @click="settle(b)">{{ busy===b.name ? '…' : L('Settle','سدّد','Régler') }}</button>
                 </div>
               </td>
             </tr>
@@ -81,7 +81,7 @@
               <select v-model="newAcct.currency" class="w-[76px] border border-line-2 rounded-chip px-2 py-2 text-[12px] bg-white focus:outline-none">
                 <option v-for="c in ['MAD','USD','TRY','EUR']" :key="c" :value="c">{{ c }}</option>
               </select>
-              <button type="button" class="h-[34px] px-3 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="!newAcct.name || acctBusy" @click="doCreateAcct">{{ acctBusy ? '…' : L("Create","إنشاء","Créer") }}</button>
+              <button type="button" class="h-[34px] px-3 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="!newAcct.name || acctBusy" @click="doCreateAcct">{{ acctBusy ? '…' : L("Create","إنشاء","Créer") }}</button>
             </div>
             <div v-if="acctErr" class="text-[11px] text-sale">{{ acctErr }}</div>
           </div>
@@ -95,7 +95,7 @@
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="funding=false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!fund.intermediary || !fund.bank || !(fund.amount>0) || fundBusy" @click="doFund">{{ fundBusy ? '…' : L('Fund','موّل','Financer') }}</button>
+          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!fund.intermediary || !fund.bank || !(fund.amount>0) || fundBusy" @click="doFund">{{ fundBusy ? '…' : L('Fund','موّل','Financer') }}</button>
         </div>
       </div>
     </div>

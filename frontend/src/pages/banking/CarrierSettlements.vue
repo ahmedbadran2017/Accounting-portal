@@ -10,7 +10,7 @@
         <span class="font-bold text-amber-800">{{ fixable.count }} {{ L('orders collected but unstamped','أوردر محصّل بدون ختم','commandes encaissées non tamponnées') }}</span>
         <span class="text-amber-700"> · {{ fmt(fixable.value) }} {{ ccy }} · {{ L('carrier ref is only on the payment, not the order','المرجع على الدفعة فقط مش الأوردر','réf. uniquement sur le paiement') }}</span>
       </div>
-      <button type="button" :disabled="fixing" class="ms-auto shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="applyFix">
+      <button type="button" :disabled="fixing" class="ms-auto shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="applyFix">
         <Icon :name="fixing ? 'clock' : 'check'" :size="13" />{{ fixing ? L('Fixing…','جارٍ…','…') : L('Stamp & fix','اختم وصلّح','Corriger') }}
       </button>
     </div>

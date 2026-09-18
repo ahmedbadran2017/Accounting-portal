@@ -118,7 +118,7 @@
           <span :title="L('Item fixes do NOT need the freeze — they gate on per-item shipment completeness.','تظبيط الأصناف مش محتاج التجميد — بوابته اكتمال شحنات الصنف.','Les corrections ne dépendent pas du gel.')">
             {{ L("Freeze snapshots every shipment's cost — required only for the monthly true-ups.","التجميد بياخد لقطة بتكلفة كل شحنة — مطلوب فقط لتسويات الشهور.","Gel requis uniquement pour les régularisations.") }}</span>
         </span>
-        <button v-if="canFreeze && !sr.frozen" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
+        <button v-if="canFreeze && !sr.frozen" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
                 :disabled="busy || !!sr.recon.unallocated_count"
                 :title="sr.recon.unallocated_count ? L('Blocked: unallocated bills','متقفل: فيه فواتير غير موزَّعة','Bloqué : factures non allouées') : ''"
                 @click="freezeBasis">❄ {{ L("Freeze basis","جمّد الأساس","Geler") }}</button>

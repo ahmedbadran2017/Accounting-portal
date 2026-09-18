@@ -50,8 +50,14 @@ export default {
       boxShadow: {
         card: "0 1px 2px rgba(28,25,23,.04)",
         cardHover: "0 4px 10px rgba(28,25,23,.05),0 18px 40px -16px rgba(28,25,23,.20)",
-        prim: "0 2px 8px rgba(15,118,110,.26),0 1px 2px rgba(15,118,110,.18)",
-        brand: "0 2px 8px rgba(194,86,47,.28),0 1px 2px rgba(194,86,47,.18)",
+        // Filled buttons used to carry a coloured halo — an 8px teal or
+        // terracotta bloom under every one of them, 62 buttons across the app.
+        // Stacked in a toolbar it reads as vibration, not depth. A filled
+        // button is already the loudest thing on the row; the glow was volume
+        // on top of volume. What is left is a hairline of real shadow: enough
+        // to seat the button on the surface, not enough to notice.
+        prim: "0 1px 1px rgba(28,25,23,.07)",
+        brand: "0 1px 1px rgba(28,25,23,.07)",
         modal: "0 24px 64px -16px rgba(28,25,23,.4)",
       },
       keyframes: {

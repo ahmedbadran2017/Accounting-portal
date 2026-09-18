@@ -33,7 +33,7 @@
         <span class="text-[13px] font-bold">{{ active.label() }}</span>
         <LiveBadge :live="live" />
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("orders","طلب","commandes") }} · {{ scopeLabel || "FY 2026" }}<span v-if="bucketCount > rows.length"> · {{ L("showing first","عرض أول","premiers") }} {{ rows.length }}</span></span>
-        <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showRecon = true">
+        <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showRecon = true">
           <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher fichier Cathedis") }}
         </button>
         <div class="relative">

@@ -4,7 +4,7 @@
       <button type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip border border-line-2 bg-white text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="back">
         <Icon name="arrow" :size="13" class="rotate-180" />{{ L("Back","رجوع","Retour") }}
       </button>
-      <button v-if="d.slip" type="button" class="ms-auto inline-flex items-center gap-1.5 h-8 px-3.5 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="printPayslip">
+      <button v-if="d.slip" type="button" class="ms-auto inline-flex items-center gap-1.5 h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="printPayslip">
         <Icon name="doc" :size="13" />{{ L("Print / PDF","طباعة / PDF","Imprimer") }}
       </button>
     </div>

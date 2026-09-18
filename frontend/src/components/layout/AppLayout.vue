@@ -8,7 +8,7 @@
       <div class="text-[13px] text-ink-3 mt-2 leading-relaxed">{{ L("Your account isn't authorised for the Justyol accounting portal. Ask a Super Admin to grant you a role, then sign in again.", "حسابك غير مصرّح له بالدخول إلى بورتال محاسبة Justyol. اطلب من مسؤول (Super Admin) أن يمنحك صلاحية ثم سجّل الدخول من جديد.", "Votre compte n'est pas autorisé pour ce portail. Demandez un rôle à un Super Admin.") }}</div>
       <div v-if="user" class="text-[11px] text-ink-muted mt-3 font-mono bg-app-warm rounded-chip px-3 py-1.5 inline-block">{{ user }}</div>
       <div class="mt-5">
-        <button class="h-9 px-4 rounded-chip text-[13px] font-bold text-white bg-ink hover:bg-ink/90" @click="onLogout">{{ L("Sign out", "تسجيل الخروج", "Se déconnecter") }}</button>
+        <button class="h-9 px-4 rounded-chip text-[13px] font-semibold text-white bg-ink hover:bg-ink/90" @click="onLogout">{{ L("Sign out", "تسجيل الخروج", "Se déconnecter") }}</button>
       </div>
     </div>
   </div>

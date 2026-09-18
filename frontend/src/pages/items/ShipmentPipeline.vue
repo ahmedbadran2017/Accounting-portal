@@ -59,7 +59,7 @@
             <td class="px-3 py-2.5 text-end tnum font-semibold whitespace-nowrap">{{ money(d0.total) }}</td>
             <td class="px-4 py-2.5 text-end whitespace-nowrap">
               <div v-if="canWrite" class="inline-flex items-center gap-1.5">
-                <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" :disabled="busy===d0.name" @click="submitDraft(d0)">{{ busy===d0.name ? '…' : L('Post','رحّل','Valider') }}</button>
+                <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" :disabled="busy===d0.name" @click="submitDraft(d0)">{{ busy===d0.name ? '…' : L('Post','رحّل','Valider') }}</button>
                 <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-rose-600 border border-rose-200 hover:bg-rose-50 disabled:opacity-40" :disabled="busy===d0.name" @click="dropDraft(d0)">{{ L("Delete","احذف","Suppr.") }}</button>
               </div>
             </td>
@@ -106,7 +106,7 @@
           <input v-model.trim="mCharge.description" :placeholder="L('description','الوصف','description')" class="flex-1 min-w-[140px] h-8 bg-white border border-line-2 rounded-chip px-2.5 text-[11px] focus:outline-none" />
           <div class="w-[210px]"><SearchSelect v-model="mCharge.expense_account" :items="inboxAccountItems" :placeholder="L('expense account…','حساب المصروف…','compte…')" :empty-text="L('No account','لا حساب','Aucun')" input-class="h-8 text-[11px] bg-white" /></div>
           <input v-model.number="mCharge.amount" type="number" min="0" step="0.01" placeholder="0.00" class="w-[100px] h-8 bg-white border border-line-2 rounded-chip px-2.5 text-[11px] tnum text-end focus:outline-none" />
-          <button type="button" class="h-8 px-3 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="!(mCharge.amount>0) || !mCharge.expense_account" @click="addManual">{{ L("Add","أضف","OK") }}</button>
+          <button type="button" class="h-8 px-3 rounded-chip text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="!(mCharge.amount>0) || !mCharge.expense_account" @click="addManual">{{ L("Add","أضف","OK") }}</button>
         </div>
         <div class="overflow-y-auto max-h-[280px]">
           <table class="w-full text-[12px]">
@@ -145,7 +145,7 @@
         </select>
         <div class="ms-auto inline-flex items-center gap-2">
           <button type="button" class="h-8 px-3.5 rounded-chip text-[12px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-40" :disabled="!canPreview || previewing" @click="doPreview">{{ previewing ? '…' : L("Preview","عاين","Aperçu") }}</button>
-          <button type="button" class="h-8 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-40" :disabled="!preview || posting || !canWrite || preview.blocked" @click="doPost">{{ posting ? '…' : L("Post landed cost","رحّل التحميل","Valider") }}</button>
+          <button type="button" class="h-8 px-4 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-40" :disabled="!preview || posting || !canWrite || preview.blocked" @click="doPost">{{ posting ? '…' : L("Post landed cost","رحّل التحميل","Valider") }}</button>
         </div>
       </div>
       <div v-if="preview" class="px-4 py-2 border-b border-line-hair text-[11px] text-ink-3 flex items-center gap-3 flex-wrap" style="background:#f0fdf4">

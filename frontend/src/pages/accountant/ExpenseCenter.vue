@@ -6,7 +6,7 @@
           <Icon :name="v.icon" :size="13" />{{ v.label() }}<span v-if="v.k==='recurring' && dueBadge" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">{{ dueBadge }}</span>
         </button>
       </div>
-      <button v-if="can('post_entries')" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew">
+      <button v-if="can('post_entries')" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew">
         <Icon name="plus" :size="14" />{{ L("New expense", "مصروف جديد", "Nouvelle dépense") }}
       </button>
     </div>

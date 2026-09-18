@@ -55,7 +55,7 @@
               </td>
               <td class="px-4 py-2.5 text-end whitespace-nowrap">
                 <div v-if="canWrite && r.status!=='ok'" class="inline-flex items-center gap-1.5">
-                  <button type="button" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-bold text-white bg-brand hover:bg-brand-dark" @click="record(r)">
+                  <button type="button" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark" @click="record(r)">
                     <Icon name="wallet" :size="12" />{{ L("Record","تسجيل","Enregistrer") }}
                   </button>
                   <button type="button" :disabled="busy===key(r)" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-60" @click="makeDraft(r)">

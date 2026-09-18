@@ -38,7 +38,7 @@
         <div class="flex items-center gap-2 h-fit">
           <span class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-badge border"
                 :style="{ background: st.bg, color: st.fg, borderColor: st.bd }">{{ invStatusLabel(inv.status, locale) }}</span>
-          <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand px-2.5 py-1 rounded-chip" @click="openPay">
+          <button v-if="canPay" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand px-2.5 py-1 rounded-chip" @click="openPay">
             <Icon name="coins" :size="13" color="#fff" />{{ L("Record payment","تسجيل دفعة","Encaisser") }}
           </button>
           <button v-if="canRefund" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-sale border border-sale/30 bg-sale/5 hover:bg-sale/10 px-2.5 py-1 rounded-chip" @click="openRefund">
@@ -84,7 +84,7 @@
         <div v-if="refundError" class="text-[12px] text-sale mb-2">{{ refundError }}</div>
         <div class="flex justify-end gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="showRefund = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-sale hover:opacity-90 disabled:opacity-50" :disabled="busy" @click="createReturn">
+          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-sale hover:opacity-90 disabled:opacity-50" :disabled="busy" @click="createReturn">
             {{ busy ? L("Creating…","جارٍ…","…") : L("Create credit note","إنشاء","Créer") }}
           </button>
         </div>
@@ -111,7 +111,7 @@
         <div v-if="payError" class="text-[12px] text-sale mt-2">{{ payError }}</div>
         <div class="flex justify-end gap-2 mt-4">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="showPay = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !pay.amount || !pay.account" @click="submitPay">
+          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !pay.amount || !pay.account" @click="submitPay">
             {{ busy ? L("Recording…","جارٍ…","…") : L("Record payment","تسجيل","Encaisser") }}
           </button>
         </div>

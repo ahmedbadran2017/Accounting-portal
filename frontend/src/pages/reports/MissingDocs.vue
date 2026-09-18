@@ -37,7 +37,7 @@
               <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ r.date }}</td>
               <td class="px-4 py-2.5 text-end tnum">{{ fmt(r.amount) }}</td>
               <td class="px-4 py-2.5 text-end">
-                <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-white bg-brand hover:bg-brand-dark inline-flex items-center gap-1 disabled:opacity-50" :disabled="busy === r.name" @click="pickFile(r)">
+                <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark inline-flex items-center gap-1 disabled:opacity-50" :disabled="busy === r.name" @click="pickFile(r)">
                   <Icon name="plus" :size="12" color="#fff" />{{ busy === r.name ? L("Uploading…","جارٍ…","…") : L("Attach","إرفاق","Joindre") }}
                 </button>
               </td>
