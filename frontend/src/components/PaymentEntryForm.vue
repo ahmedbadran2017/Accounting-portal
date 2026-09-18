@@ -29,11 +29,11 @@
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Amount", "المبلغ", "Montant") }}</span>
-            <input type="number" min="0" v-model.number="amount" placeholder="0.00" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" />
+            <input type="number" min="0" v-model.number="amount" placeholder="0.00" class="fld fld-md mt-1 w-full text-end tnum" />
           </label>
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Date", "التاريخ", "Date") }}</span>
-            <input type="date" v-model="postingDate" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+            <input type="date" v-model="postingDate" class="fld fld-md mt-1 w-full" />
           </label>
         </div>
 
@@ -44,7 +44,7 @@
 
         <label class="block">
           <span class="text-[11px] font-semibold text-ink-3">{{ L("Reference no.", "رقم المرجع", "Référence") }} <span class="text-ink-muted font-normal">{{ L("(optional)", "(اختياري)", "(facultatif)") }}</span></span>
-          <input v-model="referenceNo" :placeholder="out ? L('Cheque / transfer no.', 'رقم الشيك / التحويل', 'N° de chèque / virement') : L('Carrier remittance / receipt no.', 'رقم تحويل الناقل / الإيصال', 'N° de versement')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+          <input v-model="referenceNo" :placeholder="out ? L('Cheque / transfer no.', 'رقم الشيك / التحويل', 'N° de chèque / virement') : L('Carrier remittance / receipt no.', 'رقم تحويل الناقل / الإيصال', 'N° de versement')" class="fld fld-md mt-1 w-full" />
         </label>
 
         <div v-if="amount >= 10000" class="text-[11px] text-amber-700 inline-flex items-center gap-1"><Icon name="shield" :size="12" />{{ L("≥ 10,000 — recorded as proposed, needs an approver", "≥ 10,000 — يُسجَّل كمقترح ويحتاج موافِق", "≥ 10 000 — proposé, approbation requise") }}</div>

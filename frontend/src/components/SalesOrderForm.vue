@@ -77,11 +77,11 @@
         <!-- Shipping -->
         <div class="grid grid-cols-3 gap-3">
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("City", "المدينة", "Ville") }}</span>
-            <input v-model="city" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
+            <input v-model="city" class="fld fld-md mt-1 w-full" /></label>
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Phone", "الهاتف", "Téléphone") }}</span>
-            <input v-model="phone" placeholder="+212" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
+            <input v-model="phone" placeholder="+212" class="fld fld-md mt-1 w-full" /></label>
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Carrier", "الناقل", "Transporteur") }}</span>
-            <input v-model="carrier" placeholder="Cathedis" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
+            <input v-model="carrier" placeholder="Cathedis" class="fld fld-md mt-1 w-full" /></label>
         </div>
 
         <!-- Totals -->

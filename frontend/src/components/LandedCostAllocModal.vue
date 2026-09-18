@@ -27,7 +27,7 @@
                 </div>
                 <div v-if="c.is_legacy_pl" class="text-[11px] text-amber-600">{{ L("on a P&L account","على حساب مصروف","compte P&L") }}</div>
               </div>
-              <select v-model="c.category" class="h-8 border border-line-2 rounded-[8px] px-1.5 text-[12px] bg-white">
+              <select v-model="c.category" class="fld fld-sm">
                 <option v-for="cat in CATS" :key="cat.k" :value="cat.k">{{ cat.label() }} · {{ cat.basis }}</option>
               </select>
               <span class="tnum font-semibold w-24 text-end">{{ fmt2(c.amount) }}</span>

@@ -16,7 +16,7 @@
             <button class="text-ink-muted hover:text-ink" @click="picked = null">✕</button>
           </div>
           <div v-else class="relative">
-            <input v-model.trim="q" @input="onSearch" :placeholder="L('Search SKU / item…','بحث…','Rechercher…')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2.5 text-[13px] focus:outline-none focus:border-accent/40" />
+            <input v-model.trim="q" @input="onSearch" :placeholder="L('Search SKU / item…','بحث…','Rechercher…')" class="fld fld-md w-full mt-1" />
             <div v-if="opts.length" class="absolute z-10 top-full inset-x-0 mt-1 bg-white border border-line rounded-[10px] shadow-card max-h-52 overflow-y-auto">
               <button v-for="o in opts" :key="o.item_code" @click="pick(o)" class="w-full text-start px-3 py-2 hover:bg-app-warm border-b border-line-hair last:border-0">
                 <span class="block text-[12px] font-medium truncate">{{ o.item_name }}</span>
@@ -28,14 +28,14 @@
         <!-- Price list -->
         <div>
           <label class="text-[11px] font-bold text-ink-3">{{ L("Price list","القائمة","Liste") }}</label>
-          <select v-model="priceList" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40">
+          <select v-model="priceList" class="fld fld-md w-full mt-1">
             <option v-for="pl in lists" :key="pl.name" :value="pl.name">{{ pl.name }} ({{ pl.currency }}{{ pl.selling ? " · sell" : "" }}{{ pl.buying ? " · buy" : "" }})</option>
           </select>
         </div>
         <!-- Rate -->
         <div>
           <label class="text-[11px] font-bold text-ink-3">{{ L("Rate","السعر","Prix") }}</label>
-          <input v-model.number="rate" type="number" min="0" step="0.01" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2.5 text-[13px] text-end tnum focus:outline-none focus:border-accent/40" />
+          <input v-model.number="rate" type="number" min="0" step="0.01" class="fld fld-md w-full mt-1 text-end tnum" />
         </div>
         <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
         <div class="flex justify-end gap-2 pt-1">

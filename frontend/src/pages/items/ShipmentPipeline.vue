@@ -75,7 +75,7 @@
         <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2">
           <Icon name="truck" :size="14" color="#0b5c4f" />{{ L("1 · Pick the shipment's receipts","١ · اختار استلامات الشحنة","1 · Réceptions") }}
           <span class="text-[11px] text-ink-muted">{{ selReceipts.length }} {{ L("selected","مختار","choisis") }}</span>
-          <input v-model="rq" @input="debouncedReceipts" :placeholder="L('search receipt / supplier…','ابحث استلام / مورّد…','rechercher…')" class="ms-auto w-[180px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2.5 text-[11px] focus:outline-none" />
+          <input v-model="rq" @input="debouncedReceipts" :placeholder="L('search receipt / supplier…','ابحث استلام / مورّد…','rechercher…')" class="fld fld-xs fld-sunk ms-auto w-[180px]" />
         </div>
         <TableLoading v-if="loading" :rows="5" />
         <div v-else class="overflow-y-auto max-h-[320px]">
@@ -103,9 +103,9 @@
           <button type="button" class="ms-auto text-[11px] font-bold text-accent-dark hover:underline" @click="manual = !manual">{{ manual ? L("hide manual","اخفي اليدوي","cacher") : L("+ manual charge","+ مصروف يدوي","+ manuel") }}</button>
         </div>
         <div v-if="manual" class="px-4 py-3 border-b border-line-hair bg-app-warm/30 flex items-center gap-2 flex-wrap">
-          <input v-model.trim="mCharge.description" :placeholder="L('description','الوصف','description')" class="flex-1 min-w-[140px] h-8 bg-white border border-line-2 rounded-chip px-2.5 text-[11px] focus:outline-none" />
+          <input v-model.trim="mCharge.description" :placeholder="L('description','الوصف','description')" class="fld fld-sm flex-1 min-w-[140px]" />
           <div class="w-[210px]"><SearchSelect v-model="mCharge.expense_account" :items="inboxAccountItems" :placeholder="L('expense account…','حساب المصروف…','compte…')" :empty-text="L('No account','لا حساب','Aucun')" input-class="h-8 text-[11px] bg-white" /></div>
-          <input v-model.number="mCharge.amount" type="number" min="0" step="0.01" placeholder="0.00" class="w-[100px] h-8 bg-white border border-line-2 rounded-chip px-2.5 text-[11px] tnum text-end focus:outline-none" />
+          <input v-model.number="mCharge.amount" type="number" min="0" step="0.01" placeholder="0.00" class="fld fld-sm w-[100px] tnum text-end" />
           <UiButton variant="create" size="sm" type="button" :disabled="!(mCharge.amount>0) || !mCharge.expense_account" @click="addManual">{{ L("Add","أضف","OK") }}</UiButton>
         </div>
         <div class="overflow-y-auto max-h-[280px]">
@@ -138,7 +138,7 @@
     <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2 flex-wrap">
         <Icon name="layers" :size="14" color="#0b5c4f" />{{ L("3 · Preview allocation → 4 · Post","٣ · عاين التوزيع ← ٤ · رحّل","3 · Aperçu → 4 · Valider") }}
-        <select v-model="basis" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none" @change="preview = null">
+        <select v-model="basis" class="fld fld-xs fld-sunk" @change="preview = null">
           <option value="Amount">{{ L("by value (customs)","بالقيمة (جمارك)","par valeur") }}</option>
           <option value="Weight">{{ L("by weight (freight)","بالوزن (شحن)","par poids") }}</option>
           <option value="Qty">{{ L("by qty","بالكمية","par qté") }}</option>

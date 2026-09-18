@@ -22,7 +22,7 @@
     <div class="flex items-center gap-2 flex-wrap">
       <div class="relative flex-1 max-w-xs">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-        <input v-model.trim="st.search.value" :placeholder="t('module.search')" class="w-full h-9 bg-white border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40" />
+        <input v-model.trim="st.search.value" :placeholder="t('module.search')" class="fld fld-md w-full" />
       </div>
       <span v-if="isLive !== null || st.error.value" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full border" :style="(isLive && !st.error.value) ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0' : 'background:#fffbeb;color:#b45309;border-color:#fde68a'">{{ (isLive && !st.error.value) ? lbl("Live","مباشر","Live") : lbl("Load failed","فشل التحميل","Échec") }}</span>
       <span v-if="st.error.value" class="text-[11px] text-rose-600 truncate max-w-[26rem]" :title="st.error.value">{{ st.error.value }}</span>
@@ -45,9 +45,9 @@
       <Icon name="clock" :size="13" color="#a8a29e" />
       <button v-for="p in DATE_PRESETS" :key="p.key" @click="setDatePreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>
       <template v-if="datePreset === 'range'">
-        <input type="date" v-model="dateFrom" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        <input type="date" v-model="dateFrom" @change="applyRange" class="fld fld-xs" />
         <span class="text-ink-muted text-[11px]">→</span>
-        <input type="date" v-model="dateTo" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        <input type="date" v-model="dateTo" @change="applyRange" class="fld fld-xs" />
       </template>
     </div>
 

@@ -4,15 +4,15 @@
       <span class="text-[13px] font-bold">③ {{ L("Catalogue — by model","③ الكتالوج — بالموديل","③ Catalogue par modèle") }}</span>
       <span v-if="data" class="text-[11px] text-ink-muted tnum">{{ data.total }} {{ L("models","موديل","modèles") }}</span>
       <div class="flex-1"></div>
-      <select v-model="supFilter" @change="start = 0; load()" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line max-w-[170px]">
+      <select v-model="supFilter" @change="start = 0; load()" class="fld fld-xs max-w-[170px]">
         <option value="">{{ L("All suppliers","كل الموردين","Fournisseurs") }}</option>
         <option v-for="sp in filters.suppliers" :key="sp.supplier" :value="sp.supplier">{{ shortSup(sp.supplier) }} ({{ sp.items }})</option>
       </select>
-      <select v-model="moFilter" @change="start = 0; load()" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
+      <select v-model="moFilter" @change="start = 0; load()" class="fld fld-xs">
         <option value="">{{ L("All months","كل الشهور","Mois") }}</option>
         <option v-for="mo in filters.months" :key="mo" :value="mo">{{ mo }}</option>
       </select>
-      <select v-model="srcFilter" @change="start = 0; load()" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
+      <select v-model="srcFilter" @change="start = 0; load()" class="fld fld-xs">
         <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
         <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
         <option value="local_pi">{{ L("Local suppliers","موردين محليين","Locaux") }}</option>
@@ -28,7 +28,7 @@
         </button>
       </div>
       <input v-model="search" @keyup.enter="start = 0; load()" :placeholder="L('Search model…','بحث…','Recherche…')"
-             class="h-[28px] w-[170px] text-[12px] px-2.5 rounded-[8px] border border-line" />
+             class="fld fld-xs w-[170px]" />
     </div>
     <div v-if="loading" class="py-12 text-center text-[12px] text-ink-muted">{{ L("Grouping the catalogue…","بيجمع الكتالوج…","Chargement…") }}</div>
     <div v-else-if="err" class="py-12 text-center text-[12px] text-sale">{{ err }} <button class="underline" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button></div>

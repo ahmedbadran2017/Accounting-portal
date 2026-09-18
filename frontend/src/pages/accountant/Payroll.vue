@@ -194,17 +194,17 @@
         <UiButton variant="primary" size="md" icon="plus" v-if="can('post_entries')" type="button" @click="newEmp = true"> {{ L('New employee','موظف جديد','Nouvel employé') }}
         </UiButton>
         <div class="ms-auto flex items-center gap-2 flex-wrap">
-          <select v-model="empDept" class="h-9 bg-app-warm/40 border border-line-2 rounded-[10px] px-2.5 text-[12px] focus:outline-none focus:border-accent/40" @change="loadEmps">
+          <select v-model="empDept" class="fld fld-md fld-sunk" @change="loadEmps">
             <option value="all">{{ L('All departments','كل الأقسام','Tous services') }}</option>
             <option v-for="d in empMeta.departments" :key="d" :value="d">{{ d }}</option>
           </select>
-          <select v-model="empStatus" class="h-9 bg-app-warm/40 border border-line-2 rounded-[10px] px-2.5 text-[12px] focus:outline-none focus:border-accent/40" @change="loadEmps">
+          <select v-model="empStatus" class="fld fld-md fld-sunk" @change="loadEmps">
             <option value="all">{{ L('All statuses','كل الحالات','Tous statuts') }}</option>
             <option v-for="s in empMeta.statuses" :key="s" :value="s">{{ s }}</option>
           </select>
           <div class="relative">
             <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-            <input v-model.trim="empSearch" :placeholder="L('Search…','بحث…','Rechercher…')" class="w-40 sm:w-52 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+            <input v-model.trim="empSearch" :placeholder="L('Search…','بحث…','Rechercher…')" class="fld fld-md fld-sunk w-40 sm:w-52" />
           </div>
         </div>
       </div>

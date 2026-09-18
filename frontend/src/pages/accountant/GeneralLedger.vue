@@ -16,11 +16,11 @@
       <div class="min-w-[260px] flex-1 max-w-[420px]">
         <SearchSelect v-model="acctSel" :items="acctItems" :placeholder="L('Account… (all)','الحساب… (الكل)','Compte… (tous)')" inputClass="h-8 text-[12px] bg-white" />
       </div>
-      <input v-model.trim="party" @keyup.enter="apply" :placeholder="L('Party…','الطرف…','Tiers…')" class="w-36 h-8 bg-white border border-line-2 rounded-[8px] px-2.5 text-[12px] focus:outline-none focus:border-accent/40" />
-      <input v-model.trim="voucher" @keyup.enter="apply" :placeholder="L('Voucher…','السند…','Pièce…')" class="w-36 h-8 bg-white border border-line-2 rounded-[8px] px-2.5 text-[12px] focus:outline-none focus:border-accent/40" />
-      <input v-model="fromDate" type="date" class="h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
+      <input v-model.trim="party" @keyup.enter="apply" :placeholder="L('Party…','الطرف…','Tiers…')" class="fld fld-sm w-36" />
+      <input v-model.trim="voucher" @keyup.enter="apply" :placeholder="L('Voucher…','السند…','Pièce…')" class="fld fld-sm w-36" />
+      <input v-model="fromDate" type="date" class="fld fld-sm" />
       <span class="text-ink-muted text-[11px]">→</span>
-      <input v-model="toDate" type="date" class="h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
+      <input v-model="toDate" type="date" class="fld fld-sm" />
       <label class="inline-flex items-center gap-1.5 text-[12px] text-ink-3"><input type="checkbox" v-model="includeCancelled" @change="apply" /> {{ L("Cancelled too","مع الملغي","Annulées aussi") }}</label>
       <label class="inline-flex items-center gap-1.5 text-[12px] text-ink-3" :title="L('One line per document instead of per GL row','سطر لكل مستند بدل كل قيد','Une ligne par document')"><input type="checkbox" v-model="groupVoucher" @change="apply" /> {{ L("Group by voucher","تجميع بالسند","Par pièce") }}</label>
       <UiButton variant="primary" size="sm" @click="apply" >{{ L("Apply","تطبيق","Appliquer") }}</UiButton>
@@ -70,7 +70,7 @@
     <div v-if="d.total > pageSize || pageSize !== 100" class="flex items-center justify-between px-4 py-3 border-t border-line-hair text-[12px] flex-wrap gap-2">
       <span class="text-ink-muted">{{ L("Showing","عرض","Affichage") }} <b class="tnum">{{ d.total ? start + 1 : 0 }}–{{ Math.min(start + pageSize, d.total) }}</b> {{ L("of","من","sur") }} <b class="tnum">{{ (d.total || 0).toLocaleString() }}</b></span>
       <div class="flex items-center gap-1.5">
-        <select v-model.number="pageSize" @change="start = 0; load()" class="h-8 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option :value="50">50</option><option :value="100">100</option><option :value="200">200</option><option :value="500">500</option></select>
+        <select v-model.number="pageSize" @change="start = 0; load()" class="fld fld-sm"><option :value="50">50</option><option :value="100">100</option><option :value="200">200</option><option :value="500">500</option></select>
         <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold border border-line-2 disabled:opacity-40" :disabled="start <= 0 || loading" @click="start = Math.max(0, start - pageSize); load()">{{ L("Prev","السابق","Préc.") }}</button>
         <span class="text-ink-3 px-1 tnum">{{ Math.floor(start / pageSize) + 1 }} / {{ Math.max(1, Math.ceil((d.total || 0) / pageSize)) }}</span>
         <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold border border-line-2 disabled:opacity-40" :disabled="start + pageSize >= (d.total || 0) || loading" @click="start += pageSize; load()">{{ L("Next","التالي","Suiv.") }}</button>

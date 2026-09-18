@@ -3,7 +3,7 @@
     <input
       :value="display" @focus="onFocus" @input="onInput" @keydown.esc="close"
       :placeholder="placeholder" :disabled="disabled"
-      class="w-full border border-line-2 rounded-[9px] ps-2.5 pe-8 focus:outline-none focus:border-accent/40 disabled:opacity-60 disabled:bg-app-warm/40"
+      class="fld fld-sm fld-sunk w-full"
       :class="inputClass" />
     <span class="absolute top-1/2 -translate-y-1/2 end-2.5 text-ink-muted pointer-events-none flex"><Icon :name="open ? 'search' : 'chevDown'" :size="14" /></span>
     <div v-if="open" class="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-line rounded-[10px] shadow-cardHover">

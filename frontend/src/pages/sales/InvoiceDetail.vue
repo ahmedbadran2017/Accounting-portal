@@ -70,7 +70,7 @@
           <div class="text-[14px] font-bold">{{ L("Create credit note","إنشاء إشعار دائن","Note de crédit") }}</div>
         </div>
         <p class="text-[12px] text-ink-3 mb-3">{{ L("Reverses the invoice — credits the customer's debtor and reverses the revenue.","يعكس الفاتورة — يقفل مديونية العميل ويعكس الإيراد.","Annule la facture — crédite le débiteur.") }} <b class="font-mono">{{ inv.id }}</b></p>
-        <textarea v-model="reason" rows="2" :placeholder="L('Reason (optional)','السبب (اختياري)','Motif (facultatif)')" class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[13px] focus:outline-none focus:border-accent/40 mb-3"></textarea>
+        <textarea v-model="reason" rows="2" :placeholder="L('Reason (optional)','السبب (اختياري)','Motif (facultatif)')" class="fld fld-md w-full mb-3"></textarea>
         <label class="flex items-center gap-2 mb-2 text-[13px] cursor-pointer">
           <input type="checkbox" v-model="alsoRefund" class="accent-sale w-4 h-4" />
           <span>{{ L("Also refund the cash to the customer","استرداد الكاش للعميل أيضًا","Rembourser aussi le client") }}</span>
@@ -98,12 +98,12 @@
         </div>
         <p class="text-[12px] text-ink-3 mb-3">{{ L("Collect against","تحصيل مقابل","Encaisser pour") }} <b class="font-mono">{{ inv.id }}</b> · {{ L("outstanding","المتبقّي","restant") }} <b class="tnum">{{ fmt2(inv.outstanding) }}</b></p>
         <div class="space-y-2.5">
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Amount","المبلغ","Montant") }}</label><input v-model.number="pay.amount" type="number" min="0" :max="inv.outstanding" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Amount","المبلغ","Montant") }}</label><input v-model.number="pay.amount" type="number" min="0" :max="inv.outstanding" class="fld fld-md w-full mt-1" /></div>
           <div><label class="text-[11px] font-bold text-ink-3">{{ L("Deposit to","الإيداع في","Déposer sur") }}</label>
             <div class="mt-1"><SearchSelect v-model="pay.account" :items="accountItems" :placeholder="L('Search account','ابحث عن حساب','Rechercher…')" :empty-text="L('No account','لا حساب','Aucun')" /></div></div>
           <div class="grid grid-cols-2 gap-2">
-            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Reference","المرجع","Référence") }}</label><input v-model.trim="pay.reference_no" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" :placeholder="L('e.g. COD batch','مثال: تحصيل','réf')" /></div>
-            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label><input v-model="pay.posting_date" type="date" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
+            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Reference","المرجع","Référence") }}</label><input v-model.trim="pay.reference_no" class="fld fld-md w-full mt-1" :placeholder="L('e.g. COD batch','مثال: تحصيل','réf')" /></div>
+            <div><label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label><input v-model="pay.posting_date" type="date" class="fld fld-md w-full mt-1" /></div>
           </div>
         </div>
         <div v-if="payError" class="text-[12px] text-sale mt-2">{{ payError }}</div>

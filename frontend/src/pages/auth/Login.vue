@@ -11,12 +11,12 @@
         <div>
           <label class="block text-[13px] font-medium text-ink-2 mb-1">{{ t("auth.email") }}</label>
           <input v-model.trim="email" type="email" autocomplete="username" required
-                 class="w-full rounded-chip border border-line-2 px-3 py-2.5 text-[13px] bg-app-warm focus:outline-none focus:border-accent/40 focus:bg-white" />
+                 class="fld fld-md fld-sunk w-full" />
         </div>
         <div>
           <label class="block text-[13px] font-medium text-ink-2 mb-1">{{ t("auth.password") }}</label>
           <input v-model="password" type="password" autocomplete="current-password" required
-                 class="w-full rounded-chip border border-line-2 px-3 py-2.5 text-[13px] bg-app-warm focus:outline-none focus:border-accent/40 focus:bg-white" />
+                 class="fld fld-md fld-sunk w-full" />
         </div>
 
         <p v-if="error" class="text-[13px] text-sale">{{ error }}</p>

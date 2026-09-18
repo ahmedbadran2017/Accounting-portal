@@ -114,13 +114,13 @@
         </div>
         <div class="p-5 space-y-3">
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Name","الاسم","Nom") }}</span>
-            <input v-model="ef.customer_name" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
+            <input v-model="ef.customer_name" class="fld fld-md mt-1 w-full" /></label>
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Phone","الهاتف","Téléphone") }}</span>
-            <input v-model="ef.phone" placeholder="+212…" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
+            <input v-model="ef.phone" placeholder="+212…" class="fld fld-md mt-1 w-full" /></label>
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Email","البريد","E-mail") }}</span>
-            <input v-model="ef.email" type="email" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
+            <input v-model="ef.email" type="email" class="fld fld-md mt-1 w-full" /></label>
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("City","المدينة","Ville") }}</span>
-            <input v-model="ef.city" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
+            <input v-model="ef.city" class="fld fld-md mt-1 w-full" /></label>
           <div v-if="editError" class="text-[12px] text-sale">{{ editError }}</div>
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">

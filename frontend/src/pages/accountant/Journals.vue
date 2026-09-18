@@ -10,7 +10,7 @@
       <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("entries", "قيد", "écritures") }}</span>
       <div class="relative ms-auto">
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-        <input v-model.trim="st.search.value" :placeholder="L('Journal / remark / type…', 'قيد / بيان…', 'Écriture / libellé…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+        <input v-model.trim="st.search.value" :placeholder="L('Journal / remark / type…', 'قيد / بيان…', 'Écriture / libellé…')" class="fld fld-md fld-sunk w-44 sm:w-56" />
       </div>
       <UiButton variant="secondary" size="sm" icon="refresh" v-if="canWrite" @click="showReclass = true"> {{ L("Reclassify", "إعادة تصنيف", "Reclasser") }}
       </UiButton>

@@ -52,9 +52,9 @@
           <div v-else class="text-[11px] text-amber-700">{{ L("No purchase documents anywhere in the family — enter the cost manually (note required).","مفيش مستندات في العيلة كلها — أدخلوا التكلفة يدويًا (الملاحظة إجبارية).","Aucun document — saisir manuellement.") }}</div>
           <div class="flex items-center gap-2 flex-wrap pt-1 border-t border-line-hair">
             <label class="text-[12px] text-ink-2 font-semibold">{{ L("Verified cost (MAD/unit)","التكلفة المعتمدة (درهم/وحدة)","Coût vérifié") }}</label>
-            <input v-model.number="rate" type="number" step="0.01" min="0" class="h-[30px] w-[110px] text-[12px] text-end px-2 rounded-[8px] border border-line tnum" dir="ltr" />
+            <input v-model.number="rate" type="number" step="0.01" min="0" class="fld fld-sm w-[110px] text-end tnum" dir="ltr" />
             <input v-model="note" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيرتوا الرقم)','Note')"
-                   class="h-[30px] flex-1 min-w-[220px] text-[12px] px-2.5 rounded-[8px] border"
+                   class="fld fld-sm flex-1 min-w-[220px]"
                    :class="noteNeeded ? 'border-amber-400' : 'border-line'" />
             <span v-if="savedCost && rate === savedCost" class="text-[11px] font-bold text-emerald-700">✓ {{ L("saved","محفوظ","enregistré") }}</span>
             <span v-else-if="savedCost && rate !== savedCost" class="text-[11px] font-bold text-amber-600" :title="L('differs from the saved draft','مختلف عن المحفوظ','différent')">✎ {{ savedCost }}</span>
@@ -98,7 +98,7 @@
                   </template>
                   <template v-else-if="r.channel === 'air' && (r.channel_confirmed || r.pr_qty < 500) && canWrite && !d.frozen">
                     <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
-                           class="w-[58px] h-[24px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
+                           class="fld fld-xs w-[58px] text-end tnum" />
                     <UiButton variant="secondary" size="xs" class="ms-1" :disabled="!((r._draft ?? r.band_rate) > 0) || fBusy" @click="confirmRate(r)">✓ {{ L("rate","السعر","taux") }}</UiButton>
                   </template>
                   <template v-else>
@@ -127,12 +127,12 @@
         <div v-if="canWrite" class="flex items-center gap-2 flex-wrap">
           <span class="text-[11px] font-bold">{{ L("Freight estimate:","تقدير الشحن:","Fret :") }}</span>
           <input v-model.number="mlW" type="number" step="0.01" min="0.01" max="50" placeholder="kg"
-                 class="h-[26px] w-[70px] text-[12px] text-end px-1.5 rounded-[7px] border tnum" dir="ltr"
+                 class="fld fld-xs w-[70px] text-end tnum" dir="ltr"
                  :class="famWeightInfo.suspect && mlW === famWeightInfo.w ? 'border-amber-400 bg-amber-50' : 'border-line'"
                  :title="L('REAL unit weight incl. packaging — weigh it, don\'t guess','الوزن الحقيقي للوحدة بالتغليف — اتوزن متتخمنش','poids réel')" />
           <span class="text-[11px]">×</span>
           <input v-model.number="mlRate" type="number" step="0.1" min="0.1"
-                 class="h-[26px] w-[74px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr"
+                 class="fld fld-xs w-[74px] text-end tnum" dir="ltr"
                  :title="L('MAD per kg — type ANY rate; the chips are just the known contract tariffs','درهم/كجم — اكتب أي رقم؛ الأزرار مجرد التعريفات المعروفة','MAD/kg — libre')" />
           <span class="text-[11px] text-ink-muted">{{ L("/kg","درهم/كجم","/kg") }}</span>
           <span class="inline-flex gap-1">
@@ -153,7 +153,7 @@
         <span class="text-[11px]" style="color:#b45309">{{ suspectWeights.length }} {{ L("variant(s) with suspect weight — freight shares are unfair until fixed","variant وزنهم مشكوك — نصيب الشحن مش عادل لحد ما يتظبطوا","poids suspects") }}</span>
         <div class="flex-1"></div>
         <input v-model.number="famWeight" type="number" step="0.01" min="0.005" max="50" placeholder="kg"
-               class="h-[26px] w-[76px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
+               class="fld fld-xs w-[76px] text-end tnum" dir="ltr" />
         <UiButton variant="secondary" size="xs" :disabled="!(famWeight > 0) || fBusy" @click="applyFamilyWeight">{{ L("Fill the suspects","املأ الناقصين","Remplir") }}</UiButton>
       </div>
 

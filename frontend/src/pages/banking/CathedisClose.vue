@@ -42,8 +42,8 @@
         <span class="text-[11px] text-ink-muted">{{ st.total.value }} {{ L("invoices","فاتورة","factures") }}</span>
         <div class="flex-1"></div>
         <input v-model.trim="st.search.value" :placeholder="L('Search invoice / customer / tracking…','بحث فاتورة / عميل / تتبّع…','Recherche…')"
-               class="h-[30px] w-[240px] max-w-full text-[12px] px-3 rounded-[8px] border border-line focus:border-brand outline-none" />
-        <select v-model="onlyFilter" class="h-[30px] text-[12px] px-2 rounded-[8px] border border-line">
+               class="fld fld-sm w-[240px] max-w-full" />
+        <select v-model="onlyFilter" class="fld fld-sm">
           <option value="ready">{{ L("Ready","جاهزة","Prêtes") }}</option>
           <option value="anomaly">{{ L("Anomalies (SI>SO)","شاذة (فاتورة>أوردر)","Anomalies") }}</option>
           <option value="">{{ L("All","الكل","Toutes") }}</option>

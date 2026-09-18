@@ -104,7 +104,7 @@
           </div>
           <div class="inline-flex items-center gap-1.5 ms-2">
             <span class="text-[11px] text-ink-muted">{{ L("as of", "كما في", "au") }}</span>
-            <input type="date" v-model="asOn" @change="loadAging(agingKind)" class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white" />
+            <input type="date" v-model="asOn" @change="loadAging(agingKind)" class="fld fld-xs" />
             <UiButton variant="secondary" size="xs" v-if="asOn !== today" type="button" @click="asOn = today; loadAging(agingKind)">{{ L("Today","اليوم","Auj.") }}</UiButton>
           </div>
         </div>

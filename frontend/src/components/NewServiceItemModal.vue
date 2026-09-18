@@ -4,9 +4,9 @@
       <div class="text-[14px] font-bold flex items-center gap-2"><Icon name="plus" :size="14" color="#0b5c4f" />{{ L("New service item", "صنف خدمة جديد", "Nouvel article de service") }}</div>
       <p class="text-[11px] text-ink-muted">{{ L("A non-stock item for bills: fees, taxes, insurance, subscriptions. Product items still come from Shopify.", "صنف غير مخزني للفواتير: رسوم، ضرائب، تأمين، اشتراكات. أصناف المنتجات لسه من Shopify.", "Article hors stock pour les factures.") }}</p>
       <div class="grid grid-cols-2 gap-2">
-        <div class="col-span-2"><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Item code / name", "كود الصنف / الاسم", "Code / nom") }} *</label><input v-model.trim="f.item_code" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
-        <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Group", "المجموعة", "Groupe") }} *</label><select v-model="f.item_group" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white"><option v-for="g in o.groups" :key="g" :value="g">{{ g }}</option></select></div>
-        <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Unit", "الوحدة", "Unité") }}</label><select v-model="f.uom" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white"><option v-for="u in o.uoms" :key="u" :value="u">{{ u }}</option></select></div>
+        <div class="col-span-2"><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Item code / name", "كود الصنف / الاسم", "Code / nom") }} *</label><input v-model.trim="f.item_code" class="fld fld-md w-full" /></div>
+        <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Group", "المجموعة", "Groupe") }} *</label><select v-model="f.item_group" class="fld fld-md w-full"><option v-for="g in o.groups" :key="g" :value="g">{{ g }}</option></select></div>
+        <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Unit", "الوحدة", "Unité") }}</label><select v-model="f.uom" class="fld fld-md w-full"><option v-for="u in o.uoms" :key="u" :value="u">{{ u }}</option></select></div>
       </div>
       <div v-if="(o.companies || []).length">
         <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Default expense account (per company, optional)", "حساب المصروف الافتراضي (لكل شركة، اختياري)", "Compte de charge par défaut") }}</label>

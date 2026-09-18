@@ -36,8 +36,8 @@
                 <td class="px-3 py-2">
                   <SearchSelect v-model="ln.account" :items="accountItems" :placeholder="L('Account…','حساب…','Compte…')" :empty-text="L('No account','لا حساب','Aucun')" input-class="h-8 text-[12px] bg-white" />
                 </td>
-                <td class="px-3 py-2"><input v-model.number="ln.debit" type="number" min="0" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" /></td>
-                <td class="px-3 py-2"><input v-model.number="ln.credit" type="number" min="0" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" /></td>
+                <td class="px-3 py-2"><input v-model.number="ln.debit" type="number" min="0" class="fld fld-sm w-28 text-end tnum" /></td>
+                <td class="px-3 py-2"><input v-model.number="ln.credit" type="number" min="0" class="fld fld-sm w-28 text-end tnum" /></td>
               </tr>
             </tbody>
             <tfoot>
@@ -50,7 +50,7 @@
           </table>
         </div>
 
-        <input v-model.trim="remark" :placeholder="L('Remark','ملاحظة','Remarque')" class="w-full h-9 border border-line-2 rounded-[9px] px-3 text-[13px] focus:outline-none focus:border-accent/40" />
+        <input v-model.trim="remark" :placeholder="L('Remark','ملاحظة','Remarque')" class="fld fld-md w-full" />
         <div class="flex items-center gap-2 text-[11px] text-ink-muted"><Icon name="shield" :size="12" />{{ L("Large entries are sent for approval before they post — nothing posts directly.","القيود الكبيرة تُرسل للموافقة قبل الترحيل.","Les écritures importantes nécessitent une approbation.") }}</div>
         <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
         <div class="flex justify-end gap-2">

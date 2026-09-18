@@ -30,7 +30,7 @@
             <div class="relative mt-1" v-click-outside="() => (suppOpen = false)">
               <input v-model="suppQuery" @focus="suppOpen = true" @input="onSuppInput"
                      :placeholder="L('search supplier name…','ابحث باسم المورّد…','rechercher…')"
-                     class="w-full border border-line-2 rounded-chip ps-3 pe-8 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+                     class="fld fld-md w-full" />
               <span class="absolute top-1/2 -translate-y-1/2 end-3 text-ink-muted pointer-events-none flex"><Icon :name="suppOpen ? 'search' : 'chev'" :size="14" /></span>
               <div v-if="suppOpen" class="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-line rounded-[12px] shadow-cardHover">
                 <button v-for="s in filteredSuppliers" :key="s" type="button"
@@ -68,7 +68,7 @@
             <div class="relative mt-1" v-click-outside="() => (acctOpen = false)">
               <input v-model="acctQuery" @focus="acctOpen = true" @input="onAcctInput"
                      :placeholder="L('search by name, number or category…','ابحث بالاسم أو الرقم أو الفئة…','rechercher…')"
-                     class="w-full border border-line-2 rounded-chip ps-3 pe-8 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+                     class="fld fld-md w-full" />
               <span class="absolute top-1/2 -translate-y-1/2 end-3 text-ink-muted pointer-events-none flex"><Icon :name="acctOpen ? 'search' : 'chev'" :size="14" /></span>
               <div v-if="acctOpen" class="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-line rounded-[12px] shadow-cardHover">
                 <button v-for="a in filteredAccounts" :key="a.name" type="button"
@@ -93,22 +93,22 @@
             <label class="block col-span-2">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Amount", "المبلغ", "Montant") }}</span>
               <div class="mt-1 flex items-stretch gap-1.5">
-                <input type="number" min="0" step="0.01" v-model.number="amount" class="flex-1 min-w-0 border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum font-semibold text-end focus:outline-none focus:border-accent/40" placeholder="0.00" />
-                <select v-model="currency" @change="onCurrency" class="w-[74px] border border-line-2 rounded-chip px-1.5 text-[12px] font-semibold focus:outline-none cursor-pointer">
+                <input type="number" min="0" step="0.01" v-model.number="amount" class="fld fld-md flex-1 min-w-0 tnum text-end" placeholder="0.00" />
+                <select v-model="currency" @change="onCurrency" class="fld fld-sm w-[74px] cursor-pointer">
                   <option v-for="c in opt.currencies || [opt.currency]" :key="c" :value="c">{{ c }}</option>
                 </select>
               </div>
             </label>
             <label class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Date", "التاريخ", "Date") }}</span>
-              <input type="date" v-model="postingDate" @change="isFx && fetchRate()" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <input type="date" v-model="postingDate" @change="isFx && fetchRate()" class="fld fld-md mt-1 w-full" />
             </label>
           </div>
 
           <!-- FX rate when the bill currency differs from the company's -->
           <div v-if="isFx" class="flex items-center gap-2 flex-wrap rounded-[10px] px-3 py-2 text-[12px]" style="background:#eff6ff">
             <span class="font-semibold text-sky-800">{{ L("Rate","السعر","Taux") }} 1 {{ currency }} =</span>
-            <input type="number" min="0" step="0.0001" v-model.number="fxRate" class="w-[90px] h-7 border border-line-2 rounded-chip px-2 text-[12px] tnum text-end bg-white focus:outline-none" />
+            <input type="number" min="0" step="0.0001" v-model.number="fxRate" class="fld fld-xs w-[90px] tnum text-end" />
             <span class="text-sky-800">{{ opt.currency }}</span>
             <button v-if="rateSuggest" type="button" class="text-[11px] text-accent-dark font-semibold hover:underline" @click="fxRate = rateSuggest">{{ L("suggest","اقتراح","suggéré") }} {{ rateSuggest }}</button>
             <span class="ms-auto text-ink-3">≈ <b class="tnum">{{ money(grossBase) }}</b> {{ opt.currency }} {{ L("in the books","في الدفاتر","comptable") }}</span>
@@ -118,7 +118,7 @@
           <div v-if="modeType==='bill'" class="grid grid-cols-2 gap-3">
             <label class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Supplier bill #", "رقم فاتورة المورّد", "N° facture") }} <span class="text-ink-muted font-normal">({{ L("optional", "اختياري", "opt.") }})</span></span>
-              <input v-model.trim="billNo" :placeholder="L('e.g. META-2026-0492','مثال: META-2026-0492','ex. META-0492')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <input v-model.trim="billNo" :placeholder="L('e.g. META-2026-0492','مثال: META-2026-0492','ex. META-0492')" class="fld fld-md mt-1 w-full" />
             </label>
             <label class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Payment", "الدفع", "Paiement") }}</span>
@@ -140,7 +140,7 @@
 
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Description", "الوصف", "Description") }}</span>
-            <input v-model.trim="description" :placeholder="L('e.g. June office rent','مثال: إيجار المكتب يونيو','ex. loyer juin')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+            <input v-model.trim="description" :placeholder="L('e.g. June office rent','مثال: إيجار المكتب يونيو','ex. loyer juin')" class="fld fld-md mt-1 w-full" />
           </label>
 
           <!-- VAT (TVA / KDV) -->
@@ -157,7 +157,7 @@
                 </label>
                 <label class="block">
                   <span class="text-[11px] font-semibold text-ink-3">{{ L("Amount entered is", "المبلغ المدخل فوق", "Montant saisi") }}</span>
-                  <select v-model="amountMode" class="mt-1 w-full border border-line-2 rounded-chip px-2.5 py-2 text-[12px] focus:outline-none cursor-pointer">
+                  <select v-model="amountMode" class="fld fld-md mt-1 w-full cursor-pointer">
                     <option value="gross">{{ L("incl. VAT (bill total)", "شامل الضريبة (إجمالي الفاتورة)", "TTC") }}</option>
                     <option value="net">{{ L("excl. VAT (net)", "غير شامل (الصافي)", "HT") }}</option>
                   </select>
@@ -166,7 +166,7 @@
               <div class="flex items-center gap-3 text-[12px]">
                 <span class="text-ink-3">{{ L("Net", "الصافي", "HT") }} <b class="tnum">{{ money(netAmount) }}</b></span>
                 <span class="text-ink-3">{{ L("VAT", "الضريبة", "TVA") }}
-                  <input v-model.number="taxOverride" type="number" min="0" step="0.01" :placeholder="String(autoTax)" class="w-[90px] h-7 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none ms-1" />
+                  <input v-model.number="taxOverride" type="number" min="0" step="0.01" :placeholder="String(autoTax)" class="fld fld-xs w-[90px] tnum text-end ms-1" />
                 </span>
                 <span class="text-ink-3">{{ L("Total", "الإجمالي", "TTC") }} <b class="tnum">{{ money(grossAmount) }}</b></span>
                 <span v-if="taxPct" class="text-[11px] text-ink-muted">({{ taxPct }}%)</span>

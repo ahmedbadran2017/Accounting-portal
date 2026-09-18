@@ -10,7 +10,7 @@
       <span class="hidden lg:inline text-[11px] text-ink-muted flex-1">{{ L("LTV & delivery health · computed from invoices","القيمة العمرية وصحة التسليم · محسوبة من الفواتير","LTV & livraison · calculé depuis les factures") }}</span>
       <div class="relative ms-auto w-[200px]">
         <span class="absolute top-1/2 -translate-y-1/2 start-2.5 text-ink-muted pointer-events-none flex"><Icon name="search" :size="14" /></span>
-        <input v-model.trim="search" :placeholder="L('Search name…','بحث بالاسم…','Rechercher…')" class="w-full h-8 ps-[30px] pe-2.5 rounded-[9px] border border-line-2 bg-app-warm2 text-[12px] focus:outline-none focus:border-accent/40" />
+        <input v-model.trim="search" :placeholder="L('Search name…','بحث بالاسم…','Rechercher…')" class="fld fld-sm fld-sunk w-full" />
       </div>
     </div>
 

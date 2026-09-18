@@ -100,7 +100,7 @@
               <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="14" /></span>
               <input v-model.trim="candSearch" @input="debouncedCands"
                      :placeholder="L('search by supplier / ref / voucher — for split payments','ابحث باسم المورّد / المرجع / السند — للدفعات المقسّمة','rechercher fournisseur / réf')"
-                     class="w-full h-9 bg-app-warm/40 border border-line-2 rounded-chip ps-9 pe-3 text-[12px] focus:outline-none focus:border-accent/40" />
+                     class="fld fld-md fld-sunk w-full" />
             </div>
             <div class="mt-1.5 text-[11px] text-ink-muted">{{ L("Tick several entries whose total equals this line (one transfer paying many invoices).","علّم على أكتر من قيد مجموعهم = السطر ده (تحويل واحد بيسدد كذا فاتورة).","Cochez plusieurs écritures.") }}</div>
           </div>
@@ -146,7 +146,7 @@
             </div>
             <div class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ selIsIn ? L("Credit account (where it came from)","الحساب الدائن","Compte crédité") : L("Expense / debit account","حساب المصروف","Compte débité") }}</span>
-              <input v-model.trim="bulkQuery" :placeholder="L('search account…','ابحث عن حساب…','rechercher…')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <input v-model.trim="bulkQuery" :placeholder="L('search account…','ابحث عن حساب…','rechercher…')" class="fld fld-md mt-1 w-full" />
               <div class="mt-1 max-h-44 overflow-y-auto border border-line rounded-[12px]">
                 <button v-for="a in bulkFiltered" :key="a.name" type="button" class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0"
                         :class="a.name === bulkAccount ? 'bg-accent-soft font-semibold' : ''" @click="bulkAccount = a.name">
@@ -181,7 +181,7 @@
             </div>
             <div class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Credit account (where it came from)","الحساب الدائن (جاي منين)","Compte crédité") }}</span>
-              <input v-model.trim="inQuery" :placeholder="L('search account…','ابحث عن حساب…','rechercher…')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <input v-model.trim="inQuery" :placeholder="L('search account…','ابحث عن حساب…','rechercher…')" class="fld fld-md mt-1 w-full" />
               <div class="mt-1 max-h-44 overflow-y-auto border border-line rounded-[12px]">
                 <button v-for="a in inFiltered" :key="a.name" type="button" class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0"
                         :class="a.name === inAccount ? 'bg-accent-soft font-semibold' : ''" @click="inAccount = a.name">

@@ -42,9 +42,9 @@
         <Icon name="clock" :size="13" color="#a8a29e" />
         <button v-for="p in DATE_PRESETS" :key="p.key" @click="setDatePreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>
         <template v-if="datePreset === 'range'">
-          <input type="date" v-model="dateFrom" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="dateFrom" @change="applyRange" class="fld fld-xs" />
           <span class="text-ink-muted text-[11px]">→</span>
-          <input type="date" v-model="dateTo" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="dateTo" @change="applyRange" class="fld fld-xs" />
         </template>
       </div>
 

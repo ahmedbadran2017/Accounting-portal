@@ -11,7 +11,7 @@
     <span class="ms-auto flex items-center gap-2">
       <span v-if="total != null" class="text-[12px] text-ink-muted tnum">{{ total.toLocaleString() }} {{ L("rows", "صف", "lignes") }}</span>
       <select :value="pageSize" @change="$emit('update:pageSize', Number($event.target.value))"
-              class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white" :title="L('Rows per page','صفوف في الصفحة','Lignes par page')">
+              class="fld fld-xs" :title="L('Rows per page','صفوف في الصفحة','Lignes par page')">
         <option :value="25">25</option><option :value="50">50</option><option :value="100">100</option><option :value="200">200</option>
       </select>
       <a v-if="exportKey" :href="excelUrl" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-white inline-flex items-center gap-1" style="background:#1d6f42"

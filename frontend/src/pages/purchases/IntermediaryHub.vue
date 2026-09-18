@@ -76,8 +76,8 @@
           <div v-if="creating" class="rounded-[12px] border border-line-2 bg-app-warm/40 p-3 space-y-2.5">
             <div class="text-[11px] text-ink-muted">{{ L("One clean account per intermediary — created under “Due From Intermediaries” and reused for every transfer.","حساب واحد نضيف لكل وسيط — بيتعمل تحت «Due From Intermediaries» ويتعاد استخدامه في كل تحويلة.","Un compte propre par intermédiaire, réutilisé.") }}</div>
             <div class="flex items-center gap-2">
-              <input v-model.trim="newAcct.name" class="flex-1 border border-line-2 rounded-chip px-3 py-2 text-[12px] bg-white focus:outline-none" :placeholder="L('e.g. Due from Hassan Exchange','مثال: Due from Hassan Exchange','ex. Due from Hassan')" @keyup.enter="doCreateAcct" />
-              <select v-model="newAcct.currency" class="w-[76px] border border-line-2 rounded-chip px-2 py-2 text-[12px] bg-white focus:outline-none">
+              <input v-model.trim="newAcct.name" class="fld fld-md flex-1" :placeholder="L('e.g. Due from Hassan Exchange','مثال: Due from Hassan Exchange','ex. Due from Hassan')" @keyup.enter="doCreateAcct" />
+              <select v-model="newAcct.currency" class="fld fld-md w-[76px]">
                 <option v-for="c in ['MAD','USD','TRY','EUR']" :key="c" :value="c">{{ c }}</option>
               </select>
               <UiButton variant="create" size="md" type="button" :disabled="!newAcct.name || acctBusy" @click="doCreateAcct">{{ acctBusy ? '…' : L("Create","إنشاء","Créer") }}</UiButton>
@@ -87,8 +87,8 @@
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("From bank","من بنك","Banque") }}</span>
             <div class="mt-1"><SearchSelect v-model="fund.bank" :items="bankItems" :placeholder="L('Search bank…','ابحث عن بنك…','Rechercher…')" :empty-text="L('No bank','لا بنك','Aucun')" /></div></label>
           <div class="grid grid-cols-2 gap-3">
-            <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Amount","المبلغ","Montant") }} ({{ ccy }})</span><input type="number" min="0" step="0.01" v-model.number="fund.amount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum text-end font-semibold focus:outline-none" placeholder="0.00" /></label>
-            <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Date","التاريخ","Date") }}</span><input type="date" v-model="fund.date" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none" /></label>
+            <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Amount","المبلغ","Montant") }} ({{ ccy }})</span><input type="number" min="0" step="0.01" v-model.number="fund.amount" class="fld fld-md mt-1 w-full tnum text-end" placeholder="0.00" /></label>
+            <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Date","التاريخ","Date") }}</span><input type="date" v-model="fund.date" class="fld fld-md mt-1 w-full" /></label>
           </div>
           <div v-if="fundErr" class="text-[12px] text-sale">{{ fundErr }}</div>
         </div>

@@ -23,7 +23,7 @@
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="search" :placeholder="t('module.search')"
-                 class="w-44 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white transition" />
+                 class="fld fld-md fld-sunk w-44 sm:w-64" />
         </div>
       </div>
 
@@ -36,15 +36,15 @@
                   :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'"
                   @click="setPreset(p.key)">{{ p.label(L) }}</button>
           <div v-if="datePreset === 'range'" class="flex items-center gap-1">
-            <input type="date" v-model="from" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+            <input type="date" v-model="from" class="fld fld-xs" />
             <span class="text-ink-muted text-[11px]">→</span>
-            <input type="date" v-model="to" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+            <input type="date" v-model="to" class="fld fld-xs" />
           </div>
         </template>
 
         <!-- Faceted filters (configured column indices) -->
         <select v-for="fi in facetCols" :key="fi" :value="facetActive[fi] || ''" @change="setFacet(fi, $event.target.value)"
-                class="h-[30px] border rounded-chip px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer max-w-[150px]"
+                class="fld fld-sm cursor-pointer max-w-[150px]"
                 :class="facetActive[fi] ? 'border-accent/50 text-accent-dark font-semibold' : 'border-line-2 text-ink-3'">
           <option value="">{{ L("All","الكل","Tous") }} {{ cfg.cols[fi][0] }}</option>
           <option v-for="opt in facetOptions[fi]" :key="opt" :value="opt">{{ opt }}</option>
@@ -71,7 +71,7 @@
         <!-- Page size -->
         <div class="inline-flex items-center gap-1.5 text-[12px] text-ink-3">
           <span class="hidden sm:inline">{{ L("Rows","صفوف","Lignes") }}</span>
-          <select v-model.number="pageSize" class="h-[30px] border border-line-2 rounded-chip px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer">
+          <select v-model.number="pageSize" class="fld fld-sm cursor-pointer">
             <option v-for="n in [20, 50, 100, 500]" :key="n" :value="n">{{ n }}</option>
           </select>
         </div>

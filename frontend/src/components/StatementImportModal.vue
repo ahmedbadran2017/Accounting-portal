@@ -33,7 +33,7 @@
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
             <label v-for="f in MAP_FIELDS" :key="f.k" class="text-[11px]">
               <span class="text-ink-3 font-semibold">{{ f.label() }}</span>
-              <select v-model.number="mapping[f.k]" class="mt-0.5 w-full h-8 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none" @change="reparse">
+              <select v-model.number="mapping[f.k]" class="fld fld-sm fld-sunk mt-0.5 w-full" @change="reparse">
                 <option :value="null">—</option>
                 <option v-for="(h, i) in parsed.header" :key="i" :value="i">{{ h || ('col ' + (i + 1)) }}</option>
               </select>

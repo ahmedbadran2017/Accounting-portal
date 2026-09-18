@@ -77,7 +77,7 @@
           <span class="text-[13px] font-bold">{{ L("Waiting for review","مستني مراجعة","À examiner") }}</span>
           <span class="text-[11px] text-ink-muted">{{ L("worst deviation first","الأبعد عن الفاتورة الأول","écart le plus fort en premier") }}</span>
           <div class="flex-1"></div>
-          <select v-model="seedFor" class="h-[28px] px-2 rounded-[8px] border border-line text-[12px] bg-white max-w-[240px]">
+          <select v-model="seedFor" class="fld fld-xs max-w-[240px]">
             <option value="">{{ L("Seed a supplier from history…","ازرع مورد من تاريخه…","Amorcer un fournisseur…") }}</option>
             <option v-for="s in suppliers" :key="s" :value="s">{{ s }}</option>
           </select>

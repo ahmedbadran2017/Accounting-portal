@@ -35,7 +35,7 @@
         </p>
         <label class="block text-[12px] font-bold text-ink-3 mb-1">{{ L("What do you need the Desk for?", "كنت هتعمل إيه في الـ Desk؟", "Pourquoi avez-vous besoin du Desk ?") }}</label>
         <textarea v-model.trim="reason" rows="3" :placeholder="L('e.g. run December payroll for Morocco', 'مثال: تشغيل مرتبات ديسمبر للمغرب', 'ex. lancer la paie de décembre')"
-                  class="w-full rounded-[10px] border border-line-2 px-3 py-2 text-[13px] bg-app-warm focus:outline-none focus:border-accent/40 focus:bg-white"></textarea>
+                  class="fld fld-md fld-sunk w-full"></textarea>
         <p v-if="error" class="text-[12px] text-sale mt-2">{{ error }}</p>
         <UiButton variant="primary" size="md" icon="clock" class="mt-3 w-full" @click="ask" :disabled="busy || reason.length < 3" > {{ busy ? "…" : L("Open the Desk for 1 hour", "افتحلي الـ Desk ساعة", "Ouvrir le Desk pour 1 h") }}
         </UiButton>

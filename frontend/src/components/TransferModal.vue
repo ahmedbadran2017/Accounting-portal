@@ -16,7 +16,7 @@
             <div class="relative mt-1" v-click-outside="() => (fromOpen = false)">
               <input v-model="fromQuery" @focus="fromOpen = true" @input="fromOpen = true; fromAccount = ''"
                      :placeholder="L('search account…','ابحث عن حساب…','rechercher…')"
-                     class="w-full border border-line-2 rounded-chip ps-3 pe-8 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+                     class="fld fld-md w-full" />
               <span class="absolute top-1/2 -translate-y-1/2 end-3 text-ink-muted pointer-events-none flex"><Icon :name="fromOpen ? 'search' : 'chev'" :size="14" /></span>
               <div v-if="fromOpen" class="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-line rounded-[12px] shadow-cardHover">
                 <button v-for="a in filtered(fromQuery, fromAccount)" :key="a.name" type="button" class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0" :class="a.name===fromAccount ? 'bg-accent-soft font-semibold' : ''" @click="pickFrom(a)">
@@ -31,7 +31,7 @@
             <div class="relative mt-1" v-click-outside="() => (toOpen = false)">
               <input v-model="toQuery" @focus="toOpen = true" @input="toOpen = true; toAccount = ''"
                      :placeholder="L('search account…','ابحث عن حساب…','rechercher…')"
-                     class="w-full border border-line-2 rounded-chip ps-3 pe-8 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+                     class="fld fld-md w-full" />
               <span class="absolute top-1/2 -translate-y-1/2 end-3 text-ink-muted pointer-events-none flex"><Icon :name="toOpen ? 'search' : 'chev'" :size="14" /></span>
               <div v-if="toOpen" class="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-line rounded-[12px] shadow-cardHover">
                 <button v-for="a in filtered(toQuery, toAccount)" :key="a.name" type="button" :disabled="a.name===fromAccount" class="w-full flex items-center gap-2 px-3 py-2 text-start hover:bg-app-warm/60 text-[12px] border-t border-line-hair first:border-t-0 disabled:opacity-40" :class="a.name===toAccount ? 'bg-accent-soft font-semibold' : ''" @click="pickTo(a)">
@@ -43,19 +43,19 @@
 
           <div class="grid grid-cols-2 gap-3">
             <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Amount sent","المبلغ المُرسَل","Montant") }} <span v-if="fromCcy" class="text-ink-muted">({{ fromCcy }})</span></span>
-              <input type="number" min="0" step="0.01" v-model.number="amount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum text-end font-semibold focus:outline-none focus:border-accent/40" placeholder="0.00" /></label>
+              <input type="number" min="0" step="0.01" v-model.number="amount" class="fld fld-md mt-1 w-full tnum text-end" placeholder="0.00" /></label>
             <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Date","التاريخ","Date") }}</span>
-              <input type="date" v-model="postingDate" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" /></label>
+              <input type="date" v-model="postingDate" class="fld fld-md mt-1 w-full" /></label>
           </div>
 
           <!-- cross-currency: received amount in the target's currency -->
           <label v-if="crossCurrency" class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Amount received","المبلغ المُستلَم","Reçu") }} ({{ toCcy }})</span>
-            <input type="number" min="0" step="0.01" v-model.number="receivedAmount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum text-end font-semibold focus:outline-none focus:border-accent/40" :placeholder="String(amount || 0)" />
+            <input type="number" min="0" step="0.01" v-model.number="receivedAmount" class="fld fld-md mt-1 w-full tnum text-end" :placeholder="String(amount || 0)" />
             <span class="text-[11px] text-ink-muted">{{ L("different currency — enter what actually landed; ERPNext books the FX difference.","عملة مختلفة — اكتب اللي وصل فعلاً؛ ERPNext بيسجّل فرق الصرف.","devise différente") }}</span>
           </label>
 
           <label class="block"><span class="text-[11px] font-semibold text-ink-3">{{ L("Reference #","المرجع","Référence") }} <span class="text-ink-muted font-normal">({{ L("optional","اختياري","opt.") }})</span></span>
-            <input v-model.trim="referenceNo" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" :placeholder="L('transfer ref','مرجع التحويل','réf.')" /></label>
+            <input v-model.trim="referenceNo" class="fld fld-md mt-1 w-full" :placeholder="L('transfer ref','مرجع التحويل','réf.')" /></label>
 
           <!-- attachment -->
           <div class="border border-dashed border-line-2 rounded-[12px] px-3 py-2.5">

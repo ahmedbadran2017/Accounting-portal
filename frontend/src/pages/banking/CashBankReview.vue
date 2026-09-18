@@ -40,7 +40,7 @@
                 <span v-if="r.disabled" class="text-[11px] text-ink-muted">{{ L('closed','مقفول','fermé') }}</span>
                 <template v-else-if="isAdmin">
                   <UiButton variant="secondary" size="xs" v-if="r.dead" type="button" :disabled="busy===r.name" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</UiButton>
-                  <select v-else-if="r.misclassified" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none" :disabled="busy===r.name" @change="reclass(r, $event.target.value)">
+                  <select v-else-if="r.misclassified" class="fld fld-xs fld-sunk" :disabled="busy===r.name" @change="reclass(r, $event.target.value)">
                     <option value="">{{ L('reclassify…','أعِد التصنيف…','reclasser…') }}</option>
                     <option value="">{{ L('Remove type (not cash)','شيل النوع (مش كاش)','Retirer le type') }}</option>
                     <option value="Receivable">Receivable</option>

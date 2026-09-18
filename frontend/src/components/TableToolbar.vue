@@ -7,15 +7,15 @@
               :class="t.datePreset.value === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'"
               @click="t.setPreset(p.key)">{{ p.label(L) }}</button>
       <div v-if="t.datePreset.value === 'range'" class="flex items-center gap-1">
-        <input type="date" v-model="t.from.value" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        <input type="date" v-model="t.from.value" class="fld fld-xs" />
         <span class="text-ink-muted text-[11px]">→</span>
-        <input type="date" v-model="t.to.value" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        <input type="date" v-model="t.to.value" class="fld fld-xs" />
       </div>
     </template>
 
     <!-- Faceted filters (carrier / city / status …) -->
     <select v-for="f in t.facets" :key="f.key" :value="t.facetActive.value[f.key] || ''" @change="t.setFacet(f.key, $event.target.value)"
-            class="h-[30px] border rounded-chip px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer max-w-[140px]"
+            class="fld fld-sm cursor-pointer max-w-[140px]"
             :class="t.facetActive.value[f.key] ? 'border-accent/50 text-accent-dark font-semibold' : 'border-line-2 text-ink-3'">
       <option value="">{{ L("All","الكل","Tous") }} {{ f.label }}</option>
       <option v-for="opt in t.facetOptions.value[f.key]" :key="opt" :value="opt">{{ f.format ? f.format(opt) : opt }}</option>
@@ -38,7 +38,7 @@
 
     <div class="inline-flex items-center gap-1.5 text-[12px] text-ink-3">
       <span class="hidden sm:inline">{{ L("Rows","صفوف","Lignes") }}</span>
-      <select v-model.number="t.pageSize.value" class="h-[30px] border border-line-2 rounded-chip px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 cursor-pointer">
+      <select v-model.number="t.pageSize.value" class="fld fld-sm cursor-pointer">
         <option v-for="n in [20, 50, 100, 500]" :key="n" :value="n">{{ n }}</option>
       </select>
     </div>

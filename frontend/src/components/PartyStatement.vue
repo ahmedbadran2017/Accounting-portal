@@ -5,9 +5,9 @@
       <div class="flex items-center gap-2 px-5 py-3 border-b border-line no-print flex-wrap">
         <span class="text-[14px] font-bold">{{ L("Account statement","كشف حساب","Relevé de compte") }}</span>
         <div class="ms-auto flex items-center gap-1.5">
-          <input type="date" v-model="from" @change="load" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="from" @change="load" class="fld fld-sm" />
           <span class="text-ink-muted text-[11px]">→</span>
-          <input type="date" v-model="to" @change="load" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="to" @change="load" class="fld fld-sm" />
           <UiButton variant="secondary" size="sm" @click="exportCsv" >CSV</UiButton>
           <a :href="excelUrl" class="h-8 px-2.5 rounded-[8px] text-[12px] font-bold text-white inline-flex items-center gap-1" style="background:#1d6f42" :title="L('Download as Excel (.xlsx)','تحميل Excel','Télécharger en Excel')"><Icon name="download" :size="12" color="#fff" />Excel</a>
           <UiButton variant="secondary" size="sm" icon="doc" @click="printIt" > {{ L("Print","طباعة","Imprimer") }}</UiButton>

@@ -165,7 +165,7 @@
                   <td class="px-3 py-1.5 text-end tnum text-ink-muted" dir="ltr">{{ n(it.oh) }}</td>
                   <td class="px-3 py-1.5 text-end">
                     <span class="inline-flex items-center gap-1.5">
-                      <input type="number" step="0.001" min="0" class="w-[84px] h-[26px] px-2 rounded-[7px] border text-end tnum text-[12px]"
+                      <input type="number" step="0.001" min="0" class="fld fld-xs w-[84px] text-end tnum"
                              :class="wDirty[it.item_code] !== undefined ? 'border-accent bg-blue-50/40' : 'border-line'"
                              :value="wval(it)" @input="e => setW(it, e.target.value)"
                              @keyup.enter="saveOne(it)" dir="ltr" />
@@ -204,7 +204,7 @@
               </div>
               <div class="flex gap-1.5 items-center">
                 <input type="number" step="0.01" min="0" v-model="rateEdit"
-                       class="w-[92px] h-[28px] px-2 rounded-[8px] border border-line text-end tnum text-[12px]" dir="ltr" />
+                       class="fld fld-xs w-[92px] text-end tnum" dir="ltr" />
                 <UiButton variant="secondary" size="xs" @click="saveRate(false)">{{ L("Set for vendor","ثبّت للمورّد","Fixer") }}</UiButton>
                 <UiButton variant="secondary" size="xs" :title="L('make this the shared rate for every '+(fr?.channel||'')+' vendor','خلّيه السعر الموحد لكل موردين القناة دي','taux partagé du canal')" @click="saveRate(true)">{{ L("Set for channel","ثبّت للقناة","Canal") }}</UiButton>
                 <UiButton variant="secondary" size="xs" v-if="fr?.rate_source==='vendor'" @click="clearVendorRate">{{ L("clear","امسح","×") }}</UiButton>
@@ -218,8 +218,8 @@
               </button>
               <div v-if="schedOpen" class="mt-2 space-y-1.5">
                 <div v-for="(p,i) in schedEdit" :key="i" class="flex items-center gap-2">
-                  <input type="date" v-model="p.date" class="h-[26px] px-2 rounded-[7px] border border-line text-[11px]" dir="ltr" />
-                  <input type="number" step="0.01" min="0" v-model="p.rate" class="w-[84px] h-[26px] px-2 rounded-[7px] border border-line text-end tnum text-[11px]" dir="ltr" :placeholder="'MAD/kg'" />
+                  <input type="date" v-model="p.date" class="fld fld-xs" dir="ltr" />
+                  <input type="number" step="0.01" min="0" v-model="p.rate" class="fld fld-xs w-[84px] text-end tnum" dir="ltr" :placeholder="'MAD/kg'" />
                   <button class="text-[11px] text-ink-muted" @click="schedEdit.splice(i,1)">✕</button>
                 </div>
                 <div class="flex gap-2">
@@ -298,14 +298,14 @@
                       <span v-else class="text-ink-muted">—</span>
                     </td>
                     <td class="text-end px-2">
-                      <input type="number" step="0.01" min="0" class="w-[84px] h-[26px] px-2 rounded-[7px] border text-end tnum text-[12px]"
+                      <input type="number" step="0.01" min="0" class="fld fld-xs w-[84px] text-end tnum"
                              :class="pJustSaved===it.item_code ? 'border-emerald-400 bg-emerald-50' : 'border-line'"
                              :value="pDirty[it.item_code] ?? ''" dir="ltr"
                              @input="pDirty = { ...pDirty, [it.item_code]: $event.target.value }"
                              @keyup.enter="savePrice(it)" />
                     </td>
                     <td class="px-2">
-                      <input type="date" class="h-[26px] px-1 rounded-[7px] border border-line text-[11px]"
+                      <input type="date" class="fld fld-xs"
                              :value="pDate[it.item_code] ?? today"
                              @input="pDate = { ...pDate, [it.item_code]: $event.target.value }" />
                     </td>
@@ -476,8 +476,8 @@
                       <!-- override -->
                       <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-[11px] font-bold">{{ L("Verified cost (MAD)","التكلفة المعتمدة (درهم)","Coût vérifié") }}:</span>
-                        <input type="number" step="0.01" min="0" v-model="ovRate" class="w-[90px] h-[26px] px-2 rounded-[7px] border border-line text-end tnum text-[11px]" dir="ltr" />
-                        <input type="text" v-model="ovNote" :placeholder="L('why? (required)','السبب؟ (إجباري)','pourquoi ?')" class="flex-1 min-w-[180px] h-[26px] px-2 rounded-[7px] border border-line text-[11px]" />
+                        <input type="number" step="0.01" min="0" v-model="ovRate" class="fld fld-xs w-[90px] text-end tnum" dir="ltr" />
+                        <input type="text" v-model="ovNote" :placeholder="L('why? (required)','السبب؟ (إجباري)','pourquoi ?')" class="fld fld-xs flex-1 min-w-[180px]" />
                         <UiButton variant="secondary" size="xs" :disabled="ovSaving" @click="saveOverride(it)">{{ ovSaving ? "…" : L("Save","حفظ","OK") }}</UiButton>
                         <UiButton variant="secondary" size="xs" v-if="it.cost_override" @click="clearOverride(it)">{{ L("clear","امسح","×") }}</UiButton>
                       </div>

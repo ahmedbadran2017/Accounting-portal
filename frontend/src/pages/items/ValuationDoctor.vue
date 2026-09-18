@@ -96,7 +96,7 @@
               <td class="px-3 py-2 text-end tnum text-rose-600">{{ r.missed_cogs != null ? money(r.missed_cogs) : "—" }}</td>
               <td class="px-4 py-2 text-end whitespace-nowrap">
                 <div v-if="canWrite && r.benchmark" class="inline-flex items-center gap-1.5">
-                  <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="w-[80px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none" :placeholder="String(r.benchmark)" />
+                  <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="fld fld-xs fld-sunk w-[80px] tnum text-end" :placeholder="String(r.benchmark)" />
                   <UiButton variant="secondary" size="xs" type="button" :disabled="busy===key(r)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</UiButton>
                 </div>
                 <span v-else-if="!r.benchmark" class="text-[11px] text-ink-muted">{{ L("no purchase basis — set cost from Costing","بدون أساس شراء — حدد التكلفة من Costing","sans base") }}</span>
@@ -147,8 +147,8 @@
               </td>
               <td class="px-4 py-2 text-end whitespace-nowrap">
                 <div v-if="canWrite && r.flag !== 'ok' && r.flag !== 'no_basis'" class="inline-flex items-center gap-1.5">
-                  <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="w-[84px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none" :placeholder="r.benchmark != null ? String(r.benchmark) : '0.00'" />
-                  <input v-model="fixDate[key(r)]" type="date" :max="today" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-1.5 text-[11px] focus:outline-none" />
+                  <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="fld fld-xs fld-sunk w-[84px] tnum text-end" :placeholder="r.benchmark != null ? String(r.benchmark) : '0.00'" />
+                  <input v-model="fixDate[key(r)]" type="date" :max="today" class="fld fld-xs fld-sunk" />
                   <UiButton variant="secondary" size="xs" type="button" :disabled="busy===key(r) || !(Number(fixRate[key(r)] ?? r.benchmark) > 0)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</UiButton>
                 </div>
               </td>

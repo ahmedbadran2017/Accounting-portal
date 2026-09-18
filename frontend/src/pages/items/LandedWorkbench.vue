@@ -45,7 +45,7 @@
         </UiButton>
         <div class="ms-auto relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="st.search.value" :placeholder="L('SKU / name…','SKU / اسم…','SKU / nom…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="st.search.value" :placeholder="L('SKU / name…','SKU / اسم…','SKU / nom…')" class="fld fld-md fld-sunk w-44 sm:w-60" />
         </div>
       </div>
       <div class="overflow-x-auto">

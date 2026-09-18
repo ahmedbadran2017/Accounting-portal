@@ -74,7 +74,7 @@
           </button>
         </div>
         <input v-model="search" @keyup.enter="load" :placeholder="L('Search SKU / name…','بحث…','Recherche…')"
-               class="h-[28px] w-[180px] text-[12px] px-2.5 rounded-[8px] border border-line" />
+               class="fld fld-xs w-[180px]" />
         <UiButton variant="secondary" size="xs" v-if="canWrite" :disabled="estBusy" @click="openEstimator">✨ {{ L("Estimate missing","تقدير الناقص","Estimer") }}</UiButton>
       </div>
 
@@ -111,7 +111,7 @@
                 <span v-if="saved[r.item_code]" class="text-[12px] font-bold text-emerald-700 tnum">✓ {{ saved[r.item_code].toFixed(2) }} kg</span>
                 <span v-else class="inline-flex items-center gap-1.5">
                   <input v-model.number="edits[r.item_code]" type="number" step="0.01" min="0.005" max="50"
-                         class="h-[26px] w-[72px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" placeholder="kg" />
+                         class="fld fld-xs w-[72px] text-end tnum" dir="ltr" placeholder="kg" />
                   <UiButton variant="secondary" size="xs" v-if="canWrite" :disabled="!(edits[r.item_code] > 0) || savingKey === r.item_code" @click="save(r)">
                     {{ savingKey === r.item_code ? "…" : L("Save","حفظ","OK") }}
                   </UiButton>

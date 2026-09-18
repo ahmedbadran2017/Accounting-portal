@@ -29,7 +29,7 @@
             </td>
             <td class="px-4 py-2.5">
               <select v-if="canManage" :value="u.role" @change="changeRole(u, $event.target.value)" :disabled="busy"
-                      class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40 disabled:opacity-50">
+                      class="fld fld-sm">
                 <option v-for="r in roles" :key="r.role" :value="r.role">{{ r.label }}</option>
               </select>
               <span v-else class="inline-flex text-[11px] font-bold px-2 py-0.5 rounded-badge" style="background:#faf6f4;color:#0b5c4f">{{ roleLabel(u.role) }}</span>
@@ -64,10 +64,10 @@
     <div v-if="inviteOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="inviteOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
         <div class="text-[14px] font-bold">{{ L("Invite teammate","دعوة عضو","Inviter un membre") }}</div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Email","البريد","E-mail") }} *</label><input v-model.trim="inv.email" type="email" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Full name","الاسم","Nom complet") }}</label><input v-model.trim="inv.full_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Email","البريد","E-mail") }} *</label><input v-model.trim="inv.email" type="email" class="fld fld-md w-full mt-1" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Full name","الاسم","Nom complet") }}</label><input v-model.trim="inv.full_name" class="fld fld-md w-full mt-1" /></div>
         <div><label class="text-[11px] font-bold text-ink-3">{{ L("Role","الدور","Rôle") }}</label>
-          <select v-model="inv.role" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40"><option v-for="r in roles" :key="r.role" :value="r.role">{{ r.label }} — {{ r.desc }}</option></select></div>
+          <select v-model="inv.role" class="fld fld-md w-full mt-1"><option v-for="r in roles" :key="r.role" :value="r.role">{{ r.label }} — {{ r.desc }}</option></select></div>
         <p class="text-[11px] text-ink-muted">{{ L("They receive a welcome email to set a password.","سيصلهم إيميل ترحيبي لتعيين كلمة المرور.","Ils reçoivent un e-mail de bienvenue.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
           <UiButton variant="quiet" size="md" @click="inviteOpen = false" >{{ L("Cancel","إلغاء","Annuler") }}</UiButton>

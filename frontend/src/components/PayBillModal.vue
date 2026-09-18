@@ -11,7 +11,7 @@
 
       <div>
         <label for="pay-mode" class="text-[11px] font-bold text-ink-3">{{ L("Method", "الطريقة", "Méthode") }}</label>
-        <select id="pay-mode" v-model="mode" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40">
+        <select id="pay-mode" v-model="mode" class="fld fld-md w-full mt-1">
           <option value="">{{ L("Select…", "اختر…", "Choisir…") }}</option>
           <option v-for="m in modes" :key="m.mode" :value="m.mode">{{ m.mode }}</option>
         </select>
@@ -22,18 +22,18 @@
           <button type="button" class="text-[11px] text-accent-dark font-semibold hover:underline" @click="amount = outstanding">{{ L("full","الكامل","total") }} {{ fmt(outstanding) }}</button>
         </label>
         <input id="pay-amount" type="number" min="0" step="0.01" :max="outstanding" v-model.number="amount" dir="ltr"
-               class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] tnum text-end font-semibold focus:outline-none focus:border-accent/40" :placeholder="String(outstanding)" />
+               class="fld fld-md w-full mt-1 tnum text-end" :placeholder="String(outstanding)" />
         <div v-if="amount > 0 && amount < outstanding" class="text-[11px] text-amber-700 mt-0.5">{{ L("Partial — ","جزئي — ","Partiel — ") }}{{ fmt(outstanding - amount) }} {{ L("stays outstanding","يبقى مستحقًا","restant") }}</div>
       </div>
 
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label for="pay-ref" class="text-[11px] font-bold text-ink-3">{{ L("Reference No", "رقم المرجع", "Référence") }}</label>
-          <input id="pay-ref" v-model.trim="reference" :placeholder="L('Cheque / txn no', 'شيك / معاملة', 'Chèque / réf')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+          <input id="pay-ref" v-model.trim="reference" :placeholder="L('Cheque / txn no', 'شيك / معاملة', 'Chèque / réf')" class="fld fld-md w-full mt-1" />
         </div>
         <div>
           <label for="pay-date" class="text-[11px] font-bold text-ink-3">{{ L("Date", "التاريخ", "Date") }}</label>
-          <input id="pay-date" type="date" v-model="date" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+          <input id="pay-date" type="date" v-model="date" class="fld fld-md w-full mt-1" />
         </div>
       </div>
 

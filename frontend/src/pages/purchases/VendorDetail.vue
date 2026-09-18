@@ -86,12 +86,12 @@
     <div v-if="editOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="editOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
         <div class="text-[14px] font-bold">{{ L("Edit supplier","تعديل المورّد","Modifier le fournisseur") }}</div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }}</label><input v-model.trim="ef.supplier_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }}</label><input v-model.trim="ef.supplier_name" class="fld fld-md w-full mt-1" /></div>
         <div><label class="text-[11px] font-bold text-ink-3">{{ L("Group","المجموعة","Groupe") }}</label>
-          <select v-model="ef.supplier_group" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40"><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
+          <select v-model="ef.supplier_group" class="fld fld-md w-full mt-1"><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
         <div class="grid grid-cols-2 gap-2">
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="ef.tax_id" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="ef.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="ef.tax_id" class="fld fld-md w-full mt-1" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="ef.currency" class="fld fld-md w-full mt-1" placeholder="MAD" /></div>
         </div>
         <div class="flex gap-2 justify-end pt-1">
           <UiButton variant="quiet" size="md" @click="editOpen = false" >{{ L("Cancel","إلغاء","Annuler") }}</UiButton>

@@ -10,7 +10,7 @@
         <div class="relative hidden sm:block">
           <span class="absolute inset-block-0 flex items-center ps-2.5 text-ink-muted"><Icon name="search" :size="15" /></span>
           <input :placeholder="t('module.search')"
-                 class="w-48 bg-white border border-line-2 rounded-chip ps-8 pe-3 py-1.5 text-[12px] focus:outline-none focus:border-accent/40" />
+                 class="fld fld-sm w-48" />
         </div>
         <UiButton variant="create" size="sm" icon="plus" > {{ t("module.new") }}
         </UiButton>

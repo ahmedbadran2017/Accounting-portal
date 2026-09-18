@@ -13,7 +13,7 @@
                   :class="scope === sc[0] ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'"
                   @click="setScope(sc[0])">{{ sc[1] }}</button>
         </div>
-        <input v-if="scope === 'day'" v-model="day" type="date" class="h-[28px] px-2 rounded-[8px] border border-line text-[12px]" @change="load" />
+        <input v-if="scope === 'day'" v-model="day" type="date" class="fld fld-xs" @change="load" />
         <LiveBadge :live="live" />
         <span class="ms-auto text-[11px] font-bold px-2 py-0.5 rounded-full" :style="ready ? 'background:#ecfdf5;color:#047857' : 'background:#fffbeb;color:#b45309'">{{ ready ? L("Ready to lock", "جاهز للإقفال", "Prêt") : (data.blocked + data.pending) + " " + L("open", "متبقّي", "ouverts") }}</span>
       </div>
@@ -56,7 +56,7 @@
         </div>
         <template v-if="isAdmin">
           <div class="flex items-center gap-2 mt-2.5">
-            <input v-model="lockDate" type="date" class="flex-1 h-8 rounded-[8px] px-2 text-[12px] text-ink bg-white/90 border-0 focus:outline-none" />
+            <input v-model="lockDate" type="date" class="fld fld-sm flex-1" />
             <UiButton variant="secondary" size="sm" :disabled="lockBusy || !lockDate" @click="lock(lockDate)">{{ lockBusy ? "…" : L("Lock", "قفل", "Verrouiller") }}</UiButton>
           </div>
           <button v-if="lockedUpto" class="mt-2 text-[11px] font-semibold" style="color:#a8a29e" :disabled="lockBusy" @click="lock('')">{{ L("Unlock", "إلغاء القفل", "Déverrouiller") }}</button>

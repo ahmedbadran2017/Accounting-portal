@@ -16,13 +16,13 @@
         <span class="text-[13px] font-bold">{{ L("Items & true margin","الأصناف والهامش الحقيقي","Articles & marge") }}</span>
         <LiveBadge :live="isLive" />
         <div class="ms-auto flex items-center gap-2">
-          <select v-model="group" @change="load" class="h-9 border border-line-2 rounded-[10px] px-2 text-[12px] bg-white max-w-[150px] focus:outline-none focus:border-accent/40">
+          <select v-model="group" @change="load" class="fld fld-md max-w-[150px]">
             <option value="">{{ L("All groups","كل المجموعات","Tous") }}</option>
             <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
           </select>
           <div class="relative">
             <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-            <input v-model.trim="search" @input="onSearch" :placeholder="L('Search SKU / item…','بحث…','Rechercher…')" class="w-40 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+            <input v-model.trim="search" @input="onSearch" :placeholder="L('Search SKU / item…','بحث…','Rechercher…')" class="fld fld-md fld-sunk w-40 sm:w-56" />
           </div>
         </div>
       </div>

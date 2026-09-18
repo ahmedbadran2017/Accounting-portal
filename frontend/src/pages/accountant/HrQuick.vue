@@ -4,16 +4,16 @@
     <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
       <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
         <Icon name="clock" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L("Attendance punches", "بصمات الحضور", "Pointages") }}</span>
-        <input type="date" v-model="ci.from" @change="loadCheckins" class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[11px] bg-white" />
+        <input type="date" v-model="ci.from" @change="loadCheckins" class="fld fld-xs" />
         <span class="text-[11px] text-ink-muted">→</span>
-        <input type="date" v-model="ci.to" @change="loadCheckins" class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[11px] bg-white" />
+        <input type="date" v-model="ci.to" @change="loadCheckins" class="fld fld-xs" />
         <span class="text-[11px] text-ink-muted ms-auto tnum">{{ ci.rows.length }}</span>
       </div>
       <div v-if="canWrite" class="px-4 py-2.5 border-b border-line-hair bg-app-warm/30 grid gap-2 sm:grid-cols-[1fr_auto_auto_auto] items-end">
         <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Employee", "الموظف", "Employé") }}</label><SearchSelect v-model="ciForm.employee" :items="empItems" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white" /></div>
         <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Type", "النوع", "Type") }}</label>
-          <select v-model="ciForm.log_type" class="h-8 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option value="IN">IN</option><option value="OUT">OUT</option></select></div>
-        <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Time", "الوقت", "Heure") }}</label><input type="datetime-local" v-model="ciForm.time" class="h-8 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white" /></div>
+          <select v-model="ciForm.log_type" class="fld fld-sm"><option value="IN">IN</option><option value="OUT">OUT</option></select></div>
+        <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Time", "الوقت", "Heure") }}</label><input type="datetime-local" v-model="ciForm.time" class="fld fld-sm" /></div>
         <UiButton variant="create" size="sm" type="button" :disabled="busy || !ciForm.employee || !ciForm.time" @click="addCheckin">{{ L("Add", "إضافة", "Ajouter") }}</UiButton>
       </div>
       <TableLoading v-if="ci.loading" :rows="5" />
@@ -43,13 +43,13 @@
       </div>
       <div v-if="advOpen" class="px-4 py-3 border-b border-line-hair bg-app-warm/30 grid gap-2 sm:grid-cols-2">
         <div class="sm:col-span-2"><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Employee", "الموظف", "Employé") }}</label><SearchSelect v-model="advForm.employee" :items="empItems" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white" /></div>
-        <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Amount", "المبلغ", "Montant") }}</label><input type="number" step="any" min="0" v-model="advForm.amount" dir="ltr" class="h-8 w-full rounded-[8px] border border-line-2 px-2 text-[12px] tnum bg-white" /></div>
-        <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Date", "التاريخ", "Date") }}</label><input type="date" v-model="advForm.posting_date" class="h-8 w-full rounded-[8px] border border-line-2 px-2 text-[12px] bg-white" /></div>
-        <div class="sm:col-span-2"><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Purpose", "الغرض", "Objet") }}</label><input v-model.trim="advForm.purpose" class="h-8 w-full rounded-[8px] border border-line-2 px-2 text-[12px] bg-white" /></div>
+        <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Amount", "المبلغ", "Montant") }}</label><input type="number" step="any" min="0" v-model="advForm.amount" dir="ltr" class="fld fld-sm w-full tnum" /></div>
+        <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Date", "التاريخ", "Date") }}</label><input type="date" v-model="advForm.posting_date" class="fld fld-sm w-full" /></div>
+        <div class="sm:col-span-2"><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Purpose", "الغرض", "Objet") }}</label><input v-model.trim="advForm.purpose" class="fld fld-sm w-full" /></div>
         <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Paid via", "طريقة الدفع", "Mode") }}</label>
-          <select v-model="advForm.mode_of_payment" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option value="">—</option><option v-for="m in advOpts.modes" :key="m.value" :value="m.value">{{ m.label }}</option></select></div>
+          <select v-model="advForm.mode_of_payment" class="fld fld-sm w-full"><option value="">—</option><option v-for="m in advOpts.modes" :key="m.value" :value="m.value">{{ m.label }}</option></select></div>
         <div><label class="block text-[11px] font-bold text-ink-3 mb-0.5">{{ L("Advance account", "حساب السلف", "Compte d'avance") }}</label>
-          <select v-model="advForm.advance_account" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option value="">{{ L("company default", "افتراضي الشركة", "défaut") }}</option><option v-for="a in advOpts.accounts" :key="a.value" :value="a.value">{{ a.label }}</option></select></div>
+          <select v-model="advForm.advance_account" class="fld fld-sm w-full"><option value="">{{ L("company default", "افتراضي الشركة", "défaut") }}</option><option v-for="a in advOpts.accounts" :key="a.value" :value="a.value">{{ a.label }}</option></select></div>
         <label class="sm:col-span-2 inline-flex items-center gap-2 text-[12px]"><input type="checkbox" v-model="advForm.repay" /> {{ L("Repay unclaimed balance from salary", "خصم الباقي من المرتب", "Rembourser sur salaire") }}</label>
         <div class="sm:col-span-2 flex items-center gap-2">
           <span v-if="advErr" class="text-[12px] text-sale">{{ advErr }}</span>

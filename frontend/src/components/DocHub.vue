@@ -17,11 +17,11 @@
           <button @click="openPrintOpts" class="h-7 px-1.5 rounded-e-chip text-[11px] font-semibold text-white bg-ink hover:opacity-90 border-s border-white/20" :title="L('Print options','خيارات الطباعة','Options')">▾</button>
           <div v-if="printOpen" class="absolute z-30 end-0 top-8 w-64 bg-white border border-line rounded-[10px] shadow-pop p-3 space-y-2">
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Format", "النموذج", "Format") }}</label>
-              <select v-model="printFmt" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option value="">{{ L("Standard", "القياسي", "Standard") }}</option><option v-for="f in printOpts.formats" :key="f" :value="f">{{ f }}</option></select></div>
+              <select v-model="printFmt" class="fld fld-sm w-full"><option value="">{{ L("Standard", "القياسي", "Standard") }}</option><option v-for="f in printOpts.formats" :key="f" :value="f">{{ f }}</option></select></div>
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Letterhead", "الترويسة", "En-tête") }}</label>
-              <select v-model="printLh" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option value="">{{ L("None", "بدون", "Aucune") }}</option><option v-for="l in printOpts.letterheads" :key="l" :value="l">{{ l }}</option></select></div>
+              <select v-model="printLh" class="fld fld-sm w-full"><option value="">{{ L("None", "بدون", "Aucune") }}</option><option v-for="l in printOpts.letterheads" :key="l" :value="l">{{ l }}</option></select></div>
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Language", "اللغة", "Langue") }}</label>
-              <select v-model="printLang" class="h-8 w-full rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white"><option value="">{{ L("Default", "الافتراضي", "Défaut") }}</option><option value="en">English</option><option value="ar">العربية</option><option value="fr">Français</option></select></div>
+              <select v-model="printLang" class="fld fld-sm w-full"><option value="">{{ L("Default", "الافتراضي", "Défaut") }}</option><option value="en">English</option><option value="ar">العربية</option><option value="fr">Français</option></select></div>
             <a :href="printUrl" target="_blank" rel="noopener" class="block text-center h-8 leading-8 rounded-chip text-[12px] font-semibold text-white bg-ink" @click="printOpen = false">{{ L("Open PDF", "افتح PDF", "Ouvrir le PDF") }}</a>
           </div>
         </div>
@@ -90,7 +90,7 @@
     <!-- Notes -->
     <div v-else class="p-4">
       <textarea v-model="note" :placeholder="L('Add a note or reference…', 'أضف ملاحظة أو مرجعًا…', 'Ajouter une note…')" rows="3"
-                class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[13px] focus:outline-none focus:border-accent/40 resize-y"></textarea>
+                class="fld fld-md w-full resize-y"></textarea>
       <div class="flex justify-end mt-2">
         <UiButton variant="primary" size="md" icon="check" @click="postNote" :disabled="posting || !note.trim()" > {{ posting ? L("Posting…", "جارٍ…", "…") : L("Post note", "أضف", "Publier") }}
         </UiButton>
@@ -116,8 +116,8 @@
           </label>
           <template v-else>
             <label class="text-[11px] font-bold text-ink-3">{{ f.label }}</label>
-            <textarea v-if="f.type === 'Small Text' || f.type === 'Text'" v-model="f.value" rows="2" class="w-full mt-1 border border-line-2 rounded-[9px] px-2 py-1.5 text-[13px] focus:outline-none focus:border-accent/40"></textarea>
-            <input v-else v-model="f.value" :type="f.type === 'Date' ? 'date' : 'text'" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+            <textarea v-if="f.type === 'Small Text' || f.type === 'Text'" v-model="f.value" rows="2" class="fld fld-sm w-full mt-1"></textarea>
+            <input v-else v-model="f.value" :type="f.type === 'Date' ? 'date' : 'text'" class="fld fld-md w-full mt-1" />
           </template>
         </div>
         <div class="flex gap-2 justify-end pt-1">
@@ -131,9 +131,9 @@
     <div v-if="emailOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="emailOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
         <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-[9px] grid place-items-center" style="background:#eff6ff"><Icon name="send" :size="15" color="#0369a1" /></span><div class="text-[14px] font-bold">{{ L("Email document", "إرسال بالإيميل", "Envoyer par e-mail") }}</div></div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("To", "إلى", "À") }}</label><input v-model.trim="em.recipients" :placeholder="L('email@…  (comma-separated)', 'بريد إلكتروني', 'email@…')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Subject", "الموضوع", "Objet") }}</label><input v-model.trim="em.subject" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Message", "الرسالة", "Message") }}</label><textarea v-model="em.message" rows="3" class="w-full mt-1 border border-line-2 rounded-[9px] px-2 py-1.5 text-[13px] focus:outline-none focus:border-accent/40 resize-y"></textarea></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("To", "إلى", "À") }}</label><input v-model.trim="em.recipients" :placeholder="L('email@…  (comma-separated)', 'بريد إلكتروني', 'email@…')" class="fld fld-md w-full mt-1" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Subject", "الموضوع", "Objet") }}</label><input v-model.trim="em.subject" class="fld fld-md w-full mt-1" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Message", "الرسالة", "Message") }}</label><textarea v-model="em.message" rows="3" class="fld fld-sm w-full mt-1 resize-y"></textarea></div>
         <p class="text-[11px] text-ink-muted">{{ L("The document PDF is attached automatically.", "ملف PDF يُرفق تلقائيًا.", "Le PDF est joint automatiquement.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
           <UiButton variant="quiet" size="md" @click="emailOpen = false" >{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>

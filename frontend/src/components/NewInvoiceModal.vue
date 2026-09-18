@@ -15,30 +15,30 @@
             <PartyBox v-model="form.party" :party-type="sales ? 'Customer' : 'Supplier'" />
           </div>
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Posting date", "تاريخ الترحيل", "Date") }}</label>
-            <input type="date" v-model="form.posting_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
+            <input type="date" v-model="form.posting_date" class="fld fld-md w-full" /></div>
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Due date", "الاستحقاق", "Échéance") }}</label>
-            <input type="date" v-model="form.due_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
+            <input type="date" v-model="form.due_date" class="fld fld-md w-full" /></div>
 
           <template v-if="!sales">
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Supplier invoice no", "رقم فاتورة المورّد", "N° facture fourn.") }}</label>
-              <input v-model.trim="form.bill_no" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
+              <input v-model.trim="form.bill_no" class="fld fld-md w-full" /></div>
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Supplier invoice date", "تاريخ فاتورة المورّد", "Date facture") }}</label>
-              <input type="date" v-model="form.bill_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
+              <input type="date" v-model="form.bill_date" class="fld fld-md w-full" /></div>
           </template>
 
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("VAT", "الضريبة", "TVA") }}</label>
-            <select v-model="vatMode" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white">
+            <select v-model="vatMode" class="fld fld-md w-full">
               <option value="none">{{ L("No tax", "بدون ضريبة", "Sans taxe") }}</option>
               <option value="template">{{ L("A rate on everything", "نسبة على الكل", "Un taux sur tout") }}</option>
               <option value="amount">{{ L("The amount on the invoice", "المبلغ المكتوب في الفاتورة", "Le montant figurant") }}</option>
             </select></div>
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency", "العملة", "Devise") }}</label>
-            <select v-model="form.currency" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white">
+            <select v-model="form.currency" class="fld fld-md w-full">
               <option v-for="c in o.currencies" :key="c" :value="c">{{ c }}</option>
             </select></div>
           <div v-if="form.currency && form.currency !== o.currency">
             <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Exchange rate", "سعر الصرف", "Taux") }}</label>
-            <input type="number" step="any" v-model="form.exchange_rate" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white tnum" /></div>
+            <input type="number" step="any" v-model="form.exchange_rate" dir="ltr" class="fld fld-md w-full tnum" /></div>
         </div>
 
         <!-- lines -->
@@ -63,8 +63,8 @@
                 <tr v-for="(ln, i) in lines" :key="i" class="border-t border-line-hair align-top">
                   <td class="px-2 py-1.5 text-ink-muted tnum">{{ i + 1 }}</td>
                   <td class="px-1.5 py-1"><ItemBox v-model="ln.item_code" @picked="(it) => onItem(ln, it)" /></td>
-                  <td class="px-1.5 py-1"><input type="number" step="any" min="0" v-model="ln.qty" dir="ltr" class="h-8 w-full rounded-[8px] border border-line-2 px-2 text-[12px] text-end tnum bg-white" /></td>
-                  <td class="px-1.5 py-1"><input type="number" step="any" min="0" v-model="ln.rate" dir="ltr" class="h-8 w-full rounded-[8px] border border-line-2 px-2 text-[12px] text-end tnum bg-white" /></td>
+                  <td class="px-1.5 py-1"><input type="number" step="any" min="0" v-model="ln.qty" dir="ltr" class="fld fld-sm w-full text-end tnum" /></td>
+                  <td class="px-1.5 py-1"><input type="number" step="any" min="0" v-model="ln.rate" dir="ltr" class="fld fld-sm w-full text-end tnum" /></td>
                   <td class="px-2 py-2 text-end tnum text-ink-2">{{ fmt((Number(ln.qty) || 0) * (Number(ln.rate) || 0)) }}</td>
                   <td class="px-1.5 py-1"><SearchSelect v-model="ln.account" :items="o.accounts || []" :placeholder="L('default','افتراضي','défaut')" inputClass="h-8 text-[12px] bg-white" /></td>
                   <td class="px-1.5 py-1"><SearchSelect v-model="ln.cost_center" :items="o.cost_centers || []" :placeholder="L('none','بدون','aucun')" inputClass="h-8 text-[12px] bg-white" /></td>
@@ -85,7 +85,7 @@
         <div v-if="vatMode !== 'none'" class="border border-line rounded-[12px] p-3 space-y-2.5">
           <div v-if="vatMode === 'template'" class="grid sm:grid-cols-2 gap-3">
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Tax template", "قالب الضريبة", "Modèle") }}</label>
-              <select v-model="form.tax_template" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white">
+              <select v-model="form.tax_template" class="fld fld-md w-full">
                 <option value="">{{ L("Choose…", "اختر…", "Choisir…") }}</option>
                 <option v-for="t in o.tax_templates" :key="t" :value="t">{{ t }}</option>
               </select></div>
@@ -93,9 +93,9 @@
           <div v-else class="grid sm:grid-cols-2 gap-3">
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("VAT amount on the invoice", "مبلغ الضريبة في الفاتورة", "Montant de TVA") }}</label>
               <input type="number" step="any" min="0" v-model="form.vat_amount" dir="ltr"
-                     class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] text-end tnum bg-white" /></div>
+                     class="fld fld-md w-full text-end tnum" /></div>
             <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Posts to", "يترحّل إلى", "Compte") }}</label>
-              <select v-model="form.vat_account" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white">
+              <select v-model="form.vat_account" class="fld fld-md w-full">
                 <option v-for="a in vatAccounts" :key="a.value" :value="a.value">{{ a.label }}</option>
               </select></div>
           </div>
@@ -108,7 +108,7 @@
         </div>
 
         <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Remarks", "ملاحظات", "Remarques") }}</label>
-          <textarea v-model.trim="form.remarks" rows="2" class="w-full rounded-[9px] border border-line-2 px-2.5 py-1.5 text-[13px] bg-white"></textarea></div>
+          <textarea v-model.trim="form.remarks" rows="2" class="fld fld-sm w-full"></textarea></div>
 
         <label class="inline-flex items-center gap-2 text-[13px]"><input type="checkbox" v-model="form.submit" /> {{ L("Submit now (otherwise saved as a draft to review)", "رحّلها الآن (وإلا تتحفظ كمسودة للمراجعة)", "Soumettre maintenant") }}</label>
         <p v-if="error" class="text-[12px] text-sale">{{ error }}</p>

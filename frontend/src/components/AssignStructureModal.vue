@@ -15,7 +15,7 @@
         <div class="p-5 space-y-3.5">
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Salary structure", "هيكل الراتب", "Structure") }}</span>
-            <select v-model="structure" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
+            <select v-model="structure" class="fld fld-md mt-1 w-full cursor-pointer">
               <option value="">—</option>
               <option v-for="s in opt.structures || []" :key="s.name" :value="s.name">{{ s.name }}{{ s.currency && s.currency !== opt.currency ? " · " + s.currency : "" }}</option>
             </select>
@@ -23,11 +23,11 @@
           <div class="grid grid-cols-2 gap-3">
             <label class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Effective from", "ساري من", "À partir de") }}</span>
-              <input type="date" v-model="fromDate" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+              <input type="date" v-model="fromDate" class="fld fld-md mt-1 w-full" />
             </label>
             <label class="block">
               <span class="text-[11px] font-semibold text-ink-3">{{ L("Base", "الأساسي", "Base") }} <span class="text-ink-muted font-normal">({{ L("optional", "اختياري", "opt.") }})</span></span>
-              <input type="number" min="0" step="0.01" v-model.number="base" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] tnum text-end focus:outline-none focus:border-accent/40" placeholder="0.00" />
+              <input type="number" min="0" step="0.01" v-model.number="base" class="fld fld-md mt-1 w-full tnum text-end" placeholder="0.00" />
             </label>
           </div>
           <div class="text-[11px] text-ink-muted">{{ L("Most structures already encode the salary — leave Base at 0 unless the structure needs it.", "أغلب الهياكل بتحدّد الراتب — سيب الأساسي 0 إلا لو الهيكل محتاجه.", "Laissez Base à 0 sauf si nécessaire.") }}</div>

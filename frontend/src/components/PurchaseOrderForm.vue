@@ -11,7 +11,7 @@
         <!-- Supplier -->
         <div class="relative">
           <label class="text-[11px] font-semibold text-ink-3">{{ L("Supplier","المورّد","Fournisseur") }}</label>
-          <input v-model="supplierSearch" @input="searchSuppliers" @focus="supOpen = true" :placeholder="L('Search supplier…','بحث عن مورّد…','Rechercher…')" class="mt-1 w-full h-9 bg-app-warm/40 border border-line-2 rounded-[8px] px-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model="supplierSearch" @input="searchSuppliers" @focus="supOpen = true" :placeholder="L('Search supplier…','بحث عن مورّد…','Rechercher…')" class="fld fld-md fld-sunk mt-1 w-full" />
           <div v-if="supOpen && supList.length" class="absolute z-20 mt-1 w-full bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-52 overflow-auto">
             <button v-for="s in supList" :key="s.name" @click="pickSupplier(s)" class="w-full text-start px-3 py-1.5 text-[13px] hover:bg-app-warm flex items-center justify-between"><span class="truncate">{{ s.supplier_name || s.name }}</span><span class="text-[11px] text-ink-muted">{{ s.ccy }}</span></button>
           </div>
@@ -21,9 +21,9 @@
         <!-- Dates -->
         <div class="grid grid-cols-2 gap-3">
           <div><label class="text-[11px] font-semibold text-ink-3">{{ L("Order date","تاريخ الأمر","Date") }}</label>
-            <input v-model="transactionDate" type="date" class="mt-1 w-full h-9 bg-app-warm/40 border border-line-2 rounded-[8px] px-2.5 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" /></div>
+            <input v-model="transactionDate" type="date" class="fld fld-md fld-sunk mt-1 w-full" /></div>
           <div><label class="text-[11px] font-semibold text-ink-3">{{ L("Required by","مطلوب بحلول","Requis le") }}</label>
-            <input v-model="scheduleDate" type="date" class="mt-1 w-full h-9 bg-app-warm/40 border border-line-2 rounded-[8px] px-2.5 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" /></div>
+            <input v-model="scheduleDate" type="date" class="fld fld-md fld-sunk mt-1 w-full" /></div>
         </div>
 
         <!-- Items -->
@@ -33,7 +33,7 @@
           <div class="space-y-2">
             <div v-for="(ln, i) in lines" :key="i" class="flex items-center gap-2">
               <div class="relative flex-1">
-                <input v-model="ln.search" @input="searchItems(i)" @focus="ln.open = true" :placeholder="L('Item…','صنف…','Article…')" class="w-full h-8 bg-white border border-line-2 rounded-[8px] px-2.5 text-[12px] focus:outline-none focus:border-accent/40" />
+                <input v-model="ln.search" @input="searchItems(i)" @focus="ln.open = true" :placeholder="L('Item…','صنف…','Article…')" class="fld fld-sm w-full" />
                 <div v-if="ln.open && ((ln.opts && ln.opts.length) || (ln.search || '').trim().length > 1)" class="absolute z-30 mt-1 w-full bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-48 overflow-auto">
                   <button v-for="o in ln.opts" :key="o.item_code" @click="pickItem(i, o)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm"><div class="font-semibold truncate">{{ o.item_name || o.item_code }}</div><div class="text-[11px] text-ink-muted">{{ o.sku || o.item_code }} · {{ money(o.rate) }}</div></button>
                   <QuickItemPanel v-if="(ln.search || '').trim().length > 1" :q="(ln.search || '').trim()"
@@ -41,8 +41,8 @@
                 </div>
                 <div v-if="ln.item_code" class="text-[11px] text-success-dark mt-0.5 truncate">✓ {{ ln.item_code }}</div>
               </div>
-              <input v-model.number="ln.qty" type="number" min="0" step="any" :placeholder="L('Qty','كمية','Qté')" class="w-16 h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" />
-              <input v-model.number="ln.rate" type="number" min="0" step="any" :placeholder="L('Rate','السعر','Prix')" class="w-24 h-8 bg-white border border-line-2 rounded-[8px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" />
+              <input v-model.number="ln.qty" type="number" min="0" step="any" :placeholder="L('Qty','كمية','Qté')" class="fld fld-sm w-16 text-end tnum" />
+              <input v-model.number="ln.rate" type="number" min="0" step="any" :placeholder="L('Rate','السعر','Prix')" class="fld fld-sm w-24 text-end tnum" />
               <button @click="lines.splice(i, 1)" :disabled="lines.length === 1" class="text-ink-muted hover:text-sale disabled:opacity-30"><Icon name="x" :size="14" /></button>
             </div>
           </div>

@@ -41,16 +41,16 @@
         <div class="px-5 py-3 border-b border-line-hair text-[14px] font-bold">{{ ed.name ? L("Edit draft structure", "تعديل مسودة الهيكل", "Modifier") : L("New salary structure", "هيكل مرتب جديد", "Nouvelle structure") }}</div>
         <div class="flex-1 overflow-auto px-5 py-4 space-y-3">
           <div class="grid gap-2 sm:grid-cols-3">
-            <div class="sm:col-span-3"><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Name", "الاسم", "Nom") }} *</label><input v-model.trim="ed.structure_name" :disabled="!!ed.name" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white disabled:bg-app-warm" /></div>
-            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency", "العملة", "Devise") }}</label><input v-model.trim="ed.currency" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white" /></div>
-            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Frequency", "الدورية", "Fréquence") }}</label><select v-model="ed.payroll_frequency" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white"><option v-for="f in (opts.frequencies || ['Monthly'])" :key="f" :value="f">{{ f }}</option></select></div>
-            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Paid via", "طريقة الدفع", "Mode") }}</label><select v-model="ed.mode_of_payment" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white"><option value="">—</option><option v-for="m in (opts.modes || [])" :key="m" :value="m">{{ m }}</option></select></div>
+            <div class="sm:col-span-3"><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Name", "الاسم", "Nom") }} *</label><input v-model.trim="ed.structure_name" :disabled="!!ed.name" class="fld fld-md fld-sunk w-full" /></div>
+            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency", "العملة", "Devise") }}</label><input v-model.trim="ed.currency" dir="ltr" class="fld fld-md w-full" /></div>
+            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Frequency", "الدورية", "Fréquence") }}</label><select v-model="ed.payroll_frequency" class="fld fld-md w-full"><option v-for="f in (opts.frequencies || ['Monthly'])" :key="f" :value="f">{{ f }}</option></select></div>
+            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Paid via", "طريقة الدفع", "Mode") }}</label><select v-model="ed.mode_of_payment" class="fld fld-md w-full"><option value="">—</option><option v-for="m in (opts.modes || [])" :key="m" :value="m">{{ m }}</option></select></div>
           </div>
           <div v-for="grp in ['earnings','deductions']" :key="grp" class="border border-line rounded-[12px] overflow-hidden">
             <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[12px] font-bold"><span class="w-2.5 h-2.5 rounded-sm" :style="`background:${grp === 'earnings' ? '#0f766e' : '#be123c'}`"></span>{{ grp === 'earnings' ? L("Earnings", "الاستحقاقات", "Gains") : L("Deductions", "الخصومات", "Retenues") }}<span class="ms-auto tnum">{{ money(sum(ed[grp])) }}</span></div>
             <div v-for="(row, i) in ed[grp]" :key="i" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair/60">
               <SearchSelect v-model="row.salary_component" :items="compItems(grp)" :placeholder="L('Component…','المكوّن…','Composant…')" inputClass="h-8 text-[12px] bg-white min-w-[260px]" />
-              <input type="number" step="any" min="0" v-model="row.amount" dir="ltr" class="h-8 w-32 rounded-[8px] border border-line-2 px-2 text-[12px] text-end tnum bg-white" />
+              <input type="number" step="any" min="0" v-model="row.amount" dir="ltr" class="fld fld-sm w-32 text-end tnum" />
               <button type="button" class="text-ink-muted hover:text-sale" @click="ed[grp].splice(i, 1)"><Icon name="close" :size="13" /></button>
             </div>
             <div class="px-3 py-1.5"><button type="button" class="text-[12px] font-semibold text-accent hover:text-accent-dark inline-flex items-center gap-1" @click="ed[grp].push({ salary_component: '', amount: '' })"><Icon name="plus" :size="12" />{{ L("Add line", "إضافة سطر", "Ajouter") }}</button></div>

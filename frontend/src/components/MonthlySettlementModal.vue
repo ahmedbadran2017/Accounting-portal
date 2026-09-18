@@ -19,7 +19,7 @@
           </div>
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Settlement date","تاريخ التسوية","Date") }}</label>
-            <input type="date" v-model="asOf" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+            <input type="date" v-model="asOf" class="fld fld-md w-full mt-1" />
           </div>
         </div>
 
@@ -57,7 +57,7 @@
           </template>
         </template>
 
-        <input v-model.trim="remark" :placeholder="L('Note (optional)','ملاحظة (اختياري)','Note (facultatif)')" class="w-full h-9 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+        <input v-model.trim="remark" :placeholder="L('Note (optional)','ملاحظة (اختياري)','Note (facultatif)')" class="fld fld-md w-full" />
         <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
       </div>
 

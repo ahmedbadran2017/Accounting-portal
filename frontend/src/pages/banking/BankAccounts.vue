@@ -45,7 +45,7 @@
         </div>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="tt.search.value" :placeholder="L('Account…', 'حساب…', 'Compte…')" class="w-40 sm:w-52 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="tt.search.value" :placeholder="L('Account…', 'حساب…', 'Compte…')" class="fld fld-md fld-sunk w-40 sm:w-52" />
         </div>
       </div>
 

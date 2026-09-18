@@ -145,15 +145,15 @@
           <span class="text-[13px] font-bold">{{ L("③ Catalogue — true cost vs book","③ الكتالوج — الحقيقة مقابل الدفاتر","③ Catalogue") }}</span>
           <div class="flex-1"></div>
           <!-- supplier → month audit filter -->
-          <select v-model="supFilter" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line max-w-[180px]">
+          <select v-model="supFilter" class="fld fld-xs max-w-[180px]">
             <option value="">{{ L("All suppliers","كل الموردين","Fournisseurs") }}</option>
             <option v-for="s in filters.suppliers" :key="s.supplier" :value="s.supplier">{{ shortSup(s.supplier) }} ({{ s.items }})</option>
           </select>
-          <select v-model="moFilter" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
+          <select v-model="moFilter" class="fld fld-xs">
             <option value="">{{ L("All months","كل الشهور","Mois") }}</option>
             <option v-for="m in filters.months" :key="m" :value="m">{{ m }}</option>
           </select>
-          <select v-model="srcFilter" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
+          <select v-model="srcFilter" class="fld fld-xs">
             <option value="">{{ L("All sources","كل المصادر","Toutes") }}</option>
             <option value="maslak_pi">{{ L("Maslak-sourced","مصدر Maslak","Maslak") }}</option>
             <option value="local_pi">{{ L("Local suppliers","موردين محليين","Fourn. locaux") }}</option>
@@ -161,7 +161,7 @@
             <option value="morocco_pr">{{ L("Morocco-direct","مغرب مباشر","Maroc") }}</option>
             <option value="unpriced">{{ L("Unpriced","بلا سعر","Sans prix") }}</option>
           </select>
-          <select v-model="fixFilter" class="h-[28px] text-[12px] px-2 rounded-[8px] border border-line">
+          <select v-model="fixFilter" class="fld fld-xs">
             <option value="">{{ L("All statuses","كل الحالات","Tous") }}</option>
             <option value="pending">{{ L("Pending review","في انتظار المراجعة","En attente") }}</option>
             <option value="fixed">{{ L("Fixed ✓","متظبطة ✓","Corrigés ✓") }}</option>
@@ -339,10 +339,10 @@
           <div v-if="!fixPrev.evidence.length" class="text-[11px] text-amber-700">{{ L("No purchase documents — enter the verified cost manually (a note is required).","مفيش مستندات شراء — أدخلوا التكلفة يدويًا (الملاحظة إجبارية).","Aucun document — saisir manuellement.") }}</div>
           <div v-if="canWrite && !fixPrev.fixed" class="flex items-center gap-2 flex-wrap pt-1 border-t border-line-hair">
             <label class="text-[12px] text-ink-2 font-semibold">{{ L("Verified cost (MAD/unit)","التكلفة المعتمدة (درهم/وحدة)","Coût vérifié") }}</label>
-            <input v-model.number="fixRate" type="number" step="0.01" class="h-[30px] w-[110px] text-[13px] px-2 rounded-[8px] border tnum outline-none focus:border-accent"
+            <input v-model.number="fixRate" type="number" step="0.01" class="fld fld-sm w-[110px] tnum"
                    :style="costDirty ? 'border-color:#fde68a;background:#fffbeb' : savedCost != null ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
             <input v-model.trim="fixNote" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيّرتوا الرقم)','Note')"
-                   class="h-[30px] flex-1 min-w-[180px] text-[12px] px-2 rounded-[8px] border border-line outline-none" />
+                   class="fld fld-sm flex-1 min-w-[180px]" />
             <UiButton variant="primary" size="sm" :disabled="fixing || !(fixRate > 0)" @click="saveItemCost">{{ L("Save","حفظ","Enregistrer") }}</UiButton>
           </div>
         </div>
@@ -372,7 +372,7 @@
               <span v-if="wEst && wEst.est" class="text-[11px] text-violet-700 font-bold tnum" dir="ltr">✨ {{ wEst.est.toFixed(2) }}kg <span class="font-normal">({{ { family: L('family','عائلة','famille'), similar: L('similar','أشباه','similaires'), class: L('class','فئة','classe') }[wEst.src] || wEst.src }})</span></span>
               <UiButton variant="secondary" size="xs" v-else :disabled="wBusy" @click="suggestWeight">{{ wBusy ? "…" : "✨ " + L("Suggest","اقتراح","Suggérer") }}</UiButton>
               <input v-model.number="wEdit" type="number" step="0.01" min="0.005" max="50" :placeholder="wEst && wEst.est ? String(wEst.est) : 'kg'"
-                     class="h-[26px] w-[76px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
+                     class="fld fld-xs w-[76px] text-end tnum" dir="ltr" />
               <UiButton variant="secondary" size="xs" :disabled="!((wEdit ?? wEst?.est) > 0) || wBusy" @click="saveWeight">{{ L("Save","حفظ","OK") }}</UiButton>
             </template>
           </div>
@@ -404,7 +404,7 @@
                     </template>
                     <template v-else-if="r.channel === 'air' && (r.channel_confirmed || (r.pr_qty || r.qty) < 500) && canWrite && !itemLanded.frozen">
                       <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
-                             class="w-[62px] h-[26px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
+                             class="fld fld-xs w-[62px] text-end tnum" />
                       <UiButton variant="secondary" size="xs" class="ms-1" :disabled="!( (r._draft ?? r.band_rate) > 0 ) || fixing" @click="confirmPrRate(r)">✓ {{ L("confirm rate","اعتماد السعر","confirmer") }}</UiButton>
                     </template>
                     <template v-else>

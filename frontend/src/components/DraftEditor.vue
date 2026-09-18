@@ -31,16 +31,16 @@
             <div v-for="f in d.header" :key="f.field" :class="f.type === 'Text' ? 'sm:col-span-2 lg:col-span-3' : ''">
               <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ f.label }}</label>
               <component :is="'div'">
-                <textarea v-if="f.type === 'Text'" v-model="hv[f.field]" :disabled="f.ro" rows="2" class="w-full rounded-[9px] border border-line-2 px-2.5 py-1.5 text-[13px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm"></textarea>
-                <input v-else-if="f.type === 'Date'" type="date" v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
-                <input v-else-if="['Currency','Float','Int'].includes(f.type)" type="number" step="any" v-model="hv[f.field]" :disabled="f.ro" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white tnum focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
+                <textarea v-if="f.type === 'Text'" v-model="hv[f.field]" :disabled="f.ro" rows="2" class="fld fld-sm fld-sunk w-full"></textarea>
+                <input v-else-if="f.type === 'Date'" type="date" v-model="hv[f.field]" :disabled="f.ro" class="fld fld-md fld-sunk w-full" />
+                <input v-else-if="['Currency','Float','Int'].includes(f.type)" type="number" step="any" v-model="hv[f.field]" :disabled="f.ro" dir="ltr" class="fld fld-md fld-sunk w-full tnum" />
                 <label v-else-if="f.type === 'Check'" class="inline-flex items-center gap-2 h-9 text-[13px]"><input type="checkbox" :checked="hv[f.field] === '1' || hv[f.field] === true || hv[f.field] === 1" @change="hv[f.field] = $event.target.checked ? 1 : 0" :disabled="f.ro" /> {{ L("Yes", "نعم", "Oui") }}</label>
-                <select v-else-if="f.type === 'Select'" v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm">
+                <select v-else-if="f.type === 'Select'" v-model="hv[f.field]" :disabled="f.ro" class="fld fld-md fld-sunk w-full">
                   <option v-for="o in (d.options[f.options] || [])" :key="o.value" :value="o.value">{{ o.label || o.value || "—" }}</option>
                 </select>
                 <SearchSelect v-else-if="f.type === 'Link'" v-model="hv[f.field]" :items="d.options[f.options] || []" :disabled="f.ro" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-9 text-[13px] bg-white" />
                 <PartyPick v-else-if="f.type === 'Party'" v-model="hv[f.field]" :party-type="d.party_type_fixed || hv.party_type" :disabled="f.ro" />
-                <input v-else v-model="hv[f.field]" :disabled="f.ro" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40 disabled:bg-app-warm" />
+                <input v-else v-model="hv[f.field]" :disabled="f.ro" class="fld fld-md fld-sunk w-full" />
               </component>
             </div>
           </div>
@@ -66,14 +66,14 @@
                     <td class="px-2 py-1.5 text-ink-muted tnum">{{ i + 1 }}</td>
                     <td v-for="c in d.child.columns" :key="c.field" class="px-1.5 py-1" :style="cellWidth(c)">
                       <span v-if="c.ro || (c.ro_existing && r.name)" class="block px-1 py-1.5 text-ink-2 truncate max-w-[220px]" :class="['Currency','Float'].includes(c.type) ? 'text-end tnum' : ''">{{ ['Currency','Float'].includes(c.type) ? fmt(r[c.field]) : (r[c.field] || "—") }}</span>
-                      <input v-else-if="['Currency','Float','Int'].includes(c.type)" type="number" step="any" v-model="r[c.field]" dir="ltr" class="h-8 w-full min-w-[96px] rounded-[8px] border border-line-2 px-2 text-[12px] text-end tnum bg-white focus:outline-none focus:border-accent/40" />
-                      <select v-else-if="c.type === 'Select'" v-model="r[c.field]" class="h-8 w-full min-w-[110px] rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white focus:outline-none focus:border-accent/40">
+                      <input v-else-if="['Currency','Float','Int'].includes(c.type)" type="number" step="any" v-model="r[c.field]" dir="ltr" class="fld fld-sm w-full min-w-[96px] text-end tnum" />
+                      <select v-else-if="c.type === 'Select'" v-model="r[c.field]" class="fld fld-sm w-full min-w-[110px]">
                         <option v-for="o in (d.options[c.options] || [])" :key="o.value" :value="o.value">{{ o.label || o.value || "—" }}</option>
                       </select>
                       <SearchSelect v-else-if="c.type === 'Link'" v-model="r[c.field]" :items="d.options[c.options] || []" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white min-w-[220px]" />
                       <PartyPick v-else-if="c.type === 'Party'" v-model="r[c.field]" :party-type="r.party_type" :disabled="!r.party_type" small />
                       <ItemPick v-else-if="c.type === 'Item'" v-model="r[c.field]" :side="BUYING.includes(d.doctype) ? 'buying' : 'selling'" @picked="(o) => onItemPicked(r, o)" />
-                      <input v-else v-model="r[c.field]" class="h-8 w-full min-w-[120px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40" />
+                      <input v-else v-model="r[c.field]" class="fld fld-sm w-full min-w-[120px]" />
                     </td>
                     <td v-if="d.child.can_remove" class="px-1 py-1.5 text-center"><button type="button" class="text-ink-muted hover:text-sale" :title="L('Remove row','حذف السطر','Supprimer')" @click="rv.splice(i, 1)"><Icon name="close" :size="13" /></button></td>
                   </tr>
@@ -95,7 +95,7 @@
                     <td class="px-3 py-1 font-mono">{{ o.name }}</td>
                     <td class="px-3 py-1 text-ink-3">{{ o.date }}</td>
                     <td class="px-3 py-1 text-end tnum">{{ fmt(o.outstanding) }}</td>
-                    <td class="px-3 py-1"><input type="number" step="any" min="0" v-model="o._amt" :disabled="!o._on" dir="ltr" class="h-7 w-full rounded-[7px] border border-line-2 px-1.5 text-[12px] text-end tnum bg-white disabled:bg-app-warm" /></td>
+                    <td class="px-3 py-1"><input type="number" step="any" min="0" v-model="o._amt" :disabled="!o._on" dir="ltr" class="fld fld-xs fld-sunk w-full text-end tnum" /></td>
                   </tr>
                 </tbody>
               </table>
@@ -146,12 +146,12 @@
                       <span v-if="c.ro" class="block px-1 py-1.5 text-ink-2 truncate max-w-[280px]" :class="c.type === 'Currency' ? 'text-end tnum' : ''">{{ c.type === 'Currency' ? fmt(r[c.field]) : (r[c.field] || "—") }}</span>
                       <input v-else-if="['Currency','Float'].includes(c.type)" type="number" step="any" v-model="r[c.field]" dir="ltr"
                              :disabled="c.field === 'rate' ? r.charge_type === 'Actual' : (c.field === 'tax_amount' && r.charge_type !== 'Actual')"
-                             class="h-8 w-full min-w-[96px] rounded-[8px] border border-line-2 px-2 text-[12px] text-end tnum bg-white disabled:bg-app-warm disabled:text-ink-muted" />
-                      <select v-else-if="c.type === 'Select'" v-model="r[c.field]" class="h-8 w-full min-w-[130px] rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white">
+                             class="fld fld-sm fld-sunk w-full min-w-[96px] text-end tnum" />
+                      <select v-else-if="c.type === 'Select'" v-model="r[c.field]" class="fld fld-sm w-full min-w-[130px]">
                         <option v-for="op in (d.options[c.options] || [])" :key="op.value" :value="op.value">{{ op.label || op.value }}</option>
                       </select>
                       <SearchSelect v-else-if="c.type === 'Link'" v-model="r[c.field]" :items="d.options[c.options] || []" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white min-w-[220px]" />
-                      <input v-else v-model="r[c.field]" class="h-8 w-full min-w-[120px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white" />
+                      <input v-else v-model="r[c.field]" class="fld fld-sm w-full min-w-[120px]" />
                     </td>
                     <td v-if="d.tax.can_edit" class="px-1 py-1 text-center w-8"><button type="button" class="text-ink-muted hover:text-sale" @click="txv.splice(txv.indexOf(r), 1)"><Icon name="close" :size="13" /></button></td>
                   </tr>

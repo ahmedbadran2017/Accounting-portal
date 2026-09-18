@@ -18,13 +18,13 @@
         <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Under group","تحت المجموعة","Groupe parent") }} *</label>
           <SearchSelect v-model="nf.parent_account" :items="np.groups || []" :placeholder="L('Search groups…','ابحث في المجموعات…','Rechercher…')" inputClass="h-9 text-[13px] bg-white" /></div>
         <div class="grid grid-cols-[120px_1fr] gap-2">
-          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Number","الرقم","Numéro") }}</label><input v-model.trim="nf.account_number" dir="ltr" placeholder="770.012.031" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" /></div>
-          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.account_name" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" /></div>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Number","الرقم","Numéro") }}</label><input v-model.trim="nf.account_number" dir="ltr" placeholder="770.012.031" class="fld fld-md w-full" /></div>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.account_name" class="fld fld-md w-full" /></div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Type","النوع","Type") }}</label>
-            <select v-model="nf.account_type" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40"><option v-for="t in (np.types || [])" :key="t" :value="t">{{ t || L("(untyped)","(بدون نوع)","(sans type)") }}</option></select></div>
-          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.account_currency" :placeholder="np.currency" dir="ltr" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" /></div>
+            <select v-model="nf.account_type" class="fld fld-md w-full"><option v-for="t in (np.types || [])" :key="t" :value="t">{{ t || L("(untyped)","(بدون نوع)","(sans type)") }}</option></select></div>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.account_currency" :placeholder="np.currency" dir="ltr" class="fld fld-md w-full" /></div>
         </div>
         <div v-if="(np.companies || []).length">
           <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Also create in","أنشئه أيضًا في","Créer aussi dans") }}</label>
@@ -55,7 +55,7 @@
         </button>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="q" :placeholder="L('Search account…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="q" :placeholder="L('Search account…','بحث…','Rechercher…')" class="fld fld-md fld-sunk w-44 sm:w-60" />
         </div>
       </div>
     </div>

@@ -13,7 +13,7 @@
     </div>
 
     <div class="flex items-center gap-2 flex-wrap">
-      <select v-model.number="year" @change="load" class="h-[30px] px-2 rounded-[8px] border border-line text-[12px] bg-white">
+      <select v-model.number="year" @change="load" class="fld fld-sm">
         <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
       </select>
       <div class="flex rounded-[8px] border border-line overflow-hidden">

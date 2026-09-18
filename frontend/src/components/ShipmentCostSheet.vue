@@ -61,7 +61,7 @@
               </td>
               <td class="px-2 py-1 text-end">
                 <input type="number" step="0.01" min="0" v-model.number="edits[l.item_code]" :disabled="!canWrite"
-                       class="w-[92px] h-[26px] px-1.5 text-end tnum text-[12px] border rounded-[6px] outline-none focus:border-accent"
+                       class="fld fld-xs w-[92px] text-end tnum"
                        :style="edits[l.item_code] > 0 ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
               </td>
               <td class="px-3 py-1.5 text-end tnum text-ink-muted">{{ l.landed_unit }}</td>
@@ -72,7 +72,7 @@
       </div>
       <div class="px-4 py-3 border-t border-line-hair flex items-center gap-2 flex-wrap">
         <input v-model="note" :placeholder="L('Note (which invoice was checked…)','ملاحظة (اتراجعت على أنهي فاتورة…)','Note…')"
-               class="h-[30px] px-2.5 text-[12px] border border-line rounded-[8px] outline-none flex-1 min-w-[200px]" />
+               class="fld fld-sm flex-1 min-w-[200px]" />
         <span class="text-[11px] text-ink-muted" v-if="s.sheet.on" dir="ltr">💾 {{ s.sheet.by }} · {{ s.sheet.on }}</span>
         <UiButton variant="primary" size="sm" v-if="canWrite" :disabled="busy" @click="saveSheet">{{ L("Save draft","حفظ المسودة","Enregistrer") }}</UiButton>
       </div>
@@ -90,7 +90,7 @@
       <div v-if="s.channel === 'air'" class="flex items-center gap-2 flex-wrap">
         <span class="text-[12px]">🛫 {{ L("Door-to-door rate","سعر الكيلو door-to-door","Tarif au kg") }}</span>
         <input type="number" step="1" min="0" v-model.number="rateEdit" :disabled="!canWrite || s.frozen"
-               class="w-[80px] h-[28px] px-2 text-end tnum text-[12px] border rounded-[7px] outline-none focus:border-accent"
+               class="fld fld-xs w-[80px] text-end tnum"
                :style="s.freight.confirmed_rate ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
         <span class="text-[11px] text-ink-muted">MAD/kg × {{ fmt0(s.kg) }}kg = <b class="tnum">{{ fmt0((rateEdit || 0) * s.kg) }}</b></span>
         <span v-if="s.freight.band_rate && !s.freight.confirmed_rate" class="text-[11px] text-amber-700">{{ L("prefilled from the tariff band — confirm it","متعبّي من التعريفة — أكّدوه","préremp. du barème") }}</span>
@@ -116,7 +116,7 @@
         <details class="text-[12px]">
           <summary class="cursor-pointer text-accent-dark font-bold text-[12px]">{{ L("+ Attach a bill","+ إرفاق فاتورة","+ Joindre") }} ({{ shownBills.length }}/{{ availableBills.length }})</summary>
           <input v-model="billSearch" :placeholder="L('search bill / supplier / amount…','بحث فاتورة / مورّد / مبلغ…','rechercher…')"
-                 class="mt-2 h-[26px] px-2.5 text-[11px] border border-line rounded-[7px] outline-none focus:border-accent w-[230px]" />
+                 class="fld fld-xs mt-2 w-[230px]" />
           <div class="mt-2 border border-line rounded-[8px] max-h-[200px] overflow-y-auto">
             <div v-for="b in shownBills" :key="b.voucher" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 hover:bg-app-warm">
               <span class="font-mono text-[11px]" dir="ltr">{{ b.voucher }}</span>

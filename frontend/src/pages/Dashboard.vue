@@ -11,9 +11,9 @@
       <button v-for="p in DATE_PRESETS" :key="p.key" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
               :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'" @click="setPreset(p.key)">{{ p.label() }}</button>
       <div v-if="datePreset === 'range'" class="flex items-center gap-1">
-        <input type="date" v-model="customFrom" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        <input type="date" v-model="customFrom" @change="applyRange" class="fld fld-xs" />
         <span class="text-ink-muted text-[11px]">→</span>
-        <input type="date" v-model="customTo" @change="applyRange" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+        <input type="date" v-model="customTo" @change="applyRange" class="fld fld-xs" />
       </div>
       <span class="text-[11px] text-ink-muted ms-1 tnum">{{ periodLabel }}</span>
     </div>

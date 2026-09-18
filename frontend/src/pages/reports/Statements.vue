@@ -10,7 +10,7 @@
         <template v-if="tab !== 'monthly'">
           <button v-for="p in PRESETS" :key="p.key" @click="setPreset(p.key)" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition" :class="preset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ p.label() }}</button>
           <select v-model="presCcy" @change="load(); if (tab === 'monthly') loadMonthly();"
-                  class="text-[11px] font-semibold px-2 py-1 rounded-full border border-line-2 bg-white"
+                  class="fld fld-xs"
                   :title="L('Presentation currency — P&L at the period average rate, balance sheet at closing (ERPNext convention)','عملة العرض — قائمة الدخل بمتوسط الفترة والميزانية بسعر الإقفال','Devise de présentation')">
             <option value="">{{ L("Base ccy","العملة الأساسية","Devise") }}</option>
             <option v-for="c in presCcyOptions" :key="c" :value="c">{{ c }}</option>

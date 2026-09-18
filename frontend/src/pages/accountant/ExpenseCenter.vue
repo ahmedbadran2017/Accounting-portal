@@ -20,17 +20,17 @@
           <div class="flex gap-1 bg-app-warm/50 rounded-chip p-0.5">
             <button v-for="gp in GROUPS" :key="gp.k" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="tx.filters.value.group === gp.k ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'" @click="setGroup(gp.k)">{{ gp.label() }}</button>
           </div>
-          <select :value="tx.filters.value.category" class="h-8 bg-app-warm/40 border border-line-2 rounded-[9px] px-2 text-[12px] focus:outline-none focus:border-accent/40" @change="setCat($event.target.value)">
+          <select :value="tx.filters.value.category" class="fld fld-sm fld-sunk" @change="setCat($event.target.value)">
             <option value="all">{{ L("All categories", "كل الفئات", "Toutes catégories") }}</option>
             <option v-for="c in CATS" :key="c" :value="c">{{ catLabel(c) }}</option>
           </select>
           <div class="inline-flex items-center gap-1 text-[11px] text-ink-muted">
             <span>≥</span>
-            <input type="number" min="0" :value="tx.filters.value.min_amount" placeholder="0" class="w-20 h-8 bg-app-warm/40 border border-line-2 rounded-[9px] px-2 text-[12px] text-end tnum focus:outline-none focus:border-accent/40" @change="setMin($event.target.value)" />
+            <input type="number" min="0" :value="tx.filters.value.min_amount" placeholder="0" class="fld fld-sm fld-sunk w-20 text-end tnum" @change="setMin($event.target.value)" />
           </div>
           <div class="ms-auto relative">
             <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="14" /></span>
-            <input v-model.trim="tx.search.value" :placeholder="L('account · voucher · memo…','حساب · مستند · ملاحظة…','compte · pièce…')" class="w-44 sm:w-60 h-8 bg-app-warm/40 border border-line-2 rounded-[9px] ps-8 pe-3 text-[12px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+            <input v-model.trim="tx.search.value" :placeholder="L('account · voucher · memo…','حساب · مستند · ملاحظة…','compte · pièce…')" class="fld fld-sm fld-sunk w-44 sm:w-60" />
           </div>
         </div>
         <TableLoading v-if="tx.loading.value" :rows="8" />

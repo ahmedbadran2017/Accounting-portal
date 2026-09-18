@@ -37,7 +37,7 @@
               <input type="number" step="1" min="0" :value="kgDraft[b.voucher] ?? b.kg" :disabled="!canWrite || busy"
                      @input="kgDraft[b.voucher] = $event.target.valueAsNumber"
                      :placeholder="L('kg','كجم','kg')"
-                     class="w-[64px] h-[22px] px-1 text-end tnum text-[11px] border rounded-[5px] outline-none"
+                     class="fld fld-xs w-[64px] text-end tnum"
                      :style="b.kg ? 'border-color:#a7f3d0' : 'border-color:#fde68a;background:#fffbeb'" />
               <button v-if="canWrite && (kgDraft[b.voucher] ?? null) != null && kgDraft[b.voucher] !== b.kg" :disabled="busy"
                       class="text-[11px] font-semibold px-1.5 py-0.5 rounded-[5px] text-white bg-brand disabled:opacity-40" @click="saveBillKg(b)">✓</button>
@@ -51,7 +51,7 @@
         <details class="text-[12px]" :open="!attachedBills.length">
           <summary class="cursor-pointer text-accent-dark font-bold text-[12px]">{{ L("+ Attach a bill","+ إرفاق فاتورة","+ Joindre") }} ({{ shownBills.length }}/{{ availableBills.length }})</summary>
           <input v-model="billSearch" :placeholder="L('search bill / supplier / amount…','بحث فاتورة / مورّد / مبلغ…','rechercher…')"
-                 class="mt-2 h-[26px] px-2.5 text-[11px] border border-line rounded-[7px] outline-none focus:border-accent w-[230px]" />
+                 class="fld fld-xs mt-2 w-[230px]" />
           <div class="mt-2 border border-line rounded-[8px] max-h-[220px] overflow-y-auto">
             <div v-for="b in shownBills" :key="b.voucher" class="flex items-center gap-2 px-3 py-1.5 border-b border-line-hair last:border-0 hover:bg-app-warm">
               <span class="font-mono text-[11px]" dir="ltr">{{ b.voucher }}</span>
@@ -137,7 +137,7 @@
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-1.5 flex-wrap">
           <span class="text-[12px] font-bold">📦 {{ L("Import shipments","شحنات الاستيراد","Expéditions") }}</span>
           <input v-model="search" :placeholder="L('search shipment / supplier…','بحث شحنة / مورّد…','rechercher…')"
-                 class="h-[26px] px-2.5 text-[11px] border border-line rounded-[7px] outline-none focus:border-accent w-[190px]" />
+                 class="fld fld-xs w-[190px]" />
           <span class="flex items-center gap-1">
             <button v-for="y in data.years" :key="y" class="text-[11px] font-bold px-2 py-0.5 rounded-full border tnum"
                     :style="data.year===y ? 'background:#eef2ff;color:#4338ca;border-color:#c7d2fe' : 'border-color:#e7e5e4;color:#78716c'"

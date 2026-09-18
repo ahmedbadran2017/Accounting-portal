@@ -48,7 +48,7 @@
           <tr v-for="(c, i) in fxRows" :key="i" class="border-t border-line-hair">
             <td class="px-4 py-2.5 font-mono font-bold">{{ c.frm }} → {{ c.too }}</td>
             <td class="px-4 py-2.5 text-end tnum font-semibold">
-              <template v-if="canWrite && editKey === i"><input v-model.number="editRate" type="number" step="any" class="w-24 h-7 border border-line-2 rounded-[6px] px-2 text-end text-[12px]" /></template>
+              <template v-if="canWrite && editKey === i"><input v-model.number="editRate" type="number" step="any" class="fld fld-xs w-24 text-end" /></template>
               <template v-else>{{ c.rate }}</template>
             </td>
             <td class="px-4 py-2.5 text-end text-ink-3">{{ String(c.date).slice(0,10) }}</td>
@@ -62,11 +62,11 @@
       </table>
       <!-- Add a new rate -->
       <div v-if="canWrite" class="flex items-center gap-2 px-4 py-3 border-t border-line-hair flex-wrap bg-app-warm/20">
-        <input v-model.trim="nf.frm" :placeholder="L('From','من','De')" class="w-16 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] uppercase" maxlength="3" />
+        <input v-model.trim="nf.frm" :placeholder="L('From','من','De')" class="fld fld-sm w-16 uppercase" maxlength="3" />
         <span class="text-ink-muted">→</span>
-        <input v-model.trim="nf.too" :placeholder="L('To','إلى','Vers')" class="w-16 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] uppercase" maxlength="3" />
-        <input v-model.number="nf.rate" type="number" step="any" :placeholder="L('Rate','السعر','Taux')" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end" />
-        <input v-model="nf.date" type="date" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px]" />
+        <input v-model.trim="nf.too" :placeholder="L('To','إلى','Vers')" class="fld fld-sm w-16 uppercase" maxlength="3" />
+        <input v-model.number="nf.rate" type="number" step="any" :placeholder="L('Rate','السعر','Taux')" class="fld fld-sm w-28 text-end" />
+        <input v-model="nf.date" type="date" class="fld fld-sm" />
         <UiButton variant="primary" size="sm" :disabled="fxBusy || !nf.frm || !nf.too || !nf.rate" @click="addRate">{{ L("Add / update","إضافة/تحديث","Ajouter") }}</UiButton>
       </div>
     </div>

@@ -64,7 +64,7 @@
           <span class="text-[11px] text-ink-muted">{{ (recsT.total.value || 0).toLocaleString() }}</span>
           <input v-model="recsT.search.value" type="search"
                  :placeholder="L('Search receipt / supplier…','ابحث باسم الاستلام / المورد…','Rechercher…')"
-                 class="ms-auto h-8 w-56 px-3 rounded-chip text-[12px] border border-line-2 bg-app-warm/30 focus:bg-white outline-none" />
+                 class="fld fld-sm fld-sunk ms-auto w-56" />
         </div>
         <table class="w-full text-[12px]">
           <thead class="bg-app-warm/40 text-[11px] uppercase text-ink-muted">

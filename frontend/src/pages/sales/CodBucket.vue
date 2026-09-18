@@ -37,7 +37,7 @@
         </UiButton>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="srch" :placeholder="L('Order / customer / invoice / ref…','أوردر / عميل / فاتورة / مرجع…','Commande / client / facture…')" class="w-40 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="srch" :placeholder="L('Order / customer / invoice / ref…','أوردر / عميل / فاتورة / مرجع…','Commande / client / facture…')" class="fld fld-md fld-sunk w-40 sm:w-64" />
         </div>
       </div>
 
@@ -47,9 +47,9 @@
         <button v-for="p in DATE_PRESETS" :key="p.key" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
                 :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'" @click="setPreset(p.key)">{{ p.label() }}</button>
         <div v-if="datePreset === 'range'" class="flex items-center gap-1">
-          <input type="date" v-model="dateFrom" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="dateFrom" class="fld fld-xs" />
           <span class="text-ink-muted text-[11px]">→</span>
-          <input type="date" v-model="dateTo" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="dateTo" class="fld fld-xs" />
         </div>
         <span v-if="loading" class="ms-2 text-[11px] text-ink-muted inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>{{ L("loading…","تحميل…","…") }}</span>
       </div>

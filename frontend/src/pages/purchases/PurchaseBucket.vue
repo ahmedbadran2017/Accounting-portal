@@ -33,7 +33,7 @@
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("docs","مستند","docs") }} · {{ dateScope || "FY 2026" }}<span v-if="bucketCount > rows.length"> · {{ L("first","أول","premiers") }} {{ rows.length }}</span></span>
         <div class="relative ms-auto">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="srch" :placeholder="L('Document / supplier…','مستند / مورّد…','Document / fournisseur…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="srch" :placeholder="L('Document / supplier…','مستند / مورّد…','Document / fournisseur…')" class="fld fld-md fld-sunk w-44 sm:w-60" />
         </div>
       </div>
 
@@ -42,9 +42,9 @@
         <button v-for="p in DATE_PRESETS" :key="p.key" class="text-[11px] font-semibold px-2.5 py-1 rounded-full border transition"
                 :class="datePreset === p.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'" @click="setPreset(p.key)">{{ p.label() }}</button>
         <div v-if="datePreset === 'range'" class="flex items-center gap-1">
-          <input type="date" v-model="dateFrom" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="dateFrom" class="fld fld-xs" />
           <span class="text-ink-muted text-[11px]">→</span>
-          <input type="date" v-model="dateTo" class="h-7 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="dateTo" class="fld fld-xs" />
         </div>
         <span v-if="loading" class="ms-2 text-[11px] text-ink-muted inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>{{ L("loading…","تحميل…","…") }}</span>
       </div>
@@ -124,7 +124,7 @@
         <template v-if="groupMode === 'pay'">
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Method","الطريقة","Méthode") }}</label>
-            <select v-model="payMode" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40">
+            <select v-model="payMode" class="fld fld-md w-full mt-1">
               <option value="">{{ L("Select…","اختر…","Choisir…") }}</option>
               <option v-for="m in modes" :key="m.mode" :value="m.mode">{{ m.mode }}</option>
             </select>
@@ -132,11 +132,11 @@
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-[11px] font-bold text-ink-3">{{ L("Reference No","رقم المرجع","Référence") }}</label>
-              <input v-model.trim="payRef" :placeholder="L('Cheque / txn no','شيك / معاملة','Chèque / réf')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+              <input v-model.trim="payRef" :placeholder="L('Cheque / txn no','شيك / معاملة','Chèque / réf')" class="fld fld-md w-full mt-1" />
             </div>
             <div>
               <label class="text-[11px] font-bold text-ink-3">{{ L("Date","التاريخ","Date") }}</label>
-              <input type="date" v-model="payDate" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+              <input type="date" v-model="payDate" class="fld fld-md w-full mt-1" />
             </div>
           </div>
         </template>

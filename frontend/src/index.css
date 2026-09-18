@@ -51,3 +51,55 @@ textarea:focus-visible {
   box-shadow: 0 0 0 3px rgb(15 118 110 / 0.16);
   border-color: rgb(15 118 110 / 0.45);
 }
+
+/* ── Form controls ─────────────────────────────────────────────────────────
+ *
+ * 399 inputs, selects and textareas across 101 files, at fourteen different
+ * heights — h-9 ninety-nine times, h-8 fifty, h-7 thirty-one, py-2 forty-one,
+ * h-[26px]/h-[28px]/h-[30px] forty-three between them, and ninety-six with no
+ * height at all, taking whatever the browser draws. In one row of a bill the
+ * date field, the amount field and the account picker were three different
+ * heights. This is the same disease the buttons had, and it matters more:
+ * you look at a button, you sit in a field all day.
+ *
+ * Classes rather than a UiInput component, on purpose. A button has no value;
+ * an input has v-model with modifiers, :value/@input pairs, <option> children,
+ * date and number types. Wrapping 399 of those mechanically would be a
+ * rewrite with real risk. Restyling them is a class swap that cannot change
+ * behaviour — and it buys the same thing: one height system, one radius, one
+ * border, one focus.
+ *
+ * Three sizes, the same three the buttons use, so a field and the button next
+ * to it line up. Layout classes (w-*, flex-1, text-end, font-mono) stay on the
+ * element; only appearance moves here. */
+@layer components {
+  .fld {
+    /* Deliberately no width. An input sizes to its content by default, and 278
+     * of these were converted in place — forcing 100% here would restretch
+     * every date box and filter field that never asked for it. The ones that
+     * want it already carry `w-full`, which the conversion kept. */
+    background: #fff;
+    border: 1px solid theme(colors.line.2);
+    color: theme(colors.ink.DEFAULT);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .fld::placeholder { color: theme(colors.ink.muted); }
+  .fld:hover:not(:disabled):not(:focus) { border-color: theme(colors.ink.muted / 40%); }
+  .fld:disabled { background: theme(colors.app.warm2); color: theme(colors.ink.3); cursor: not-allowed; }
+  .fld-xs { height: 28px; padding-inline: 8px;  font-size: 11px; border-radius: 7px; }
+  .fld-sm { height: 32px; padding-inline: 10px; font-size: 12px; border-radius: 9px; }
+  .fld-md { height: 36px; padding-inline: 12px; font-size: 13px; border-radius: 10px; }
+  /* Fifty-four controls sit on a warm tint instead of white — search rows and
+   * inline cells inside a table, where a white box on a white row disappears.
+   * That is a real distinction, so it keeps it; everything else is shared. */
+  .fld-sunk { background: theme(colors.app.warm); }
+  .fld-sunk:focus { background: #fff; }
+}
+
+/* These two stay OUTSIDE @layer components on purpose. Tailwind rewrites a
+ * component-layer rule to the candidate class it matched, so `textarea.fld`
+ * was emitted as plain `.fld` — and `height: auto; min-height: 66px` then
+ * applied to every input in the app, undoing the whole size system. An
+ * element-qualified selector belongs in plain CSS. */
+textarea.fld { height: auto; min-height: 66px; padding-block: 8px; line-height: 1.6; }
+select.fld { padding-inline-end: 6px; }

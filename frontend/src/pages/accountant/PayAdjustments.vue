@@ -71,14 +71,14 @@
           </label>
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Component","المكوّن","Composant") }}</span>
-            <select v-model="form.component" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40 cursor-pointer">
+            <select v-model="form.component" class="fld fld-md mt-1 w-full cursor-pointer">
               <option value="">—</option>
               <option v-for="c in (form.kind==='earn' ? comp.earnings : comp.deductions) || []" :key="c" :value="c">{{ c }}</option>
             </select>
           </label>
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Amount","المبلغ","Montant") }} ({{ ccy }})</span>
-            <input type="number" min="0" step="0.01" v-model.number="form.amount" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[13px] tnum text-end font-semibold focus:outline-none focus:border-accent/40" placeholder="0.00" />
+            <input type="number" min="0" step="0.01" v-model.number="form.amount" class="fld fld-md mt-1 w-full tnum text-end" placeholder="0.00" />
           </label>
           <div v-if="err" class="text-[12px] text-sale">{{ err }}</div>
         </div>

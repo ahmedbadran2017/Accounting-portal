@@ -14,11 +14,11 @@
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Date", "التاريخ", "Date") }}</span>
-            <input type="date" v-model="postingDate" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+            <input type="date" v-model="postingDate" class="fld fld-md mt-1 w-full" />
           </label>
           <label class="block">
             <span class="text-[11px] font-semibold text-ink-3">{{ L("Memo", "ملاحظة", "Mémo") }}</span>
-            <input v-model="remark" :placeholder="L('e.g. June accrual', 'مثال: استحقاق يونيو', 'ex. régul. juin')" class="mt-1 w-full border border-line-2 rounded-chip px-3 py-2 text-[12px] focus:outline-none focus:border-accent/40" />
+            <input v-model="remark" :placeholder="L('e.g. June accrual', 'مثال: استحقاق يونيو', 'ex. régul. juin')" class="fld fld-md mt-1 w-full" />
           </label>
         </div>
 
@@ -52,7 +52,7 @@
                   </div>
                   <!-- party: required for Receivable/Payable, optional otherwise -->
                   <div v-if="ln.account && (needsParty(ln) || ln.showParty)" class="mt-1 flex items-center gap-1.5">
-                    <select v-model="ln.party_type" class="text-[11px] bg-app-warm/50 border border-line-2 rounded-chip px-1.5 py-0.5 focus:outline-none" @change="ln.party = ''; ln.pq = ''">
+                    <select v-model="ln.party_type" class="fld fld-xs fld-sunk" @change="ln.party = ''; ln.pq = ''">
                       <option value="">{{ L("type","النوع","type") }}</option>
                       <option value="Customer">{{ L("Customer","عميل","Client") }}</option>
                       <option value="Supplier">{{ L("Supplier","مورّد","Fourn.") }}</option>
@@ -61,7 +61,7 @@
                     <div v-if="ln.party_type" class="relative flex-1" v-click-outside="() => { if (openParty === i) openParty = null }">
                       <input v-model="ln.pq" @focus="openParty = i; loadParties(ln)" @input="openParty = i; ln.party = ''; loadParties(ln)"
                              :placeholder="L('search party…','ابحث عن الطرف…','tiers…')"
-                             class="w-full text-[11px] bg-app-warm/50 border rounded-chip px-2 py-0.5 focus:outline-none"
+                             class="fld fld-xs fld-sunk w-full"
                              :class="needsParty(ln) && !ln.party ? 'border-rose-300' : 'border-line-2'" />
                       <div v-if="openParty === i && (ln._parties || []).length" class="absolute z-40 mt-1 w-[240px] max-h-44 overflow-y-auto bg-white border border-line rounded-[10px] shadow-cardHover">
                         <button v-for="pt in ln._parties" :key="pt.name" type="button" class="w-full text-start px-2.5 py-1.5 hover:bg-app-warm/60 text-[11px] border-t border-line-hair first:border-t-0" @click="pickParty(ln, pt)">
@@ -73,7 +73,7 @@
                   </div>
                   <button v-else-if="ln.account && !needsParty(ln)" type="button" class="mt-0.5 text-[11px] text-ink-muted hover:text-accent-dark" @click="ln.showParty = true">+ {{ L("party","طرف","tiers") }}</button>
                   <!-- cost centre: the books are split Official / Non-Official on every line -->
-                  <select v-if="costCenters.length" v-model="ln.cost_center" class="mt-0.5 w-full text-[11px] bg-app-warm/40 border border-line-2 rounded-chip px-1.5 py-0.5 focus:outline-none">
+                  <select v-if="costCenters.length" v-model="ln.cost_center" class="fld fld-xs fld-sunk mt-0.5 w-full">
                     <option value="">{{ L("cost centre…","مركز التكلفة…","centre de coût…") }}</option>
                     <option v-for="c in costCenters" :key="c.name" :value="c.name">{{ c.cost_center_name || c.name }}</option>
                   </select>

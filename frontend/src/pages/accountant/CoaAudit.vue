@@ -63,7 +63,7 @@
                     <UiButton variant="secondary" size="xs" v-if="tab==='dead' || (tab==='junk' && r.n===0)" type="button" :disabled="busy===r.account" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</UiButton>
                     <UiButton variant="secondary" size="xs" v-else-if="tab==='spaces'" type="button" :disabled="busy===r.account" @click="trim(r)">{{ L('Trim','قصّ','Nettoyer') }}</UiButton>
                     <UiButton variant="secondary" size="xs" v-else-if="tab==='empty_group'" type="button" :disabled="busy===r.account" @click="makePostable(r)">{{ L('Make postable','قابل للترحيل','Rendre saisissable') }}</UiButton>
-                    <select v-else-if="tab==='miscash'" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px]" :disabled="busy===r.account" @change="reclass(r,$event.target.value)">
+                    <select v-else-if="tab==='miscash'" class="fld fld-xs fld-sunk" :disabled="busy===r.account" @change="reclass(r,$event.target.value)">
                       <option value="__">{{ L('reclassify…','أعِد التصنيف…','reclasser…') }}</option>
                       <option value="">{{ L('Remove type','شيل النوع','Retirer type') }}</option>
                       <option value="Receivable">Receivable</option><option value="Payable">Payable</option>

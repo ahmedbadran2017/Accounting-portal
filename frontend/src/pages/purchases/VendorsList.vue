@@ -15,7 +15,7 @@
         </div>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
-          <input v-model.trim="tt.search.value" :placeholder="L('Search supplier…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
+          <input v-model.trim="tt.search.value" :placeholder="L('Search supplier…','بحث…','Rechercher…')" class="fld fld-md fld-sunk w-44 sm:w-60" />
         </div>
         <UiButton variant="secondary" size="md" icon="layers" @click="importOpen = true" > {{ L("Import","استيراد","Importer") }}</UiButton>
         <UiButton variant="create" size="md" icon="plus" @click="openNew" > {{ L("New","جديد","Nouveau") }}</UiButton>
@@ -76,12 +76,12 @@
     <div v-if="newOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4" @click.self="newOpen = false">
       <div class="bg-white rounded-card shadow-xl w-full max-w-sm p-5 space-y-3">
         <div class="text-[14px] font-bold">{{ L("New supplier","مورّد جديد","Nouveau fournisseur") }}</div>
-        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.supplier_name" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
+        <div><label class="text-[11px] font-bold text-ink-3">{{ L("Name","الاسم","Nom") }} *</label><input v-model.trim="nf.supplier_name" class="fld fld-md w-full mt-1" /></div>
         <div><label class="text-[11px] font-bold text-ink-3">{{ L("Group","المجموعة","Groupe") }}</label>
-          <select v-model="nf.supplier_group" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40"><option value="">{{ L("Default","افتراضي","Défaut") }}</option><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
+          <select v-model="nf.supplier_group" class="fld fld-md w-full mt-1"><option value="">{{ L("Default","افتراضي","Défaut") }}</option><option v-for="g in groups" :key="g" :value="g">{{ g }}</option></select></div>
         <div class="grid grid-cols-2 gap-2">
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="nf.tax_id" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" /></div>
-          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Tax ID","الرقم الضريبي","ID fiscal") }}</label><input v-model.trim="nf.tax_id" class="fld fld-md w-full mt-1" /></div>
+          <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.currency" class="fld fld-md w-full mt-1" placeholder="MAD" /></div>
         </div>
         <div class="flex gap-2 justify-end pt-1">
           <UiButton variant="quiet" size="md" @click="newOpen = false" >{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
@@ -95,7 +95,7 @@
       <div class="bg-white rounded-card shadow-xl w-full max-w-md p-5 space-y-3">
         <div class="text-[14px] font-bold">{{ L("Import suppliers","استيراد موردين","Importer des fournisseurs") }}</div>
         <p class="text-[11px] text-ink-muted">{{ L("One per line: name, group, tax id, currency (only name required).","سطر لكل مورّد: الاسم، المجموعة، الرقم الضريبي، العملة (الاسم فقط مطلوب).","Une ligne par fournisseur : nom, groupe, ID fiscal, devise.") }}</p>
-        <textarea v-model="importText" rows="6" :placeholder="L('ACME SARL, Morocco Local Suppliers, 123456, MAD\nOther Vendor', 'مورّد، مجموعة، رقم ضريبي', 'Fournisseur, groupe, ID')" class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[12px] font-mono focus:outline-none focus:border-accent/40 resize-y"></textarea>
+        <textarea v-model="importText" rows="6" :placeholder="L('ACME SARL, Morocco Local Suppliers, 123456, MAD\nOther Vendor', 'مورّد، مجموعة، رقم ضريبي', 'Fournisseur, groupe, ID')" class="fld fld-md w-full font-mono resize-y"></textarea>
         <div v-if="importResult" class="text-[12px] bg-app-warm/50 rounded-[9px] px-3 py-2">
           <b class="text-success-dark">{{ importResult.created }}</b> {{ L("created","أُنشئ","créés") }} · {{ importResult.exists }} {{ L("existed","موجود","existants") }}<span v-if="importResult.failed"> · <b class="text-sale">{{ importResult.failed }}</b> {{ L("failed","فشل","échecs") }}</span>
         </div>

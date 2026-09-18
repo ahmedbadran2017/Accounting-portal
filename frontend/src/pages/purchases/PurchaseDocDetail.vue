@@ -127,7 +127,7 @@
         </div>
         <div>
           <label class="text-[11px] font-bold text-ink-3">{{ L("Method", "الطريقة", "Méthode") }}</label>
-          <select v-model="payMode" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] bg-white focus:outline-none focus:border-accent/40">
+          <select v-model="payMode" class="fld fld-md w-full mt-1">
             <option value="">{{ L("Select…", "اختر…", "Choisir…") }}</option>
             <option v-for="m in modes" :key="m.mode" :value="m.mode">{{ m.mode }}</option>
           </select>
@@ -136,17 +136,17 @@
           <label class="text-[11px] font-bold text-ink-3 flex items-center justify-between">{{ L("Amount", "المبلغ", "Montant") }}
             <button type="button" class="text-[11px] text-accent-dark font-semibold hover:underline" @click="payAmount = h.outstanding">{{ L("full","الكامل","total") }} {{ fmt(h.outstanding) }}</button>
           </label>
-          <input type="number" min="0" step="0.01" :max="h.outstanding" v-model.number="payAmount" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] tnum text-end font-semibold focus:outline-none focus:border-accent/40" :placeholder="String(h.outstanding)" />
+          <input type="number" min="0" step="0.01" :max="h.outstanding" v-model.number="payAmount" class="fld fld-md w-full mt-1 tnum text-end" :placeholder="String(h.outstanding)" />
           <div v-if="payAmount > 0 && payAmount < h.outstanding" class="text-[11px] text-amber-700 mt-0.5">{{ L("Partial — ","جزئي — ","Partiel — ") }}{{ fmt(h.outstanding - payAmount) }} {{ L("stays outstanding","يبقى مستحقًا","restant") }}</div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Reference No", "رقم المرجع", "Référence") }}</label>
-            <input v-model.trim="payRef" :placeholder="L('Cheque / txn no', 'شيك / معاملة', 'Chèque / réf')" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+            <input v-model.trim="payRef" :placeholder="L('Cheque / txn no', 'شيك / معاملة', 'Chèque / réf')" class="fld fld-md w-full mt-1" />
           </div>
           <div>
             <label class="text-[11px] font-bold text-ink-3">{{ L("Date", "التاريخ", "Date") }}</label>
-            <input type="date" v-model="payDate" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" />
+            <input type="date" v-model="payDate" class="fld fld-md w-full mt-1" />
           </div>
         </div>
         <p class="text-[11px] text-ink-muted">{{ L("Bank / cheque methods require a reference.", "طرق البنك/الشيك تتطلب مرجعًا.", "Les méthodes banque/chèque exigent une référence.") }}</p>

@@ -61,7 +61,7 @@
         </div>
         <div v-if="confirm === 'redate'" class="mt-3">
           <label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("New posting date","التاريخ الجديد","Nouvelle date") }}</label>
-          <input type="date" v-model="newDate" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[13px] bg-white focus:outline-none focus:border-accent/40" />
+          <input type="date" v-model="newDate" class="fld fld-md w-full" />
         </div>
         <div class="flex justify-end gap-2 mt-4">
           <UiButton variant="quiet" @click="confirm = ''">{{ L("Back","رجوع","Retour") }}</UiButton>

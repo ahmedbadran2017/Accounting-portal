@@ -70,14 +70,14 @@
           </div>
           <div>
             <label class="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{{ L("Weight (kg)","الوزن (كجم)","Poids (kg)") }}</label>
-            <input v-model.number="weight" type="number" step="0.001" min="0" class="w-full h-9 mt-1 bg-app-warm/40 border rounded-[10px] px-3 text-[13px] tnum focus:outline-none focus:bg-white" :class="weightBad ? 'border-rose-300' : 'border-line-2 focus:border-accent/40'" />
+            <input v-model.number="weight" type="number" step="0.001" min="0" class="fld fld-md fld-sunk w-full mt-1 tnum" :class="weightBad ? 'border-rose-300' : 'border-line-2 focus:border-accent/40'" />
             <div v-if="weightBad" class="text-[11px] text-rose-600 mt-1">{{ L("missing / implausible — check the item","ناقص / غير منطقي — راجع الصنف","manquant / improbable") }}</div>
           </div>
           <div>
             <label class="text-[11px] font-bold uppercase tracking-wider text-ink-muted flex items-center justify-between">{{ L("Freight / kg","شحن / كجم","Fret / kg") }}
               <button class="text-[11px] font-semibold text-accent-dark hover:underline" @click="freightPerKg = d.suggested_freight_per_kg">{{ L("suggest","اقتراح","suggéré") }} {{ fmt(d.suggested_freight_per_kg) }}</button>
             </label>
-            <input v-model.number="freightPerKg" type="number" step="0.1" min="0" class="w-full h-9 mt-1 bg-app-warm/40 border border-line-2 rounded-[10px] px-3 text-[13px] tnum focus:outline-none focus:border-accent/40 focus:bg-white" />
+            <input v-model.number="freightPerKg" type="number" step="0.1" min="0" class="fld fld-md fld-sunk w-full mt-1 tnum" />
             <div v-if="d.freight_stats" class="text-[11px] text-ink-muted mt-1 leading-relaxed">
               {{ L("= all inbound freight ÷ est. total kg","= كل مصاريف الشحن الوارد ÷ الوزن الكلي المقدَّر","= fret total ÷ kg estimés") }}
               ({{ Number(d.freight_stats.pool).toLocaleString() }} ÷ {{ Number(d.freight_stats.est_total_kg).toLocaleString() }} kg)
