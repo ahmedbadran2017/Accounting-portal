@@ -122,6 +122,22 @@ def _build(doctype, action):
     if p.get("tax_template"):
         doc.taxes_and_charges = p["tax_template"]
         doc.set_taxes()
+    # A supplier invoice is booked at the figures printed on it. A percentage
+    # template cannot reproduce a mixed one: JUNCTION's 1883/2026 carries
+    # 18,297.00 of exempt sea freight and 5,815.94 taxed at 20%, so the VAT on
+    # the paper is 1,163.19 and a flat 20% template computes 4,822.59. An exact
+    # amount is entered as ERPNext's "Actual" charge — the same row the Desk
+    # takes — and it reproduces the document to the centime.
+    vat = flt(p.get("vat_amount") or 0)
+    if vat:
+        head = p.get("vat_account") or _default_vat_account(action.company, sales)
+        if not head:
+            frappe.throw("No VAT account to post the tax amount to")
+        doc.set("taxes", [t for t in (doc.get("taxes") or []) if t.account_head != head])
+        doc.append("taxes", {
+            "charge_type": "Actual", "account_head": head, "category": "Total",
+            "description": p.get("vat_label") or "VAT (as invoiced)", "tax_amount": vat,
+        })
     doc.flags.ignore_permissions = True
     doc.insert()
     if int(p.get("submit") or 0):
@@ -157,6 +173,8 @@ def _create(doctype, action_type, company, party, items, **kw):
                "due_date": kw.get("due_date"), "remarks": kw.get("remarks"),
                "currency": kw.get("currency"), "exchange_rate": kw.get("exchange_rate"),
                "tax_template": kw.get("tax_template"), "bill_no": kw.get("bill_no"),
+               "vat_amount": flt(kw.get("vat_amount") or 0), "vat_account": kw.get("vat_account"),
+               "vat_label": kw.get("vat_label"),
                "customer_address": kw.get("customer_address"),
                "bill_date": kw.get("bill_date"),
                "submit": int(str(kw.get("submit") or 0) in ("1", "true", "True"))}
@@ -167,22 +185,61 @@ def _create(doctype, action_type, company, party, items, **kw):
 @frappe.whitelist()
 def create_sales_invoice(company=None, customer=None, items=None, posting_date=None, due_date=None,
                          tax_template=None, currency=None, exchange_rate=None, remarks=None,
-                         customer_address=None, submit=0, client_key=None):
+                         customer_address=None, submit=0, client_key=None,
+                         vat_amount=None, vat_account=None, vat_label=None):
     """A Sales Invoice raised directly — a service or one-off sale with no order
     or delivery note behind it."""
     return _create("Sales Invoice", SI_ACTION, company, customer, items, posting_date=posting_date,
                    due_date=due_date, tax_template=tax_template, currency=currency,
                    exchange_rate=exchange_rate, remarks=remarks, customer_address=customer_address,
-                   submit=submit, client_key=client_key)
+                   submit=submit, client_key=client_key,
+                   vat_amount=vat_amount, vat_account=vat_account, vat_label=vat_label)
 
 
 @frappe.whitelist()
 def create_purchase_invoice(company=None, supplier=None, items=None, posting_date=None, due_date=None,
                             tax_template=None, currency=None, exchange_rate=None, remarks=None,
-                            bill_no=None, bill_date=None, submit=0, client_key=None):
+                            bill_no=None, bill_date=None, submit=0, client_key=None,
+                            vat_amount=None, vat_account=None, vat_label=None):
     """A Purchase Invoice with item lines, raised without a PO or receipt — goods
     billed straight, or a supplier bill that itemises what was supplied."""
     return _create("Purchase Invoice", PI_ACTION, company, supplier, items, posting_date=posting_date,
                    due_date=due_date, tax_template=tax_template, currency=currency,
                    exchange_rate=exchange_rate, remarks=remarks, bill_no=bill_no, bill_date=bill_date,
-                   submit=submit, client_key=client_key)
+                   submit=submit, client_key=client_key,
+                   vat_amount=vat_amount, vat_account=vat_account, vat_label=vat_label)
+
+
+def _default_vat_account(company, sales):
+    """The account a typed VAT amount posts to, when the screen does not name one.
+    Taken from the company's default purchase/sales tax template so it is the
+    same account a percentage template would have used."""
+    tpl_dt = "Sales Taxes and Charges Template" if sales else "Purchase Taxes and Charges Template"
+    tpl = frappe.db.get_value(tpl_dt, {"company": company, "is_default": 1}, "name") \
+        or frappe.db.get_value(tpl_dt, {"company": company}, "name")
+    if tpl:
+        head = frappe.db.get_value("Purchase Taxes and Charges" if not sales else "Sales Taxes and Charges",
+                                   {"parent": tpl, "parenttype": tpl_dt}, "account_head")
+        if head:
+            return head
+    return frappe.db.get_value("Account", {"company": company, "is_group": 0, "disabled": 0,
+                                           "account_type": "Tax"}, "name")
+
+
+@frappe.whitelist()
+def tax_options(company=None, side="buying"):
+    """Tax templates and tax accounts for the invoice screens' VAT block."""
+    assert_portal_access()
+    target = _target(company)
+    sales = str(side).lower() == "selling"
+    tpl_dt = "Sales Taxes and Charges Template" if sales else "Purchase Taxes and Charges Template"
+    templates = frappe.db.sql(
+        "SELECT name AS value, name AS label, is_default FROM `tab" + tpl_dt + "` "
+        "WHERE company=%s ORDER BY is_default DESC, name", (target,), as_dict=True)
+    accounts = frappe.db.sql(
+        """SELECT name AS value, name AS label FROM `tabAccount`
+           WHERE company=%s AND is_group=0 AND disabled=0
+             AND (account_type='Tax' OR name LIKE '391.6%%' OR name LIKE '191.0%%')
+           ORDER BY name""", (target,), as_dict=True)
+    return {"templates": templates, "accounts": accounts,
+            "default_account": _default_vat_account(target, sales)}

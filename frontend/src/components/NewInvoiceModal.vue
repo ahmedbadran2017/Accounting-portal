@@ -26,10 +26,11 @@
               <input type="date" v-model="form.bill_date" class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] bg-white" /></div>
           </template>
 
-          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Tax template", "قالب الضريبة", "Taxes") }}</label>
-            <select v-model="form.tax_template" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
-              <option value="">{{ L("No tax", "بدون ضريبة", "Sans taxe") }}</option>
-              <option v-for="t in o.tax_templates" :key="t" :value="t">{{ t }}</option>
+          <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("VAT", "الضريبة", "TVA") }}</label>
+            <select v-model="vatMode" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
+              <option value="none">{{ L("No tax", "بدون ضريبة", "Sans taxe") }}</option>
+              <option value="template">{{ L("A rate on everything", "نسبة على الكل", "Un taux sur tout") }}</option>
+              <option value="amount">{{ L("The amount on the invoice", "المبلغ المكتوب في الفاتورة", "Le montant figurant") }}</option>
             </select></div>
           <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Currency", "العملة", "Devise") }}</label>
             <select v-model="form.currency" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
@@ -77,6 +78,35 @@
           </div>
         </div>
 
+        <!-- VAT. A percentage template cannot reproduce an invoice that mixes
+             rates — an exempt sea-freight line beside taxed local charges — so
+             the amount printed on the paper can be typed instead, and the strip
+             below is what gets ticked against it. -->
+        <div v-if="vatMode !== 'none'" class="border border-line rounded-[12px] p-3 space-y-2.5">
+          <div v-if="vatMode === 'template'" class="grid sm:grid-cols-2 gap-3">
+            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Tax template", "قالب الضريبة", "Modèle") }}</label>
+              <select v-model="form.tax_template" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
+                <option value="">{{ L("Choose…", "اختر…", "Choisir…") }}</option>
+                <option v-for="t in o.tax_templates" :key="t" :value="t">{{ t }}</option>
+              </select></div>
+          </div>
+          <div v-else class="grid sm:grid-cols-2 gap-3">
+            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("VAT amount on the invoice", "مبلغ الضريبة في الفاتورة", "Montant de TVA") }}</label>
+              <input type="number" step="any" min="0" v-model="form.vat_amount" dir="ltr"
+                     class="h-9 w-full rounded-[9px] border border-line-2 px-2.5 text-[12.5px] text-end tnum bg-white" /></div>
+            <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Posts to", "يترحّل إلى", "Compte") }}</label>
+              <select v-model="form.vat_account" class="h-9 w-full rounded-[9px] border border-line-2 px-2 text-[12.5px] bg-white">
+                <option v-for="a in vatAccounts" :key="a.value" :value="a.value">{{ a.label }}</option>
+              </select></div>
+          </div>
+          <div class="flex items-center gap-4 flex-wrap text-[12px] pt-0.5 border-t border-line-hair">
+            <span class="text-ink-muted">{{ L("Net", "الصافي", "HT") }} <b class="tnum">{{ fmt(net) }}</b></span>
+            <span class="text-ink-muted">{{ L("VAT", "الضريبة", "TVA") }} <b class="tnum">{{ fmt(vatShown) }}</b></span>
+            <span class="font-bold">{{ L("Total", "الإجمالي", "TTC") }} <span class="tnum">{{ fmt(net + vatShown) }}</span> {{ form.currency || o.currency }}</span>
+            <span v-if="vatMode === 'template'" class="text-[11px] text-ink-muted">{{ L("computed on save from the template", "بتتحسب عند الحفظ من القالب", "calculée à l'enregistrement") }}</span>
+          </div>
+        </div>
+
         <div><label class="block text-[11px] font-bold text-ink-3 mb-1">{{ L("Remarks", "ملاحظات", "Remarques") }}</label>
           <textarea v-model.trim="form.remarks" rows="2" class="w-full rounded-[9px] border border-line-2 px-2.5 py-1.5 text-[12.5px] bg-white"></textarea></div>
 
@@ -85,7 +115,9 @@
       </div>
 
       <div class="px-5 py-3 border-t border-line-hair flex items-center gap-2">
-        <span class="text-[11px] text-ink-muted">{{ L("Taxes are applied by the selected template on save.", "الضريبة بتتحسب من القالب عند الحفظ.", "Les taxes viennent du modèle.") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ vatMode === "amount"
+  ? L("The VAT you typed is posted as-is, exactly as on the invoice.", "مبلغ الضريبة اللي كتبتيه بيتسجّل زي ما هو، مطابق للفاتورة.", "La TVA saisie est comptabilisée telle quelle.")
+  : L("Taxes are applied by the selected template on save.", "الضريبة بتتحسب من القالب عند الحفظ.", "Les taxes viennent du modèle.") }}</span>
         <div class="ms-auto flex gap-2">
           <button class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
           <button class="h-9 px-4 rounded-chip text-[12px] font-bold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !form.party || !net" @click="save">
@@ -121,7 +153,15 @@ const sales = computed(() => props.kind !== "purchase");
 const o = ref({ tax_templates: [], accounts: [], cost_centers: [], currencies: [], currency: "" });
 const today = new Date().toISOString().slice(0, 10);
 const form = reactive({ party: "", posting_date: today, due_date: "", bill_no: "", bill_date: "",
-  tax_template: "", currency: "", exchange_rate: "", remarks: "", submit: false });
+  tax_template: "", currency: "", exchange_rate: "", remarks: "", submit: false,
+  vat_amount: "", vat_account: "" });
+// "template" = a rate on the whole invoice; "amount" = the figure printed on it.
+const vatMode = ref("template");
+const vatAccounts = ref([]);
+// Only the typed amount is known before the save; a template's VAT is computed
+// by ERPNext, and guessing it here would put a number on screen that the saved
+// document might not agree with.
+const vatShown = computed(() => (vatMode.value === "amount" ? Number(form.vat_amount) || 0 : 0));
 const newLine = () => ({ item_code: "", qty: 1, rate: 0, account: "", cost_center: "" });
 const lines = ref([newLine()]);
 const busy = ref(false);
@@ -135,6 +175,11 @@ onMounted(async () => {
     o.value = (await api.call("accounting_portal.api.invoicing.invoice_options", { company: currentCompany(), kind: props.kind })) || o.value;
     form.currency = o.value.currency || "";
     form.tax_template = o.value.default_tax_template || "";
+    vatMode.value = form.tax_template ? "template" : "none";
+    const tx = await api.call("accounting_portal.api.invoicing.tax_options",
+      { company: currentCompany(), side: sales.value ? "selling" : "buying" }) || {};
+    vatAccounts.value = tx.accounts || [];
+    form.vat_account = tx.default_account || (vatAccounts.value[0] || {}).value || "";
   } catch (e) { error.value = String(e?.message || e).slice(0, 160); }
 });
 
@@ -144,7 +189,10 @@ async function save() {
     const method = sales.value ? "create_sales_invoice" : "create_purchase_invoice";
     const args = { company: currentCompany(), items: lines.value.filter((l) => l.item_code && Number(l.qty) > 0),
       posting_date: form.posting_date, due_date: form.due_date || undefined,
-      tax_template: form.tax_template || undefined, currency: form.currency || undefined,
+      tax_template: vatMode.value === "template" ? (form.tax_template || undefined) : undefined,
+      vat_amount: vatMode.value === "amount" ? (Number(form.vat_amount) || 0) : undefined,
+      vat_account: vatMode.value === "amount" ? (form.vat_account || undefined) : undefined,
+      currency: form.currency || undefined,
       exchange_rate: form.exchange_rate || undefined, remarks: form.remarks || undefined,
       submit: form.submit ? 1 : 0, client_key: `${Date.now()}` };
     if (sales.value) args.customer = form.party; else { args.supplier = form.party; args.bill_no = form.bill_no || undefined; args.bill_date = form.bill_date || undefined; }

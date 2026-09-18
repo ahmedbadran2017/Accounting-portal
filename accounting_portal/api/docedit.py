@@ -200,6 +200,8 @@ def _options(doctype, company):
         "SELECT name AS value, name AS label FROM `tabCost Center` WHERE company=%s AND is_group=0 AND disabled=0 ORDER BY name",
         (company,), as_dict=True)
     out["party_types"] = [{"value": v, "label": v} for v in ("", "Customer", "Supplier", "Employee")]
+    out["charge_types"] = [{"value": v, "label": v} for v in (
+        "On Net Total", "Actual", "On Previous Row Amount", "On Previous Row Total", "On Item Quantity")]
     out["discount_on"] = [{"value": "", "label": "—"},
                           {"value": "Grand Total", "label": "Grand Total"},
                           {"value": "Net Total", "label": "Net Total"}]
@@ -289,12 +291,21 @@ def get_draft(doctype=None, name=None):
                  "fill": spec["child"].get("fill")}
     tax = None
     ts = spec.get("submitted_tax")
-    if submitted_mode and ts and meta.has_field(ts["field"]):
+    if ts and not submitted_mode:
+        # On a draft the whole row is open: the rate, or the exact amount off the
+        # supplier's invoice. A percentage cannot reproduce a paper that mixes
+        # rates — an exempt freight line beside taxed local charges — and the
+        # amount is the only thing that ties out to the document.
+        ts = {"field": ts["field"], "can_edit": True, "columns": [
+            _H("description", "Data"), _H("charge_type", "Select", "charge_types"),
+            _H("rate", "Float"), _H("tax_amount", "Currency"),
+            _H("account_head", "Link", "accounts"), _H("cost_center", "Link", "cost_centers")]}
+    if ts and meta.has_field(ts["field"]):
         tmeta = frappe.get_meta(meta.get_field(ts["field"]).options)
         tcols = [{**c, "label": (tmeta.get_field(c["field"]).label or c["field"])}
                  for c in ts["columns"] if tmeta.has_field(c["field"])]
         tax = {"field": ts["field"], "label": meta.get_field(ts["field"]).label or ts["field"],
-               "columns": tcols,
+               "columns": tcols, "can_edit": bool(ts.get("can_edit")),
                "rows": [{"name": r.name, "idx": r.idx, **{c["field"]: _val(r.get(c["field"])) for c in tcols}}
                         for r in (doc.get(ts["field"]) or [])]}
     return {"supported": True, "doctype": doctype, "name": name, "company": doc.company, "tax": tax,
@@ -400,6 +411,9 @@ def save_draft(doctype=None, name=None, header=None, rows=None, tax=None):
         for i, row in enumerate(doc.get(cf) or [], start=1):
             row.idx = i
         row_note = {"rows": len(doc.get(cf) or []), "added": added, "removed": removed}
+    ts = spec.get("submitted_tax")
+    if ts is not None and tax is not None and doc.meta.has_field(ts["field"]):
+        _apply_tax_rows(doc, ts["field"], tax)
     if doctype in ("Purchase Invoice", "Sales Invoice") and changed.get("posting_date"):
         doc.set_posting_time = 1
     # Moving a date leaves the payment schedule behind. The schedule was written
@@ -444,6 +458,33 @@ def _submitted_header_changes(doc, spec, header):
             after[f] = _val(new)
             doc.set(f, new)
     return before, after
+
+
+
+def _apply_tax_rows(doc, field, rows):
+    """Replace a draft's tax table with what the screen sent.
+
+    Rebuilt rather than patched: a tax row the accountant deleted has to go, and
+    the table is small. `charge_type` decides which of rate / tax_amount ERPNext
+    reads — "Actual" takes the amount typed off the invoice and ignores the rate,
+    which is the whole point of offering it.
+    """
+    keep = []
+    for r in rows:
+        head = (r.get("account_head") or "").strip()
+        if not head:
+            continue
+        ct = (r.get("charge_type") or "On Net Total").strip() or "On Net Total"
+        keep.append({
+            "charge_type": ct, "account_head": head, "category": "Total",
+            "description": (r.get("description") or "").strip() or head.split(" - ")[0],
+            "rate": 0 if ct == "Actual" else flt(r.get("rate")),
+            "tax_amount": flt(r.get("tax_amount")) if ct == "Actual" else 0,
+            "cost_center": (r.get("cost_center") or "").strip() or None,
+        })
+    doc.set(field, [])
+    for k in keep:
+        doc.append(field, k)
 
 
 def _update_submitted_items(doc, spec, header, rows):

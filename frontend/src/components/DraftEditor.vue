@@ -130,7 +130,7 @@
           </div>
 
           <!-- tax rows: the account each tax line posts to, editable after submit -->
-          <div v-if="d.tax && d.tax.rows.length" class="bg-white border border-line rounded-[12px] overflow-hidden">
+          <div v-if="d.tax && (d.tax.rows.length || d.tax.can_edit)" class="bg-white border border-line rounded-[12px] overflow-hidden">
             <div class="px-3 py-2 border-b border-line-hair flex items-center gap-2 text-[12px] font-bold">
               <Icon name="percent" :size="13" color="#0b5c4f" />{{ d.tax.label }}
               <span class="text-[10.5px] text-ink-muted font-normal">{{ d.tax.rows.length }}</span>
@@ -139,16 +139,29 @@
               <table class="w-full text-[12px]">
                 <thead><tr class="bg-app-warm/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                   <th v-for="c in d.tax.columns" :key="c.field" class="px-2 py-2 text-start whitespace-nowrap" :class="c.type === 'Currency' ? 'text-end' : ''">{{ c.label }}</th>
+                  <th v-if="d.tax.can_edit" class="w-8"></th>
                 </tr></thead>
                 <tbody>
                   <tr v-for="r in txv" :key="r.name" class="border-t border-line-hair align-top">
                     <td v-for="c in d.tax.columns" :key="c.field" class="px-1.5 py-1">
                       <span v-if="c.ro" class="block px-1 py-1.5 text-ink-2 truncate max-w-[280px]" :class="c.type === 'Currency' ? 'text-end tnum' : ''">{{ c.type === 'Currency' ? fmt(r[c.field]) : (r[c.field] || "—") }}</span>
-                      <SearchSelect v-else v-model="r[c.field]" :items="d.options[c.options] || []" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white min-w-[220px]" />
+                      <input v-else-if="['Currency','Float'].includes(c.type)" type="number" step="any" v-model="r[c.field]" dir="ltr"
+                             :disabled="c.field === 'rate' ? r.charge_type === 'Actual' : (c.field === 'tax_amount' && r.charge_type !== 'Actual')"
+                             class="h-8 w-full min-w-[96px] rounded-[8px] border border-line-2 px-2 text-[12px] text-end tnum bg-white disabled:bg-app-warm disabled:text-ink-muted" />
+                      <select v-else-if="c.type === 'Select'" v-model="r[c.field]" class="h-8 w-full min-w-[130px] rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white">
+                        <option v-for="op in (d.options[c.options] || [])" :key="op.value" :value="op.value">{{ op.label || op.value }}</option>
+                      </select>
+                      <SearchSelect v-else-if="c.type === 'Link'" v-model="r[c.field]" :items="d.options[c.options] || []" :placeholder="L('Select…','اختر…','Choisir…')" inputClass="h-8 text-[12px] bg-white min-w-[220px]" />
+                      <input v-else v-model="r[c.field]" class="h-8 w-full min-w-[120px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white" />
                     </td>
+                    <td v-if="d.tax.can_edit" class="px-1 py-1 text-center w-8"><button type="button" class="text-ink-muted hover:text-sale" @click="txv.splice(txv.indexOf(r), 1)"><Icon name="close" :size="13" /></button></td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+            <div v-if="d.tax.can_edit" class="px-3 py-2 border-t border-line-hair flex items-center gap-3 flex-wrap">
+              <button type="button" class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:text-accent-dark" @click="addTaxRow"><Icon name="plus" :size="12" />{{ L("Add a tax row", "إضافة سطر ضريبة", "Ajouter une taxe") }}</button>
+              <span class="text-[10.5px] text-ink-muted">{{ L("Set the type to Actual and type the amount printed on the invoice when the rates are mixed.", "خلّي النوع Actual واكتبي المبلغ المطبوع في الفاتورة لما الضرايب تكون مختلطة.", "Type « Actual » pour saisir le montant figurant sur la facture.") }}</span>
             </div>
           </div>
         </template>
@@ -243,6 +256,12 @@ async function load() {
 onMounted(load);
 watch(() => props.name, load);
 
+function addTaxRow() {
+  const row = {};
+  for (const c of d.value.tax?.columns || []) row[c.field] = "";
+  row.charge_type = "Actual";
+  txv.value.push(row);
+}
 function addRow() {
   const row = {};
   for (const c of d.value.child?.columns || []) row[c.field] = "";
