@@ -37,8 +37,24 @@
             <div v-for="it in e.items" :key="it.name" class="flex items-center gap-2 py-1.5 text-[12px] border-b border-line-hair/50 last:border-b-0">
               <span class="w-2 h-2 rounded-sm shrink-0" :style="`background:${it.type==='Earning' ? '#0f766e' : '#be123c'}`"></span>
               <span class="flex-1 truncate">{{ it.comp }}</span>
-              <span class="tnum font-semibold" :class="it.type==='Earning' ? 'text-teal-700' : 'text-rose-600'">{{ it.type==='Earning' ? '+' : '−' }}{{ money(it.amount) }}</span>
-              <button v-if="canWrite" type="button" class="text-ink-muted hover:text-sale p-0.5" :disabled="busy===it.name" @click="remove(it)"><Icon :name="busy===it.name ? 'clock' : 'close'" :size="13" /></button>
+              <!-- The amount is the thing that gets corrected, so it is the thing
+                   you click. ERPNext cannot edit a submitted Additional Salary —
+                   nothing on it is allow_on_submit — so saving replaces it, as
+                   one audited action instead of a delete and a re-entry. -->
+              <template v-if="editing === it.name">
+                <input v-model="editAmt" type="number" step="0.01" dir="ltr"
+                       class="fld fld-xs w-28 text-end" @keyup.enter="saveEdit(it)" @keyup.esc="editing = ''" />
+                <UiButton variant="primary" size="xs" :busy="busy === it.name" @click="saveEdit(it)">{{ L("Save","حفظ","OK") }}</UiButton>
+                <UiButton variant="quiet" size="xs" @click="editing = ''">{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+              </template>
+              <template v-else>
+                <button type="button" :disabled="!canWrite"
+                        class="tnum font-semibold rounded-[6px] px-1 -mx-1 disabled:cursor-default enabled:hover:bg-white"
+                        :class="it.type==='Earning' ? 'text-teal-700' : 'text-rose-600'"
+                        :title="canWrite ? L('Click to change the amount','اضغط لتعديل المبلغ','Modifier') : ''"
+                        @click="startEdit(it)">{{ it.type==='Earning' ? '+' : '−' }}{{ money(it.amount) }}</button>
+                <button v-if="canWrite" type="button" class="text-ink-muted hover:text-sale p-0.5" :disabled="busy===it.name" @click="remove(it)"><Icon :name="busy===it.name ? 'clock' : 'close'" :size="13" /></button>
+              </template>
             </div>
             <button v-if="canWrite" type="button" class="mt-1 text-[11px] font-semibold text-accent hover:text-accent-dark inline-flex items-center gap-1" @click="openAdd(e)"><Icon name="plus" :size="11" />{{ L("Add for","إضافة لـ","Ajouter pour") }} {{ e.nm }}</button>
           </div>
@@ -164,6 +180,32 @@ async function save() {
   } catch (e) { err.value = String(e?.message || e).slice(0, 200); }
   finally { saving.value = false; }
 }
+
+// Editing an adjustment in place. 172 of these were touched in 60 days and every
+// correction meant deleting the line and keying it again — on the Desk, because
+// the portal only offered add and remove.
+const editing = ref("");
+const editAmt = ref("");
+function startEdit(it) {
+  if (!canWrite.value) return;
+  editing.value = it.name;
+  editAmt.value = String(it.amount);
+}
+async function saveEdit(it) {
+  const amt = Number(editAmt.value);
+  if (!(amt > 0)) { toast.error(L("Amount must be greater than zero", "المبلغ لازم يكون أكبر من صفر", "Montant > 0")); return; }
+  if (amt === Number(it.amount)) { editing.value = ""; return; }
+  busy.value = it.name;
+  try {
+    await api.call("accounting_portal.api.payroll.update_adjustment",
+      { company: currentCompany(), name: it.name, amount: amt });
+    toast.success(L("Adjustment updated", "تم التعديل", "Modifié"));
+    editing.value = "";
+    load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 200)); }
+  finally { busy.value = ""; }
+}
+
 async function remove(it) {
   if (busy.value) return;
   if (!window.confirm(L(`Remove ${it.comp}?`, `حذف ${it.comp}؟`, `Supprimer ?`))) return;

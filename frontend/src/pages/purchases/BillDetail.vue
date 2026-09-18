@@ -117,9 +117,41 @@
       <div v-if="related.orders.length || related.receipts.length || related.payments.length" class="flex flex-wrap gap-2">
         <button v-for="po in related.orders" :key="po" @click="openDoc('tobuy', po)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="12" color="#b45309" />{{ po }}</button>
         <button v-for="gr in related.receipts" :key="gr" @click="openDoc('received', gr)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm"><Icon name="truck" :size="12" color="#c2410c" />{{ gr }}</button>
-        <button v-for="pe in related.payments" :key="pe" @click="openDoc('payments', pe)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="12" color="#047857" />{{ pe }}</button>
       </div>
-      <div v-else class="text-[12px] text-ink-muted">{{ L("No linked PO, receipt or payment.","لا أمر شراء أو استلام أو دفعة مرتبطة.","Aucun document lié.") }}</div>
+      <div v-if="!related.orders.length && !related.receipts.length && !payments.length" class="text-[12px] text-ink-muted">{{ L("No linked PO, receipt or payment.","لا أمر شراء أو استلام أو دفعة مرتبطة.","Aucun document lié.") }}</div>
+
+      <!-- Payments used to be a row of bare document numbers, which answers
+           "is there a payment" and not "who paid it, when, and how much of
+           it" — the question the accountant was going to the Desk to filter
+           for. Same data, as a table that answers it. -->
+      <div v-if="payments.length" class="mt-3 border border-line-hair rounded-[10px] overflow-hidden">
+        <table class="w-full text-[12px]">
+          <thead><tr class="text-[11px] font-semibold text-ink-muted" style="background:#fafaf9">
+            <th class="px-3 py-1.5 text-start">{{ L("Payment","الدفعة","Paiement") }}</th>
+            <th class="px-2 py-1.5 text-start">{{ L("Date","التاريخ","Date") }}</th>
+            <th class="px-2 py-1.5 text-start">{{ L("Method","الطريقة","Mode") }}</th>
+            <th class="px-2 py-1.5 text-end">{{ L("Applied here","المخصَّص هنا","Affecté") }}</th>
+            <th class="px-3 py-1.5 text-end">{{ L("Payment total","إجمالي الدفعة","Total") }}</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="pe in payments" :key="pe.name" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="openDoc('payments', pe.name)">
+              <td class="px-3 py-1.5 font-mono">
+                {{ pe.name }}
+                <span v-if="pe.docstatus === 0" class="text-[10px] ms-1 text-tone-warn">{{ L("draft","مسودة","brouillon") }}</span>
+              </td>
+              <td class="px-2 py-1.5 tnum">{{ pe.posting_date }}</td>
+              <td class="px-2 py-1.5 text-ink-3">{{ pe.mode_of_payment || pe.reference_no || "—" }}</td>
+              <td class="px-2 py-1.5 text-end tnum font-semibold">{{ money(pe.allocated_amount) }}</td>
+              <td class="px-3 py-1.5 text-end tnum text-ink-3">{{ money(pe.paid_amount) }}</td>
+            </tr>
+          </tbody>
+          <tfoot><tr class="border-t border-line-2">
+            <td colspan="3" class="px-3 py-1.5 text-[11px] text-ink-3">{{ L("Applied to this bill","المخصَّص لهذه الفاتورة","Affecté à cette facture") }}</td>
+            <td class="px-2 py-1.5 text-end tnum font-bold">{{ money(paidAllocated) }}</td>
+            <td></td>
+          </tr></tfoot>
+        </table>
+      </div>
     </div>
 
     <!-- Posted journal -->
@@ -221,7 +253,10 @@ const matched = computed(() => !!vm.value?.matched);
 const legs = computed(() => vm.value?.legs || []);
 const items = computed(() => vm.value?.items || []);
 const journal = computed(() => vm.value?.journal || []);
+const money = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const related = computed(() => vm.value?.related || { orders: [], receipts: [], payments: [] });
+const payments = computed(() => vm.value?.payments || []);
+const paidAllocated = computed(() => Number(vm.value?.paid_allocated || 0));
 function openDoc(sub, id) { router.push({ path: `/accounting/purchases/${sub}`, query: { id } }); }
 
 function back() { router.push({ path: "/accounting/purchases/bills" }); }

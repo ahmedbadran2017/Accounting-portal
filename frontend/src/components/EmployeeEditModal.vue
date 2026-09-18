@@ -14,34 +14,39 @@
       <template v-else>
         <div class="p-5 space-y-3 max-h-[62vh] overflow-y-auto">
           <div class="grid grid-cols-2 gap-3">
-            <Field :label="L('First name','الاسم الأول','Prénom')"><input v-model.trim="f.first_name" class="fi" /></Field>
-            <Field :label="L('Last name','اسم العائلة','Nom')"><input v-model.trim="f.last_name" class="fi" /></Field>
+            <Field :label="L('First name','الاسم الأول','Prénom')"><input v-model.trim="f.first_name" class="fld fld-sm mt-1 w-full" /></Field>
+            <Field :label="L('Last name','اسم العائلة','Nom')"><input v-model.trim="f.last_name" class="fld fld-sm mt-1 w-full" /></Field>
           </div>
-          <Field v-if="employee" :label="L('Full name','الاسم الكامل','Nom complet')"><input v-model.trim="f.employee_name" class="fi" /></Field>
+          <Field v-if="employee" :label="L('Full name','الاسم الكامل','Nom complet')"><input v-model.trim="f.employee_name" class="fld fld-sm mt-1 w-full" /></Field>
           <div class="grid grid-cols-2 gap-3">
-            <Field :label="L('Gender','النوع','Genre')"><select v-model="f.gender" class="fi"><option value="">—</option><option v-for="g in opt.genders" :key="g" :value="g">{{ g }}</option></select></Field>
-            <Field :label="L('Date of birth','تاريخ الميلاد','Naissance')"><input type="date" v-model="f.date_of_birth" class="fi" /></Field>
+            <Field :label="L('Gender','النوع','Genre')"><select v-model="f.gender" class="fld fld-sm mt-1 w-full"><option value="">—</option><option v-for="g in opt.genders" :key="g" :value="g">{{ g }}</option></select></Field>
+            <Field :label="L('Date of birth','تاريخ الميلاد','Naissance')"><input type="date" v-model="f.date_of_birth" class="fld fld-sm mt-1 w-full" /></Field>
           </div>
           <div class="grid grid-cols-2 gap-3">
-            <Field :label="L('Joined','تاريخ التعيين','Embauche')"><input type="date" v-model="f.date_of_joining" class="fi" /></Field>
-            <Field v-if="employee" :label="L('Status','الحالة','Statut')"><select v-model="f.status" class="fi"><option v-for="s in opt.statuses" :key="s" :value="s">{{ s }}</option></select></Field>
+            <Field :label="L('Joined','تاريخ التعيين','Embauche')"><input type="date" v-model="f.date_of_joining" class="fld fld-sm mt-1 w-full" /></Field>
+            <Field v-if="employee" :label="L('Status','الحالة','Statut')"><select v-model="f.status" class="fld fld-sm mt-1 w-full"><option v-for="s in opt.statuses" :key="s" :value="s">{{ s }}</option></select></Field>
           </div>
-          <Field v-if="employee && (f.status==='Left' || f.status==='Suspended')" :label="L('Relieving date','تاريخ ترك العمل','Date de départ')"><input type="date" v-model="f.relieving_date" class="fi" /></Field>
+          <Field v-if="employee && (f.status==='Left' || f.status==='Suspended')" :label="L('Relieving date','تاريخ ترك العمل','Date de départ') + ' *'">
+              <input type="date" v-model="f.relieving_date" class="fld fld-sm mt-1 w-full" />
+              <!-- ERPNext refuses the save without it, and six "Update employee"
+                   actions died on that raw message. Ask for it here instead. -->
+              <span v-if="!f.relieving_date" class="block text-[11px] text-tone-warn mt-1">{{ L("Required once someone is Left or Suspended.","مطلوب لما الحالة تبقى ترك العمل أو موقوف.","Obligatoire.") }}</span>
+            </Field>
           <div class="grid grid-cols-2 gap-3">
-            <Field :label="L('Department','القسم','Service')"><select v-model="f.department" class="fi"><option value="">—</option><option v-for="d in opt.departments" :key="d" :value="d">{{ d }}</option></select></Field>
-            <Field :label="L('Designation','المسمى','Poste')"><select v-model="f.designation" class="fi"><option value="">—</option><option v-for="d in opt.designations" :key="d" :value="d">{{ d }}</option></select></Field>
+            <Field :label="L('Department','القسم','Service')"><select v-model="f.department" class="fld fld-sm mt-1 w-full"><option value="">—</option><option v-for="d in opt.departments" :key="d" :value="d">{{ d }}</option></select></Field>
+            <Field :label="L('Designation','المسمى','Poste')"><select v-model="f.designation" class="fld fld-sm mt-1 w-full"><option value="">—</option><option v-for="d in opt.designations" :key="d" :value="d">{{ d }}</option></select></Field>
           </div>
-          <Field :label="L('Employment type','نوع التوظيف','Type')"><select v-model="f.employment_type" class="fi"><option value="">—</option><option v-for="t in opt.employment_types" :key="t" :value="t">{{ t }}</option></select></Field>
+          <Field :label="L('Employment type','نوع التوظيف','Type')"><select v-model="f.employment_type" class="fld fld-sm mt-1 w-full"><option value="">—</option><option v-for="t in opt.employment_types" :key="t" :value="t">{{ t }}</option></select></Field>
           <div class="grid grid-cols-2 gap-3">
-            <Field :label="L('Phone','الهاتف','Téléphone')"><input v-model.trim="f.cell_number" class="fi" /></Field>
-            <Field :label="L('Company email','إيميل الشركة','Email pro')"><input v-model.trim="f.company_email" class="fi" /></Field>
+            <Field :label="L('Phone','الهاتف','Téléphone')"><input v-model.trim="f.cell_number" class="fld fld-sm mt-1 w-full" /></Field>
+            <Field :label="L('Company email','إيميل الشركة','Email pro')"><input v-model.trim="f.company_email" class="fld fld-sm mt-1 w-full" /></Field>
           </div>
           <div class="text-[11px] font-bold uppercase tracking-wider text-ink-muted pt-1">{{ L("Bank", "البنك", "Banque") }}</div>
           <div class="grid grid-cols-2 gap-3">
-            <Field :label="L('Bank name','اسم البنك','Banque')"><input v-model.trim="f.bank_name" class="fi" /></Field>
-            <Field :label="L('Account no','رقم الحساب','N° compte')"><input v-model.trim="f.bank_ac_no" class="fi" /></Field>
+            <Field :label="L('Bank name','اسم البنك','Banque')"><input v-model.trim="f.bank_name" class="fld fld-sm mt-1 w-full" /></Field>
+            <Field :label="L('Account no','رقم الحساب','N° compte')"><input v-model.trim="f.bank_ac_no" class="fld fld-sm mt-1 w-full" /></Field>
           </div>
-          <Field :label="L('IBAN','IBAN','IBAN')"><input v-model.trim="f.iban" class="fi" /></Field>
+          <Field :label="L('IBAN','IBAN','IBAN')"><input v-model.trim="f.iban" class="fld fld-sm mt-1 w-full" /></Field>
           <div v-if="err" class="text-[12px] text-sale">{{ err }}</div>
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
@@ -83,7 +88,11 @@ const EDITABLE = ["employee_name", "first_name", "last_name", "gender", "date_of
 const f = reactive(Object.fromEntries(EDITABLE.map((k) => [k, ""])));
 f.status = "Active";
 
-const valid = computed(() => f.first_name && f.gender && f.date_of_birth && f.date_of_joining);
+const valid = computed(() =>
+  f.first_name && f.gender && f.date_of_birth && f.date_of_joining
+  // ERPNext throws "Please enter relieving date" on a Left/Suspended employee
+  // without one. Six saves failed on that; block the button instead.
+  && !((f.status === "Left" || f.status === "Suspended") && !f.relieving_date));
 
 onMounted(async () => {
   try {
@@ -121,7 +130,4 @@ async function save() {
 }
 </script>
 
-<style scoped>
-.fi { margin-top: 4px; width: 100%; border: 1px solid var(--line-2, #e7e5e4); border-radius: 999px; padding: 8px 12px; font-size: 12px; outline: none; }
-.fi:focus { border-color: rgba(15, 118, 110, .4); }
-</style>
+

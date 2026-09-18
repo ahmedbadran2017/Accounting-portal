@@ -33,7 +33,7 @@ _BILL_SORT = {"date": "pi.posting_date", "amount": "pi.grand_total", "supplier":
 
 @frappe.whitelist()
 def list_bills(company=None, search=None, from_date=None, to_date=None, start=0, page_size=25,
-               sort_field="date", sort_dir="desc", status=None):
+               sort_field="date", sort_dir="desc", status=None, owner=None):
     """Bills for one company with a derived 3-way-match flag, server-paginated."""
     assert_portal_access()
     companies = resolve_companies(company)
@@ -65,6 +65,8 @@ def list_bills(company=None, search=None, from_date=None, to_date=None, start=0,
         conds.append("pi.posting_date >= %(fd)s"); params["fd"] = from_date
     if to_date:
         conds.append("pi.posting_date <= %(td)s"); params["td"] = to_date
+    if owner:
+        conds.append("pi.owner = %(own)s"); params["own"] = owner
     if search:
         conds.append("(pi.name LIKE %(s)s OR pi.supplier LIKE %(s)s OR pi.bill_no LIKE %(s)s)")
         params["s"] = f"%{search}%"
@@ -122,9 +124,25 @@ def get_bill(name):
     pi["status_norm"] = _bill_status(pi)
     pi["related_orders"] = sorted({i.po for i in items if i.po})
     pi["related_receipts"] = sorted({i.pr for i in items if i.pr})
-    pi["related_payments"] = [r.name for r in frappe.db.sql(
-        """SELECT DISTINCT parent AS name FROM `tabPayment Entry Reference`
-           WHERE reference_doctype='Purchase Invoice' AND reference_name=%s""", (name,), as_dict=True)]
+    # Names only answered "is there a payment". The question people actually ask
+    # a bill is "who paid it, when, and how much of it" — which is why the
+    # accountant kept filtering Payment Entry by this bill on the Desk instead.
+    pays = frappe.db.sql(
+        """SELECT pe.name, pe.posting_date, pe.paid_amount, pe.mode_of_payment,
+                  pe.reference_no, pe.docstatus, pe.paid_from, pe.party,
+                  r.allocated_amount, pe.paid_from_account_currency AS ccy
+           FROM `tabPayment Entry Reference` r
+           JOIN `tabPayment Entry` pe ON pe.name = r.parent
+           WHERE r.reference_doctype='Purchase Invoice' AND r.reference_name=%s
+             AND pe.docstatus < 2
+           ORDER BY pe.posting_date, pe.name""", (name,), as_dict=True)
+    for r in pays:
+        r["allocated_amount"] = flt(r["allocated_amount"])
+        r["paid_amount"] = flt(r["paid_amount"])
+    pi["payments"] = pays
+    pi["paid_allocated"] = flt(sum(r["allocated_amount"] for r in pays))
+    # Kept for anything still reading the old shape.
+    pi["related_payments"] = [r["name"] for r in pays]
     pi["journal"] = _voucher_journal(name)
     return pi
 

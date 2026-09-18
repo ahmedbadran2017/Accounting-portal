@@ -31,6 +31,8 @@ function liveVM(d, l) {
     items: (d.items || []).map((it) => ({ name: it.name, code: it.item_code, sku: it.sku, image: it.image, qty: it.qty, rate: f2(it.rate), amount: f2(it.amount), po: it.po, pr: it.pr })),
     legs: legsFor(matched, l),
     related: { orders: d.related_orders || [], receipts: d.related_receipts || [], payments: d.related_payments || [] },
+    payments: d.payments || [],
+    paid_allocated: Number(d.paid_allocated) || 0,
     journal: (d.journal || []).map((j) => ({ acc: j.acc, dr: j.dr ? f2(j.dr) : "", cr: j.cr ? f2(j.cr) : "" })),
   };
 }
@@ -43,7 +45,8 @@ function sampleVM(bill, l) {
   const journal = isReturn
     ? [{ acc: "320.01 Creditors", dr: amt.replace("-", ""), cr: "" }, { acc: "71.801 Cost of Goods Sold / Stock", dr: "", cr: amt.replace("-", "") }]
     : [{ acc: "153.01 Stock in Hand / Expense", dr: amt, cr: "" }, { acc: "320.01 Creditors", dr: "", cr: amt }];
-  return { b: bill, matched, legs: legsFor(matched, l), related: { orders: [], receipts: [], payments: [] }, journal };
+  return { b: bill, matched, legs: legsFor(matched, l), related: { orders: [], receipts: [], payments: [] },
+           payments: [], paid_allocated: 0, journal };
 }
 
 export function useBills() {

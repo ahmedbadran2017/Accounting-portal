@@ -35,6 +35,48 @@
       <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted">{{ L("A submitted structure cannot change in ERPNext: copy it as a new one with the new amounts, then re-assign the employee.", "الهيكل المرحّل مش بيتعدل في ERPNext: انسخه كهيكل جديد بالمبالغ الجديدة واربط الموظف عليه.", "Une structure soumise ne se modifie pas : copiez-la puis réassignez.") }}</div>
     </div>
 
+    <!-- Who is actually on which structure. The portal could create an
+         assignment and never show one, so "is this person assigned, and at what
+         base" was a Desk question — and it is the question behind almost every
+         payroll run that reports "No employees found". -->
+    <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2">
+        <Icon name="users" :size="14" color="#0b5c4f" />
+        <span class="text-[12px] font-semibold">{{ L("Assignments", "الربط بالموظفين", "Affectations") }}</span>
+        <span class="text-[11px] text-ink-muted">{{ L("the newest row per employee is the one payroll uses", "أحدث سطر لكل موظف هو اللي بيتحسب عليه", "la plus récente s'applique") }}</span>
+      </div>
+
+      <div v-if="unassigned.length" class="px-4 py-2.5 border-b border-line-hair text-[12px]" style="background:#fffbeb;color:#92400e">
+        <b>{{ unassigned.length }}</b>
+        {{ L("active employees have no structure — they are silently skipped by a payroll run.", "موظف نشط من غير هيكل — بيتسابوا من غير تنبيه لما تعمل تشغيل رواتب.", "employés actifs sans structure.") }}
+        <span class="text-[11px]">{{ unassigned.map((u) => u.nm).join(" · ") }}</span>
+      </div>
+
+      <TableLoading v-if="aLoading" :rows="5" />
+      <div v-else-if="!assignments.length" class="px-4 py-8 text-center text-[12px] text-ink-muted">{{ L("No assignments yet.", "مفيش ربط لسه.", "Aucune affectation.") }}</div>
+      <table v-else class="w-full text-[12px]">
+        <thead><tr class="text-[11px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
+          <th class="px-4 py-2 text-start">{{ L("Employee", "الموظف", "Employé") }}</th>
+          <th class="px-2 py-2 text-start">{{ L("Structure", "الهيكل", "Structure") }}</th>
+          <th class="px-2 py-2 text-start">{{ L("From", "من", "Depuis") }}</th>
+          <th class="px-2 py-2 text-end">{{ L("Base", "الأساسي", "Base") }}</th>
+        </tr></thead>
+        <tbody>
+          <tr v-for="a in assignments" :key="a.name" class="border-t border-line-hair"
+              :class="a.current ? '' : 'text-ink-muted'">
+            <td class="px-4 py-2">
+              {{ a.nm }}
+              <span v-if="!a.current" class="text-[10px] ms-1">{{ L("superseded", "مُستبدَل", "remplacé") }}</span>
+              <span v-else-if="a.emp_status !== 'Active'" class="text-[10px] ms-1 text-tone-warn">{{ a.emp_status }}</span>
+            </td>
+            <td class="px-2 py-2">{{ a.salary_structure }}</td>
+            <td class="px-2 py-2 tnum">{{ a.from_date }}</td>
+            <td class="px-2 py-2 text-end tnum">{{ money(a.base) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- editor -->
     <div v-if="edOpen" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" @click.self="edOpen = false">
       <div class="bg-white rounded-card shadow-pop w-full max-w-2xl max-h-[92vh] flex flex-col">
@@ -95,6 +137,21 @@ const rows = ref([]); const loading = ref(true); const busy = ref(false);
 const opts = ref({ components: [], modes: [], frequencies: [] });
 const compItems = (grp) => opts.value.components.filter((c) => (grp === "earnings" ? c.type === "Earning" : c.type === "Deduction")).map((c) => ({ value: c.value, label: c.value }));
 
+
+const assignments = ref([]);
+const unassigned = ref([]);
+const aLoading = ref(true);
+async function loadAssignments() {
+  aLoading.value = true;
+  try {
+    const r = await api.call("accounting_portal.api.payroll.list_structure_assignments",
+      { company: currentCompany() }, { fresh: true }) || {};
+    assignments.value = r.rows || [];
+    unassigned.value = r.unassigned || [];
+  } catch { assignments.value = []; unassigned.value = []; }
+  finally { aLoading.value = false; }
+}
+
 async function load() {
   loading.value = true;
   try { rows.value = (await api.call("accounting_portal.api.payroll.list_salary_structures", { company: currentCompany() }, { fresh: true }))?.rows || []; }
@@ -131,6 +188,6 @@ async function toggleActive(r) {
   try { await api.call("accounting_portal.api.payroll.set_structure_active", { company: currentCompany(), name: r.name, active: r.is_active === "Yes" ? 0 : 1 }); load(); }
   catch (e) { toast.error(String(e?.message || e).slice(0, 160)); } finally { busy.value = false; }
 }
-onMounted(() => { load(); loadOpts(); });
-watch(entityId, () => { load(); loadOpts(); });
+onMounted(() => { load(); loadOpts(); loadAssignments(); });
+watch(entityId, () => { load(); loadOpts(); loadAssignments(); });
 </script>

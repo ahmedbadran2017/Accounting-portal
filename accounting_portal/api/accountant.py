@@ -272,7 +272,7 @@ def create_journal_entry(company=None, posting_date=None, lines=None, remark=Non
 
 @frappe.whitelist()
 def list_journals(company=None, search=None, from_date=None, to_date=None,
-                  start=0, page_size=25, sort_field="date", sort_dir="desc", status=None):
+                  start=0, page_size=25, sort_field="date", sort_dir="desc", status=None, owner=None):
     """Journal Entries for one company, server-paginated. Includes drafts
     (docstatus 0) so they can be submitted."""
     assert_portal_access()
@@ -288,6 +288,8 @@ def list_journals(company=None, search=None, from_date=None, to_date=None,
         conds.append("je.posting_date >= %(fd)s"); params["fd"] = from_date
     if to_date:
         conds.append("je.posting_date <= %(td)s"); params["td"] = to_date
+    if owner:
+        conds.append("je.owner = %(own)s"); params["own"] = owner
     if search:
         conds.append("(je.name LIKE %(s)s OR IFNULL(je.user_remark,'') LIKE %(s)s OR IFNULL(je.cheque_no,'') LIKE %(s)s OR je.voucher_type LIKE %(s)s)")
         params["s"] = f"%{search}%"

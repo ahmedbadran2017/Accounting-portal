@@ -840,6 +840,50 @@ def assignment_options(company=None):
 
 
 @frappe.whitelist()
+def list_structure_assignments(company=None, employee=None, limit=300):
+    """Who is on which structure, at what base, from when.
+
+    The portal could create an assignment but never show one, so the only way to
+    answer "is this person assigned, and at what base" was the Desk list — opened
+    16 times in a fortnight. A payroll run that reports "No employees found" is
+    almost always answered here.
+    """
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": []}
+    conds = ["a.company = %(c)s", "a.docstatus < 2"]
+    params = {"c": target, "lim": int(limit or 300)}
+    if employee:
+        conds.append("a.employee = %(e)s"); params["e"] = employee
+    rows = frappe.db.sql(
+        """SELECT a.name, a.employee, e.employee_name nm, e.status emp_status,
+                  a.salary_structure, a.from_date, a.base, a.currency, a.docstatus
+           FROM `tabSalary Structure Assignment` a
+           JOIN `tabEmployee` e ON e.name = a.employee
+           WHERE """ + " AND ".join(conds) + """
+           ORDER BY e.employee_name, a.from_date DESC
+           LIMIT %(lim)s""", params, as_dict=True)
+    # Only the newest row per employee is the one payroll will actually use;
+    # the rest are history, and showing them all equally is how people end up
+    # reading a superseded base as the current salary.
+    seen = set()
+    for r in rows:
+        r["base"] = _m(r["base"])
+        r["current"] = r["employee"] not in seen
+        seen.add(r["employee"])
+    # Active staff with no assignment at all — the actual cause of an empty run.
+    unassigned = frappe.db.sql(
+        """SELECT e.name, e.employee_name nm FROM `tabEmployee` e
+           WHERE e.company=%s AND e.status='Active'
+             AND NOT EXISTS (SELECT 1 FROM `tabSalary Structure Assignment` a
+                             WHERE a.employee=e.name AND a.docstatus=1)
+           ORDER BY e.employee_name""", (target,), as_dict=True)
+    return {"company": target, "currency": _ccy(target), "rows": rows,
+            "unassigned": unassigned, "count": len(rows)}
+
+
+@frappe.whitelist()
 def assign_structure(company=None, employee=None, salary_structure=None, from_date=None, base=None, notes=None):
     """Assign a salary structure to an employee (Salary Structure Assignment) so the
     payroll run can generate their slip. Audited + reversible (cancels the SSA)."""
@@ -961,6 +1005,76 @@ def _adj_poster(doc):
         a.submit()
     return {"voucher_type": "Additional Salary", "voucher_no": a.name,
             "result": {"employee": p["employee"], "component": p["salary_component"], "amount": flt(p["amount"])}}
+
+
+ADJ_EDIT_ACTION = "Edit adjustment"
+
+
+@frappe.whitelist()
+def update_adjustment(company=None, name=None, amount=None, salary_component=None, notes=None):
+    """Change a bonus / deduction that is already there.
+
+    ERPNext has no editable field on a submitted Additional Salary — not amount,
+    not component, not the date; every one of them is `allow_on_submit = 0`. So
+    "edit" is cancel-and-replace, in ERPNext and here alike. That is exactly what
+    the team has been doing by hand on the Desk: 172 adjustments touched in 60
+    days, each correction a delete and a re-entry under a new document name.
+
+    This does the same thing as ONE gated action, so the audit trail reads
+    "Edit adjustment: 1,500 → 1,200" instead of an unexplained delete followed
+    by an unexplained insert.
+    """
+    assert_can_write()
+    target = _target(company)
+    if not (target and name):
+        frappe.throw("company and name are required")
+    old = frappe.db.get_value("Additional Salary", {"name": name, "company": target},
+                              ["name", "employee", "salary_component", "amount", "payroll_date", "docstatus"],
+                              as_dict=True)
+    if not old:
+        frappe.throw("Adjustment not found")
+    if old.docstatus == 2:
+        frappe.throw("This adjustment is already cancelled")
+    amt = _m(amount) if amount is not None else _m(old.amount)
+    comp = salary_component or old.salary_component
+    if amt <= 0:
+        frappe.throw("Amount must be greater than zero")
+    # Changing it after the slip is out changes nothing on the payslip and
+    # quietly desynchronises the two. Say so rather than let it look applied.
+    if old.payroll_date:
+        start, end = _month_bounds(str(old.payroll_date)[:7])
+        if frappe.db.exists("Salary Slip", {"employee": old.employee, "docstatus": 1,
+                                            "start_date": [">=", start], "end_date": ["<=", end]}):
+            frappe.throw("The payslip for this month is already submitted — the adjustment "
+                         "cannot change it. Cancel the slip first, or post a correction next month.")
+    from accounting_portal.api import _actions
+    key = "payadjedit:" + _digest(f"{name}:{comp}:{amt}", 14)
+    return _actions.execute(
+        ADJ_EDIT_ACTION, target, key,
+        payload={"name": name, "salary_component": comp, "amount": amt,
+                 "employee": old.employee, "payroll_date": str(old.payroll_date or "")},
+        amount=0,
+        notes=notes or f"{old.salary_component} {_m(old.amount)} \u2192 {comp} {amt} for {old.employee}")
+
+
+def _adj_edit_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    old = frappe.get_doc("Additional Salary", p["name"])
+    if old.docstatus == 1:
+        old.cancel()
+    frappe.delete_doc("Additional Salary", p["name"], force=1, ignore_permissions=True)
+    ctype = frappe.db.get_value("Salary Component", p["salary_component"], "type")
+    a = frappe.get_doc({
+        "doctype": "Additional Salary", "company": doc.company, "employee": p["employee"],
+        "salary_component": p["salary_component"], "type": ctype, "amount": flt(p["amount"]),
+        "currency": _ccy(doc.company), "payroll_date": p.get("payroll_date") or None,
+        "overwrite_salary_structure_amount": 0,
+    })
+    a.insert(ignore_permissions=True)
+    if a.meta.is_submittable:
+        a.submit()
+    return {"voucher_type": "Additional Salary", "voucher_no": a.name,
+            "result": {"replaced": p["name"], "with": a.name, "amount": flt(p["amount"])}}
 
 
 @frappe.whitelist()
@@ -1410,6 +1524,9 @@ def _register():
     _actions.register_poster(ADJ_ACTION, _adj_poster)
     _actions.register_reverter(ADJ_ACTION, _actions._cancel_voucher_reverter)
     _actions._NO_GATE.add(ADJ_ACTION)  # pre-slip input — no GL until the slip posts
+    _actions.register_poster(ADJ_EDIT_ACTION, _adj_edit_poster)
+    _actions.register_reverter(ADJ_EDIT_ACTION, _actions._cancel_voucher_reverter)
+    _actions._NO_GATE.add(ADJ_EDIT_ACTION)
     _actions.register_poster(EMP_UPDATE_ACTION, _update_emp_poster)
     _actions.register_reverter(EMP_UPDATE_ACTION, _update_emp_reverter)
     _actions._NO_GATE.add(EMP_UPDATE_ACTION)

@@ -52,7 +52,7 @@
     </div>
     <TableLoading v-if="st.loading.value" />
     <div v-else-if="!displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No bills match your filters.","لا توجد فواتير مطابقة.","Aucune facture.") }}</div>
-    <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" :total="st.total.value" export-key="bills" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
+    <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" v-model:owner="listOwner" owner-doctype="Purchase Invoice" :total="st.total.value" export-key="bills" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
     <ServerPager :t="st" />
     <BulkBar :t="st" :actions="bulkActions" filename="bills" />
     </div>
@@ -105,15 +105,16 @@ const st = useServerTable(
 // Status chips + page size + full-list Excel (ListToolbar).
 const listStatus = usePersistedRef("ap_ls_bills", "open");
 const listPageSize = usePersistedRef("ap_lps_bills", 25);
+const listOwner = usePersistedRef("ap_lo_bills", "");
 const extraStatuses = [{ k: "overdue", label: () => L("Overdue","المتأخر","En retard") }, { k: "paid", label: () => L("Paid","المدفوع","Payées") }];
-const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
+const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value, owner: listOwner.value || undefined }));
 let _lsFirst = true;
-watch([listStatus, listPageSize], () => {
+watch([listStatus, listPageSize, listOwner], () => {
   st.pageSize.value = listPageSize.value;
   // First run seeds the filter before the page's own initial load, so opening
   // the list costs one request, not two.
-  if (_lsFirst) { _lsFirst = false; st.filters.value = { ...st.filters.value, status: listStatus.value }; return; }
-  st.setFilters({ status: listStatus.value });
+  if (_lsFirst) { _lsFirst = false; st.filters.value = { ...st.filters.value, status: listStatus.value, owner: listOwner.value || undefined }; return; }
+  st.setFilters({ status: listStatus.value, owner: listOwner.value || undefined });
 }, { immediate: true });
 
 // Arriving from a supplier page (?supplier=…) narrows the list to that supplier.

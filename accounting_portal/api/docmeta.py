@@ -338,3 +338,34 @@ def print_options(doctype=None):
         "letterheads": frappe.get_all("Letter Head", filters={"disabled": 0}, pluck="name", order_by="name"),
         "languages": ["", "en", "ar", "fr"],
     }
+
+
+@frappe.whitelist()
+def doc_owners(doctype=None, company=None, days=180):
+    """Who has actually created documents of this type here.
+
+    Not a user list — a list of the three or four people whose names appear on
+    these documents, so "show me what Rofayda posted" is a dropdown rather than
+    a search. That question was being answered on the Desk: the accountant's
+    saved Journal Entry report view was filtered on `owner`, and no portal list
+    can express it.
+    """
+    assert_portal_access()
+    if not doctype or doctype not in _EDITABLE:
+        return []
+    companies = resolve_companies(company)
+    if not companies:
+        return []
+    target = company if (company and company in companies) else companies[0]
+    has_company = frappe.get_meta(doctype).has_field("company")
+    cond = "AND d.company = %(c)s" if has_company else ""
+    rows = frappe.db.sql(
+        f"""SELECT d.owner, COUNT(*) n, MAX(d.creation) last
+            FROM `tab{doctype}` d
+            WHERE d.creation >= DATE_SUB(NOW(), INTERVAL %(days)s DAY) {cond}
+            GROUP BY d.owner ORDER BY n DESC LIMIT 12""",
+        {"c": target, "days": int(days or 180)}, as_dict=True)
+    names = {u.name: (u.full_name or u.name) for u in frappe.get_all(
+        "User", filters={"name": ["in", [r.owner for r in rows] or [""]]},
+        fields=["name", "full_name"])}
+    return [{"user": r.owner, "label": names.get(r.owner, r.owner), "n": r.n} for r in rows]

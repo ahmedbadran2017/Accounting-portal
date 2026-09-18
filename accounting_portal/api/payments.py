@@ -268,7 +268,8 @@ def create_payment_entry(company=None, party=None, amount=None, account=None,
 
 @frappe.whitelist()
 def list_payments_made(company=None, search=None, from_date=None, to_date=None,
-                       advances_only=0, start=0, page_size=25, sort_field="date", sort_dir="desc", status=None):
+                       advances_only=0, start=0, page_size=25, sort_field="date", sort_dir="desc",
+                       status=None, owner=None):
     """Supplier (Pay) Payment Entries for one company, server-paginated.
     advances_only=1 keeps only payments with money still unallocated to bills."""
     assert_portal_access()
@@ -284,6 +285,8 @@ def list_payments_made(company=None, search=None, from_date=None, to_date=None,
         conds.append("pe.posting_date >= %(fd)s"); params["fd"] = from_date
     if to_date:
         conds.append("pe.posting_date <= %(td)s"); params["td"] = to_date
+    if owner:
+        conds.append("pe.owner = %(own)s"); params["own"] = owner
     if search:
         conds.append("(pe.name LIKE %(s)s OR pe.party LIKE %(s)s OR IFNULL(pe.party_name,'') LIKE %(s)s OR IFNULL(pe.reference_no,'') LIKE %(s)s OR IFNULL(pe.mode_of_payment,'') LIKE %(s)s)")
         params["s"] = f"%{search}%"

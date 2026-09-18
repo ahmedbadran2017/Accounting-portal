@@ -8,6 +8,17 @@
               @click="$emit('update:status', s.k)">{{ s.label() }}</button>
     </div>
 
+    <!-- "What did Rofayda post" — the accountant's saved Desk report view was
+         filtered on owner, and no portal list could express it. A dropdown of
+         the three or four people whose names are actually on these documents,
+         not a user search. -->
+    <select v-if="ownerDoctype && owners.length > 1" :value="owner" class="fld fld-xs"
+            :title="L('Filter by who entered it','فلترة حسب اللي أدخلها','Filtrer par auteur')"
+            @change="$emit('update:owner', $event.target.value)">
+      <option value="">{{ L("Anyone", "أي حد", "Tous") }}</option>
+      <option v-for="o in owners" :key="o.user" :value="o.user">{{ o.label }} ({{ o.n }})</option>
+    </select>
+
     <span class="ms-auto flex items-center gap-2">
       <span v-if="total != null" class="text-[12px] text-ink-muted tnum">{{ total.toLocaleString() }} {{ L("rows", "صف", "lignes") }}</span>
       <select :value="pageSize" @change="$emit('update:pageSize', Number($event.target.value))"
@@ -23,10 +34,11 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { currentCompany } from "@/composables/useLive";
+import api from "@/services/api";
 
 const props = defineProps({
   status: { type: String, default: "open" },
@@ -37,8 +49,11 @@ const props = defineProps({
   exportFilters: { type: Object, default: () => ({}) },
   // Extra business states beyond draft/submitted/cancelled, e.g. overdue for bills.
   extraStatuses: { type: Array, default: () => [] },
+  // The doctype whose authors to offer; empty hides the control entirely.
+  ownerDoctype: { type: String, default: "" },
+  owner: { type: String, default: "" },
 });
-defineEmits(["update:status", "update:pageSize"]);
+defineEmits(["update:status", "update:pageSize", "update:owner"]);
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 
@@ -50,6 +65,16 @@ const statuses = computed(() => [
   { k: "cancelled", label: () => L("Cancelled", "الملغي", "Annulés") },
   { k: "all", label: () => L("All", "الكل", "Tous") },
 ]);
+
+const owners = ref([]);
+async function loadOwners() {
+  if (!props.ownerDoctype) { owners.value = []; return; }
+  try {
+    owners.value = await api.call("accounting_portal.api.docmeta.doc_owners",
+      { doctype: props.ownerDoctype, company: currentCompany() }) || [];
+  } catch { owners.value = []; }
+}
+watch(() => [props.ownerDoctype, currentCompany()], loadOwners, { immediate: true });
 
 const excelUrl = computed(() => {
   const q = new URLSearchParams({ key: props.exportKey, company: currentCompany() });

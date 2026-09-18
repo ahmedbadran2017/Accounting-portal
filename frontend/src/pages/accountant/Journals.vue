@@ -48,7 +48,7 @@
       </table>
     </div>
     <div v-if="!st.loading.value && !displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No journals match your filters.", "لا قيود مطابقة.", "Aucune écriture.") }}</div>
-    <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" :total="st.total.value" export-key="journals" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
+    <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" v-model:owner="listOwner" owner-doctype="Journal Entry" :total="st.total.value" export-key="journals" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
     <ServerPager :t="st" />
     <BulkBar :t="st" :actions="bulkActions" filename="journals" />
     </div>
@@ -119,15 +119,16 @@ const st = useServerTable(
 // Status chips + page size + full-list Excel (ListToolbar).
 const listStatus = usePersistedRef("ap_ls_journals", "open");
 const listPageSize = usePersistedRef("ap_lps_journals", 25);
+const listOwner = usePersistedRef("ap_lo_journals", "");
 const extraStatuses = [];
-const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value }));
+const exportFilters = computed(() => ({ ...st.filters.value, search: st.search.value || undefined, status: listStatus.value, owner: listOwner.value || undefined }));
 let _lsFirst = true;
-watch([listStatus, listPageSize], () => {
+watch([listStatus, listPageSize, listOwner], () => {
   st.pageSize.value = listPageSize.value;
   // First run seeds the filter before the page's own initial load, so opening
   // the list costs one request, not two.
-  if (_lsFirst) { _lsFirst = false; st.filters.value = { ...st.filters.value, status: listStatus.value }; return; }
-  st.setFilters({ status: listStatus.value });
+  if (_lsFirst) { _lsFirst = false; st.filters.value = { ...st.filters.value, status: listStatus.value, owner: listOwner.value || undefined }; return; }
+  st.setFilters({ status: listStatus.value, owner: listOwner.value || undefined });
 }, { immediate: true });
 
 st.load();
