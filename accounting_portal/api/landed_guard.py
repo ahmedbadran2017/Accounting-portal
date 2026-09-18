@@ -73,13 +73,50 @@ def validate_landed_account(doc, method=None):
     # freight arrives BOTH ways: as an item line (expense_account) and as a
     # charge row (account_head) — guarding only the items let charge-row
     # freight through untouched
-    bad = [(d.expense_account or "") for d in (doc.items or []) if _blocked(d.expense_account)]
-    bad += [(t.account_head or "") for t in (doc.taxes or []) if _blocked(t.account_head)]
+    def _bad_of(d):
+        if not d:
+            return set()
+        return {a for a in ([r.get("expense_account") for r in (d.get("items") or [])]
+                            + [r.get("account_head") for r in (d.get("taxes") or [])]) if _blocked(a)}
+
+    bad = sorted(_bad_of(doc))
     if not bad:
+        return
+
+    # The rule is about freight being booked to the P&L, not about the document
+    # being touched. A bill written in June already sits on 770.07; refusing
+    # every save of it locks the accountant out of the only route ERPNext gives
+    # her to correct it — cancel and amend — and out of Change date too. The
+    # guard fired on the copy, which of course still carried the old account.
+    #
+    # So compare with where the document came from. If nothing blocked is NEW,
+    # this is an existing bill being handled rather than fresh freight going to
+    # the wrong place: say so and let it through.
+    prior = set()
+    if doc.get("amended_from"):
+        prior = _bad_of(frappe.get_doc(doc.doctype, doc.amended_from))
+    elif not doc.is_new():
+        before = doc.get_doc_before_save()
+        if before:
+            prior = _bad_of(before)
+        else:
+            # Frappe does not always hand back the pre-save copy. Read the stored
+            # accounts rather than fall through to a throw: an existing bill would
+            # otherwise be locked by the accident of a missing cache entry.
+            prior = {r[0] for r in frappe.db.sql(
+                """SELECT expense_account FROM `tabPurchase Invoice Item` WHERE parent=%(n)s
+                   UNION SELECT account_head FROM `tabPurchase Taxes and Charges` WHERE parent=%(n)s""",
+                {"n": doc.name}) if _blocked(r[0])}
+    if prior and not (set(bad) - prior):
+        frappe.msgprint(
+            f"This bill still sits on {', '.join(bad[:2])}. It is not being blocked — it was "
+            "already there — but freight belongs on the landed-cost clearing account, so this "
+            "is the moment to move it.",
+            title="Freight still in the P&L", indicator="orange")
         return
     clearing = frappe.db.get_value("Company", SALES, "expenses_included_in_valuation") \
         or "153.03 - Expenses Included In Valuation"
-    accs = ", ".join(sorted(set(bad))[:3])
+    accs = ", ".join(bad[:3])
     frappe.throw(
         f"New freight/import bills must NOT hit the P&L family ({accs}). "
         f"Book them to <b>{clearing}</b> — in the portal's New-expense screen tick "
