@@ -34,8 +34,10 @@
             <div v-for="(ln, i) in lines" :key="i" class="flex items-center gap-2">
               <div class="relative flex-1">
                 <input v-model="ln.search" @input="searchItems(i)" @focus="ln.open = true" :placeholder="L('Item…','صنف…','Article…')" class="w-full h-8 bg-white border border-line-2 rounded-[8px] px-2.5 text-[12px] focus:outline-none focus:border-accent/40" />
-                <div v-if="ln.open && ln.opts && ln.opts.length" class="absolute z-30 mt-1 w-full bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-48 overflow-auto">
+                <div v-if="ln.open && ((ln.opts && ln.opts.length) || (ln.search || '').trim().length > 1)" class="absolute z-30 mt-1 w-full bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-48 overflow-auto">
                   <button v-for="o in ln.opts" :key="o.item_code" @click="pickItem(i, o)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm"><div class="font-semibold truncate">{{ o.item_name || o.item_code }}</div><div class="text-[11px] text-ink-muted">{{ o.sku || o.item_code }} · {{ money(o.rate) }}</div></button>
+                  <QuickItemPanel v-if="(ln.search || '').trim().length > 1" :q="(ln.search || '').trim()"
+                                  :has-hits="!!(ln.opts && ln.opts.length)" @created="pickItem(i, $event)" />
                 </div>
                 <div v-if="ln.item_code" class="text-[11px] text-success-dark mt-0.5 truncate">✓ {{ ln.item_code }}</div>
               </div>
@@ -66,6 +68,7 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import QuickItemPanel from "@/components/QuickItemPanel.vue";
 import UiButton from "@/components/UiButton.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";

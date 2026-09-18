@@ -93,7 +93,14 @@ def validate_landed_account(doc, method=None):
     # this is an existing bill being handled rather than fresh freight going to
     # the wrong place: say so and let it through.
     prior = set()
-    if doc.get("amended_from"):
+    # A duplicate is new, has no `amended_from`, and no pre-save copy — so every
+    # blocked account on it reads as brand-new freight and the copy is refused.
+    # It is not new freight; it is the same bill again. The duplicating action
+    # stamps its source here so the guard can compare against it.
+    src = doc.flags.get("ap_copied_from") if doc.flags else None
+    if src and frappe.db.exists(doc.doctype, src):
+        prior = _bad_of(frappe.get_doc(doc.doctype, src))
+    elif doc.get("amended_from"):
         prior = _bad_of(frappe.get_doc(doc.doctype, doc.amended_from))
     elif not doc.is_new():
         before = doc.get_doc_before_save()

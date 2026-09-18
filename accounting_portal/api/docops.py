@@ -219,6 +219,23 @@ def _dup_poster(action):
     # the new posting date and the payment terms.
     if new.meta.has_field("payment_schedule"):
         new.set("payment_schedule", [])
+    # A duplicated Payment Entry keeps the ORIGINAL allocation rows, so ERPNext
+    # refuses it with "Purchase Invoice … has already been fully paid" — the bill
+    # it points at was settled by the payment being copied. Three duplicates died
+    # on this on 2026-09-17. The references belong to that payment, not to a new
+    # one; drop them and let the accountant allocate the copy herself.
+    if dt == "Payment Entry":
+        new.set("references", [])
+        for f in ("total_allocated_amount", "base_total_allocated_amount",
+                  "unallocated_amount", "difference_amount"):
+            if new.meta.has_field(f):
+                new.set(f, 0)
+        if new.meta.has_field("unallocated_amount"):
+            new.unallocated_amount = new.get("paid_amount") or 0
+    # Tell the landed-freight guard where this copy came from. Without it the
+    # copy looks like a brand-new bill posting freight to the P&L and is refused
+    # — which is exactly what happened to PUR-INV-05865 five times on 2026-09-18.
+    new.flags.ap_copied_from = name
     new.flags.ignore_permissions = True
     new.insert()
     return {"voucher_type": dt, "voucher_no": new.name, "result": {"new_doc": new.name, "from": name}}

@@ -130,6 +130,7 @@
 </template>
 
 <script setup>
+import QuickItemPanel from "@/components/QuickItemPanel.vue";
 import { ref, reactive, computed, onMounted, h, Teleport } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -214,18 +215,19 @@ async function save() {
 }
 
 // ── tiny type-ahead pickers (party + item) ──
-function makeBox(fetch, rowOf, idOf) {
+function makeBox(fetch, rowOf, idOf, quick) {
   return {
     props: { modelValue: { type: String, default: "" }, partyType: { type: String, default: "" } },
     emits: ["update:modelValue", "picked"],
     setup(p, { emit: em }) {
       const hits = ref([]); const open = ref(false); let t = null;
+      const lastQ = ref("");
       const inputEl = ref(null);
       const { style, place, follow, unfollow } = useAnchoredMenu(360);
       function show() { open.value = true; place(inputEl.value); follow(); }
       function hide() { open.value = false; unfollow(); }
       function onInput(ev) {
-        const q = ev.target.value; em("update:modelValue", q); show();
+        const q = ev.target.value; lastQ.value = q; em("update:modelValue", q); show();
         clearTimeout(t); t = setTimeout(async () => { hits.value = await fetch(q, p.partyType); place(inputEl.value); }, 220);
       }
       function pick(x) { em("update:modelValue", idOf(x)); em("picked", x); hide(); hits.value = []; }
@@ -234,11 +236,18 @@ function makeBox(fetch, rowOf, idOf) {
           class: "h-8 w-full min-w-[180px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40",
           onInput, onFocus: () => { if (hits.value.length) show(); }, onBlur: () => setTimeout(hide, 150) }),
         // to <body>, so the table's overflow cannot cut the list to one row
-        open.value && hits.value.length
+        open.value && (hits.value.length || (quick && lastQ.value.trim().length > 1))
           ? h(Teleport, { to: "body" }, [
-              h("div", { class: "bg-white border border-line rounded-[10px] shadow-pop py-1", style: style.value },
-                hits.value.map((x) => h("button", { type: "button", class: "w-full text-start px-3 py-2 text-[12px] hover:bg-app-warm flex items-center gap-2.5",
-                  onMousedown: (e) => { e.preventDefault(); pick(x); } }, rowOf(x))))])
+              h("div", { class: "bg-white border border-line rounded-[10px] shadow-pop py-1", style: style.value }, [
+                ...hits.value.map((x) => h("button", { type: "button", class: "w-full text-start px-3 py-2 text-[12px] hover:bg-app-warm flex items-center gap-2.5",
+                  onMousedown: (e) => { e.preventDefault(); pick(x); } }, rowOf(x))),
+                // Nothing here offered to create the article you just failed to
+                // find — so keying a bill for a new fee meant leaving the modal.
+                quick && lastQ.value.trim().length > 1
+                  ? h(QuickItemPanel, { q: lastQ.value.trim(), hasHits: !!hits.value.length,
+                                        onCreated: (made) => { hits.value = [made]; pick(made); } })
+                  : null,
+              ])])
           : null,
       ]);
     },
@@ -258,5 +267,5 @@ const ItemBox = makeBox(
       h("span", { class: "block text-[11px] text-ink-muted font-mono truncate" }, x.sku ? `${x.item_code} · ${x.sku}` : x.item_code),
       x.variant_of_name ? h("span", { class: "block text-[11px] text-ink-muted truncate" }, "↳ " + x.variant_of_name) : null,
     ]),
-  ], (x) => x.item_code);
+  ], (x) => x.item_code, true);
 </script>

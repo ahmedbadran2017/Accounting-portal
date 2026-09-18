@@ -188,7 +188,7 @@ import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
 import { currentCompany } from "@/composables/useLive";
 import { useAnchoredMenu } from "@/utils/anchoredMenu";
-import { useQuickItem } from "@/utils/quickItem";
+import QuickItemPanel from "@/components/QuickItemPanel.vue";
 import { fmtAmount } from "@/utils/helpers";
 
 const props = defineProps({ doctype: { type: String, required: true }, name: { type: String, required: true } });
@@ -350,14 +350,11 @@ const ItemPick = {
     const hits = ref([]); const open = ref(false); let t = null;
     const inputEl = ref(null);
     const lastQ = ref("");
-    const qi = useQuickItem();
-    const INP = "h-8 w-full rounded-[8px] border border-line-2 px-2 text-[12px] bg-white";
     const { style, place, follow, unfollow } = useAnchoredMenu(400);
     const show = () => { open.value = true; place(inputEl.value); follow(); };
     const hide = () => { open.value = false; unfollow(); };
     async function onInput(ev) {
       const q = ev.target.value; em("update:modelValue", q); lastQ.value = q.trim(); show();
-      qi.close();
       clearTimeout(t);
       t = setTimeout(async () => {
         try { hits.value = (await api.call("accounting_portal.api.sales.item_options", { search: q, limit: 15, side: p.side })) || []; }
@@ -365,14 +362,14 @@ const ItemPick = {
         place(inputEl.value);
       }, 220);
     }
-    function pick(o) { em("update:modelValue", o.item_code); em("picked", o); hide(); hits.value = []; qi.close(); }
+    function pick(o) { em("update:modelValue", o.item_code); em("picked", o); hide(); hits.value = []; }
     return () => h("div", { class: "relative" }, [
       h("input", { ref: inputEl, value: p.modelValue, placeholder: "—", dir: "ltr",
         class: "h-8 w-full min-w-[170px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40",
         onInput, onFocus: () => { if (hits.value.length) show(); }, onBlur: () => setTimeout(hide, 150) }),
       // to <body>: the rows table scrolls, and a scrolling ancestor clips an
       // absolute child no matter how high its z-index is
-      open.value && (hits.value.length || qi.form.value || lastQ.value.length > 1)
+      open.value && (hits.value.length || lastQ.value.length > 1)
         ? h(Teleport, { to: "body" }, [
             h("div", { class: "bg-white border border-line rounded-[10px] shadow-pop py-1", style: style.value }, [
               // Picture, then the name, then the code — and the description under
@@ -395,35 +392,13 @@ const ItemPick = {
                     ? h("div", { class: "text-[11px] text-ink-muted truncate" }, "\u21b3 " + o.variant_of_name) : null,
                 ]),
               ])),
-              // Nothing matched: offer to create it here rather than send her to
-              // the Items screen and back. This is the Desk's "Create a new Item".
-              qi.form.value
-                ? h("div", { class: "border-t border-line-hair p-3 space-y-2", onMousedown: (e) => e.preventDefault() }, [
-                    h("div", { class: "text-[12px] font-bold" }, "New item"),
-                    h("input", { class: INP, placeholder: "Code", value: qi.form.value.item_code,
-                                 onInput: (e) => { qi.form.value.item_code = e.target.value; } }),
-                    h("input", { class: INP, placeholder: "Name", value: qi.form.value.item_name,
-                                 onInput: (e) => { qi.form.value.item_name = e.target.value; } }),
-                    h("select", { class: INP, onChange: (e) => { qi.form.value.item_group = e.target.value; } },
-                      qi.opts.value.groups.map((g) => h("option", { value: g, selected: g === qi.form.value.item_group }, g))),
-                    h("select", { class: INP, onChange: (e) => { qi.form.value.uom = e.target.value; } },
-                      qi.opts.value.uoms.map((u) => h("option", { value: u, selected: u === qi.form.value.uom }, u))),
-                    qi.error.value ? h("div", { class: "text-[11px] text-sale" }, qi.error.value) : null,
-                    h("div", { class: "text-[11px] text-ink-muted" }, "Created as a non-stock item. Anything that moves through a warehouse belongs in Items."),
-                    h("div", { class: "flex justify-end gap-2" }, [
-                      h("button", { type: "button", class: "h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3",
-                                    onClick: () => qi.close() }, "Back"),
-                      h("button", { type: "button", class: "h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-ink disabled:opacity-40",
-                                    disabled: qi.busy.value,
-                                    onClick: async () => { const made = await qi.create(); if (made) pick(made); } },
-                        qi.busy.value ? "…" : "Create and use"),
-                    ]),
-                  ])
-                : (lastQ.value.length > 1
-                    ? h("button", { type: "button", class: "w-full text-start px-3 py-2 text-[12px] font-semibold text-accent hover:bg-app-warm border-t border-line-hair",
-                                    onMousedown: (e) => { e.preventDefault(); qi.open(lastQ.value); } },
-                        (hits.value.length ? "\u002b Create a new item \u00ab " : "\u002b Not found \u2014 create \u00ab ") + lastQ.value + " \u00bb")
-                    : null),
+              // One component for this, shared with the invoice modal and the
+              // two order forms — it used to live only here, which is why those
+              // three screens never had it.
+              lastQ.value.trim().length > 1
+                ? h(QuickItemPanel, { q: lastQ.value.trim(), hasHits: !!hits.value.length,
+                                      onCreated: (made) => pick(made) })
+                : null,
             ])
           ])
         : null,

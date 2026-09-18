@@ -178,6 +178,13 @@ def _post(doc):
         if stranded:
             tb = ("SUBMITTED BEFORE FAILING — check and cancel these: "
                   + ", ".join(stranded) + "\n\n" + tb)
+        # `tb[:4000]` kept the head and threw away the tail — and the tail is the
+        # only line that says what went wrong. A "Pay Bill" failure on 2026-09-17
+        # was stored cut off mid-frame inside gl_entry.py, so the exception was
+        # lost and the failure could not be diagnosed from the log at all. Keep
+        # both ends: the head shows which poster ran, the tail carries the message.
+        if len(tb) > 4000:
+            tb = tb[:2600] + "\n\n…  middle of the traceback elided  …\n\n" + tb[-1300:]
         doc.db_set("result", tb[:4000])
         frappe.db.commit()
         raise

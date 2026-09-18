@@ -31,3 +31,23 @@ button:active { transform: scale(.985); }
 
 .yo-card { transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease; }
 .yo-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(28,25,23,.05), 0 18px 40px -16px rgba(28,25,23,.20); }
+
+/* Keyboard focus on form controls.
+ *
+ * 332 text inputs in the app: 124 had no focus style at all (whatever the
+ * browser draws, which differs per browser and is invisible on a white field)
+ * and 32 had `focus:outline-none` with nothing put back — so tabbing through a
+ * row of amount fields showed nothing at all about where you were. An
+ * accountant keys a bill without touching the mouse; this is the cursor.
+ *
+ * A box-shadow ring rather than an outline, deliberately: `focus:outline-none`
+ * is a class (specificity 0-1-0) and would beat any element-level outline rule,
+ * but it does not touch box-shadow, so this reaches every control without
+ * editing 156 files. Components that set their own focus border still win it —
+ * that is the intended look, and this only adds the ring around it. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  box-shadow: 0 0 0 3px rgb(15 118 110 / 0.16);
+  border-color: rgb(15 118 110 / 0.45);
+}

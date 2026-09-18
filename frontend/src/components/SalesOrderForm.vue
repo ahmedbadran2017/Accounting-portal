@@ -35,7 +35,7 @@
               <Icon name="search" :size="13" color="#a8a29e" />
               <input v-model="itemQuery" :placeholder="L('Search item to add…','ابحث عن صنف لإضافته…','Ajouter un article…')" class="flex-1 bg-transparent text-[12px] focus:outline-none" @input="onItemSearch" @focus="itemOpen = true" />
             </div>
-            <div v-if="itemOpen && itemResults.length" class="absolute z-30 mt-1 inset-x-3 bg-white border border-line rounded-[10px] shadow-pop max-h-[320px] overflow-y-auto">
+            <div v-if="itemOpen && (itemResults.length || itemQuery.trim().length > 1)" class="absolute z-30 mt-1 inset-x-3 bg-white border border-line rounded-[10px] shadow-pop max-h-[320px] overflow-y-auto">
               <button v-for="it in itemResults" :key="it.item_code" class="w-full text-start px-3 py-2 text-[12px] hover:bg-app-warm border-b border-line-hair last:border-0 flex items-center gap-2" @click="addItem(it)">
                 <img v-if="it.image" :src="it.image" class="w-10 h-10 rounded-[7px] object-cover border border-line flex-shrink-0" loading="lazy" @error="$event.target.style.display='none'" />
                 <span v-else class="w-10 h-10 rounded-[7px] grid place-items-center bg-app-warm border border-line flex-shrink-0"><Icon name="box" :size="14" color="#a8a29e" /></span>
@@ -46,6 +46,8 @@
                 </span>
                 <span class="text-[11px] tnum text-ink-3">{{ it.rate ? fmt(it.rate) : "" }}</span>
               </button>
+              <QuickItemPanel v-if="itemQuery.trim().length > 1" :q="itemQuery.trim()"
+                              :has-hits="!!itemResults.length" @created="addItem" />
             </div>
           </div>
           <div class="overflow-hidden rounded-b-[12px]">
@@ -106,6 +108,7 @@
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import QuickItemPanel from "@/components/QuickItemPanel.vue";
 import UiButton from "@/components/UiButton.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
