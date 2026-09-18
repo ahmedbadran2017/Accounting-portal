@@ -167,13 +167,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, h, watch } from "vue";
+import { ref, reactive, computed, onMounted, h, watch, Teleport } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
 import { currentCompany } from "@/composables/useLive";
+import { useAnchoredMenu } from "@/utils/anchoredMenu";
 import { fmtAmount } from "@/utils/helpers";
 
 const props = defineProps({ doctype: { type: String, required: true }, name: { type: String, required: true } });
@@ -327,32 +328,51 @@ const ItemPick = {
   emits: ["update:modelValue", "picked"],
   setup(p, { emit: em }) {
     const hits = ref([]); const open = ref(false); let t = null;
+    const inputEl = ref(null);
+    const { style, place, follow, unfollow } = useAnchoredMenu(400);
+    const show = () => { open.value = true; place(inputEl.value); follow(); };
+    const hide = () => { open.value = false; unfollow(); };
     async function onInput(ev) {
-      const q = ev.target.value; em("update:modelValue", q); open.value = true;
+      const q = ev.target.value; em("update:modelValue", q); show();
       clearTimeout(t);
       t = setTimeout(async () => {
         try { hits.value = (await api.call("accounting_portal.api.sales.item_options", { search: q, limit: 15, side: p.side })) || []; }
         catch { hits.value = []; }
+        place(inputEl.value);
       }, 220);
     }
-    function pick(o) { em("update:modelValue", o.item_code); em("picked", o); open.value = false; hits.value = []; }
+    function pick(o) { em("update:modelValue", o.item_code); em("picked", o); hide(); hits.value = []; }
     return () => h("div", { class: "relative" }, [
-      h("input", { value: p.modelValue, placeholder: "—", dir: "ltr",
+      h("input", { ref: inputEl, value: p.modelValue, placeholder: "—", dir: "ltr",
         class: "h-8 w-full min-w-[170px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40",
-        onInput, onFocus: () => { if (hits.value.length) open.value = true; }, onBlur: () => setTimeout(() => (open.value = false), 150) }),
-      open.value && hits.value.length ? h("div", { class: "absolute z-30 mt-1 start-0 w-96 max-h-[320px] overflow-auto bg-white border border-line rounded-[10px] shadow-pop py-1" },
-        // The description goes under the name. Two items can carry the same
-        // description and differ only in code — picking between them off the
-        // code alone is how the wrong one lands on a bill.
-        hits.value.map((o) => h("button", { type: "button", class: "w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm flex items-center gap-2.5", onMousedown: (e) => { e.preventDefault(); pick(o); } }, [
-          o.image ? h("img", { src: o.image, loading: "lazy", class: "w-9 h-9 rounded-[7px] object-cover border border-line flex-shrink-0",
-                               onError: (e) => { e.target.style.display = "none"; } }) : null,
-          h("div", { class: "min-w-0 flex-1" }, [
-            h("div", { class: "truncate" }, [h("span", { class: "font-mono text-[10.5px] text-ink-muted me-2" }, o.item_code), h("span", {}, o.item_name || "")]),
-            o.description && o.description !== o.item_name ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, o.description) : null,
-            o.variant_of_name ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, "↳ " + o.variant_of_name) : null,
-          ]),
-        ]))) : null,
+        onInput, onFocus: () => { if (hits.value.length) show(); }, onBlur: () => setTimeout(hide, 150) }),
+      // to <body>: the rows table scrolls, and a scrolling ancestor clips an
+      // absolute child no matter how high its z-index is
+      open.value && hits.value.length
+        ? h(Teleport, { to: "body" }, [
+            h("div", { class: "bg-white border border-line rounded-[10px] shadow-pop py-1", style: style.value },
+              // Picture, then the name, then the code — and the description under
+              // it, because two items can share one and differ only in code.
+              hits.value.map((o) => h("button", {
+                type: "button", key: o.item_code,
+                class: "w-full text-start px-3 py-2 text-[12px] hover:bg-app-warm flex items-center gap-2.5",
+                onMousedown: (e) => { e.preventDefault(); pick(o); },
+              }, [
+                o.image
+                  ? h("img", { src: o.image, loading: "lazy", class: "w-9 h-9 rounded-[7px] object-cover border border-line flex-shrink-0",
+                               onError: (e) => { e.target.style.display = "none"; } })
+                  : h("span", { class: "w-9 h-9 rounded-[7px] bg-app-warm border border-line flex-shrink-0" }),
+                h("div", { class: "min-w-0 flex-1" }, [
+                  h("div", { class: "truncate" }, o.item_name || o.item_code),
+                  h("div", { class: "text-[10.5px] text-ink-muted font-mono truncate" }, o.sku ? `${o.item_code} · ${o.sku}` : o.item_code),
+                  o.description && o.description !== o.item_name
+                    ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, o.description) : null,
+                  o.variant_of_name
+                    ? h("div", { class: "text-[10.5px] text-ink-muted truncate" }, "\u21b3 " + o.variant_of_name) : null,
+                ]),
+              ])))
+          ])
+        : null,
     ]);
   },
 };

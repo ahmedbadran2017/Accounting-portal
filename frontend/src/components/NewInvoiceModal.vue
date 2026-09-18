@@ -98,7 +98,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, h } from "vue";
+import { ref, reactive, computed, onMounted, h, Teleport } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
@@ -107,6 +107,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
 import { fmtAmount } from "@/utils/helpers";
+import { useAnchoredMenu } from "@/utils/anchoredMenu";
 
 const props = defineProps({ kind: { type: String, default: "sales" } });
 const emit = defineEmits(["close", "posted"]);
@@ -164,25 +165,31 @@ async function save() {
 }
 
 // ── tiny type-ahead pickers (party + item) ──
-function makeBox(fetch, labelOf, idOf) {
+function makeBox(fetch, rowOf, idOf) {
   return {
     props: { modelValue: { type: String, default: "" }, partyType: { type: String, default: "" } },
     emits: ["update:modelValue", "picked"],
     setup(p, { emit: em }) {
       const hits = ref([]); const open = ref(false); let t = null;
+      const inputEl = ref(null);
+      const { style, place, follow, unfollow } = useAnchoredMenu(360);
+      function show() { open.value = true; place(inputEl.value); follow(); }
+      function hide() { open.value = false; unfollow(); }
       function onInput(ev) {
-        const q = ev.target.value; em("update:modelValue", q); open.value = true;
-        clearTimeout(t); t = setTimeout(async () => { hits.value = await fetch(q, p.partyType); }, 220);
+        const q = ev.target.value; em("update:modelValue", q); show();
+        clearTimeout(t); t = setTimeout(async () => { hits.value = await fetch(q, p.partyType); place(inputEl.value); }, 220);
       }
-      function pick(x) { em("update:modelValue", idOf(x)); em("picked", x); open.value = false; hits.value = []; }
+      function pick(x) { em("update:modelValue", idOf(x)); em("picked", x); hide(); hits.value = []; }
       return () => h("div", { class: "relative" }, [
-        h("input", { value: p.modelValue, dir: "ltr", placeholder: "…",
+        h("input", { ref: inputEl, value: p.modelValue, dir: "ltr", placeholder: "…",
           class: "h-8 w-full min-w-[180px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40",
-          onInput, onFocus: () => { if (hits.value.length) open.value = true; }, onBlur: () => setTimeout(() => (open.value = false), 150) }),
+          onInput, onFocus: () => { if (hits.value.length) show(); }, onBlur: () => setTimeout(hide, 150) }),
+        // to <body>, so the table's overflow cannot cut the list to one row
         open.value && hits.value.length
-          ? h("div", { class: "absolute z-40 mt-1 start-0 w-80 max-h-56 overflow-auto bg-white border border-line rounded-[10px] shadow-pop py-1" },
-              hits.value.map((x) => h("button", { type: "button", class: "w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm",
-                onMousedown: (e) => { e.preventDefault(); pick(x); } }, labelOf(x))))
+          ? h(Teleport, { to: "body" }, [
+              h("div", { class: "bg-white border border-line rounded-[10px] shadow-pop py-1", style: style.value },
+                hits.value.map((x) => h("button", { type: "button", class: "w-full text-start px-3 py-2 text-[12px] hover:bg-app-warm flex items-center gap-2.5",
+                  onMousedown: (e) => { e.preventDefault(); pick(x); } }, rowOf(x))))])
           : null,
       ]);
     },
@@ -190,8 +197,17 @@ function makeBox(fetch, labelOf, idOf) {
 }
 const PartyBox = makeBox(
   async (q, pt) => { try { return await api.call("accounting_portal.api.accountant.party_options", { party_type: pt, q, limit: 12 }) || []; } catch { return []; } },
-  (x) => `${x.label || ""} — ${x.name}`, (x) => x.name);
+  (x) => [h("span", { class: "truncate" }, `${x.label || ""} — ${x.name}`)], (x) => x.name);
 const ItemBox = makeBox(
   async (q) => { try { return await api.call("accounting_portal.api.items.item_options", { search: q, limit: 12 }) || []; } catch { return []; } },
-  (x) => `${x.sku ? x.sku + " · " : ""}${x.item_name || x.item_code}`, (x) => x.item_code);
+  (x) => [
+    x.image ? h("img", { src: x.image, loading: "lazy", class: "w-9 h-9 rounded-[7px] object-cover border border-line flex-shrink-0",
+                         onError: (e) => { e.target.style.display = "none"; } })
+            : h("span", { class: "w-9 h-9 rounded-[7px] bg-app-warm border border-line flex-shrink-0" }),
+    h("span", { class: "min-w-0 flex-1" }, [
+      h("span", { class: "block truncate" }, x.item_name || x.item_code),
+      h("span", { class: "block text-[10.5px] text-ink-muted font-mono truncate" }, x.sku ? `${x.item_code} · ${x.sku}` : x.item_code),
+      x.variant_of_name ? h("span", { class: "block text-[10.5px] text-ink-muted truncate" }, "↳ " + x.variant_of_name) : null,
+    ]),
+  ], (x) => x.item_code);
 </script>
