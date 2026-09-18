@@ -56,8 +56,19 @@ export default {
         // button is already the loudest thing on the row; the glow was volume
         // on top of volume. What is left is a hairline of real shadow: enough
         // to seat the button on the surface, not enough to notice.
-        prim: "0 1px 1px rgba(28,25,23,.07)",
-        brand: "0 1px 1px rgba(28,25,23,.07)",
+        // One name, and deliberately not `brand` or `accent`. Tailwind emits a
+        // `.shadow-<name>` utility for every entry in `colors` too, so a
+        // boxShadow called `brand` collided with the colour called `brand` —
+        // two rules with the same selector, and the colour one came second and
+        // won. `shadow-brand` was therefore never the shadow defined here; it
+        // was `0 2px 8px #c2562f` at FULL opacity, which is the halo that kept
+        // showing up on the Create buttons after the shadow was supposedly
+        // toned down.
+        btn: "0 1px 1px rgba(28,25,23,.07)",
+        // `shadow-pop` is on 23 dropdown and popover panels and was never
+        // defined here — Tailwind emitted nothing and those menus floated on a
+        // 1px border alone. Defining it is the fix; renaming 23 call sites is not.
+        pop: "0 10px 28px -10px rgba(28,25,23,.20),0 2px 6px rgba(28,25,23,.06)",
         modal: "0 24px 64px -16px rgba(28,25,23,.4)",
       },
       keyframes: {

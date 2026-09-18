@@ -14,7 +14,7 @@
       <!-- not locked at all -->
       <template v-else-if="!st.locked">
         <p class="text-[13px] text-ink-2 mb-4">{{ L("Your account is not locked. You can open the Desk directly.", "حسابك مش مقفول. تقدر تفتح الـ Desk مباشرة.", "Votre compte n'est pas verrouillé.") }}</p>
-        <a :href="next" class="block text-center rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-brand">{{ L("Open the Desk", "افتح الـ Desk", "Ouvrir le Desk") }}</a>
+        <a :href="next" class="block text-center rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-btn">{{ L("Open the Desk", "افتح الـ Desk", "Ouvrir le Desk") }}</a>
       </template>
 
       <!-- active pass -->
@@ -23,7 +23,7 @@
           {{ L("You hold a desk pass until", "عندك تصريح Desk لحد", "Vous avez un accès Desk jusqu'à") }} <b><bdi dir="ltr">{{ (st.pass_until || "").slice(11, 16) }}</bdi></b>
           · {{ st.remaining_min }} {{ L("min left", "دقيقة باقية", "min restantes") }}
         </div>
-        <a :href="next" class="block text-center rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-brand">{{ L("Open the Desk", "افتح الـ Desk", "Ouvrir le Desk") }}</a>
+        <a :href="next" class="block text-center rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-btn">{{ L("Open the Desk", "افتح الـ Desk", "Ouvrir le Desk") }}</a>
       </template>
 
       <!-- locked, no pass: ask for one -->

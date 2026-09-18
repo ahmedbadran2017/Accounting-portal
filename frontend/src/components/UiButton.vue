@@ -59,8 +59,8 @@ const SIZE = {
 // nothing else; the colour is already the emphasis. `active` presses it a
 // hair instead of flashing a third colour.
 const VARIANT = {
-  primary: "text-white bg-accent hover:bg-accent-dark active:bg-accent-dark shadow-prim",
-  create: "text-white bg-brand hover:bg-brand-dark active:bg-brand-dark shadow-brand",
+  primary: "text-white bg-accent hover:bg-accent-dark active:bg-accent-dark shadow-btn",
+  create: "text-white bg-brand hover:bg-brand-dark active:bg-brand-dark shadow-btn",
   secondary: "text-ink-2 bg-white border border-line-2 hover:bg-app-warm hover:border-ink-muted/40 active:bg-line",
   quiet: "text-ink-3 hover:text-ink hover:bg-app-warm active:bg-line",
   danger: "text-sale bg-sale/5 border border-sale/25 hover:bg-sale/10 active:bg-sale/15",

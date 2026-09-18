@@ -83,7 +83,7 @@
         </div>
         <span class="text-[11px] tnum text-ink-muted">{{ sheetVerified }}/{{ sheet.lines.length }} {{ L("verified","متحقق","vérifié") }}</span>
         <router-link :to="`/accounting/items/costtrace?pr=${sheet.pr}&year=${yearSel || ''}`"
-                     class="h-[30px] inline-flex items-center px-3.5 rounded-[8px] text-[12px] font-bold text-white shadow-brand bg-brand hover:bg-brand-dark">
+                     class="h-[30px] inline-flex items-center px-3.5 rounded-[8px] text-[12px] font-bold text-white shadow-btn bg-brand hover:bg-brand-dark">
           {{ L("Open costing file","افتح ملف التكلفة","Ouvrir") + " →" }}
         </router-link>
       </div>
