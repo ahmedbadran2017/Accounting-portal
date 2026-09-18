@@ -21,7 +21,7 @@
 
     <div v-else-if="err" class="bg-rose-50 border border-rose-200 rounded-card px-4 py-6 text-center">
       <p class="text-[12px] text-rose-700 font-medium">{{ err }}</p>
-      <button @click="load" class="mt-3 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-rose-600 hover:bg-rose-700">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+      <UiButton variant="primary" size="sm" class="mt-3" @click="load" >{{ L("Retry","إعادة المحاولة","Réessayer") }}</UiButton>
     </div>
 
     <template v-else>
@@ -30,9 +30,9 @@
         <div class="flex items-center gap-2 px-4 py-2.5 border-b border-amber-200">
           <Icon name="alert" :size="14" color="#b45309" />
           <h3 class="text-[13px] font-bold text-amber-800">{{ staleTotals.length }} {{ L("shipments show a stale FX total (display only)","شحنة عندها إجمالي بسعر صرف قديم (عرض فقط)","totaux FX périmés") }}</h3>
-          <button v-if="canWrite" @click="fixAllTotals" :disabled="busy==='all'" class="ms-auto h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40">
+          <UiButton variant="primary" size="sm" class="ms-auto" v-if="canWrite" @click="fixAllTotals" :disabled="busy==='all'" >
             {{ busy==='all' ? '…' : L('Fix all '+staleTotals.length,'صلّح الكل '+staleTotals.length,'Corriger tout') }}
-          </button>
+          </UiButton>
         </div>
         <table class="w-full text-[12px]">
           <thead class="bg-amber-100/40 text-[11px] uppercase text-amber-800/70">
@@ -45,9 +45,9 @@
               <td class="px-2 py-1.5 text-end tnum text-emerald-700 font-semibold">{{ fmt0(r.correct) }}</td>
               <td class="px-2 py-1.5 text-center tnum text-ink-muted">{{ r.ratio }}</td>
               <td class="px-3 py-1.5 text-end">
-                <button v-if="canWrite" @click="fixTotals(r)" :disabled="busy===r.name" class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-amber-700 border border-amber-300 hover:bg-amber-100 disabled:opacity-40">
+                <UiButton variant="secondary" size="xs" v-if="canWrite" @click="fixTotals(r)" :disabled="busy===r.name" >
                   {{ busy===r.name ? '…' : L('Fix','صلّح','Corriger') }}
-                </button>
+                </UiButton>
               </td>
             </tr>
           </tbody>
@@ -88,9 +88,9 @@
               </td>
               <td class="px-3 py-1.5 text-end text-ink-muted">{{ r.dt }}</td>
               <td class="px-3 py-1.5 text-end">
-                <button v-if="canWrite" @click.stop="openOne(r.name)" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700">
+                <UiButton variant="secondary" size="xs" v-if="canWrite" @click.stop="openOne(r.name)" >
                   {{ L("Capitalise","ترسيم","Capitaliser") }}
-                </button>
+                </UiButton>
               </td>
             </tr>
             <tr v-if="recsT.loading.value"><td colspan="6" class="px-3 py-8 text-center text-[12px] text-ink-muted">{{ L("Loading…","جارٍ التحميل…","Chargement…") }}</td></tr>
@@ -135,10 +135,9 @@
                 <span v-else class="text-[11px] font-bold text-emerald-700">153.03 ✓</span>
               </td>
               <td class="px-3 py-1.5 text-end">
-                <button v-if="canWrite && v.on_pl" @click="uncapitalise(v)" :disabled="busy===v.name"
-                        class="h-7 px-2.5 rounded-chip text-[11px] font-bold text-rose-600 border border-rose-200 hover:bg-rose-50 disabled:opacity-40">
+                <UiButton variant="danger" size="xs" v-if="canWrite && v.on_pl" @click="uncapitalise(v)" :disabled="busy===v.name" >
                   {{ busy===v.name ? '…' : L('Un-capitalise','ألغِ الرسملة','Décapitaliser') }}
-                </button>
+                </UiButton>
               </td>
             </tr>
           </tbody>
@@ -166,6 +165,7 @@ import StatCard from "@/components/StatCard.vue";
 import ServerPager from "@/components/ServerPager.vue";
 import LandedCostAllocModal from "@/components/LandedCostAllocModal.vue";
 import LandedBasisCard from "@/components/LandedBasisCard.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

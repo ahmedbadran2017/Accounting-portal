@@ -3,7 +3,7 @@
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Salary structures", "هياكل المرتبات", "Structures salariales") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("fixed-amount earnings and deductions; assign one to each employee", "استحقاقات وخصومات بمبالغ ثابتة؛ اربط واحدة بكل موظف", "gains et retenues à montant fixe") }}</span>
-      <button v-if="canWrite" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew()"><Icon name="plus" :size="14" />{{ L("New structure", "هيكل جديد", "Nouvelle structure") }}</button>
+      <UiButton variant="create" size="md" icon="plus" class="ms-auto" v-if="canWrite" type="button" @click="openNew()"> {{ L("New structure", "هيكل جديد", "Nouvelle structure") }}</UiButton>
     </div>
 
     <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
@@ -60,8 +60,8 @@
           <p v-if="edErr" class="text-[12px] text-sale">{{ edErr }}</p>
         </div>
         <div class="px-5 py-3 border-t border-line-hair flex justify-end gap-2">
-          <button class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="edOpen = false">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button class="h-9 px-4 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || (!ed.name && !ed.structure_name)" @click="save">{{ busy ? "…" : L("Save", "حفظ", "Enregistrer") }}</button>
+          <UiButton variant="quiet" size="md" @click="edOpen = false">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+          <UiButton variant="primary" size="md" :disabled="busy || (!ed.name && !ed.structure_name)" @click="save">{{ busy ? "…" : L("Save", "حفظ", "Enregistrer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -80,6 +80,7 @@ import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import { fmtAmount } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

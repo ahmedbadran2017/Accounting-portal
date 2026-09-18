@@ -37,10 +37,8 @@
         <textarea v-model.trim="reason" rows="3" :placeholder="L('e.g. run December payroll for Morocco', 'مثال: تشغيل مرتبات ديسمبر للمغرب', 'ex. lancer la paie de décembre')"
                   class="w-full rounded-[10px] border border-line-2 px-3 py-2 text-[13px] bg-app-warm focus:outline-none focus:border-accent/40 focus:bg-white"></textarea>
         <p v-if="error" class="text-[12px] text-sale mt-2">{{ error }}</p>
-        <button @click="ask" :disabled="busy || reason.length < 3"
-                class="mt-3 w-full rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-brand disabled:opacity-50 flex items-center justify-center gap-2">
-          <Icon name="clock" :size="14" color="#fff" />{{ busy ? "…" : L("Open the Desk for 1 hour", "افتحلي الـ Desk ساعة", "Ouvrir le Desk pour 1 h") }}
-        </button>
+        <UiButton variant="primary" size="md" icon="clock" class="mt-3 w-full" @click="ask" :disabled="busy || reason.length < 3" > {{ busy ? "…" : L("Open the Desk for 1 hour", "افتحلي الـ Desk ساعة", "Ouvrir le Desk pour 1 h") }}
+        </UiButton>
       </template>
 
       <div class="mt-5 pt-4 border-t border-line-hair flex items-center justify-between text-[12px]">
@@ -58,6 +56,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { useAuth } from "@/composables/useAuth";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

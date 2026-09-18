@@ -21,11 +21,10 @@
 
         <p v-if="error" class="text-[13px] text-sale">{{ error }}</p>
 
-        <button type="submit" :disabled="busy"
-                class="w-full rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-brand disabled:opacity-60 flex items-center justify-center gap-2">
+        <UiButton variant="primary" size="md" class="w-full" type="submit" :disabled="busy" >
           <SpinnerIcon v-if="busy" :size="16" />
           {{ busy ? t("auth.signing_in") : t("auth.sign_in") }}
-        </button>
+        </UiButton>
       </form>
 
       <div class="flex justify-center gap-3 mt-5 text-[12px] text-ink-muted">
@@ -44,6 +43,7 @@ import { useAuth } from "@/composables/useAuth";
 import { applyLocale, LOCALES, LOCALE_LABEL } from "@/i18n";
 import { LOGO_URL } from "@/utils/constants";
 import SpinnerIcon from "@/components/shared/SpinnerIcon.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const { t, locale } = useI18n();
 const route = useRoute();

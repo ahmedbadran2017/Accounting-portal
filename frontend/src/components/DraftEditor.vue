@@ -82,9 +82,8 @@
               </table>
             </div>
             <div v-if="d.child.fill === 'outstanding'" class="px-3 py-2 border-t border-line-hair flex items-center gap-2 flex-wrap">
-              <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark h-7 px-2.5 rounded-chip disabled:opacity-50" :disabled="outLoading" @click="loadOutstanding">
-                <Icon name="search" :size="12" color="#fff" />{{ outLoading ? "…" : L("Get outstanding invoices", "جلب الفواتير المستحقة", "Factures en attente") }}
-              </button>
+              <UiButton variant="secondary" size="xs" icon="search" type="button" :disabled="outLoading" @click="loadOutstanding"> {{ outLoading ? "…" : L("Get outstanding invoices", "جلب الفواتير المستحقة", "Factures en attente") }}
+              </UiButton>
               <span v-if="out.unallocated" class="text-[12px] text-ink-3">{{ L("Unallocated", "غير مخصّص", "Non affecté") }} <b class="tnum">{{ fmt(out.unallocated) }}</b></span>
             </div>
             <div v-if="outRows.length" class="border-t border-line-hair bg-app-warm/20 max-h-[220px] overflow-auto">
@@ -102,7 +101,7 @@
               </table>
               <div class="px-3 py-2 flex items-center gap-2 border-t border-line-hair">
                 <span class="text-[12px] text-ink-3">{{ L("Selected", "المحدّد", "Sélection") }} <b class="tnum">{{ fmt(selectedAlloc) }}</b></span>
-                <button type="button" class="ms-auto h-7 px-3 rounded-chip text-[12px] font-semibold text-white bg-ink disabled:opacity-50" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</button>
+                <UiButton variant="secondary" size="xs" class="ms-auto" type="button" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</UiButton>
               </div>
             </div>
             <div v-if="d.child.can_add" class="px-3 py-2 border-t border-line-hair flex items-center gap-4 flex-wrap">
@@ -123,8 +122,8 @@
                 <span class="tnum text-[12px] font-bold">{{ fmt(o.total) }}</span>
               </label>
               <div class="flex justify-end gap-2 pt-0.5">
-                <button type="button" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3 hover:bg-white" @click="poOpen = false">{{ L("Back", "رجوع", "Retour") }}</button>
-                <button type="button" class="h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-ink disabled:opacity-40" :disabled="!poPicked.length || poBusy" @click="pullPo">{{ poBusy ? "…" : L("Add the lines", "أضف السطور", "Ajouter les lignes") }}</button>
+                <UiButton variant="quiet" size="sm" type="button" @click="poOpen = false">{{ L("Back", "رجوع", "Retour") }}</UiButton>
+                <UiButton variant="secondary" size="sm" type="button" :disabled="!poPicked.length || poBusy" @click="pullPo">{{ poBusy ? "…" : L("Add the lines", "أضف السطور", "Ajouter les lignes") }}</UiButton>
               </div>
             </div>
           </div>

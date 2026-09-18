@@ -2,7 +2,7 @@
   <component :is="tag" v-bind="$attrs" :class="cls" :disabled="tag === 'button' ? (disabled || busy) : null">
     <span v-if="busy" class="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin flex-shrink-0"
           :class="variant === 'secondary' || variant === 'quiet' ? 'border-ink-muted/40 border-t-ink-2' : ''"></span>
-    <Icon v-else-if="icon" :name="icon" :size="size === 'sm' ? 13 : 14" :color="iconColor" class="flex-shrink-0" />
+    <Icon v-else-if="icon" :name="icon" :size="size === 'md' ? 14 : 13" :color="iconColor" class="flex-shrink-0" />
     <slot />
   </component>
 </template>
@@ -23,15 +23,25 @@
 //   quiet      bare       navigation and dismissal
 //   danger     red        cancels, deletes, reverses a posting
 //
-// Two sizes: sm for toolbars and table rows, md for anything a decision is made
-// in. Never three.
+// One more rule that only shows up at scale: an action inside a table row is
+// never `primary` or `create`. Fifty rows with a filled button is fifty things
+// shouting for the same attention, which is the opposite of what filling it was
+// for. Rows get `secondary`, or `danger` when the action destroys something.
+//
+// Three sizes, and the third earned its place. md is where a decision is made —
+// modal footers, page headers. sm is a toolbar. xs is an action that lives
+// inside a table row, where md would add 8px to every one of fifty rows.
+//
+// The heights it replaces were h-6, h-[24px], h-[26px], h-[27px], h-[28px],
+// h-[30px], h-[32px], h-[33px], h-[34px], py-0.5, py-1 — differences that were
+// never decisions, just whatever the row happened to need that day.
 import { computed, useAttrs } from "vue";
 import Icon from "@/components/Icon.vue";
 
 defineOptions({ inheritAttrs: false });
 const props = defineProps({
   variant: { type: String, default: "secondary" },  // primary | create | secondary | quiet | danger
-  size: { type: String, default: "md" },            // sm | md
+  size: { type: String, default: "md" },            // xs | sm | md
   icon: { type: String, default: "" },
   busy: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
@@ -41,6 +51,7 @@ const attrs = useAttrs();
 const tag = computed(() => (attrs.href ? "a" : "button"));
 
 const SIZE = {
+  xs: "h-7 px-2.5 text-[11px] gap-1 rounded-[7px]",
   sm: "h-8 px-3 text-[12px] gap-1.5 rounded-[9px]",
   md: "h-9 px-4 text-[13px] gap-2 rounded-[10px]",
 };

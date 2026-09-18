@@ -25,7 +25,7 @@
         <span class="text-[11px] text-ink-muted">{{ L("detected from history · overdue first","مكتشفة من السجل · المتأخّر أولاً","détecté de l'historique") }}</span>
       </div>
       <TableLoading v-if="loading" :rows="8" />
-      <div v-else-if="err" class="px-4 py-10 text-center"><Icon name="alert" :size="18" color="#e11d48" /><p class="text-[12px] text-ink-2 mt-1">{{ L("Couldn't load.","تعذّر التحميل.","Échec.") }}</p><button class="mt-2 h-8 px-3 rounded-chip border border-line-2 text-[12px] font-semibold" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button></div>
+      <div v-else-if="err" class="px-4 py-10 text-center"><Icon name="alert" :size="18" color="#e11d48" /><p class="text-[12px] text-ink-2 mt-1">{{ L("Couldn't load.","تعذّر التحميل.","Échec.") }}</p><UiButton variant="secondary" size="sm" class="mt-2" @click="load">{{ L("Retry","إعادة","Réessayer") }}</UiButton></div>
       <div v-else-if="!(d.recurring||[]).length" class="px-4 py-10 text-center text-[12px] text-ink-muted">{{ L("No recurring expenses detected.","لم تُكتشف مصروفات متكرّرة.","Aucune.") }}</div>
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[12px]">
@@ -55,12 +55,11 @@
               </td>
               <td class="px-4 py-2.5 text-end whitespace-nowrap">
                 <div v-if="canWrite && r.status!=='ok'" class="inline-flex items-center gap-1.5">
-                  <button type="button" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark" @click="record(r)">
-                    <Icon name="wallet" :size="12" />{{ L("Record","تسجيل","Enregistrer") }}
-                  </button>
-                  <button type="button" :disabled="busy===key(r)" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-60" @click="makeDraft(r)">
+                  <UiButton variant="secondary" size="xs" icon="wallet" type="button" @click="record(r)"> {{ L("Record","تسجيل","Enregistrer") }}
+                  </UiButton>
+                  <UiButton variant="secondary" size="xs" type="button" :disabled="busy===key(r)" @click="makeDraft(r)">
                     <Icon :name="busy===key(r) ? 'clock' : 'doc'" :size="12" />{{ L("Draft bill","درافت فاتورة","Brouillon") }}
-                  </button>
+                  </UiButton>
                 </div>
               </td>
             </tr>
@@ -85,6 +84,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const emit = defineEmits(["counts", "record"]);
 const { locale } = useI18n();

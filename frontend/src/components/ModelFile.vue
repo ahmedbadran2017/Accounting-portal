@@ -58,8 +58,7 @@
                    :class="noteNeeded ? 'border-amber-400' : 'border-line'" />
             <span v-if="savedCost && rate === savedCost" class="text-[11px] font-bold text-emerald-700">✓ {{ L("saved","محفوظ","enregistré") }}</span>
             <span v-else-if="savedCost && rate !== savedCost" class="text-[11px] font-bold text-amber-600" :title="L('differs from the saved draft','مختلف عن المحفوظ','différent')">✎ {{ savedCost }}</span>
-            <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                    :disabled="!(rate >= 0.5) || savingCost || posting" @click="saveCost">{{ savingCost ? "…" : L("Save","حفظ","OK") }}</button>
+            <UiButton variant="primary" size="sm" v-if="canWrite" :disabled="!(rate >= 0.5) || savingCost || posting" @click="saveCost">{{ savingCost ? "…" : L("Save","حفظ","OK") }}</UiButton>
           </div>
         </div>
       </div>
@@ -100,8 +99,7 @@
                   <template v-else-if="r.channel === 'air' && (r.channel_confirmed || r.pr_qty < 500) && canWrite && !d.frozen">
                     <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
                            class="w-[58px] h-[24px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
-                    <button class="ms-1 h-[24px] px-2 rounded-[6px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
-                            :disabled="!((r._draft ?? r.band_rate) > 0) || fBusy" @click="confirmRate(r)">✓ {{ L("rate","السعر","taux") }}</button>
+                    <UiButton variant="secondary" size="xs" class="ms-1" :disabled="!((r._draft ?? r.band_rate) > 0) || fBusy" @click="confirmRate(r)">✓ {{ L("rate","السعر","taux") }}</UiButton>
                   </template>
                   <template v-else>
                     <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:#fef2f2;color:#b91c1c">{{ L("none","لا يوجد","aucun") }}</span>
@@ -145,8 +143,7 @@
           </span>
           <span v-if="mlEst > 0" class="text-[12px] tnum font-bold" dir="ltr">= {{ mlEst.toFixed(2) }}</span>
           <span v-if="mlEst > 0" class="text-[11px] text-ink-muted tnum" dir="ltr">→ {{ L("full","الشامل","total") }} {{ ((rate || d.model.suggested || 0) + mlEst).toFixed(2) }}</span>
-          <button v-if="mlEst > 0" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark"
-                  @click="applyManualLanded">{{ L("Fold into the cost","اجمعها على التكلفة","Ajouter au coût") }}</button>
+          <UiButton variant="secondary" size="xs" v-if="mlEst > 0" @click="applyManualLanded">{{ L("Fold into the cost","اجمعها على التكلفة","Ajouter au coût") }}</UiButton>
         </div>
       </div>
 
@@ -157,8 +154,7 @@
         <div class="flex-1"></div>
         <input v-model.number="famWeight" type="number" step="0.01" min="0.005" max="50" placeholder="kg"
                class="h-[26px] w-[76px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
-        <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                :disabled="!(famWeight > 0) || fBusy" @click="applyFamilyWeight">{{ L("Fill the suspects","املأ الناقصين","Remplir") }}</button>
+        <UiButton variant="secondary" size="xs" :disabled="!(famWeight > 0) || fBusy" @click="applyFamilyWeight">{{ L("Fill the suspects","املأ الناقصين","Remplir") }}</UiButton>
       </div>
 
       <!-- ③ variants -->
@@ -240,10 +236,9 @@
         <template v-else>
           <span v-if="finished" class="text-[12px] font-bold text-emerald-700">✓ {{ posted }} {{ L("posted","اترحّل","comptabilisés") }}<span v-if="failed" class="text-sale"> · {{ failed }} {{ L("failed","فشل","échoués") }}</span></span>
           <span v-if="draining" class="text-[11px] text-ink-muted">⏳ {{ L("reposting old moves…","بيعاد حساب الحركات القديمة…","recalcul…") }}</span>
-          <button class="h-[34px] px-5 rounded-[10px] text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                  :disabled="!canSubmit" @click="runSubmit">
+          <UiButton variant="primary" size="md" :disabled="!canSubmit" @click="runSubmit">
             {{ L("Submit","اعتماد","Soumettre") }} {{ targetCount }}
-          </button>
+          </UiButton>
         </template>
       </div>
 
@@ -260,6 +255,7 @@ import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
 import { useAuth } from "@/composables/useAuth";
 import ItemActivity from "@/components/ItemActivity.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ seed: { type: String, required: true } });
 const emit = defineEmits(["applied", "open-item"]);

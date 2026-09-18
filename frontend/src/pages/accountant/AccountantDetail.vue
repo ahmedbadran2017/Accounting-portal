@@ -2,9 +2,9 @@
   <div class="space-y-3.5">
     <!-- back + date -->
     <div class="flex items-center gap-3 flex-wrap">
-      <button type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip border border-line-2 bg-white text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="back">
+      <UiButton variant="secondary" size="sm" type="button" @click="back">
         <Icon name="arrow" :size="13" class="rotate-180" />{{ L("All accountants","كل المحاسبين","Tous") }}
-      </button>
+      </UiButton>
       <DateFilterBar :df="df" class="ms-auto" />
     </div>
 
@@ -117,6 +117,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useDateFilter } from "@/composables/useDateFilter";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

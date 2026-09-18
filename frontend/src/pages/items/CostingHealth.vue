@@ -4,7 +4,7 @@
     <div v-else-if="err" class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-10 text-center">
       <Icon name="alert" :size="20" color="#e11d48" class="inline-block mb-2" />
       <p class="text-[13px] text-ink-2">{{ L("Couldn't load costing health.","تعذّر تحميل صحة التكلفة.","Échec du chargement.") }}</p>
-      <button type="button" class="mt-2 h-8 px-3 rounded-chip border border-line-2 text-[12px] font-semibold hover:bg-app-warm" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button>
+      <UiButton variant="secondary" size="sm" class="mt-2" type="button" @click="load">{{ L("Retry","إعادة","Réessayer") }}</UiButton>
     </div>
     <template v-else>
       <!-- top stat cards -->
@@ -106,6 +106,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import UiButton from "@/components/UiButton.vue";
 
 const emit = defineEmits(["drill"]);
 const router = useRouter();

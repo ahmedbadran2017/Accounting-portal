@@ -156,9 +156,8 @@
           <div class="h-full rounded-full transition-all" :style="{ width: Math.max(2, cod.reconciled_pct || 0) + '%', background: '#0f766e' }"></div>
         </div>
         <div class="text-[12px] text-ink-3 mt-2">{{ L("of delivered cash matched to remittances.","من كاش المُسلّم مطابق للتحويلات.","du livré rapproché.") }}</div>
-        <button class="mt-auto inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand mt-3" @click="goBucket('delivered')">
-          <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher Cathedis") }}
-        </button>
+        <UiButton variant="primary" size="md" icon="trend" class="mt-auto mt-3" @click="goBucket('delivered')"> {{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher Cathedis") }}
+        </UiButton>
       </div>
     </div>
 
@@ -406,6 +405,7 @@ import { SEV_META, sevLabel } from "@/data/copilot";
 import { useDashboard, overlayCockpit } from "@/composables/useDashboard";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import UiButton from "@/components/UiButton.vue";
 
 const { t, locale } = useI18n();
 const router = useRouter();

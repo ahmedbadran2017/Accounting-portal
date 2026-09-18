@@ -39,11 +39,9 @@
         </div>
         <!-- action -->
         <div v-if="canAct" class="flex items-center gap-2.5 flex-wrap mt-4 pt-3 border-t border-line-hair">
-          <button @click="primaryAction" :disabled="posting"
-                  class="inline-flex items-center gap-2 h-9 px-4 rounded-[10px] text-[13px] font-bold text-white shadow-card disabled:opacity-50 hover:brightness-110 transition"
-                  :style="{ background: actionMeta.color }">
+          <UiButton variant="primary" size="md" @click="primaryAction" :disabled="posting" >
             <Icon :name="actionMeta.icon" :size="15" color="#fff" />{{ posting ? L("Working…", "جارٍ…", "…") : actionMeta.label }}
-          </button>
+          </UiButton>
           <span class="text-[11px] text-ink-muted">{{ actionMeta.hint }}</span>
         </div>
 
@@ -153,8 +151,8 @@
         </div>
         <p class="text-[11px] text-ink-muted">{{ L("Bank / cheque methods require a reference.", "طرق البنك/الشيك تتطلب مرجعًا.", "Les méthodes banque/chèque exigent une référence.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
-          <button @click="payOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button @click="confirmPay" :disabled="posting || !payMode" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50" style="background:#047857">{{ posting ? L("Paying…", "جارٍ…", "…") : L("Pay", "دفع", "Payer") }}</button>
+          <UiButton variant="quiet" size="md" @click="payOpen = false" >{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+          <UiButton variant="primary" size="md" @click="confirmPay" :disabled="posting || !payMode" >{{ posting ? L("Paying…", "جارٍ…", "…") : L("Pay", "دفع", "Payer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -172,6 +170,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const toast = useToast();
 

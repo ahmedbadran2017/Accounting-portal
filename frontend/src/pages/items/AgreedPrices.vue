@@ -54,9 +54,7 @@
                 <td class="px-3 py-2 text-end tnum font-semibold">{{ n(r.units) }}</td>
                 <td class="px-3 py-2 text-end tnum" :style="r.zero_rate ? 'color:#be123c;font-weight:700' : 'color:#a8a29e'">{{ r.zero_rate || "—" }}</td>
                 <td class="px-5 py-2 text-end">
-                  <button class="h-[26px] px-3 rounded-[8px] text-[11px] font-semibold text-white bg-brand disabled:opacity-40"
-                          :disabled="busy || r.supplier.startsWith('(')"
-                          @click="seedFor = r.supplier; seed()">{{ L("Propose","اقترح","Proposer") }}</button>
+                  <UiButton variant="secondary" size="xs" :disabled="busy || r.supplier.startsWith('(')" @click="seedFor = r.supplier; seed()">{{ L("Propose","اقترح","Proposer") }}</UiButton>
                 </td>
               </tr>
             </tbody>
@@ -83,8 +81,7 @@
             <option value="">{{ L("Seed a supplier from history…","ازرع مورد من تاريخه…","Amorcer un fournisseur…") }}</option>
             <option v-for="s in suppliers" :key="s" :value="s">{{ s }}</option>
           </select>
-          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-semibold text-white bg-brand disabled:opacity-40"
-                  :disabled="!seedFor || busy" @click="seed">{{ L("Propose","اقترح","Proposer") }}</button>
+          <UiButton variant="secondary" size="xs" :disabled="!seedFor || busy" @click="seed">{{ L("Propose","اقترح","Proposer") }}</UiButton>
         </div>
 
         <div v-if="!q.pending.length" class="py-10 text-center text-[12px] text-ink-muted">
@@ -107,8 +104,7 @@
               <td class="px-3 py-2.5 text-end tnum" dir="ltr">{{ p.worst_dev_pct }}%</td>
               <td class="px-3 py-2.5 text-[11px] text-ink-3">{{ srcLabel(p.source) }} · {{ p.on }}</td>
               <td class="px-4 py-2.5 text-end">
-                <button class="h-[26px] px-3 rounded-[8px] border border-line text-[11px] bg-white font-semibold"
-                        @click="openReview(p.supplier)">{{ L("Review","راجع","Examiner") }} →</button>
+                <UiButton variant="secondary" size="xs" @click="openReview(p.supplier)">{{ L("Review","راجع","Examiner") }} →</UiButton>
               </td>
             </tr>
           </tbody>
@@ -118,17 +114,15 @@
       <!-- ── review one supplier ── -->
       <div v-if="rv" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2 flex-wrap">
-          <button class="h-[26px] px-2.5 rounded-[8px] border border-line text-[11px] bg-white" @click="rv = null">←</button>
+          <UiButton variant="secondary" size="xs" @click="rv = null">←</UiButton>
           <span class="text-[13px] font-bold">{{ rv.supplier }}</span>
           <span class="text-[11px] text-ink-muted">{{ rv.currency }} · {{ rv.items.length }} {{ L("rows","صف","lignes") }}</span>
           <span v-if="rv.flagged" class="text-[11px] font-bold px-2 py-0.5 rounded-full"
                 style="background:#fef2f2;color:#be123c">{{ rv.flagged }} {{ L("past the guard","تعدّوا الحارس","au-delà du garde-fou") }}</span>
           <div class="flex-1"></div>
           <span class="text-[11px] text-ink-3">{{ chosen.length }} {{ L("selected","محدد","sélectionnés") }}</span>
-          <button class="h-[28px] px-3 rounded-[8px] border border-line text-[12px] bg-white"
-                  :disabled="busy" @click="doReject">{{ L("Reject","ارفض","Rejeter") }}</button>
-          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-semibold text-white bg-brand disabled:opacity-40"
-                  :disabled="!chosen.length || busy" @click="doApprove">{{ L("Approve","اعتمد","Approuver") }}</button>
+          <UiButton variant="danger" size="xs" :disabled="busy" @click="doReject">{{ L("Reject","ارفض","Rejeter") }}</UiButton>
+          <UiButton variant="secondary" size="xs" :disabled="!chosen.length || busy" @click="doApprove">{{ L("Approve","اعتمد","Approuver") }}</UiButton>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
@@ -182,10 +176,9 @@
           <span class="text-[13px] font-bold">🔍 {{ L("Price audit","تدقيق الأسعار","Audit des prix") }}</span>
           <span class="text-[11px] text-ink-muted">{{ L("every sellable product against the price agreed, the rate its stock is valued at, and what he billed","كل منتج قابل للبيع مقابل السعر المتفق وقيمة المخزون واللي فوتره","chaque produit vs prix convenu, valorisation et facture") }}</span>
           <div class="flex-1"></div>
-          <button class="h-[28px] px-3 rounded-[8px] border border-line text-[12px] bg-white font-semibold"
-                  :disabled="auditing" @click="runAudit">
+          <UiButton variant="secondary" size="xs" :disabled="auditing" @click="runAudit">
             {{ auditing ? L("Checking…","بيفحص…","Analyse…") : (au ? L("Re-run","أعد الفحص","Relancer") : L("Run audit","افحص","Lancer")) }}
-          </button>
+          </UiButton>
         </div>
         <div v-if="!au" class="py-8 text-center text-[12px] text-ink-muted">
           {{ L("Not run yet.","ماتعملش لسه.","Pas encore lancé.") }}
@@ -272,6 +265,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { fmtAmount } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

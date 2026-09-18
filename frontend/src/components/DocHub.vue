@@ -10,8 +10,8 @@
       <span v-for="tg in tags" :key="tg" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-accent-soft text-accent-dark">{{ tg }}<button @click="removeTag(tg)" class="hover:text-sale"><Icon name="x" :size="10" /></button></span>
       <input v-model.trim="newTag" @keyup.enter="addTag" :placeholder="L('+ tag', '+ وسم', '+ tag')" class="w-20 h-6 text-[11px] bg-transparent border-b border-dashed border-line-2 focus:outline-none focus:border-accent/40" />
       <div class="ms-auto flex items-center gap-1.5">
-        <button @click="openEdit" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="gear" :size="12" />{{ L("Edit", "تعديل", "Modifier") }}</button>
-        <button v-if="canEmail" @click="openEmail" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="send" :size="12" />{{ L("Email", "إيميل", "E-mail") }}</button>
+        <UiButton variant="secondary" size="xs" icon="gear" @click="openEdit" > {{ L("Edit", "تعديل", "Modifier") }}</UiButton>
+        <UiButton variant="secondary" size="xs" icon="send" v-if="canEmail" @click="openEmail" > {{ L("Email", "إيميل", "E-mail") }}</UiButton>
         <div class="relative inline-flex">
           <a :href="printUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 h-7 ps-2.5 pe-2 rounded-s-chip text-[11px] font-semibold text-white bg-ink hover:opacity-90"><Icon name="doc" :size="12" color="#fff" />{{ L("Print / PDF", "طباعة", "PDF") }}</a>
           <button @click="openPrintOpts" class="h-7 px-1.5 rounded-e-chip text-[11px] font-semibold text-white bg-ink hover:opacity-90 border-s border-white/20" :title="L('Print options','خيارات الطباعة','Options')">▾</button>
@@ -43,7 +43,7 @@
       <div v-else-if="actErr" class="py-5 text-center">
         <div class="text-[12px] font-bold text-rose-700">{{ L("Could not load the history.", "تعذّر تحميل السجل.", "Historique non chargé.") }}</div>
         <div class="text-[11px] text-ink-muted mt-1 break-all">{{ actErr }}</div>
-        <button class="mt-2 h-7 px-3 rounded-[8px] text-[12px] font-bold border border-line-2" @click="loadActivity">{{ L("Try again", "إعادة المحاولة", "Réessayer") }}</button>
+        <UiButton variant="secondary" size="xs" class="mt-2" @click="loadActivity">{{ L("Try again", "إعادة المحاولة", "Réessayer") }}</UiButton>
       </div>
       <div v-else-if="!events.length" class="py-6 text-center text-[12px] text-ink-muted">{{ L("No activity yet.", "لا نشاط بعد.", "Aucune activité.") }}</div>
       <div v-else class="space-y-3">
@@ -92,9 +92,8 @@
       <textarea v-model="note" :placeholder="L('Add a note or reference…', 'أضف ملاحظة أو مرجعًا…', 'Ajouter une note…')" rows="3"
                 class="w-full border border-line-2 rounded-[10px] px-3 py-2 text-[13px] focus:outline-none focus:border-accent/40 resize-y"></textarea>
       <div class="flex justify-end mt-2">
-        <button @click="postNote" :disabled="posting || !note.trim()" class="inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-accent hover:bg-accent-dark disabled:opacity-50">
-          <Icon name="check" :size="13" color="#fff" />{{ posting ? L("Posting…", "جارٍ…", "…") : L("Post note", "أضف", "Publier") }}
-        </button>
+        <UiButton variant="primary" size="md" icon="check" @click="postNote" :disabled="posting || !note.trim()" > {{ posting ? L("Posting…", "جارٍ…", "…") : L("Post note", "أضف", "Publier") }}
+        </UiButton>
       </div>
       <div v-if="notes.length" class="mt-3 space-y-2">
         <div v-for="(e, i) in notes" :key="i" class="bg-app-warm/50 rounded-[9px] px-2.5 py-2">
@@ -122,8 +121,8 @@
           </template>
         </div>
         <div class="flex gap-2 justify-end pt-1">
-          <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button v-if="editFields.length" @click="saveEdit" :disabled="savingEdit" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-accent disabled:opacity-50">{{ savingEdit ? L("Saving…", "حفظ…", "…") : L("Save", "حفظ", "Enregistrer") }}</button>
+          <UiButton variant="quiet" size="md" @click="editOpen = false" >{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+          <UiButton variant="primary" size="md" v-if="editFields.length" @click="saveEdit" :disabled="savingEdit" >{{ savingEdit ? L("Saving…", "حفظ…", "…") : L("Save", "حفظ", "Enregistrer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -137,8 +136,8 @@
         <div><label class="text-[11px] font-bold text-ink-3">{{ L("Message", "الرسالة", "Message") }}</label><textarea v-model="em.message" rows="3" class="w-full mt-1 border border-line-2 rounded-[9px] px-2 py-1.5 text-[13px] focus:outline-none focus:border-accent/40 resize-y"></textarea></div>
         <p class="text-[11px] text-ink-muted">{{ L("The document PDF is attached automatically.", "ملف PDF يُرفق تلقائيًا.", "Le PDF est joint automatiquement.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
-          <button @click="emailOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button @click="sendEmail" :disabled="sending || !em.recipients" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-accent disabled:opacity-50">{{ sending ? L("Sending…", "إرسال…", "…") : L("Send", "إرسال", "Envoyer") }}</button>
+          <UiButton variant="quiet" size="md" @click="emailOpen = false" >{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+          <UiButton variant="primary" size="md" @click="sendEmail" :disabled="sending || !em.recipients" >{{ sending ? L("Sending…", "إرسال…", "…") : L("Send", "إرسال", "Envoyer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -154,6 +153,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import DraftEditor from "@/components/DraftEditor.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ doctype: { type: String, required: true }, name: { type: String, required: true } });
 const emit = defineEmits(["changed"]);

@@ -47,8 +47,7 @@
                   </span>
                 </td>
                 <td class="px-3 py-2 text-end">
-                  <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line hover:bg-app-warm"
-                          @click="open(i.account)">{{ L("Statement","كشف الحساب","Relevé") }}</button>
+                  <UiButton variant="secondary" size="xs" @click="open(i.account)">{{ L("Statement","كشف الحساب","Relevé") }}</UiButton>
                 </td>
               </tr>
             </tbody>
@@ -342,6 +341,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

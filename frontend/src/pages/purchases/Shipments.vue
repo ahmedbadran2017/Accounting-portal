@@ -209,12 +209,8 @@
               <span v-if="ready.items_waiting && (ready.items_waiting.freight || ready.items_waiting.verify)" class="ms-2" style="color:#b45309">⏳ {{ ready.items_waiting.freight }} {{ L("waiting freight","مستني شحن","att. fret") }} · {{ ready.items_waiting.verify }} {{ L("waiting verify","مستني تحقق","att. vérif.") }}</span>
             </div>
           </div>
-          <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
-                  :disabled="busy" @click="previewApply">{{ L("Preview next wave","معاينة الدفعة الجاية","Aperçu") }}</button>
-          <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                  :disabled="busy || !ready?.items_ready"
-                  :title="!ready?.items_ready ? L('Nothing ready — items are waiting for freight or verification','مفيش جاهز — الأصناف مستنية شحن أو تحقق','Rien de prêt') : ''"
-                  @click="runApply">{{ L("Apply 20","طبّق 20","Appliquer 20") }}</button>
+          <UiButton variant="secondary" size="sm" v-if="canWrite" :disabled="busy" @click="previewApply">{{ L("Preview next wave","معاينة الدفعة الجاية","Aperçu") }}</UiButton>
+          <UiButton variant="primary" size="sm" v-if="canWrite" :disabled="busy || !ready?.items_ready" :title="!ready?.items_ready ? L('Nothing ready — items are waiting for freight or verification','مفيش جاهز — الأصناف مستنية شحن أو تحقق','Rien de prêt') : ''" @click="runApply">{{ L("Apply 20","طبّق 20","Appliquer 20") }}</UiButton>
         </div>
         <div v-if="applyPrev" class="mt-2.5 border-t border-line-hair pt-2 text-[11px]">
           <template v-if="applyPrev.dry_run">
@@ -235,7 +231,7 @@
 
     <div v-else-if="loadErr" class="bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center gap-2">
       <span class="text-[12px] text-sale font-semibold">{{ L("Couldn't load the shipments.","معرفناش نحمّل الشحنات.","Échec de chargement.") }}</span>
-      <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="loadList">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+      <UiButton variant="secondary" size="xs" @click="loadList">{{ L("Retry","إعادة المحاولة","Réessayer") }}</UiButton>
     </div>
     <div v-else class="text-[12px] text-ink-muted py-8 text-center">{{ L("Loading shipments…","بيحمّل الشحنات…","Chargement…") }}</div>
   </div>
@@ -249,6 +245,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import FreightChip from "@/components/FreightChip.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

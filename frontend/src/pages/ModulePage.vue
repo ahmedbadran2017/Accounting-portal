@@ -12,9 +12,8 @@
           <input :placeholder="t('module.search')"
                  class="w-48 bg-white border border-line-2 rounded-chip ps-8 pe-3 py-1.5 text-[12px] focus:outline-none focus:border-accent/40" />
         </div>
-        <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand">
-          <Icon name="plus" :size="14" />{{ t("module.new") }}
-        </button>
+        <UiButton variant="create" size="sm" icon="plus" > {{ t("module.new") }}
+        </UiButton>
       </div>
     </div>
 
@@ -46,6 +45,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
+import UiButton from "@/components/UiButton.vue";
 
 const { t } = useI18n();
 const route = useRoute();

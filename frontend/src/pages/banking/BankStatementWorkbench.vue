@@ -20,7 +20,7 @@
             <span class="px-2.5 py-1 rounded-chip" style="background:#eff6ff;color:#0369a1">➕ {{ d.n_created }}</span>
             <span class="px-2.5 py-1 rounded-chip" style="background:#f5f5f4;color:#78716c">👁 {{ d.n_ignored }}</span>
             <span class="px-2.5 py-1 rounded-chip font-bold" :class="pendingN ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'">{{ pendingN ? pendingN + " " + L("pending","متبقي","restants") : L("Done 🎉","خلصت 🎉","Terminé") }}</span>
-            <button v-if="canWrite && pendingN" type="button" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="rematching" @click="rematch">{{ rematching ? "…" : L("Re-match", "إعادة مطابقة", "Re-lier") }}</button>
+            <UiButton variant="primary" size="sm" v-if="canWrite && pendingN" type="button" :disabled="rematching" @click="rematch">{{ rematching ? "…" : L("Re-match", "إعادة مطابقة", "Re-lier") }}</UiButton>
           </div>
         </div>
       </div>
@@ -36,7 +36,7 @@
       <div v-if="sel.length" class="flex items-center gap-3 flex-wrap bg-emerald-50 border border-emerald-200 rounded-card px-4 py-2.5">
         <span class="text-[12px] font-bold text-emerald-800">{{ sel.length }} {{ L("selected","مختار","sélectionnés") }} · {{ selDir === 'mixed' ? L('mixed direction','اتجاه مختلط','mixte') : money(selTotal) }}</span>
         <button type="button" class="text-[11px] text-ink-3 hover:underline" @click="sel = []">{{ L("clear","إلغاء","effacer") }}</button>
-        <button v-if="selDir !== 'mixed'" type="button" class="ms-auto h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openBulk">{{ L(`Register ${sel.length} together`, `سجّل ${sel.length} مرة واحدة`, `Créer ${sel.length}`) }}</button>
+        <UiButton variant="primary" size="sm" class="ms-auto" v-if="selDir !== 'mixed'" type="button" @click="openBulk">{{ L(`Register ${sel.length} together`, `سجّل ${sel.length} مرة واحدة`, `Créer ${sel.length}`) }}</UiButton>
         <span v-else class="ms-auto text-[11px] text-amber-700 font-semibold">{{ L("select all money-in or all money-out","اختار كلهم داخل أو كلهم خارج","une seule direction") }}</span>
       </div>
 
@@ -69,10 +69,10 @@
                 </td>
                 <td class="px-4 py-2 text-end whitespace-nowrap">
                   <div v-if="canWrite && l.status==='pending'" class="inline-flex items-center gap-1.5">
-                    <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark" @click="openRegister(l)">{{ L("Register","سجّل","Créer") }}</button>
-                    <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-accent-dark border border-line-2 hover:bg-app-warm" @click="openMatch(l)">{{ L("Match","اربط","Lier") }}</button>
+                    <UiButton variant="secondary" size="xs" type="button" @click="openRegister(l)">{{ L("Register","سجّل","Créer") }}</UiButton>
+                    <UiButton variant="secondary" size="xs" type="button" @click="openMatch(l)">{{ L("Match","اربط","Lier") }}</UiButton>
                     <button type="button" class="h-7 px-2 rounded-chip text-[11px] text-accent-dark hover:bg-app-warm" :title="L('Transfer between our accounts','تحويل بين حساباتنا','Virement interne')" @click="openTransfer(l)">↔</button>
-                    <button type="button" class="h-7 px-2 rounded-chip text-[11px] text-ink-3 hover:bg-app-warm" @click="ignore(l)">{{ L("Ignore","تجاهل","Ignorer") }}</button>
+                    <UiButton variant="quiet" size="xs" type="button" @click="ignore(l)">{{ L("Ignore","تجاهل","Ignorer") }}</UiButton>
                   </div>
                   <button v-else-if="canWrite && l.status!=='pending'" type="button" class="text-[11px] text-ink-muted hover:text-sale hover:underline" @click="reset(l)">{{ L("undo","تراجع","annuler") }}</button>
                 </td>
@@ -124,7 +124,7 @@
             <span class="text-[11px] font-semibold" :class="sumMatches ? 'text-success-dark' : 'text-amber-700'">
               {{ sumMatches ? "✓ " + L("matches the line","مطابق للسطر","OK") : L("line is","السطر","ligne") + " " + money(matching.amount) + " · " + L("off by","فرق","écart") + " " + money(pickedSum - matching.amount) }}
             </span>
-            <button type="button" class="ms-auto h-8 px-4 rounded-chip text-[12px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50" :disabled="linkBusy" @click="doMatchMulti">{{ linkBusy ? "…" : L(`Link ${pickedCands.length}`, `اربط ${pickedCands.length}`, `Lier ${pickedCands.length}`) }}</button>
+            <UiButton variant="primary" size="sm" class="ms-auto" type="button" :disabled="linkBusy" @click="doMatchMulti">{{ linkBusy ? "…" : L(`Link ${pickedCands.length}`, `اربط ${pickedCands.length}`, `Lier ${pickedCands.length}`) }}</UiButton>
           </div>
         </div>
       </div>
@@ -161,7 +161,7 @@
           </div>
           <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
             <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="bulk=false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-            <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!bulkAccount || bulkBusy" @click="postBulk">{{ bulkBusy ? "…" : L("Register","سجّل","Enregistrer") }}</button>
+            <UiButton variant="primary" size="md" :disabled="!bulkAccount || bulkBusy" @click="postBulk">{{ bulkBusy ? "…" : L("Register","سجّل","Enregistrer") }}</UiButton>
           </div>
         </div>
       </div>
@@ -196,7 +196,7 @@
           </div>
           <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
             <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="moneyIn=null">{{ L("Cancel","إلغاء","Annuler") }}</button>
-            <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="!inAccount || inBusy" @click="postIn">{{ inBusy ? "…" : L("Record","سجّل","Enregistrer") }}</button>
+            <UiButton variant="primary" size="md" :disabled="!inAccount || inBusy" @click="postIn">{{ inBusy ? "…" : L("Record","سجّل","Enregistrer") }}</UiButton>
           </div>
         </div>
       </div>
@@ -219,6 +219,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import { fmtAmount } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ importName: { type: String, required: true } });
 defineEmits(["back"]);

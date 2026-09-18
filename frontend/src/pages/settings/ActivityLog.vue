@@ -27,7 +27,7 @@
     <div v-if="pending" class="flex items-center gap-2.5 px-4 py-2.5 rounded-card border" style="background:#fffbeb;border-color:#fde68a">
       <Icon name="bell" :size="15" color="#b45309" />
       <span class="text-[12px] font-bold text-ink-2">{{ pending }} {{ L("action(s) awaiting your approval", "إجراء بانتظار موافقتك", "action(s) à approuver") }}</span>
-      <button @click="filter = 'Proposed'" class="ms-auto text-[11px] font-bold px-2.5 py-1 rounded-full bg-brand text-white">{{ L("Review", "راجع", "Examiner") }}</button>
+      <UiButton variant="secondary" size="xs" class="ms-auto" @click="filter = 'Proposed'" >{{ L("Review", "راجع", "Examiner") }}</UiButton>
     </div>
 
     <div class="flex items-center gap-2 flex-wrap">
@@ -57,19 +57,19 @@
             <td class="px-4 py-2.5 text-ink-3 whitespace-nowrap">{{ when(a.posted_on || a.creation) }}</td>
             <td class="px-4 py-2.5 text-end whitespace-nowrap">
               <span class="inline-flex gap-1.5 items-center">
-                <button @click="openDetail(a)" class="h-7 px-2 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1" :title="L('View transaction details','عرض تفاصيل المعاملة','Voir les détails')"><Icon name="doc" :size="12" />{{ L("Details","تفاصيل","Détails") }}</button>
+                <UiButton variant="secondary" size="xs" icon="doc" @click="openDetail(a)" :title="L('View transaction details','عرض تفاصيل المعاملة','Voir les détails')"> {{ L("Details","تفاصيل","Détails") }}</UiButton>
                 <span v-if="a.status === 'Proposed'" class="relative">
-                  <button @click="assignOpen = assignOpen === a.name ? '' : a.name" class="h-7 px-2 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1"><Icon name="user" :size="12" />{{ L("Assign","إسناد","Assigner") }}</button>
+                  <UiButton variant="secondary" size="xs" icon="user" @click="assignOpen = assignOpen === a.name ? '' : a.name" > {{ L("Assign","إسناد","Assigner") }}</UiButton>
                   <div v-if="assignOpen === a.name" class="absolute z-20 mt-1 end-0 w-52 bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-60 overflow-auto text-start">
                     <button v-for="u in users" :key="u.name" @click="assign(a, u.name)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm flex items-center justify-between"><span class="truncate">{{ u.full_name || u.name }}</span><Icon v-if="assigneesOf(a).includes(u.name)" name="check" :size="12" color="#047857" /></button>
                     <div v-if="!users.length" class="px-3 py-2 text-[11px] text-ink-muted">{{ L("No users","لا مستخدمين","Aucun") }}</div>
                   </div>
                 </span>
-                <button v-if="a.status === 'Proposed' && !isMine(a)" @click="approve(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-white bg-success disabled:opacity-50">{{ L("Approve", "اعتماد", "Approuver") }}</button>
-                <button v-else-if="a.status === 'Proposed' && canBreakGlass" @click="selfApprove(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50" :title="L('No other approver available — self-approve with a reason (logged)','لا يوجد موافِق آخر — اعتمد بنفسك بسبب مُسجّل','Auto-approuver')">{{ L("Self-approve", "اعتمد بنفسك", "Auto-approuver") }}</button>
+                <UiButton variant="secondary" size="xs" v-if="a.status === 'Proposed' && !isMine(a)" @click="approve(a)" :disabled="busy" >{{ L("Approve", "اعتماد", "Approuver") }}</UiButton>
+                <UiButton variant="secondary" size="xs" v-else-if="a.status === 'Proposed' && canBreakGlass" @click="selfApprove(a)" :disabled="busy" :title="L('No other approver available — self-approve with a reason (logged)','لا يوجد موافِق آخر — اعتمد بنفسك بسبب مُسجّل','Auto-approuver')">{{ L("Self-approve", "اعتمد بنفسك", "Auto-approuver") }}</UiButton>
                 <span v-else-if="a.status === 'Proposed'" class="text-[11px] text-ink-muted italic px-1" :title="L('You proposed this — another approver must approve it', 'أنت اقترحته — لازم موافِق آخر', 'Un autre approbateur est requis')">{{ L("awaiting another approver", "بانتظار موافِق آخر", "en attente d'un autre approbateur") }}</span>
-                <button v-if="a.status === 'Proposed'" @click="reject(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm">{{ L("Reject", "رفض", "Rejeter") }}</button>
-                <button v-if="a.status === 'Posted' && a.revertable && canUndo" @click="revert(a)" :disabled="busy" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm inline-flex items-center gap-1"><Icon name="arrow" :size="11" class="rotate-180" />{{ L("Undo", "تراجع", "Annuler") }}</button>
+                <UiButton variant="danger" size="xs" v-if="a.status === 'Proposed'" @click="reject(a)" :disabled="busy" >{{ L("Reject", "رفض", "Rejeter") }}</UiButton>
+                <UiButton variant="secondary" size="xs" v-if="a.status === 'Posted' && a.revertable && canUndo" @click="revert(a)" :disabled="busy" ><Icon name="arrow" :size="11" class="rotate-180" />{{ L("Undo", "تراجع", "Annuler") }}</UiButton>
               </span>
             </td>
           </tr>
@@ -139,9 +139,9 @@
 
         <!-- in-context decision for a Proposed action -->
         <footer v-if="detail && detail.status === 'Proposed'" class="flex items-center gap-2 px-4 py-3 border-t border-line-hair bg-app-warm/30">
-          <button @click="reject(detail)" :disabled="busy" class="h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-3 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-50">{{ L("Reject","رفض","Rejeter") }}</button>
-          <button v-if="!isMine(detail)" @click="approve(detail)" :disabled="busy" class="ms-auto h-8 px-4 rounded-chip text-[12px] font-semibold text-white bg-success hover:brightness-95 disabled:opacity-50">{{ L("Approve & post","اعتماد وترحيل","Approuver") }}</button>
-          <button v-else-if="canBreakGlass" @click="selfApprove(detail)" :disabled="busy" class="ms-auto h-8 px-4 rounded-chip text-[12px] font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50">{{ L("Self-approve","اعتمد بنفسك","Auto-approuver") }}</button>
+          <UiButton variant="danger" size="sm" @click="reject(detail)" :disabled="busy" >{{ L("Reject","رفض","Rejeter") }}</UiButton>
+          <UiButton variant="primary" size="sm" class="ms-auto" v-if="!isMine(detail)" @click="approve(detail)" :disabled="busy" >{{ L("Approve & post","اعتماد وترحيل","Approuver") }}</UiButton>
+          <UiButton variant="secondary" size="sm" class="ms-auto" v-else-if="canBreakGlass" @click="selfApprove(detail)" :disabled="busy" >{{ L("Self-approve","اعتمد بنفسك","Auto-approuver") }}</UiButton>
           <span v-else class="ms-auto text-[11px] text-ink-muted italic">{{ L("awaiting another approver","بانتظار موافِق آخر","en attente") }}</span>
         </footer>
       </div>
@@ -160,6 +160,7 @@ import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useToast } from "@/composables/useToast";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { money0 } from "@/composables/useReports";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

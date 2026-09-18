@@ -89,7 +89,7 @@
     <!-- ======================= VENDOR DETAIL ======================= -->
     <template v-else>
       <div class="flex items-center gap-2 flex-wrap">
-        <button class="h-[30px] px-3 rounded-[8px] border border-line text-[12px] bg-white" @click="closeVendor()">← {{ L("All vendors","كل الموردين","Tous") }}</button>
+        <UiButton variant="secondary" size="sm" @click="closeVendor()">← {{ L("All vendors","كل الموردين","Tous") }}</UiButton>
         <div class="text-[16px] font-extrabold">{{ det?.supplier }}</div>
         <span v-if="det?.local" class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ L("local — no weights/freight needed","محلي — بدون وزن/شحن","local") }}</span>
         <span v-else class="text-[11px] font-bold px-2 py-0.5 rounded-full" :style="chanStyle(det?.channel)">{{ det?.channel || "?" }}</span>
@@ -100,8 +100,8 @@
         <div>{{ L("Loading…","جاري التحميل…","Chargement…") }}</div>
         <div v-if="slowLoad" class="mt-2 text-[11px]" style="color:#b45309">
           {{ L("Still waiting — a background correction may be locking the stock tables.","لسه بيحمّل — غالبًا في تصحيح شغّال في الخلفية ماسك جداول المخزون.","Toujours en attente — un traitement de fond bloque le stock.") }}
-          <button class="ms-2 h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px]" @click="open(sel)">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
-          <button class="ms-1 h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px]" @click="closeVendor()">{{ L("Back to vendors","رجوع للموردين","Retour") }}</button>
+          <UiButton variant="secondary" size="xs" class="ms-2" @click="open(sel)">{{ L("Retry","إعادة المحاولة","Réessayer") }}</UiButton>
+          <UiButton variant="secondary" size="xs" class="ms-1" @click="closeVendor()">{{ L("Back to vendors","رجوع للموردين","Retour") }}</UiButton>
         </div>
       </div>
       <template v-else-if="det">
@@ -131,15 +131,15 @@
               <span class="ms-1">{{ onlyMissing ? "✓" : L("— show only","— اعرضهم بس","— filtrer") }}</span>
             </button>
             <div class="ms-auto flex gap-2 flex-wrap">
-              <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border border-line bg-white" @click="exportMissing">⬇ {{ L("Excel (missing)","إكسيل (الناقص)","Excel (manquant)") }}</button>
+              <UiButton variant="secondary" size="xs" @click="exportMissing">⬇ {{ L("Excel (missing)","إكسيل (الناقص)","Excel (manquant)") }}</UiButton>
               <label class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border border-line bg-white inline-flex items-center cursor-pointer">
                 ⬆ {{ importing ? "…" : L("Import filled","رفع المملوء","Importer") }}
                 <input type="file" accept=".csv,.txt" class="hidden" @change="importFile" />
               </label>
-              <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border border-line bg-white" @click="fillFamily">{{ L("Inherit within family","توريث داخل العائلة","Hériter famille") }}</button>
-              <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-semibold text-white bg-accent disabled:opacity-50" :disabled="!dirtyW.length || saving" @click="saveWeights">
+              <UiButton variant="secondary" size="xs" @click="fillFamily">{{ L("Inherit within family","توريث داخل العائلة","Hériter famille") }}</UiButton>
+              <UiButton variant="secondary" size="xs" :disabled="!dirtyW.length || saving" @click="saveWeights">
                 {{ saving ? "…" : L("Save "+dirtyW.length,"حفظ "+dirtyW.length,"Enregistrer") }}
-              </button>
+              </UiButton>
               <button class="h-[28px] px-3 rounded-[8px] text-[11px] font-bold border" :class="det.state.weights ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-line bg-white'" @click="markStep('weights')">
                 {{ det.state.weights ? L("Reviewed ✓","تمت المراجعة ✓","Revu ✓") : L("Mark reviewed","علّم كمُراجع","Marquer revu") }}
               </button>
@@ -169,11 +169,9 @@
                              :class="wDirty[it.item_code] !== undefined ? 'border-accent bg-blue-50/40' : 'border-line'"
                              :value="wval(it)" @input="e => setW(it, e.target.value)"
                              @keyup.enter="saveOne(it)" dir="ltr" />
-                      <button v-if="wDirty[it.item_code] !== undefined && parseFloat(wDirty[it.item_code]) > 0"
-                              class="h-[26px] px-2 rounded-[7px] text-[11px] font-semibold text-white bg-accent disabled:opacity-50"
-                              :disabled="savingOne === it.item_code" @click="saveOne(it)">
+                      <UiButton variant="secondary" size="xs" v-if="wDirty[it.item_code] !== undefined && parseFloat(wDirty[it.item_code]) > 0" :disabled="savingOne === it.item_code" @click="saveOne(it)">
                         {{ savingOne === it.item_code ? "…" : L("Save","حفظ","OK") }}
-                      </button>
+                      </UiButton>
                       <span v-else-if="justSaved === it.item_code" class="text-[11px] font-bold" style="color:#047857">✓</span>
                     </span>
                   </td>
@@ -207,9 +205,9 @@
               <div class="flex gap-1.5 items-center">
                 <input type="number" step="0.01" min="0" v-model="rateEdit"
                        class="w-[92px] h-[28px] px-2 rounded-[8px] border border-line text-end tnum text-[12px]" dir="ltr" />
-                <button class="h-[28px] px-2.5 rounded-[8px] text-[11px] font-semibold text-white bg-accent" @click="saveRate(false)">{{ L("Set for vendor","ثبّت للمورّد","Fixer") }}</button>
-                <button class="h-[28px] px-2.5 rounded-[8px] text-[11px] font-bold border border-line bg-white" :title="L('make this the shared rate for every '+(fr?.channel||'')+' vendor','خلّيه السعر الموحد لكل موردين القناة دي','taux partagé du canal')" @click="saveRate(true)">{{ L("Set for channel","ثبّت للقناة","Canal") }}</button>
-                <button v-if="fr?.rate_source==='vendor'" class="h-[28px] px-2 rounded-[8px] text-[11px] border border-line bg-white text-ink-muted" @click="clearVendorRate">{{ L("clear","امسح","×") }}</button>
+                <UiButton variant="secondary" size="xs" @click="saveRate(false)">{{ L("Set for vendor","ثبّت للمورّد","Fixer") }}</UiButton>
+                <UiButton variant="secondary" size="xs" :title="L('make this the shared rate for every '+(fr?.channel||'')+' vendor','خلّيه السعر الموحد لكل موردين القناة دي','taux partagé du canal')" @click="saveRate(true)">{{ L("Set for channel","ثبّت للقناة","Canal") }}</UiButton>
+                <UiButton variant="secondary" size="xs" v-if="fr?.rate_source==='vendor'" @click="clearVendorRate">{{ L("clear","امسح","×") }}</UiButton>
               </div>
             </div>
             <!-- dated era rates (the air 100/110/120 pattern) -->
@@ -225,8 +223,8 @@
                   <button class="text-[11px] text-ink-muted" @click="schedEdit.splice(i,1)">✕</button>
                 </div>
                 <div class="flex gap-2">
-                  <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line bg-white" @click="schedEdit.push({date:'',rate:''})">+ {{ L("era","حقبة","ère") }}</button>
-                  <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-accent" @click="saveSched">{{ L("Save eras","حفظ الحقب","Enregistrer") }}</button>
+                  <UiButton variant="secondary" size="xs" @click="schedEdit.push({date:'',rate:''})">+ {{ L("era","حقبة","ère") }}</UiButton>
+                  <UiButton variant="secondary" size="xs" @click="saveSched">{{ L("Save eras","حفظ الحقب","Enregistrer") }}</UiButton>
                 </div>
                 <p class="text-[11px] text-ink-muted">{{ L("Each date opens an era at its MAD/kg — the retro prices every month's freight at ITS era (product avg of the month + era rate × weight). No dates = flat rate.","كل تاريخ بيفتح حقبة بسعرها — الرترو بيسعّر شحن كل شهر بحقبته (متوسط منتج الشهر + سعر الحقبة × الوزن). من غير تواريخ = سعر ثابت.","Chaque date ouvre une ère.") }}</p>
               </div>
@@ -261,7 +259,7 @@
             <label class="ms-auto inline-flex items-center gap-1.5 text-[11px] cursor-pointer">
               <input type="checkbox" v-model="pOnlyUnpriced" /> {{ L("unpriced only","الغير مسعّر بس","non tarifés") }}
             </label>
-            <button class="h-[28px] px-3 rounded-[8px] border border-line text-[11px] bg-white" @click="exportPrices">⬇ Excel</button>
+            <UiButton variant="secondary" size="xs" @click="exportPrices">⬇ Excel</UiButton>
             <label class="h-[28px] px-3 rounded-[8px] border border-line text-[11px] bg-white inline-flex items-center cursor-pointer">
               {{ pImporting ? "…" : "⬆ " + L("Import","استيراد","Importer") }}
               <input type="file" accept=".csv,.txt" class="hidden" @change="importPricesFile" />
@@ -312,10 +310,10 @@
                              @input="pDate = { ...pDate, [it.item_code]: $event.target.value }" />
                     </td>
                     <td class="px-2 text-end whitespace-nowrap">
-                      <button class="h-[24px] px-2 rounded-[7px] text-[11px] font-bold border border-line bg-white" :disabled="pSaving===it.item_code" @click="savePrice(it)">
+                      <UiButton variant="secondary" size="xs" :disabled="pSaving===it.item_code" @click="savePrice(it)">
                         {{ pSaving===it.item_code ? "…" : (pJustSaved===it.item_code ? "✓" : L("Save","حفظ","OK")) }}
-                      </button>
-                      <button v-if="(it.history||[]).length" class="h-[24px] px-1.5 rounded-[7px] text-[11px] border border-line bg-white ms-1" @click="pHistOpen = pHistOpen===it.item_code ? null : it.item_code">🕘</button>
+                      </UiButton>
+                      <UiButton variant="secondary" size="xs" class="ms-1" v-if="(it.history||[]).length" @click="pHistOpen = pHistOpen===it.item_code ? null : it.item_code">🕘</UiButton>
                     </td>
                   </tr>
                   <tr v-if="pHistOpen===it.item_code" class="border-t border-line-hair" style="background:#fafaf9">
@@ -480,8 +478,8 @@
                         <span class="text-[11px] font-bold">{{ L("Verified cost (MAD)","التكلفة المعتمدة (درهم)","Coût vérifié") }}:</span>
                         <input type="number" step="0.01" min="0" v-model="ovRate" class="w-[90px] h-[26px] px-2 rounded-[7px] border border-line text-end tnum text-[11px]" dir="ltr" />
                         <input type="text" v-model="ovNote" :placeholder="L('why? (required)','السبب؟ (إجباري)','pourquoi ?')" class="flex-1 min-w-[180px] h-[26px] px-2 rounded-[7px] border border-line text-[11px]" />
-                        <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-accent disabled:opacity-50" :disabled="ovSaving" @click="saveOverride(it)">{{ ovSaving ? "…" : L("Save","حفظ","OK") }}</button>
-                        <button v-if="it.cost_override" class="h-[26px] px-2 rounded-[7px] text-[11px] border border-line bg-white text-ink-muted" @click="clearOverride(it)">{{ L("clear","امسح","×") }}</button>
+                        <UiButton variant="secondary" size="xs" :disabled="ovSaving" @click="saveOverride(it)">{{ ovSaving ? "…" : L("Save","حفظ","OK") }}</UiButton>
+                        <UiButton variant="secondary" size="xs" v-if="it.cost_override" @click="clearOverride(it)">{{ L("clear","امسح","×") }}</UiButton>
                       </div>
                     </template>
                   </td>
@@ -498,9 +496,9 @@
             <div class="flex items-center gap-2 flex-wrap">
               <div class="text-[13px] font-bold">{{ L("Submit retro correction","ترحيل التصحيح الرجعي","Soumettre la correction") }}</div>
               <span class="text-[11px] text-ink-muted tnum" dir="ltr">{{ det.state.submitted.length }}/{{ det.summary.items }} {{ L("submitted","مُرحّل","soumis") }}</span>
-              <button class="ms-auto h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line bg-white" :disabled="pvLoading" @click="loadPreview">
+              <UiButton variant="secondary" size="sm" class="ms-auto" :disabled="pvLoading" @click="loadPreview">
                 {{ pvLoading ? "…" : L("Dry-run preview","معاينة بدون ترحيل","Aperçu à blanc") }}
-              </button>
+              </UiButton>
             </div>
             <div v-if="pv" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
               <div class="rounded-[12px] border px-3 py-2.5" style="border-color:#a7f3d0;background:#ecfdf5"><div class="lab" style="color:#047857">{{ L("Ready (retro OK)","جاهز (رترو سليم)","Prêt") }}</div><div class="big tnum" style="color:#047857" dir="ltr">{{ pv.ready }}</div></div>
@@ -512,15 +510,13 @@
               {{ L("Applied rate = product cost + freight (","السعر المُطبّق = تكلفة المنتج + الشحن (","Taux = produit + fret (") }}<b class="tnum" dir="ltr">{{ pv.rate_kg }} MAD/kg</b>{{ L(" × item weight). Items without weight are blocked, not guessed."," × وزن الصنف). اللي من غير وزن بيتحجب مش بيتخمّن."," × poids).") }}
             </p>
             <div v-if="pv" class="mt-3 flex items-center gap-2 flex-wrap">
-              <button class="h-[34px] px-4 rounded-[9px] text-[12px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-                      :disabled="submitting || !readyQueue.length" @click="runAll">
+              <UiButton variant="primary" size="md" :disabled="submitting || !readyQueue.length" @click="runAll">
                 {{ submitting ? L("Running…","شغّال…","En cours…")
                   : L("Run all in background ("+readyQueue.length+")","شغّل الكل في الخلفية ("+readyQueue.length+")","Tout exécuter en arrière-plan ("+readyQueue.length+")") }}
-              </button>
-              <button class="h-[34px] px-3 rounded-[9px] text-[12px] font-bold border border-line bg-white disabled:opacity-50"
-                      :disabled="submitting || !readyQueue.length" @click="runBatch">
+              </UiButton>
+              <UiButton variant="secondary" size="md" :disabled="submitting || !readyQueue.length" @click="runBatch">
                 {{ L("Next "+Math.min(15, readyQueue.length)+" from this tab","الـ"+Math.min(15, readyQueue.length)+" الجايين من التاب ده","Prochains "+Math.min(15, readyQueue.length)+" depuis cet onglet") }}
-              </button>
+              </UiButton>
               <span class="text-[11px] text-ink-muted">{{ L("Background = server job, tab can close. Gated, audited, reversible either way.","في الخلفية = شغل على السيرفر والتاب يتقفل عادي. الطريقتين gated ومسجّلين وقابلين للعكس.","Arrière-plan = tâche serveur, onglet fermable.") }}</span>
             </div>
             <div v-if="prog && prog.state !== 'idle'" class="mt-3 rounded-[10px] border px-3 py-2.5"
@@ -535,10 +531,8 @@
                     ? L("Stopped — finished items are saved","اتوقف — اللي خلص محفوظ","Arrêté — le travail fait est enregistré")
                     : L("Batch finished","الدفعة خلصت","Lot terminé") }}</span>
                 <span class="ms-auto tnum" dir="ltr">{{ prog.done }}/{{ prog.total }}</span>
-                <button v-if="prog.state === 'running' && prog.mode === 'all'" class="h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px] font-bold"
-                        @click="stopAll">{{ L("Stop after this item","وقّف بعد الصنف ده","Arrêter") }}</button>
-                <button v-else-if="prog.state === 'running' && submitting" class="h-[24px] px-2 rounded-[7px] border border-line bg-white text-[11px] font-bold"
-                        @click="stopRun = true">{{ L("Stop after this item","وقّف بعد الصنف ده","Arrêter") }}</button>
+                <UiButton variant="secondary" size="xs" v-if="prog.state === 'running' && prog.mode === 'all'" @click="stopAll">{{ L("Stop after this item","وقّف بعد الصنف ده","Arrêter") }}</UiButton>
+                <UiButton variant="secondary" size="xs" v-else-if="prog.state === 'running' && submitting" @click="stopRun = true">{{ L("Stop after this item","وقّف بعد الصنف ده","Arrêter") }}</UiButton>
               </div>
               <div class="h-[6px] rounded-full mt-2 overflow-hidden" style="background:#00000012">
                 <div class="h-full rounded-full transition-all"
@@ -1061,6 +1055,7 @@ watch(entityId, load);
 <script>
 import { defineComponent, h, ref as _ref } from "vue";
 import apiSvc from "@/services/api";
+import UiButton from "@/components/UiButton.vue";
 // tiny inline badge + reassign select for multi-vendor items
 export const MultiVendorBadge = defineComponent({
   props: { item: Object, current: String },

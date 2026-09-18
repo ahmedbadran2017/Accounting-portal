@@ -94,8 +94,8 @@
           <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="ef.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
         </div>
         <div class="flex gap-2 justify-end pt-1">
-          <button @click="editOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button @click="saveEdit" :disabled="saving" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ saving ? L("Saving…","حفظ…","…") : L("Save","حفظ","Enregistrer") }}</button>
+          <UiButton variant="quiet" size="md" @click="editOpen = false" >{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+          <UiButton variant="primary" size="md" @click="saveEdit" :disabled="saving" >{{ saving ? L("Saving…","حفظ…","…") : L("Save","حفظ","Enregistrer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -113,6 +113,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
 import PartyStatement from "@/components/PartyStatement.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const showStatement = ref(false);
 const toast = useToast();

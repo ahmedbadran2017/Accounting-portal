@@ -19,8 +19,8 @@
       </div>
       <p v-if="err" class="text-[12px] text-sale">{{ err }}</p>
       <div class="flex gap-2 justify-end pt-1">
-        <button @click="$emit('close')" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-        <button @click="save" :disabled="busy || !f.item_code || !f.item_group" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ busy ? "…" : L("Create", "إنشاء", "Créer") }}</button>
+        <UiButton variant="quiet" size="md" @click="$emit('close')" >{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+        <UiButton variant="create" size="md" @click="save" :disabled="busy || !f.item_code || !f.item_group" >{{ busy ? "…" : L("Create", "إنشاء", "Créer") }}</UiButton>
       </div>
     </div>
   </div>
@@ -33,6 +33,7 @@ import Icon from "@/components/Icon.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ open: { type: Boolean, default: false } });
 const emit = defineEmits(["close", "created"]);

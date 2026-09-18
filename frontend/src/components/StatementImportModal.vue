@@ -89,9 +89,9 @@
         <span class="text-[11px] text-ink-muted">{{ L("Reconciling only stamps a clearance date — no ledger impact, reversible.", "التسوية بتحط تاريخ مطابقة فقط — بدون أثر على الأستاذ.", "Rapprochement seul — réversible.") }}</span>
         <div class="flex items-center gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button v-if="parsed && !result" class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-ink hover:brightness-110 disabled:opacity-50" :disabled="matching || !parsed.count" @click="doMatch">{{ matching ? "…" : L("Match", "طابِق", "Rapprocher") }}</button>
-          <button v-if="parsed" class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="savingWb" @click="saveWorkbench">{{ savingWb ? "…" : L("Save & open workbench", "احفظ وافتح الورشة", "Ouvrir l'atelier") }}</button>
-          <button v-if="result" class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50" :disabled="reconciling || !result.matched_n" @click="doReconcile">{{ reconciling ? "…" : L("Reconcile", "سوِّ", "Rapprocher") + " " + result.matched_n }}</button>
+          <UiButton variant="secondary" size="md" v-if="parsed && !result" :disabled="matching || !parsed.count" @click="doMatch">{{ matching ? "…" : L("Match", "طابِق", "Rapprocher") }}</UiButton>
+          <UiButton variant="secondary" size="md" v-if="parsed" :disabled="savingWb" @click="saveWorkbench">{{ savingWb ? "…" : L("Save & open workbench", "احفظ وافتح الورشة", "Ouvrir l'atelier") }}</UiButton>
+          <UiButton variant="primary" size="md" v-if="result" :disabled="reconciling || !result.matched_n" @click="doReconcile">{{ reconciling ? "…" : L("Reconcile", "سوِّ", "Rapprocher") + " " + result.matched_n }}</UiButton>
         </div>
       </div>
     </div>
@@ -107,6 +107,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
 import { getCsrfToken } from "@/utils/helpers";
 import { fmtAmount } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ account: { type: String, required: true }, accountName: { type: String, default: "" } });
 const emit = defineEmits(["close", "done", "workbench"]);

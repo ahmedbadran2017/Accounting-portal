@@ -42,10 +42,10 @@
       </div>
 
       <footer class="flex items-center gap-2 px-5 py-3.5 border-t border-line-hair bg-app-warm/30 rounded-b-[16px]">
-        <button @click="$emit('close')" class="h-9 px-3.5 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-        <button @click="post" :disabled="busy || !(pv && pv.ok)" class="ms-auto h-9 px-4 rounded-chip text-[12px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+        <UiButton variant="quiet" size="md" @click="$emit('close')" >{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+        <UiButton variant="primary" size="md" class="ms-auto" @click="post" :disabled="busy || !(pv && pv.ok)" >
           {{ busy ? L("Posting…","جارٍ…","…") : L("Post reclass","ترحيل إعادة التصنيف","Passer") }}
-        </button>
+        </UiButton>
       </footer>
     </div>
   </div>
@@ -59,6 +59,7 @@ import SearchSelect from "@/components/SearchSelect.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const emit = defineEmits(["close", "posted"]);
 const { locale } = useI18n();

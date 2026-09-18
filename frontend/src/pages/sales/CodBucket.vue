@@ -33,9 +33,8 @@
         <span class="text-[13px] font-bold">{{ active.label() }}</span>
         <LiveBadge :live="live" />
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ bucketCount.toLocaleString() }} {{ L("orders","طلب","commandes") }} · {{ scopeLabel || "FY 2026" }}<span v-if="bucketCount > rows.length"> · {{ L("showing first","عرض أول","premiers") }} {{ rows.length }}</span></span>
-        <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showRecon = true">
-          <Icon name="trend" :size="14" />{{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher fichier Cathedis") }}
-        </button>
+        <UiButton variant="primary" size="sm" icon="trend" class="ms-auto" @click="showRecon = true"> {{ L("Reconcile Cathedis file","مطابقة ملف كاتدييس","Rapprocher fichier Cathedis") }}
+        </UiButton>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="srch" :placeholder="L('Order / customer / invoice / ref…','أوردر / عميل / فاتورة / مرجع…','Commande / client / facture…')" class="w-40 sm:w-64 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
@@ -117,6 +116,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useTableTools } from "@/composables/useTableTools";
 import BulkBar from "@/components/BulkBar.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const route = useRoute();
 const router = useRouter();

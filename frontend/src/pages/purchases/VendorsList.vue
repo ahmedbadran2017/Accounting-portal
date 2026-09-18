@@ -17,8 +17,8 @@
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="tt.search.value" :placeholder="L('Search supplier…','بحث…','Rechercher…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
         </div>
-        <button @click="importOpen = true" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm"><Icon name="layers" :size="14" />{{ L("Import","استيراد","Importer") }}</button>
-        <button @click="openNew" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand"><Icon name="plus" :size="14" color="#fff" />{{ L("New","جديد","Nouveau") }}</button>
+        <UiButton variant="secondary" size="md" icon="layers" @click="importOpen = true" > {{ L("Import","استيراد","Importer") }}</UiButton>
+        <UiButton variant="create" size="md" icon="plus" @click="openNew" > {{ L("New","جديد","Nouveau") }}</UiButton>
       </div>
 
       <TableToolbar :t="tt" filename="suppliers" />
@@ -84,8 +84,8 @@
           <div><label class="text-[11px] font-bold text-ink-3">{{ L("Currency","العملة","Devise") }}</label><input v-model.trim="nf.currency" class="w-full h-9 mt-1 border border-line-2 rounded-[9px] px-2 text-[13px] focus:outline-none focus:border-accent/40" placeholder="MAD" /></div>
         </div>
         <div class="flex gap-2 justify-end pt-1">
-          <button @click="newOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button @click="createNew" :disabled="creating || !nf.supplier_name" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ creating ? L("Creating…","جارٍ…","…") : L("Create","إنشاء","Créer") }}</button>
+          <UiButton variant="quiet" size="md" @click="newOpen = false" >{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+          <UiButton variant="create" size="md" @click="createNew" :disabled="creating || !nf.supplier_name" >{{ creating ? L("Creating…","جارٍ…","…") : L("Create","إنشاء","Créer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -102,8 +102,8 @@
         <div class="flex items-center justify-between pt-1">
           <span class="text-[11px] text-ink-muted">{{ parsedCount }} {{ L("rows","سطر","lignes") }}</span>
           <div class="flex gap-2">
-            <button @click="importOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Close","إغلاق","Fermer") }}</button>
-            <button @click="runImport" :disabled="importing || !parsedCount" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ importing ? L("Importing…","جارٍ…","…") : L("Import","استيراد","Importer") }}</button>
+            <UiButton variant="quiet" size="md" @click="importOpen = false" >{{ L("Close","إغلاق","Fermer") }}</UiButton>
+            <UiButton variant="primary" size="md" @click="runImport" :disabled="importing || !parsedCount" >{{ importing ? L("Importing…","جارٍ…","…") : L("Import","استيراد","Importer") }}</UiButton>
           </div>
         </div>
       </div>
@@ -127,6 +127,7 @@ import { useTableTools } from "@/composables/useTableTools";
 import BulkBar from "@/components/BulkBar.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const router = useRouter();

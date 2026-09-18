@@ -40,9 +40,9 @@
         <div v-if="error" class="text-[12px] text-sale">{{ error }}</div>
         <div class="flex justify-end gap-2 pt-1">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="$emit('close')">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="busy || !picked || !priceList || !rate" @click="submit">
+          <UiButton variant="primary" size="md" :disabled="busy || !picked || !priceList || !rate" @click="submit">
             {{ busy ? L("Saving…","جارٍ…","…") : L("Save price","حفظ السعر","Enregistrer") }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -55,6 +55,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ open: Boolean, presetList: String });
 const emit = defineEmits(["close", "done"]);

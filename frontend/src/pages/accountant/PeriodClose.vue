@@ -57,7 +57,7 @@
         <template v-if="isAdmin">
           <div class="flex items-center gap-2 mt-2.5">
             <input v-model="lockDate" type="date" class="flex-1 h-8 rounded-[8px] px-2 text-[12px] text-ink bg-white/90 border-0 focus:outline-none" />
-            <button class="h-8 px-3 rounded-[8px] text-[12px] font-bold text-ink" style="background:#fbbf24" :disabled="lockBusy || !lockDate" @click="lock(lockDate)">{{ lockBusy ? "…" : L("Lock", "قفل", "Verrouiller") }}</button>
+            <UiButton variant="secondary" size="sm" :disabled="lockBusy || !lockDate" @click="lock(lockDate)">{{ lockBusy ? "…" : L("Lock", "قفل", "Verrouiller") }}</UiButton>
           </div>
           <button v-if="lockedUpto" class="mt-2 text-[11px] font-semibold" style="color:#a8a29e" :disabled="lockBusy" @click="lock('')">{{ L("Unlock", "إلغاء القفل", "Déverrouiller") }}</button>
           <p class="text-[11px] mt-2" style="color:#a8a29e">{{ L("Locks posting on/before the date across all companies.", "يمنع القيود في هذا التاريخ وقبله لكل الشركات.", "Bloque les écritures à cette date et avant, toutes sociétés.") }}</p>
@@ -76,7 +76,7 @@
           <div v-for="y in years" :key="y.name" class="flex items-center gap-2 text-[12px] px-2.5 py-1.5 rounded-[9px] bg-app-warm/40">
             <span class="flex-1 font-semibold">{{ y.name }} <span class="text-[11px] text-ink-muted">{{ y.sd }} → {{ y.ed }}</span></span>
             <span v-if="y.closed" class="text-[11px] font-bold text-emerald-700">{{ L("closed ✓","مُقفلة ✓","clôturé") }}</span>
-            <button v-else class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="closeBusy===y.name" @click="closeYear(y)">{{ closeBusy===y.name ? '…' : L("Close","إقفال","Clôturer") }}</button>
+            <UiButton variant="secondary" size="xs" v-else :disabled="closeBusy===y.name" @click="closeYear(y)">{{ closeBusy===y.name ? '…' : L("Close","إقفال","Clôturer") }}</UiButton>
           </div>
           <p class="text-[11px] text-ink-muted">{{ L("Posts a Period Closing Voucher — reversible. Do this after the year is otherwise final.", "يرحّل Period Closing Voucher — قابل للتراجع. بعد ما السنة تخلص فعليًا.", "Réversible.") }}</p>
         </div>
@@ -98,6 +98,7 @@ import { currentCompany, blankLike } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const route = useRoute();

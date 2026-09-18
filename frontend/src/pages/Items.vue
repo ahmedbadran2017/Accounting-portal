@@ -6,9 +6,8 @@
           <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip" @click="showSvc = true">
             <Icon name="plus" :size="14" />{{ L("Service item","صنف خدمة","Article de service") }}
           </button>
-          <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showPrice = true">
-            <Icon name="plus" :size="14" />{{ L("Set price","تعيين سعر","Définir prix") }}
-          </button>
+          <UiButton variant="primary" size="sm" icon="plus" @click="showPrice = true"> {{ L("Set price","تعيين سعر","Définir prix") }}
+          </UiButton>
         </div>
       </template>
     </PageHeader>
@@ -38,9 +37,8 @@
           <div><div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">{{ L("Adjustment","التسوية","Ajustement") }}</div><div class="text-[14px] font-extrabold tnum text-amber-900">{{ money0(health.adjustment_balance) }}</div></div>
           <div><div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">{{ L("Revenue (FY)","الإيراد","Produits") }}</div><div class="text-[14px] font-extrabold tnum text-amber-900">{{ money0(health.revenue) }}</div></div>
         </div>
-        <button class="h-8 px-3.5 rounded-[9px] bg-amber-600 hover:bg-amber-700 text-white text-[12px] font-bold inline-flex items-center gap-1.5" @click="proposeFix">
-          <Icon name="shield" :size="13" />{{ L("Propose correcting entry","اقترح قيد تصحيح","Proposer une écriture") }}
-        </button>
+        <UiButton variant="primary" size="sm" icon="shield" @click="proposeFix"> {{ L("Propose correcting entry","اقترح قيد تصحيح","Proposer une écriture") }}
+        </UiButton>
       </div>
     </div>
 
@@ -100,6 +98,7 @@ import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { liveOrSample, currentCompany } from "@/composables/useLive";
 import { money0 } from "@/composables/useReports";
+import UiButton from "@/components/UiButton.vue";
 
 const { t, locale } = useI18n();
 const route = useRoute();

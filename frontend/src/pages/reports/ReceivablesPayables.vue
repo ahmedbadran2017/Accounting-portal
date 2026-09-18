@@ -4,7 +4,7 @@
     <div v-else-if="loadError" class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-10 text-center">
       <p class="text-[13px] font-bold text-rose-700">{{ L("Couldn't load the receivables / payables reconciliation.","تعذّر تحميل مطابقة الذمم.","Impossible de charger le rapprochement.") }}</p>
       <p class="text-[12px] text-ink-muted mt-1 font-mono">{{ loadError }}</p>
-      <button class="mt-3 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-brand" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+      <UiButton variant="primary" size="sm" class="mt-3" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</UiButton>
     </div>
     <template v-else>
       <!-- Toolbar: net working capital + export -->
@@ -14,9 +14,8 @@
           <span class="text-[16px] font-extrabold tnum" :style="{ color: wc >= 0 ? '#047857' : '#be123c' }">{{ money(wc) }} <span class="text-[11px] text-ink-muted">MAD</span></span>
           <span class="text-[11px] text-ink-muted">{{ L("AR − AP", "مدينة − دائنة", "AR − AP") }}</span>
         </div>
-        <button @click="exportCSV" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-chip border border-line-2 bg-white text-[12px] font-semibold text-ink-2 hover:bg-app-warm">
-          <Icon name="download" :size="14" />{{ L("Export", "تصدير", "Exporter") }}
-        </button>
+        <UiButton variant="secondary" size="md" icon="download" class="ms-auto" @click="exportCSV" > {{ L("Export", "تصدير", "Exporter") }}
+        </UiButton>
       </div>
 
       <!-- Headline -->
@@ -49,7 +48,7 @@
         <div class="px-4 py-2.5 bg-sale/5 border-t border-line-hair text-[11px] text-sale flex items-start gap-2 flex-wrap">
           <Icon name="alert" :size="13" class="mt-0.5 flex-shrink-0" />
           <span class="flex-1 min-w-[200px]">{{ L("GL Debtors is a credit balance (wrong sign) — COD collections aren't applied to invoices. Run the Cathedis reconciliation to clear it.", "مدينون برصيد دائن (إشارة عكسية) — تحصيلات الـ COD غير مطبّقة على الفواتير. شغّل مطابقة كاتدييس.", "Débiteurs créditeur — encaissements COD non affectés.") }}</span>
-          <button @click="goReconcile" class="inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand flex-shrink-0"><Icon name="trend" :size="12" color="#fff" />{{ L("Reconcile now", "صالِح الآن", "Réconcilier") }}<Icon name="arrow" :size="11" color="#fff" class="rtl:rotate-180" /></button>
+          <UiButton variant="secondary" size="xs" icon="trend" class="flex-shrink-0" @click="goReconcile" > {{ L("Reconcile now", "صالِح الآن", "Réconcilier") }}<Icon name="arrow" :size="11" color="#57534e" class="rtl:rotate-180" /></UiButton>
         </div>
       </div>
 
@@ -106,7 +105,7 @@
           <div class="inline-flex items-center gap-1.5 ms-2">
             <span class="text-[11px] text-ink-muted">{{ L("as of", "كما في", "au") }}</span>
             <input type="date" v-model="asOn" @change="loadAging(agingKind)" class="h-7 rounded-[8px] border border-line-2 px-1.5 text-[12px] bg-white" />
-            <button v-if="asOn !== today" type="button" class="h-7 px-2 rounded-[8px] text-[11px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm" @click="asOn = today; loadAging(agingKind)">{{ L("Today","اليوم","Auj.") }}</button>
+            <UiButton variant="secondary" size="xs" v-if="asOn !== today" type="button" @click="asOn = today; loadAging(agingKind)">{{ L("Today","اليوم","Auj.") }}</UiButton>
           </div>
         </div>
         <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
@@ -180,6 +179,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const router = useRouter();

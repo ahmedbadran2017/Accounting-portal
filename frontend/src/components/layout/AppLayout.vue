@@ -8,7 +8,7 @@
       <div class="text-[13px] text-ink-3 mt-2 leading-relaxed">{{ L("Your account isn't authorised for the Justyol accounting portal. Ask a Super Admin to grant you a role, then sign in again.", "حسابك غير مصرّح له بالدخول إلى بورتال محاسبة Justyol. اطلب من مسؤول (Super Admin) أن يمنحك صلاحية ثم سجّل الدخول من جديد.", "Votre compte n'est pas autorisé pour ce portail. Demandez un rôle à un Super Admin.") }}</div>
       <div v-if="user" class="text-[11px] text-ink-muted mt-3 font-mono bg-app-warm rounded-chip px-3 py-1.5 inline-block">{{ user }}</div>
       <div class="mt-5">
-        <button class="h-9 px-4 rounded-chip text-[13px] font-semibold text-white bg-ink hover:bg-ink/90" @click="onLogout">{{ L("Sign out", "تسجيل الخروج", "Se déconnecter") }}</button>
+        <UiButton variant="secondary" size="md" @click="onLogout">{{ L("Sign out", "تسجيل الخروج", "Se déconnecter") }}</UiButton>
       </div>
     </div>
   </div>
@@ -171,9 +171,8 @@
         </div>
 
         <div class="relative" v-click-outside="() => (createMenuOpen = false)">
-          <button class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-2 rounded-chip shadow-brand" @click="createMenuOpen = !createMenuOpen">
-            <Icon name="plus" :size="16" /><span class="hidden sm:inline">{{ t("header.create") }}</span>
-          </button>
+          <UiButton variant="create" size="md" icon="plus" @click="createMenuOpen = !createMenuOpen"><span class="hidden sm:inline">{{ t("header.create") }}</span>
+          </UiButton>
           <div v-if="createMenuOpen" class="absolute end-0 mt-1 w-48 bg-white rounded-chip border border-line-2 shadow-cardHover p-1 z-50 animate-fadeIn">
             <button v-for="o in createOptions" :key="o.type" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-app-warm text-start" @click="openCreate(o.type)">
               <Icon :name="o.icon" :size="15" color="#0b5c4f" /><span class="text-[13px] font-medium">{{ o.label }}</span>
@@ -227,6 +226,7 @@ import { useUi } from "@/composables/useUi";
 import { applyLocale, LOCALES, LOCALE_LABEL, RTL_LOCALES } from "@/i18n";
 import { NAV_GROUPS, SUBTABS, defaultSub, tabsFor } from "@/data/nav";
 import { LOGO_URL } from "@/utils/constants";
+import UiButton from "@/components/UiButton.vue";
 
 const { t, locale } = useI18n();
 const route = useRoute();

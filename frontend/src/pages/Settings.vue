@@ -67,7 +67,7 @@
         <input v-model.trim="nf.too" :placeholder="L('To','إلى','Vers')" class="w-16 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] uppercase" maxlength="3" />
         <input v-model.number="nf.rate" type="number" step="any" :placeholder="L('Rate','السعر','Taux')" class="w-28 h-8 border border-line-2 rounded-[8px] px-2 text-[12px] text-end" />
         <input v-model="nf.date" type="date" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px]" />
-        <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="fxBusy || !nf.frm || !nf.too || !nf.rate" @click="addRate">{{ L("Add / update","إضافة/تحديث","Ajouter") }}</button>
+        <UiButton variant="primary" size="sm" :disabled="fxBusy || !nf.frm || !nf.too || !nf.rate" @click="addRate">{{ L("Add / update","إضافة/تحديث","Ajouter") }}</UiButton>
       </div>
     </div>
 
@@ -103,6 +103,7 @@ import { useToast } from "@/composables/useToast";
 import { SUBTABS, defaultSub } from "@/data/nav";
 import { settingsCurrencies } from "@/data/settings";
 import { AV } from "@/data/orders";
+import UiButton from "@/components/UiButton.vue";
 
 const { t, locale } = useI18n();
 const route = useRoute();

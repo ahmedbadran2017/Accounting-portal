@@ -38,7 +38,7 @@
         <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#eff6ff"><Icon name="bank" :size="14" color="#0369a1" /></span>
         <span class="text-[13px] font-bold">{{ L("Bank & cash accounts", "حسابات البنوك والنقد", "Comptes bancaires & caisse") }}</span>
         <LiveBadge :live="live" />
-        <button v-if="canWrite" @click="showSettle = true" class="h-8 px-2.5 rounded-chip text-[12px] font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 inline-flex items-center gap-1.5"><Icon name="scale" :size="13" color="#4338ca" />{{ L("Monthly settlement","تسوية شهرية","Règlement") }}</button>
+        <UiButton variant="secondary" size="sm" icon="scale" v-if="canWrite" @click="showSettle = true" > {{ L("Monthly settlement","تسوية شهرية","Règlement") }}</UiButton>
         <!-- Operating / Under audit / All -->
         <div class="inline-flex rounded-[10px] border border-line-2 overflow-hidden bg-app-warm/40 text-[12px] font-semibold">
           <button v-for="m in modes" :key="m.k" @click="viewMode = m.k" class="px-2.5 h-8 transition-colors" :class="viewMode === m.k ? 'bg-white text-accent-dark shadow-sm' : 'text-ink-muted hover:text-ink-2'">{{ m.label }} <span class="text-[11px] opacity-70">{{ m.n }}</span></button>
@@ -52,9 +52,9 @@
       <!-- Bulk park bar -->
       <div v-if="canWrite && selected.size" class="flex items-center gap-2 px-4 py-2.5 bg-violet-50/60 border-b border-violet-100 text-[12px]">
         <span class="font-semibold text-violet-800">{{ selected.size }} {{ L("selected", "محدد", "sélectionné") }}</span>
-        <button v-if="viewMode !== 'audit'" @click="bulkPark(true)" :disabled="busy" class="ms-auto h-8 px-3 rounded-chip font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 inline-flex items-center gap-1.5"><Icon name="shield" :size="13" color="#fff" />{{ L("Park under audit", "عزل تحت المراجعة", "Mettre en audit") }}</button>
+        <UiButton variant="secondary" size="sm" icon="shield" class="ms-auto" v-if="viewMode !== 'audit'" @click="bulkPark(true)" :disabled="busy" > {{ L("Park under audit", "عزل تحت المراجعة", "Mettre en audit") }}</UiButton>
         <button v-if="viewMode !== 'operating'" @click="bulkPark(false)" :disabled="busy" class="h-8 px-3 rounded-chip font-semibold text-accent-dark border border-line-2 hover:bg-app-warm disabled:opacity-50 inline-flex items-center gap-1.5" :class="viewMode === 'audit' ? 'ms-auto' : ''"><Icon name="check" :size="13" />{{ L("Return to operating", "إرجاع للتشغيل", "Réactiver") }}</button>
-        <button @click="selected = new Set()" class="h-8 px-2.5 rounded-chip text-ink-muted hover:bg-app-warm">{{ L("Clear", "مسح", "Effacer") }}</button>
+        <UiButton variant="quiet" size="sm" @click="selected = new Set()" >{{ L("Clear", "مسح", "Effacer") }}</UiButton>
       </div>
 
       <div v-if="viewMode === 'audit'" class="px-4 py-2.5 border-b border-line-hair text-[11px] text-violet-700 bg-violet-50/30 flex items-start gap-1.5">
@@ -132,6 +132,7 @@ import { useTableTools } from "@/composables/useTableTools";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import MonthlySettlementModal from "@/components/MonthlySettlementModal.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const router = useRouter();

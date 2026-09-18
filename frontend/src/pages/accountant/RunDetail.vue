@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-3.5">
-    <button type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip border border-line-2 bg-white text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="back">
+    <UiButton variant="secondary" size="sm" type="button" @click="back">
       <Icon name="arrow" :size="13" class="rotate-180" />{{ L("Payroll", "الرواتب", "Paie") }}
-    </button>
+    </UiButton>
 
     <TableLoading v-if="loading" :rows="4" />
     <div v-else-if="!d.run" class="bg-white rounded-card border border-line shadow-card px-4 py-14 text-center text-[12px] text-ink-muted">{{ L("Run not found.", "التشغيل غير موجود.", "Introuvable.") }}</div>
@@ -57,6 +57,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { fmtAmount } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

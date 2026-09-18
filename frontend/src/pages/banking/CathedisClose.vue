@@ -19,14 +19,11 @@
     <div v-if="canWrite" class="bg-white border border-line rounded-[12px] shadow-card p-3 flex flex-wrap items-center gap-2">
       <span class="text-[12px] text-ink-muted">{{ L("Post missing collection receipts","ترحيل سندات القبض الناقصة","Poster les reçus manquants") }}</span>
       <div class="flex-1"></div>
-      <button class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
-              :disabled="running" @click="runBatch(10)">{{ L("Test 10","جرّب 10","Test 10") }}</button>
-      <button class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
-              :disabled="running" @click="runBatch(50)">{{ L("Post 50","رحّل 50","Poster 50") }}</button>
-      <button class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-              :disabled="running || !sum || !sum.ready_count" @click="runAll">
+      <UiButton variant="secondary" size="sm" :disabled="running" @click="runBatch(10)">{{ L("Test 10","جرّب 10","Test 10") }}</UiButton>
+      <UiButton variant="secondary" size="sm" :disabled="running" @click="runBatch(50)">{{ L("Post 50","رحّل 50","Poster 50") }}</UiButton>
+      <UiButton variant="primary" size="sm" :disabled="running || !sum || !sum.ready_count" @click="runAll">
         {{ running ? L("Posting…","جارٍ الترحيل…","…") : L("Close all","اقفل الكل","Tout clôturer") }}
-      </button>
+      </UiButton>
     </div>
 
     <!-- Progress / result banner -->
@@ -78,8 +75,7 @@
               <td class="px-4 py-2.5 text-ink-3 font-mono text-[11px] whitespace-nowrap">{{ r.tracking || "—" }}</td>
               <td class="px-4 py-2.5 text-end">
                 <span v-if="r.state === 'anomaly'" class="text-[11px] font-bold text-amber-600">{{ L("review","مراجعة","revue") }}</span>
-                <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
-                        :disabled="running" @click="postOne(r)">{{ L("Post","رحّل","Poster") }}</button>
+                <UiButton variant="secondary" size="xs" v-else-if="canWrite" :disabled="running" @click="postOne(r)">{{ L("Post","رحّل","Poster") }}</UiButton>
               </td>
             </tr>
           </tbody>
@@ -104,6 +100,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
 import { useAuth } from "@/composables/useAuth";
 import { useUi } from "@/composables/useUi";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

@@ -27,9 +27,9 @@
           <Icon name="alert" :size="13" color="#b45309" class="inline" />
           {{ L("Costs are re-priced at the correct exchange rate per purchase date, then inbound freight is allocated by weight. Click any item to open its cost card.","التكلفة بتتسعّر بسعر الصرف الصح بتاريخ الشراء، وبعدين الشحن الداخل يتوزّع بالوزن. اضغط أي صنف لكارت التكلفة.","Recalculé au bon taux de change puis fret réparti au poids.") }}
         </div>
-        <button v-if="isSuperAdmin" type="button" :disabled="bulkBusy" class="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60" @click="bulkSetCosts">
+        <UiButton variant="primary" size="md" class="shrink-0" v-if="isSuperAdmin" type="button" :disabled="bulkBusy" @click="bulkSetCosts">
           <Icon :name="bulkBusy ? 'clock' : 'check'" :size="14" />{{ bulkBusy ? L("Working…","جارٍ…","…") : L("Set all costs","حفظ كل التكاليف","Tout définir") }}
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -40,9 +40,9 @@
           <button v-for="sc in SCOPES" :key="sc.k" class="px-2.5 py-1 rounded-lg text-[12px] font-semibold whitespace-nowrap" :class="scope === sc.k ? 'bg-white shadow-card text-accent-dark' : 'text-ink-3 hover:text-ink'" @click="setScope(sc.k)">{{ sc.label() }}</button>
         </div>
         <span class="hidden lg:inline text-[11px] text-ink-muted">{{ (st.total.value || 0).toLocaleString() }} {{ L("items","صنف","articles") }}</span>
-        <button v-if="isSuperAdmin && scope==='outliers' && st.total.value" type="button" :disabled="wBusy" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="fixWeights">
+        <UiButton variant="primary" size="sm" v-if="isSuperAdmin && scope==='outliers' && st.total.value" type="button" :disabled="wBusy" @click="fixWeights">
           <Icon :name="wBusy ? 'clock' : 'scale'" :size="13" />{{ wBusy ? L("Working…","جارٍ…","…") : L("Fix grams→kg","صحّح جرام→كجم","Corriger g→kg") }}
-        </button>
+        </UiButton>
         <div class="ms-auto relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="st.search.value" :placeholder="L('SKU / name…','SKU / اسم…','SKU / nom…')" class="w-44 sm:w-60 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
@@ -110,6 +110,7 @@ import { useDateFilter } from "@/composables/useDateFilter";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

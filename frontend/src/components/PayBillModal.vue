@@ -42,7 +42,7 @@
 
       <div class="flex gap-2 justify-end pt-1">
         <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
-        <button @click="pay" :disabled="posting || !mode" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50" style="background:#047857">{{ posting ? L("Paying…", "جارٍ…", "…") : L("Pay", "دفع", "Payer") }}</button>
+        <UiButton variant="primary" size="md" @click="pay" :disabled="posting || !mode" >{{ posting ? L("Paying…", "جارٍ…", "…") : L("Pay", "دفع", "Payer") }}</UiButton>
       </div>
     </div>
   </div>

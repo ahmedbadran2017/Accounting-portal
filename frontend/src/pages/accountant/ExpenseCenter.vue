@@ -6,9 +6,8 @@
           <Icon :name="v.icon" :size="13" />{{ v.label() }}<span v-if="v.k==='recurring' && dueBadge" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">{{ dueBadge }}</span>
         </button>
       </div>
-      <button v-if="can('post_entries')" type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[13px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="openNew">
-        <Icon name="plus" :size="14" />{{ L("New expense", "مصروف جديد", "Nouvelle dépense") }}
-      </button>
+      <UiButton variant="create" size="md" icon="plus" class="ms-auto" v-if="can('post_entries')" type="button" @click="openNew"> {{ L("New expense", "مصروف جديد", "Nouvelle dépense") }}
+      </UiButton>
     </div>
 
     <RecurringExpenses v-if="view === 'recurring'" @counts="onCounts" @record="onRecord" />
@@ -71,7 +70,7 @@
     <div v-else-if="err" class="bg-white rounded-card border border-rose-200 shadow-card px-4 py-10 text-center">
       <Icon name="alert" :size="20" color="#e11d48" class="inline-block mb-2" />
       <p class="text-[13px] text-ink-2">{{ L("Couldn't load expenses.","تعذّر تحميل المصروفات.","Échec du chargement.") }}</p>
-      <button type="button" class="mt-2 h-8 px-3 rounded-chip border border-line-2 text-[12px] font-semibold hover:bg-app-warm" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button>
+      <UiButton variant="secondary" size="sm" class="mt-2" type="button" @click="load">{{ L("Retry","إعادة","Réessayer") }}</UiButton>
     </div>
 
     <template v-else>
@@ -162,6 +161,7 @@ import { useToast } from "@/composables/useToast";
 import { useDateFilter } from "@/composables/useDateFilter";
 import { useServerTable } from "@/composables/useServerTable";
 import { fmtMoney } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

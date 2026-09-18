@@ -35,9 +35,9 @@
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-brand disabled:opacity-50" :disabled="!structure || saving" @click="submit">
+          <UiButton variant="primary" size="md" :disabled="!structure || saving" @click="submit">
             {{ saving ? L("Assigning…", "جارٍ…", "…") : L("Assign", "تعيين", "Affecter") }}
-          </button>
+          </UiButton>
         </div>
       </template>
     </div>
@@ -51,6 +51,7 @@ import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ employee: { type: String, required: true }, employeeName: { type: String, default: "" } });
 const emit = defineEmits(["close", "done"]);

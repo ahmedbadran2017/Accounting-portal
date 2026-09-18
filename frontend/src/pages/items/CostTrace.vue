@@ -166,10 +166,9 @@
             <option value="pending">{{ L("Pending review","في انتظار المراجعة","En attente") }}</option>
             <option value="fixed">{{ L("Fixed ✓","متظبطة ✓","Corrigés ✓") }}</option>
           </select>
-          <button v-if="canWrite && srcFilter === 'local_pi'" @click="openLocalBulk"
-                  class="h-[28px] px-3 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark">
+          <UiButton variant="secondary" size="xs" v-if="canWrite && srcFilter === 'local_pi'" @click="openLocalBulk" >
             ⚡ {{ L("Apply all local","تطبيق كل المحلي","Tout appliquer") }}
-          </button>
+          </UiButton>
         </div>
         <div v-if="ct.error.value" class="py-8 text-center text-[12px] text-sale">{{ ct.error.value }}</div>
         <div v-else class="overflow-x-auto">
@@ -236,11 +235,9 @@
                 <td class="px-4 py-2 text-end tnum text-ink-3">{{ r.coverage_pct }}%</td>
                 <td class="px-4 py-2 text-end whitespace-nowrap">
                   <span v-if="r.posted" class="text-[11px] font-bold" :class="(r.posted.stale_basis || r.posted.stale_amount) ? 'text-amber-600' : 'text-emerald-700'">{{ (r.posted.stale_basis || r.posted.stale_amount) ? '⚠' : '✅' }} <span dir="ltr">{{ r.posted.voucher_no }}</span><template v-if="r.posted.stale_basis"> · {{ L("basis changed — revert & re-post","الأساس اتغيّر — اعكسوه ورحّلوه تاني","base modifiée") }}</template><template v-else-if="r.posted.stale_amount"> · {{ L("retro healed this month underneath — revert & re-post","الـretro صلّح الشهر من تحته — اعكسوه ورحّلوه تاني","rétro a corrigé ce mois — annuler et reposter") }}</template></span>
-                  <button v-else-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                          :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1"
-                          @click="postTrueup(r)">
+                  <UiButton variant="secondary" size="xs" v-else-if="canWrite" :disabled="tuBusy === r.month || !tu.basis_frozen || r.open_month || Math.abs(r.delta) < 1" @click="postTrueup(r)">
                     {{ tuBusy === r.month ? L("…","…","…") : L("Post true-up","رحّل التسوية","Poster") }}
-                  </button>
+                  </UiButton>
                 </td>
               </tr>
             </tbody>
@@ -346,8 +343,7 @@
                    :style="costDirty ? 'border-color:#fde68a;background:#fffbeb' : savedCost != null ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
             <input v-model.trim="fixNote" :placeholder="L('Note (required if you change the figure)','ملاحظة (إجبارية لو غيّرتوا الرقم)','Note')"
                    class="h-[30px] flex-1 min-w-[180px] text-[12px] px-2 rounded-[8px] border border-line outline-none" />
-            <button class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                    :disabled="fixing || !(fixRate > 0)" @click="saveItemCost">{{ L("Save","حفظ","Enregistrer") }}</button>
+            <UiButton variant="primary" size="sm" :disabled="fixing || !(fixRate > 0)" @click="saveItemCost">{{ L("Save","حفظ","Enregistrer") }}</UiButton>
           </div>
         </div>
       </div>
@@ -374,12 +370,10 @@
             <div class="flex-1"></div>
             <template v-if="canWrite">
               <span v-if="wEst && wEst.est" class="text-[11px] text-violet-700 font-bold tnum" dir="ltr">✨ {{ wEst.est.toFixed(2) }}kg <span class="font-normal">({{ { family: L('family','عائلة','famille'), similar: L('similar','أشباه','similaires'), class: L('class','فئة','classe') }[wEst.src] || wEst.src }})</span></span>
-              <button v-else class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line hover:bg-app-warm disabled:opacity-40"
-                      :disabled="wBusy" @click="suggestWeight">{{ wBusy ? "…" : "✨ " + L("Suggest","اقتراح","Suggérer") }}</button>
+              <UiButton variant="secondary" size="xs" v-else :disabled="wBusy" @click="suggestWeight">{{ wBusy ? "…" : "✨ " + L("Suggest","اقتراح","Suggérer") }}</UiButton>
               <input v-model.number="wEdit" type="number" step="0.01" min="0.005" max="50" :placeholder="wEst && wEst.est ? String(wEst.est) : 'kg'"
                      class="h-[26px] w-[76px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" />
-              <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                      :disabled="!((wEdit ?? wEst?.est) > 0) || wBusy" @click="saveWeight">{{ L("Save","حفظ","OK") }}</button>
+              <UiButton variant="secondary" size="xs" :disabled="!((wEdit ?? wEst?.est) > 0) || wBusy" @click="saveWeight">{{ L("Save","حفظ","OK") }}</UiButton>
             </template>
           </div>
           <div v-if="itemLanded.receipts.length" class="border border-line rounded-[8px] overflow-hidden max-h-[190px] overflow-y-auto">
@@ -411,8 +405,7 @@
                     <template v-else-if="r.channel === 'air' && (r.channel_confirmed || (r.pr_qty || r.qty) < 500) && canWrite && !itemLanded.frozen">
                       <input type="number" step="1" min="0" v-model.number="r._draft" :placeholder="String(r.band_rate || '')"
                              class="w-[62px] h-[26px] px-1.5 text-end tnum text-[11px] border border-amber-300 rounded-[6px] outline-none" />
-                      <button class="ms-1 h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
-                              :disabled="!( (r._draft ?? r.band_rate) > 0 ) || fixing" @click="confirmPrRate(r)">✓ {{ L("confirm rate","اعتماد السعر","confirmer") }}</button>
+                      <UiButton variant="secondary" size="xs" class="ms-1" :disabled="!( (r._draft ?? r.band_rate) > 0 ) || fixing" @click="confirmPrRate(r)">✓ {{ L("confirm rate","اعتماد السعر","confirmer") }}</UiButton>
                     </template>
                     <template v-else>
                       <FreightChip source="none" />
@@ -516,12 +509,9 @@
             <input type="checkbox" v-model="fixRetro" class="accent-accent w-3.5 h-3.5" />
             🕰 {{ L("Retro — apply from the item's first 2026 receipt and heal past months (reposts its old moves)","رجعي — يتطبق من أول استلام في 2026 ويصلح الشهور اللي فاتت (بيعيد حساب حركاته القديمة)","Rétro — depuis la première réception 2026") }}
           </label>
-          <button class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                  :disabled="!canSubmit || fixing"
-                  :title="!canSubmit ? submitBlockReason : ''"
-                  @click="applyFix">
+          <UiButton variant="primary" size="sm" :disabled="!canSubmit || fixing" :title="!canSubmit ? submitBlockReason : ''" @click="applyFix">
             {{ fixing ? L("Applying…","جارٍ التطبيق…","…") : L("Submit","اعتماد","Soumettre") }} · <span class="tnum" dir="ltr">{{ fmtNum(appliedRate, 2) }}</span>
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -632,7 +622,7 @@
               <span v-if="lb.error" class="text-[11px] text-sale truncate max-w-[260px]">⚠ {{ lb.error }}</span>
               <span v-if="lb.draining" class="text-[11px] text-ink-muted">⏳ {{ L("reposting old moves…","بيعاد حساب الحركات القديمة…","recalcul en cours…") }}</span>
               <span class="flex-1"></span>
-              <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="lb = null">{{ L("Close","إغلاق","Fermer") }}</button>
+              <UiButton variant="secondary" size="sm" @click="lb = null">{{ L("Close","إغلاق","Fermer") }}</UiButton>
             </template>
             <template v-else>
               <label class="flex items-center gap-1.5 text-[12px] text-ink-2 cursor-pointer">
@@ -640,11 +630,10 @@
                 🕰 {{ L("Retro from first 2026 receipt","رجعي من أول استلام 2026","Rétro 2026") }}
               </label>
               <span class="text-[11px] text-ink-muted flex-1">{{ L("Each item posts as its own Stock Reco — individually undoable from the Activity Log.","كل صنف بيترحّل بتسوية مستقلة — ليه Undo لوحده من سجل النشاط.","Chaque article est réversible individuellement.") }}</span>
-              <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="lb = null">{{ L("Cancel","إلغاء","Annuler") }}</button>
-              <button class="h-[32px] px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                      :disabled="!lb.stats.ready" @click="runLocalBulk">
+              <UiButton variant="secondary" size="sm" @click="lb = null">{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+              <UiButton variant="primary" size="sm" :disabled="!lb.stats.ready" @click="runLocalBulk">
                 {{ L("Post","ترحيل","Comptabiliser") }} {{ lb.stats.ready }}
-              </button>
+              </UiButton>
             </template>
           </div>
         </template>
@@ -670,6 +659,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
 import { useAuth } from "@/composables/useAuth";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const toast = useToast();

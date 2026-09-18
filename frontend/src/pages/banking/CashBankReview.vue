@@ -14,9 +14,9 @@
         <div class="flex gap-1 bg-app-warm/50 rounded-chip p-0.5 ms-1">
           <button v-for="fb in FILTERS" :key="fb.k" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold" :class="filter===fb.k ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'" @click="filter=fb.k">{{ fb.label() }}</button>
         </div>
-        <button v-if="isAdmin && sum.dead" type="button" :disabled="busy==='bulk'" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableDead">
+        <UiButton variant="secondary" size="md" class="ms-auto" v-if="isAdmin && sum.dead" type="button" :disabled="busy==='bulk'" @click="disableDead">
           <Icon :name="busy==='bulk' ? 'clock' : 'close'" :size="13" />{{ L('Close all dead','اقفل الميّتة كلها','Fermer les mortes') }} ({{ sum.dead }})
-        </button>
+        </UiButton>
       </div>
       <TableLoading v-if="loading" :rows="8" />
       <div v-else class="overflow-x-auto">
@@ -39,7 +39,7 @@
               <td class="px-4 py-2.5 text-end whitespace-nowrap">
                 <span v-if="r.disabled" class="text-[11px] text-ink-muted">{{ L('closed','مقفول','fermé') }}</span>
                 <template v-else-if="isAdmin">
-                  <button v-if="r.dead" type="button" :disabled="busy===r.name" class="inline-flex items-center gap-1 h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-ink hover:brightness-110 disabled:opacity-50" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</button>
+                  <UiButton variant="secondary" size="xs" v-if="r.dead" type="button" :disabled="busy===r.name" @click="disableOne(r)">{{ L('Close','اقفل','Fermer') }}</UiButton>
                   <select v-else-if="r.misclassified" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] focus:outline-none" :disabled="busy===r.name" @change="reclass(r, $event.target.value)">
                     <option value="">{{ L('reclassify…','أعِد التصنيف…','reclasser…') }}</option>
                     <option value="">{{ L('Remove type (not cash)','شيل النوع (مش كاش)','Retirer le type') }}</option>
@@ -73,6 +73,7 @@ import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import { fmtAmount } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

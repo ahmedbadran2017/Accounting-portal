@@ -27,9 +27,9 @@
           <div class="text-[11px] text-ink-muted mt-1.5">{{ L("Due","الاستحقاق","Échéance") }} {{ t.due || "—" }}</div>
         </div>
         <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <button v-if="canOpenRef(t)" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="openRef(t)">{{ L("Open","فتح","Ouvrir") }}</button>
-          <button v-else-if="t.is_audit" class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="go('/accounting/copilot')">{{ L("View","عرض","Voir") }}</button>
-          <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold text-success-dark bg-success-soft hover:opacity-80 disabled:opacity-50" :disabled="busy === t.task" @click="done(t)">{{ busy === t.task ? "…" : L("Done","تم","Fait") }}</button>
+          <UiButton variant="secondary" size="xs" v-if="canOpenRef(t)" @click="openRef(t)">{{ L("Open","فتح","Ouvrir") }}</UiButton>
+          <UiButton variant="secondary" size="xs" v-else-if="t.is_audit" @click="go('/accounting/copilot')">{{ L("View","عرض","Voir") }}</UiButton>
+          <UiButton variant="secondary" size="xs" :disabled="busy === t.task" @click="done(t)">{{ busy === t.task ? "…" : L("Done","تم","Fait") }}</UiButton>
         </div>
       </div>
     </div>
@@ -45,6 +45,7 @@ import Icon from "@/components/Icon.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const router = useRouter();

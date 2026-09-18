@@ -74,14 +74,13 @@
           <input type="date" v-model="fromD" @change="loadRows()" class="h-8 bg-white border border-line-2 rounded-[8px] px-1.5 text-[12px] focus:outline-none focus:border-accent/40" :title="L('From date','من تاريخ','Du')" />
           <span class="text-ink-muted">→</span>
           <input type="date" v-model="toD" @change="loadRows()" class="h-8 bg-white border border-line-2 rounded-[8px] px-1.5 text-[12px] focus:outline-none focus:border-accent/40" :title="L('To date','إلى تاريخ','Au')" />
-          <button v-if="fromD || toD" type="button" class="h-8 px-2 rounded-[8px] text-[11px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm" @click="fromD = ''; toD = ''; loadRows()">{{ L("Clear","مسح","Effacer") }}</button>
+          <UiButton variant="secondary" size="sm" v-if="fromD || toD" type="button" @click="fromD = ''; toD = ''; loadRows()">{{ L("Clear","مسح","Effacer") }}</UiButton>
         </span>
         <button v-if="carryover.n" type="button" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100" @click="showAllTime" :title="L('Old outstanding items still count toward this year\'s closing balance — click to include them','قيود قديمة معلّقة لسه بتأثر على رصيد إقفال السنة دي — اضغط لعرضها','Anciens en suspens')">
           ⏳ {{ carryover.n }} {{ L("carried over from before", "مُرحّل من قبل", "reportés") }} ({{ fmt(carryover.v) }})
         </button>
-        <button type="button" class="ms-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="showImport = true">
-          <Icon name="doc" :size="13" />{{ L("Import statement", "استيراد كشف", "Importer relevé") }}
-        </button>
+        <UiButton variant="primary" size="md" icon="doc" class="ms-auto" type="button" @click="showImport = true"> {{ L("Import statement", "استيراد كشف", "Importer relevé") }}
+        </UiButton>
         <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="srch" :placeholder="L('Voucher / party / ref…', 'مستند / طرف…', 'Pièce / tiers…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
@@ -117,7 +116,7 @@
       </div>
       <div v-if="!loading && total > rows.length" class="px-4 py-3 border-t border-line-hair flex items-center justify-center gap-3 text-[12px]">
         <span class="text-ink-muted tnum">{{ rows.length.toLocaleString() }} / {{ total.toLocaleString() }}</span>
-        <button type="button" class="h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? "…" : L("Load more", "تحميل المزيد", "Charger plus") }}</button>
+        <UiButton variant="secondary" size="sm" type="button" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? "…" : L("Load more", "تحميل المزيد", "Charger plus") }}</UiButton>
         <span class="text-[11px] text-ink-muted">{{ L("or narrow with the date range above", "أو ضيّق بالفترة فوق", "ou filtrez par dates") }}</span>
       </div>
       <div v-if="!loading && !tt.sorted.value.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("Everything here is reconciled. ✓", "كل شيء مُسوّى. ✓", "Tout est rapproché. ✓") }}</div>
@@ -152,6 +151,7 @@ import { usePersistedRef } from "@/composables/usePersistedRef";
 import { useFiscalYear } from "@/composables/useFiscalYear";
 import BankStatementWorkbench from "@/pages/banking/BankStatementWorkbench.vue";
 import BankTransactions from "@/pages/banking/BankTransactions.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

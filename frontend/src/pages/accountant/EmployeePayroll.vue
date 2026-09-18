@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-3.5">
-    <button type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip border border-line-2 bg-white text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="back">
+    <UiButton variant="secondary" size="sm" type="button" @click="back">
       <Icon name="arrow" :size="13" class="rotate-180" />{{ L("Payroll","الرواتب","Paie") }}
-    </button>
+    </UiButton>
 
     <TableLoading v-if="loading" :rows="4" />
     <div v-else-if="!d.employee" class="bg-white rounded-card border border-line shadow-card px-4 py-14 text-center text-[12px] text-ink-muted">{{ L("Employee not found.","الموظف غير موجود.","Introuvable.") }}</div>
@@ -16,9 +16,8 @@
           <div class="text-[11px] text-ink-muted mt-0.5">{{ e.name }}<span v-if="e.date_of_joining"> · {{ L("joined","انضم","embauché") }} {{ e.date_of_joining }}</span></div>
         </div>
         <span class="ms-auto text-[11px] font-bold px-2 py-1 rounded-chip" :class="e.status==='Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-app-warm text-ink-muted'">{{ e.status }}</span>
-        <button v-if="canWrite" type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="editing = true">
-          <Icon name="gear" :size="13" />{{ L("Edit","تعديل","Modifier") }}
-        </button>
+        <UiButton variant="secondary" size="sm" icon="gear" v-if="canWrite" type="button" @click="editing = true"> {{ L("Edit","تعديل","Modifier") }}
+        </UiButton>
       </div>
 
       <div class="grid grid-cols-3 gap-3">
@@ -72,6 +71,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { fmtMoney } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

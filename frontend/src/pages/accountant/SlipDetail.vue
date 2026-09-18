@@ -1,12 +1,11 @@
 <template>
   <div class="space-y-3.5">
     <div class="flex items-center gap-2">
-      <button type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip border border-line-2 bg-white text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="back">
+      <UiButton variant="secondary" size="sm" type="button" @click="back">
         <Icon name="arrow" :size="13" class="rotate-180" />{{ L("Back","رجوع","Retour") }}
-      </button>
-      <button v-if="d.slip" type="button" class="ms-auto inline-flex items-center gap-1.5 h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand" @click="printPayslip">
-        <Icon name="doc" :size="13" />{{ L("Print / PDF","طباعة / PDF","Imprimer") }}
-      </button>
+      </UiButton>
+      <UiButton variant="primary" size="sm" icon="doc" class="ms-auto" v-if="d.slip" type="button" @click="printPayslip"> {{ L("Print / PDF","طباعة / PDF","Imprimer") }}
+      </UiButton>
     </div>
     <TableLoading v-if="loading" :rows="4" />
     <div v-else-if="!d.slip" class="bg-white rounded-card border border-line shadow-card px-4 py-14 text-center text-[12px] text-ink-muted">{{ L("Slip not found.","المسير غير موجود.","Introuvable.") }}</div>
@@ -50,6 +49,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const toast = useToast();

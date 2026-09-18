@@ -26,7 +26,7 @@
         </div>
       </div>
       <TableLoading v-if="loading" :rows="8" />
-      <div v-else-if="err" class="px-4 py-10 text-center"><Icon name="alert" :size="18" color="#e11d48" /><p class="text-[12px] text-ink-2 mt-1">{{ L("Couldn't load.","تعذّر التحميل.","Échec.") }}</p><button class="mt-2 h-8 px-3 rounded-chip border border-line-2 text-[12px] font-semibold" @click="load">{{ L("Retry","إعادة","Réessayer") }}</button></div>
+      <div v-else-if="err" class="px-4 py-10 text-center"><Icon name="alert" :size="18" color="#e11d48" /><p class="text-[12px] text-ink-2 mt-1">{{ L("Couldn't load.","تعذّر التحميل.","Échec.") }}</p><UiButton variant="secondary" size="sm" class="mt-2" @click="load">{{ L("Retry","إعادة","Réessayer") }}</UiButton></div>
       <div v-else class="max-h-[560px] overflow-auto">
         <table class="w-full text-[12px]">
           <tbody>
@@ -38,7 +38,7 @@
                 <span v-if="a.disabled" class="text-[11px] font-semibold text-ink-muted bg-app-warm rounded-chip px-2 py-0.5">{{ L("disabled","معطّل","désactivé") }}
                   <button v-if="canManage" class="ms-1 text-accent-dark hover:underline" @click="toggle(a, 0)">{{ L("enable","تفعيل","activer") }}</button>
                 </span>
-                <button v-else-if="canManage" type="button" :disabled="busy===a.account" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm disabled:opacity-60" @click="toggle(a, 1)">{{ busy===a.account ? "…" : L("Disable","تعطيل","Désactiver") }}</button>
+                <UiButton variant="danger" size="xs" v-else-if="canManage" type="button" :disabled="busy===a.account" @click="toggle(a, 1)">{{ busy===a.account ? "…" : L("Disable","تعطيل","Désactiver") }}</UiButton>
               </td>
             </tr>
             <tr v-if="!filtered.length"><td colspan="4" class="px-4 py-8 text-center text-ink-muted text-[12px]">{{ L("No unused accounts.","لا حسابات غير مستخدمة.","Aucun.") }}</td></tr>
@@ -72,6 +72,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

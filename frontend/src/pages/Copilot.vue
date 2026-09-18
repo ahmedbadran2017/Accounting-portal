@@ -39,16 +39,16 @@
             </div>
           </div>
           <div class="flex items-center gap-[7px] mt-2.5">
-            <button class="h-7 px-2.5 rounded-[8px] bg-white border border-line-2 text-ink-2 text-[11px] font-semibold hover:bg-app-warm" @click="investigate(a)">{{ L("Investigate","تحقّق","Enquêter") }}</button>
+            <UiButton variant="secondary" size="xs" @click="investigate(a)">{{ L("Investigate","تحقّق","Enquêter") }}</UiButton>
             <div class="flex-1"></div>
             <div class="relative">
-              <button class="h-7 px-2.5 rounded-[8px] bg-white border border-line-2 text-ink-2 text-[11px] font-semibold hover:bg-app-warm inline-flex items-center gap-1" :disabled="busy === a.id" @click="assignOpen = assignOpen === a.id ? '' : a.id"><Icon name="user" :size="11" />{{ busy === a.id ? "…" : L("Assign","إسناد","Assigner") }}</button>
+              <UiButton variant="secondary" size="xs" icon="user" :disabled="busy === a.id" @click="assignOpen = assignOpen === a.id ? '' : a.id"> {{ busy === a.id ? "…" : L("Assign","إسناد","Assigner") }}</UiButton>
               <div v-if="assignOpen === a.id" class="absolute end-0 bottom-8 z-20 w-48 bg-white border border-line rounded-[10px] shadow-pop py-1 max-h-52 overflow-auto">
                 <button v-for="u in users" :key="u.name" @click="assign(a, u.name)" class="w-full text-start px-3 py-1.5 text-[12px] hover:bg-app-warm truncate">{{ u.full_name || u.name }}</button>
                 <div v-if="!users.length" class="px-3 py-2 text-[11px] text-ink-muted">{{ L("No users","لا مستخدمين","Aucun") }}</div>
               </div>
             </div>
-            <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-bold" style="background:#faf6f4;border:1px solid #f3e4de;color:#0b5c4f" @click="go(a.go)">{{ a.cta(locale) }}</button>
+            <UiButton variant="secondary" size="xs" @click="go(a.go)">{{ a.cta(locale) }}</UiButton>
           </div>
         </div>
         <div v-if="!feed.length" class="text-center text-[12px] text-success-dark py-10"><Icon name="check" :size="22" color="#047857" /><div class="mt-1 font-semibold">{{ L("No open findings.","لا مشاكل مفتوحة.","Aucun constat.") }}</div></div>
@@ -63,7 +63,7 @@
               <div class="text-[12px] font-bold leading-snug">{{ t.title }}</div>
               <div class="text-[11px] text-ink-muted mt-0.5 flex items-center gap-1.5 flex-wrap"><span>{{ shortUser(t.assigned_to) }}</span><span class="font-bold px-1.5 rounded-badge" :style="prioStyle(t.priority)">{{ t.priority }}</span><span>{{ L("due","حتى","éch.") }} {{ t.due }}</span></div>
             </div>
-            <button v-if="t.status === 'Open'" class="h-7 px-2 rounded-[8px] text-[11px] font-bold text-success-dark bg-success-soft hover:opacity-80" @click="done(t)">{{ L("Done","تم","Fait") }}</button>
+            <UiButton variant="secondary" size="xs" v-if="t.status === 'Open'" @click="done(t)">{{ L("Done","تم","Fait") }}</UiButton>
             <span v-else class="text-[11px] font-bold text-ink-muted">{{ L("Closed","مغلق","Fermé") }}</span>
           </div>
         </div>
@@ -96,7 +96,7 @@
               </table>
               <div class="flex items-center gap-2.5 px-3 py-2.5 border-t" style="border-color:#ede4fb">
                 <span class="flex-1 text-[11px]" style="color:#7c3aed">{{ m.proposal.note }}</span>
-                <button v-if="!m.proposal.queued" class="h-[30px] px-3 rounded-[8px] text-white text-[11px] font-bold" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)" @click="queue(m)">{{ L("Approve & queue","اعتماد وإرسال","Approuver & mettre en file") }}</button>
+                <UiButton variant="primary" size="sm" v-if="!m.proposal.queued" @click="queue(m)">{{ L("Approve & queue","اعتماد وإرسال","Approuver & mettre en file") }}</UiButton>
                 <span v-else class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-[5px] rounded-[8px]" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0"><Icon name="check" :size="12" />{{ L("Queued for checker","في طابور المراجع","En file validateur") }}</span>
               </div>
             </div>
@@ -143,6 +143,7 @@ import { currentCompany } from "@/composables/useLive";
 import { can } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import { newClientKey } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const router = useRouter();

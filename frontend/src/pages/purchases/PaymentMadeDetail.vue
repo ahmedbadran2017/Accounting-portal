@@ -39,9 +39,8 @@
           <span class="text-ink-muted">{{ L("Paid from", "مدفوع من", "Payé depuis") }}</span>
           <span class="font-semibold text-ink-2">{{ d.paid_from }}</span>
           <span v-if="d.unallocated > 0" class="ms-2 text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb;color:#b45309">{{ L("unallocated", "غير مخصص", "non affecté") }} {{ fmt(d.unallocated) }}</span>
-          <button v-if="d.unallocated > 0" @click="openMatch" class="ms-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-chip text-[11px] font-semibold text-white bg-accent hover:bg-accent-dark shadow-prim">
-            <Icon name="scale" :size="12" color="#fff" />{{ L("Match to bills", "طابق بالفواتير", "Affecter") }}
-          </button>
+          <UiButton variant="secondary" size="xs" icon="scale" class="ms-auto" v-if="d.unallocated > 0" @click="openMatch" > {{ L("Match to bills", "طابق بالفواتير", "Affecter") }}
+          </UiButton>
         </div>
       </div>
 
@@ -120,8 +119,8 @@
         <div class="flex items-center justify-between pt-1 border-t border-line-hair flex-shrink-0">
           <div class="text-[11px]"><span class="text-ink-muted">{{ L("Selected", "محدد", "Sél.") }}</span> <b class="tnum">{{ fmt(pickedTotal) }}</b> / {{ fmt(match.unallocated) }} {{ match.currency }}</div>
           <div class="flex gap-2">
-            <button @click="matchOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
-            <button @click="confirmMatch" :disabled="posting || !picked.size" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50 bg-accent">{{ posting ? L("Applying…", "جارٍ…", "…") : L("Apply", "طبّق", "Affecter") }}</button>
+            <UiButton variant="quiet" size="md" @click="matchOpen = false" >{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+            <UiButton variant="primary" size="md" @click="confirmMatch" :disabled="posting || !picked.size" >{{ posting ? L("Applying…", "جارٍ…", "…") : L("Apply", "طبّق", "Affecter") }}</UiButton>
           </div>
         </div>
         <p class="text-[11px] text-ink-muted flex-shrink-0">{{ L("Allocates oldest-due first; over-selection is fine (only the available amount is applied).", "يُخصّص للأقدم استحقاقًا أولًا.", "Affecte au plus ancien d'abord.") }}</p>
@@ -141,6 +140,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const route = useRoute();
 const router = useRouter();

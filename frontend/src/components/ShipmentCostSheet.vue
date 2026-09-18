@@ -24,8 +24,7 @@
       <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap">
         <span class="text-[12px] font-bold">① {{ L("Product costs — verify each line against the supplier invoice","تكلفة البضاعة — اتحققوا من كل سطر مع فاتورة المورد","Coûts produits") }}</span>
         <span class="text-[11px] text-ink-muted flex-1">{{ verifiedCount }}/{{ s.lines.length }} {{ L("verified","متحقق","vérifié") }}</span>
-        <button v-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-2 hover:bg-app-warm"
-                @click="useSuggestedAll">{{ L("Use suggested for empty lines","استخدام المقترح للفاضي","Suggestions") }}</button>
+        <UiButton variant="secondary" size="xs" v-if="canWrite" @click="useSuggestedAll">{{ L("Use suggested for empty lines","استخدام المقترح للفاضي","Suggestions") }}</UiButton>
       </div>
       <div class="max-h-[420px] overflow-y-auto">
         <table class="w-full text-[12px]">
@@ -75,8 +74,7 @@
         <input v-model="note" :placeholder="L('Note (which invoice was checked…)','ملاحظة (اتراجعت على أنهي فاتورة…)','Note…')"
                class="h-[30px] px-2.5 text-[12px] border border-line rounded-[8px] outline-none flex-1 min-w-[200px]" />
         <span class="text-[11px] text-ink-muted" v-if="s.sheet.on" dir="ltr">💾 {{ s.sheet.by }} · {{ s.sheet.on }}</span>
-        <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                :disabled="busy" @click="saveSheet">{{ L("Save draft","حفظ المسودة","Enregistrer") }}</button>
+        <UiButton variant="primary" size="sm" v-if="canWrite" :disabled="busy" @click="saveSheet">{{ L("Save draft","حفظ المسودة","Enregistrer") }}</UiButton>
       </div>
     </div>
 
@@ -96,10 +94,8 @@
                :style="s.freight.confirmed_rate ? 'border-color:#a7f3d0;background:#f0fdf4' : 'border-color:#e7e5e4'" />
         <span class="text-[11px] text-ink-muted">MAD/kg × {{ fmt0(s.kg) }}kg = <b class="tnum">{{ fmt0((rateEdit || 0) * s.kg) }}</b></span>
         <span v-if="s.freight.band_rate && !s.freight.confirmed_rate" class="text-[11px] text-amber-700">{{ L("prefilled from the tariff band — confirm it","متعبّي من التعريفة — أكّدوه","préremp. du barème") }}</span>
-        <button v-if="canWrite && !s.frozen" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50"
-                :disabled="busy || !(rateEdit > 0)" @click="confirmRate">✓ {{ L("Confirm rate","اعتماد السعر","Confirmer") }}</button>
-        <button v-if="canWrite && !s.frozen && s.freight.confirmed_rate" class="h-[28px] px-2 rounded-[7px] text-[11px] border border-line text-ink-3 hover:bg-app-warm"
-                :disabled="busy" @click="clearRate">✕</button>
+        <UiButton variant="secondary" size="xs" v-if="canWrite && !s.frozen" :disabled="busy || !(rateEdit > 0)" @click="confirmRate">✓ {{ L("Confirm rate","اعتماد السعر","Confirmer") }}</UiButton>
+        <UiButton variant="secondary" size="xs" v-if="canWrite && !s.frozen && s.freight.confirmed_rate" :disabled="busy" @click="clearRate">✕</UiButton>
       </div>
 
       <!-- SEA (or air with itemized bills): attach the actual bills -->
@@ -162,12 +158,8 @@
               {{ L("Applies retroactively from the first 2026 receipt — old and future sales carry the right cost. Undoable in Activity.","بيتطبق بأثر رجعي من أول استلام 2026 — المبيعات القديمة والجاية بالتكلفة الصح. قابل للعكس من Activity.","Rétroactif depuis 2026 ; réversible.") }}</span>
           </div>
         </div>
-        <button v-if="canWrite" class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
-                :disabled="busy" @click="previewSubmit">{{ L("Preview","معاينة","Aperçu") }}</button>
-        <button v-if="canWrite" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                :disabled="busy || !subPrev || !readyCount"
-                :title="!subPrev ? L('Loading preview…','بيحمّل المعاينة…','Aperçu…') : !readyCount ? L('Nothing ready — see the preview below','مفيش جاهز — شوف المعاينة تحت','Rien de prêt') : ''"
-                @click="runSubmit">{{ L("Submit","اعتماد","Soumettre") }} ({{ readyCount }})</button>
+        <UiButton variant="secondary" size="sm" v-if="canWrite" :disabled="busy" @click="previewSubmit">{{ L("Preview","معاينة","Aperçu") }}</UiButton>
+        <UiButton variant="primary" size="sm" v-if="canWrite" :disabled="busy || !subPrev || !readyCount" :title="!subPrev ? L('Loading preview…','بيحمّل المعاينة…','Aperçu…') : !readyCount ? L('Nothing ready — see the preview below','مفيش جاهز — شوف المعاينة تحت','Rien de prêt') : ''" @click="runSubmit">{{ L("Submit","اعتماد","Soumettre") }} ({{ readyCount }})</UiButton>
       </div>
       <div v-if="subPrev" class="mt-2.5 border-t border-line-hair pt-2 text-[11px] space-y-1">
         <template v-if="subPrev.dry_run">
@@ -191,7 +183,7 @@
   </div>
   <div v-else-if="loadErr" class="bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center gap-2">
     <span class="text-[12px] text-sale font-semibold">{{ L("Couldn't load this shipment.","معرفناش نحمّل الشحنة دي.","Échec de chargement.") }}</span>
-    <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+    <UiButton variant="secondary" size="xs" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</UiButton>
   </div>
   <div v-else class="text-[12px] text-ink-muted py-6 text-center">{{ L("Loading shipment…","بيحمّل الشحنة…","Chargement…") }}</div>
 </template>
@@ -203,6 +195,7 @@ import api from "@/services/api";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import FreightChip from "@/components/FreightChip.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ pr: { type: String, required: true }, year: { type: [Number, String], default: null } });
 const emit = defineEmits(["saved"]);

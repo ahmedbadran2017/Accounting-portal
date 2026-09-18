@@ -125,9 +125,9 @@
         </div>
         <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="editing = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button class="px-4 py-2 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="saving" @click="saveEdit">
+          <UiButton variant="primary" size="md" :disabled="saving" @click="saveEdit">
             {{ saving ? L("Saving…","جارٍ…","…") : L("Save","حفظ","Enregistrer") }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -146,6 +146,7 @@ import { AV } from "@/data/orders";
 import { useCustomers } from "@/composables/useCustomers";
 import { useToast } from "@/composables/useToast";
 import PartyStatement from "@/components/PartyStatement.vue";
+import UiButton from "@/components/UiButton.vue";
 
 const { t, locale } = useI18n();
 const route = useRoute();

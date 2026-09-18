@@ -12,12 +12,10 @@
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
         <input v-model.trim="st.search.value" :placeholder="L('Journal / remark / type…', 'قيد / بيان…', 'Écriture / libellé…')" class="w-44 sm:w-56 h-9 bg-app-warm/40 border border-line-2 rounded-[10px] ps-9 pe-3 text-[13px] focus:outline-none focus:border-accent/40 focus:bg-white" />
       </div>
-      <button v-if="canWrite" class="inline-flex items-center gap-1.5 h-[33px] px-3 rounded-[9px] text-[12px] font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100" @click="showReclass = true">
-        <Icon name="refresh" :size="13" color="#4338ca" />{{ L("Reclassify", "إعادة تصنيف", "Reclasser") }}
-      </button>
-      <button class="inline-flex items-center gap-1.5 h-[33px] px-3 rounded-[9px] text-white text-[12px] font-bold" style="background:linear-gradient(135deg,#0f766e,#0b5c4f)" @click="showForm = true">
-        <Icon name="plus" :size="13" />{{ L("New JE", "قيد جديد", "Nouvelle écriture") }}
-      </button>
+      <UiButton variant="secondary" size="sm" icon="refresh" v-if="canWrite" @click="showReclass = true"> {{ L("Reclassify", "إعادة تصنيف", "Reclasser") }}
+      </UiButton>
+      <UiButton variant="create" size="sm" icon="plus" @click="showForm = true"> {{ L("New JE", "قيد جديد", "Nouvelle écriture") }}
+      </UiButton>
     </div>
 
     <div v-if="st.loading.value" class="px-1"><TableLoading :rows="6" /></div>
@@ -81,6 +79,7 @@ import { useDateFilter } from "@/composables/useDateFilter";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const router = useRouter();

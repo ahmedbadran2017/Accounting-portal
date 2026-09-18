@@ -36,9 +36,8 @@
           <span class="text-[11px] tnum text-ink-muted">{{ est.done }}/{{ estCovered.length }}</span>
         </template>
         <template v-else>
-          <button class="h-[28px] px-3 rounded-[8px] text-[12px] font-bold border border-line hover:bg-app-warm" @click="est = null">{{ L("Close","إغلاق","Fermer") }}</button>
-          <button v-if="!est.loading && estCovered.length" class="h-[28px] px-3.5 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark"
-                  @click="applyEstimates">{{ L("Apply","تطبيق","Appliquer") }} {{ estCovered.length }}</button>
+          <UiButton variant="secondary" size="xs" @click="est = null">{{ L("Close","إغلاق","Fermer") }}</UiButton>
+          <UiButton variant="secondary" size="xs" v-if="!est.loading && estCovered.length" @click="applyEstimates">{{ L("Apply","تطبيق","Appliquer") }} {{ estCovered.length }}</UiButton>
         </template>
       </div>
       <div class="overflow-x-auto max-h-[320px] overflow-y-auto" v-if="est.rows.length">
@@ -76,8 +75,7 @@
         </div>
         <input v-model="search" @keyup.enter="load" :placeholder="L('Search SKU / name…','بحث…','Recherche…')"
                class="h-[28px] w-[180px] text-[12px] px-2.5 rounded-[8px] border border-line" />
-        <button v-if="canWrite" class="h-[28px] px-3 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                :disabled="estBusy" @click="openEstimator">✨ {{ L("Estimate missing","تقدير الناقص","Estimer") }}</button>
+        <UiButton variant="secondary" size="xs" v-if="canWrite" :disabled="estBusy" @click="openEstimator">✨ {{ L("Estimate missing","تقدير الناقص","Estimer") }}</UiButton>
       </div>
 
       <div v-if="loading" class="py-12 text-center text-[12px] text-ink-muted">{{ L("Loading…","بيحمّل…","Chargement…") }}</div>
@@ -114,10 +112,9 @@
                 <span v-else class="inline-flex items-center gap-1.5">
                   <input v-model.number="edits[r.item_code]" type="number" step="0.01" min="0.005" max="50"
                          class="h-[26px] w-[72px] text-[12px] text-end px-1.5 rounded-[7px] border border-line tnum" dir="ltr" placeholder="kg" />
-                  <button v-if="canWrite" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-40"
-                          :disabled="!(edits[r.item_code] > 0) || savingKey === r.item_code" @click="save(r)">
+                  <UiButton variant="secondary" size="xs" v-if="canWrite" :disabled="!(edits[r.item_code] > 0) || savingKey === r.item_code" @click="save(r)">
                     {{ savingKey === r.item_code ? "…" : L("Save","حفظ","OK") }}
-                  </button>
+                  </UiButton>
                 </span>
               </td>
             </tr>
@@ -140,6 +137,7 @@ import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
 import { useAuth } from "@/composables/useAuth";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

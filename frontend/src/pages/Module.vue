@@ -5,8 +5,8 @@
     <div class="text-[12px] text-ink-3 mt-1.5">{{ L("It's been logged. Try reloading — if it persists, resetting saved filters usually fixes it.", "تم تسجيله. جرّب إعادة التحميل — لو استمر، إعادة ضبط الفلاتر المحفوظة بتحلّه غالبًا.", "Réessayez de recharger.") }}</div>
     <div v-if="errMsg" class="text-[11px] text-ink-muted font-mono mt-2 bg-app-warm rounded-chip px-3 py-2 break-words">{{ errMsg }}</div>
     <div class="flex items-center justify-center gap-2 mt-4">
-      <button class="h-9 px-4 rounded-chip text-[12px] font-semibold text-white bg-ink" @click="retry">{{ L("Reload page", "إعادة التحميل", "Recharger") }}</button>
-      <button class="h-9 px-4 rounded-chip text-[12px] font-semibold text-ink-2 bg-white border border-line-2 hover:bg-app-warm" @click="resetFilters">{{ L("Reset saved filters", "إعادة ضبط الفلاتر", "Réinitialiser les filtres") }}</button>
+      <UiButton variant="primary" size="md" @click="retry">{{ L("Reload page", "إعادة التحميل", "Recharger") }}</UiButton>
+      <UiButton variant="secondary" size="md" @click="resetFilters">{{ L("Reset saved filters", "إعادة ضبط الفلاتر", "Réinitialiser les filtres") }}</UiButton>
     </div>
   </div>
   <component v-else :is="view" />
@@ -20,6 +20,7 @@ import Icon from "@/components/Icon.vue";
 // Dashboard is the landing page → keep it eager (in app.js) for instant first
 // paint. Every other module is a lazy chunk, loaded only when navigated to.
 import Dashboard from "@/pages/Dashboard.vue";
+import UiButton from "@/components/UiButton.vue";
 const lazy = (loader) => defineAsyncComponent(loader);
 const Copilot = lazy(() => import("@/pages/Copilot.vue"));
 const MyWork = lazy(() => import("@/pages/MyWork.vue"));

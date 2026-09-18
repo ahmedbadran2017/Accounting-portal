@@ -142,8 +142,8 @@
         </template>
         <p class="text-[11px] text-ink-muted">{{ groupMode === "bill" ? L("One Purchase Invoice with all selected receipts' lines · clears their GRNI.","فاتورة شراء واحدة بكل بنود الإيصالات المحددة.","Une seule facture avec toutes les lignes.") : L("One Payment Entry settles all selected bills · bank/cheque needs a reference.","قيد دفع واحد يسوّي كل الفواتير المحددة.","Une seule écriture règle toutes les factures.") }}</p>
         <div class="flex gap-2 justify-end pt-1">
-          <button @click="payOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button @click="confirmGroup" :disabled="posting || (groupMode === 'pay' && !payMode)" class="h-9 px-4 rounded-[9px] text-[12px] font-bold text-white disabled:opacity-50" :style="{ background: groupMode === 'bill' ? '#0891b2' : '#047857' }">{{ posting ? L("Working…","جارٍ…","…") : (groupMode === "bill" ? L("Create invoice","أنشئ الفاتورة","Créer facture") : L("Pay","دفع","Payer")) }}</button>
+          <UiButton variant="quiet" size="md" @click="payOpen = false" >{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+          <UiButton variant="primary" size="md" @click="confirmGroup" :disabled="posting || (groupMode === 'pay' && !payMode)" >{{ posting ? L("Working…","جارٍ…","…") : (groupMode === "bill" ? L("Create invoice","أنشئ الفاتورة","Créer facture") : L("Pay","دفع","Payer")) }}</UiButton>
         </div>
       </div>
     </div>
@@ -165,6 +165,7 @@ import { currentCompany, blankLike } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useTableTools } from "@/composables/useTableTools";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const toast = useToast();
 

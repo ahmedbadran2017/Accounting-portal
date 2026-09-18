@@ -5,7 +5,7 @@
        the monthly COGS true-ups. -->
   <div v-if="loadErr && !sr" class="bg-white rounded-card border border-line shadow-card px-4 py-3 flex items-center gap-2">
     <span class="text-[12px] text-sale font-semibold">{{ L("Couldn't load the landed basis.","معرفناش نحمّل أساس الشحن.","Échec de chargement.") }}</span>
-    <button class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-2 hover:bg-app-warm" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</button>
+    <UiButton variant="secondary" size="xs" @click="load">{{ L("Retry","إعادة المحاولة","Réessayer") }}</UiButton>
   </div>
   <div v-else-if="sr" class="bg-white rounded-card border shadow-card overflow-hidden" :style="sr.frozen ? 'border-color:#a7f3d0' : 'border-color:#e7e5e4'">
     <div class="px-4 py-3 border-b border-line-hair flex items-center gap-2 flex-wrap cursor-pointer" @click="open = !open">
@@ -71,8 +71,7 @@
             → <input type="number" step="1" v-model.number="r.rate" :disabled="!canWrite || !!sr.frozen" class="border-0 outline-none bg-transparent w-[52px] font-bold" @change="saveAirRates" /> /kg
             <button v-if="canWrite && !sr.frozen" class="text-sale text-[12px]" @click="airRates.splice(i,1); saveAirRates()">✕</button>
           </span>
-          <button v-if="canWrite && !sr.frozen" class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-2 hover:bg-app-warm"
-                  @click="airRates.push({ from: '', rate: null })">+ {{ L("band","فترة","période") }}</button>
+          <UiButton variant="secondary" size="xs" v-if="canWrite && !sr.frozen" @click="airRates.push({ from: '', rate: null })">+ {{ L("band","فترة","période") }}</UiButton>
         </div>
         <div class="text-[11px] mt-1.5" :style="crossOk ? 'color:#047857' : 'color:#b45309'">
           {{ L("Cross-check:","الفحص التقاطعي:","Contrôle :") }}
@@ -118,12 +117,8 @@
           <span :title="L('Item fixes do NOT need the freeze — they gate on per-item shipment completeness.','تظبيط الأصناف مش محتاج التجميد — بوابته اكتمال شحنات الصنف.','Les corrections ne dépendent pas du gel.')">
             {{ L("Freeze snapshots every shipment's cost — required only for the monthly true-ups.","التجميد بياخد لقطة بتكلفة كل شحنة — مطلوب فقط لتسويات الشهور.","Gel requis uniquement pour les régularisations.") }}</span>
         </span>
-        <button v-if="canFreeze && !sr.frozen" class="h-[30px] px-3.5 rounded-[8px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50"
-                :disabled="busy || !!sr.recon.unallocated_count"
-                :title="sr.recon.unallocated_count ? L('Blocked: unallocated bills','متقفل: فيه فواتير غير موزَّعة','Bloqué : factures non allouées') : ''"
-                @click="freezeBasis">❄ {{ L("Freeze basis","جمّد الأساس","Geler") }}</button>
-        <button v-if="canFreeze && sr.frozen" class="h-[30px] px-3 rounded-[8px] text-[12px] font-bold border border-line text-ink-2 hover:bg-app-warm disabled:opacity-50"
-                :disabled="busy" @click="unfreezeBasis">{{ L("Unfreeze","فكّ التجميد","Dégeler") }}</button>
+        <UiButton variant="primary" size="sm" v-if="canFreeze && !sr.frozen" :disabled="busy || !!sr.recon.unallocated_count" :title="sr.recon.unallocated_count ? L('Blocked: unallocated bills','متقفل: فيه فواتير غير موزَّعة','Bloqué : factures non allouées') : ''" @click="freezeBasis">❄ {{ L("Freeze basis","جمّد الأساس","Geler") }}</UiButton>
+        <UiButton variant="danger" size="sm" v-if="canFreeze && sr.frozen" :disabled="busy" @click="unfreezeBasis">{{ L("Unfreeze","فكّ التجميد","Dégeler") }}</UiButton>
         <span v-if="!canFreeze" class="text-[11px] text-ink-3">{{ L("Freezing is Super-Admin only","التجميد للسوبر أدمن فقط","Gel : Super-Admin uniquement") }}</span>
         <span v-if="sr.frozen" class="text-[11px] text-ink-3" dir="ltr">{{ sr.frozen.by }} · {{ sr.frozen.on }}</span>
       </div>
@@ -138,6 +133,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const emit = defineEmits(["changed"]);
 const props = defineProps({ startOpen: { type: Boolean, default: false } });

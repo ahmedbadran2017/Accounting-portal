@@ -36,9 +36,8 @@
       <span v-if="customerFilter" class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-chip" style="background:#eff6ff;color:#0369a1">
         <Icon name="user" :size="12" />{{ customerFilter }}<button class="opacity-70 hover:opacity-100" @click="clearCustomer"><Icon name="close" :size="12" /></button>
       </span>
-      <button class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand ms-auto" @click="$emit('new')">
-        <Icon name="plus" :size="14" />{{ t("module.new") }}
-      </button>
+      <UiButton variant="create" size="sm" icon="plus" class="ms-auto" @click="$emit('new')"> {{ t("module.new") }}
+      </UiButton>
     </div>
 
     <!-- Date filter (by order date) -->
@@ -89,9 +88,9 @@
       <div class="flex items-center justify-between px-4 py-3 border-t border-line-hair text-[12px]">
         <span class="text-ink-muted">{{ lbl("Showing","عرض","Affichage") }} <b>{{ st.rangeStart.value }}–{{ st.rangeEnd.value }}</b> {{ lbl("of","من","sur") }} <b>{{ st.total.value.toLocaleString() }}</b></span>
         <div class="flex items-center gap-1.5">
-          <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold border border-line-2 disabled:opacity-40 inline-flex items-center gap-1" :disabled="st.page.value <= 1 || st.loading.value" @click="st.prev()"><Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ lbl("Prev","السابق","Préc.") }}</button>
+          <UiButton variant="secondary" size="sm" :disabled="st.page.value <= 1 || st.loading.value" @click="st.prev()"><Icon name="arrow" :size="12" class="rtl:rotate-180" />{{ lbl("Prev","السابق","Préc.") }}</UiButton>
           <span class="text-ink-3 px-1">{{ st.page.value }} / {{ st.totalPages.value }}</span>
-          <button class="h-8 px-3 rounded-[8px] text-[12px] font-semibold border border-line-2 disabled:opacity-40 inline-flex items-center gap-1" :disabled="st.page.value >= st.totalPages.value || st.loading.value" @click="st.next()">{{ lbl("Next","التالي","Suiv.") }}<Icon name="arrow" :size="12" class="rotate-180 rtl:rotate-0" /></button>
+          <UiButton variant="secondary" size="sm" :disabled="st.page.value >= st.totalPages.value || st.loading.value" @click="st.next()">{{ lbl("Next","التالي","Suiv.") }}<Icon name="arrow" :size="12" class="rotate-180 rtl:rotate-0" /></UiButton>
         </div>
       </div>
     </div>
@@ -114,6 +113,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import BulkBar from "@/components/BulkBar.vue";
 import { useBulkDocs } from "@/composables/useBulkDocs";
 import StatCard from "@/components/StatCard.vue";
+import UiButton from "@/components/UiButton.vue";
 
 defineEmits(["new"]);
 const { t, locale } = useI18n();

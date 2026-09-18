@@ -3,9 +3,8 @@
     <PageHeader :title="title" :subtitle="entityName">
       <template #actions>
         <div class="flex items-center gap-2 ms-auto">
-          <button v-if="canWrite" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showTransfer = true">
-            <Icon name="plus" :size="14" />{{ L("New transfer","تحويل جديد","Virement") }}
-          </button>
+          <UiButton variant="create" size="sm" icon="plus" v-if="canWrite" @click="showTransfer = true"> {{ L("New transfer","تحويل جديد","Virement") }}
+          </UiButton>
         </div>
       </template>
     </PageHeader>
@@ -59,6 +58,7 @@ import TransferModal from "@/components/TransferModal.vue";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { SUBTABS, defaultSub } from "@/data/nav";
+import UiButton from "@/components/UiButton.vue";
 
 const { t, locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);

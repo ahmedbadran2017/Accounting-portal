@@ -54,9 +54,9 @@
     </div>
     <div class="flex items-center gap-2 flex-wrap px-1">
       <p class="text-[11px] text-ink-muted flex-1">{{ L("Revalues monetary FX balances at the latest rate. Posting books the net gain/loss to the Exchange Gain/Loss account — audited & reversible.","يعيد تقييم الأرصدة النقدية بالعملة الأجنبية بأحدث سعر. الترحيل بيقيّد صافي الربح/الخسارة على حساب فرق العملة — مدقّق وقابل للتراجع.","Réévaluation — passation auditée & réversible.") }}</p>
-      <button v-if="canWrite && d.summary && Math.abs(d.summary.total_unrealized || 0) >= 0.01" type="button" class="h-9 px-4 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="posting" @click="postReval">
+      <UiButton variant="primary" size="md" v-if="canWrite && d.summary && Math.abs(d.summary.total_unrealized || 0) >= 0.01" type="button" :disabled="posting" @click="postReval">
         {{ posting ? L("Posting…","جارٍ…","…") : L("Post revaluation","رحّل إعادة التقييم","Passer") }} ({{ money(d.summary.total_unrealized) }})
-      </button>
+      </UiButton>
     </div>
   </div>
 </template>
@@ -74,6 +74,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

@@ -51,8 +51,7 @@
           <div class="text-[11px] text-ink-muted">{{ L("Reprice every on-hand bin to true cost in one cutover reconciliation. Nothing reposts — cheap and safe.","إعادة تسعير كل مخزون حالي للتكلفة الحقيقية في تسوية واحدة. مفيش repost — رخيص وآمن.","Réévalue le stock en une réconciliation.") }}</div>
         </div>
         <span v-if="d.forward_done" class="text-[11px] font-bold px-2 py-1 rounded-full" style="background:#ecfdf5;color:#047857">{{ L("done","تم","fait") }}</span>
-        <button v-else disabled class="h-[30px] px-3 rounded-[8px] text-[11px] font-bold border border-line text-ink-muted opacity-70"
-                :title="L('arming next','بيتفعّل في الخطوة الجاية','bientôt')">{{ L("Run forward fix","شغّل التصحيح","Lancer") }} · {{ L("next","قريب","à venir") }}</button>
+        <UiButton variant="secondary" size="sm" v-else disabled :title="L('arming next','بيتفعّل في الخطوة الجاية','bientôt')">{{ L("Run forward fix","شغّل التصحيح","Lancer") }} · {{ L("next","قريب","à venir") }}</UiButton>
       </div>
 
       <!-- step 2: per-month retro -->
@@ -88,8 +87,7 @@
                 <td class="px-3 py-2 text-center tnum" :style="m.unpriced_units ? 'color:#b45309' : 'color:#cbd5e1'" dir="ltr">{{ n(m.unpriced_units) }}</td>
                 <td class="px-3 py-2 text-end">
                   <span v-if="m.status==='done'" class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#ecfdf5;color:#047857">{{ L("done","تم","fait") }}</span>
-                  <button v-else-if="m.ready" disabled class="h-[26px] px-2.5 rounded-[7px] text-[11px] font-bold border border-line text-ink-muted opacity-70"
-                          :title="L('arming next','بيتفعّل في الخطوة الجاية','bientôt')">{{ L("Apply","طبّق","Appliquer") }} · {{ L("next","قريب","à venir") }}</button>
+                  <UiButton variant="secondary" size="xs" v-else-if="m.ready" disabled :title="L('arming next','بيتفعّل في الخطوة الجاية','bientôt')">{{ L("Apply","طبّق","Appliquer") }} · {{ L("next","قريب","à venir") }}</UiButton>
                   <span v-else class="text-[11px] text-ink-muted">{{ L("waiting","في الانتظار","en attente") }}</span>
                 </td>
               </tr>
@@ -123,6 +121,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { fmtAmount } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

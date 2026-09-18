@@ -17,9 +17,8 @@
         </div>
         <div class="flex items-center justify-between mt-3 pt-3 border-t border-line-hair">
           <div><div class="text-[11px] text-ink-muted uppercase tracking-wide font-bold">{{ L("Balance","الرصيد","Solde") }}</div><div class="text-[16px] font-extrabold tnum" :class="fx.amount < 0 ? 'text-sale' : ''">{{ money(fx.amount) }}</div></div>
-          <button class="h-9 px-3.5 rounded-[10px] bg-brand hover:bg-brand-dark text-white text-[12px] font-bold inline-flex items-center gap-1.5 shadow-brand" @click="openFix(fx.kind)">
-            <Icon name="shield" :size="14" color="#fff" />{{ L("Propose correcting entry","اقترح قيد تصحيح","Proposer") }}
-          </button>
+          <UiButton variant="primary" size="md" icon="shield" @click="openFix(fx.kind)"> {{ L("Propose correcting entry","اقترح قيد تصحيح","Proposer") }}
+          </UiButton>
         </div>
       </div>
       <div v-if="!fixable.length && isLive" class="lg:col-span-2 bg-white rounded-card border border-line shadow-card py-12 text-center text-[12px] text-success-dark"><Icon name="check" :size="20" color="#047857" class="mb-1" /><div>{{ L("Nothing to remediate — no correctable findings.","لا شيء للمعالجة.","Rien à corriger.") }}</div></div>
@@ -40,6 +39,7 @@ import LiveBadge from "@/components/LiveBadge.vue";
 import InventoryCorrectionModal from "@/components/InventoryCorrectionModal.vue";
 import { loadControls } from "@/composables/useAuditor";
 import { useUi } from "@/composables/useUi";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

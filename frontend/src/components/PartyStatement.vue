@@ -8,9 +8,9 @@
           <input type="date" v-model="from" @change="load" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
           <span class="text-ink-muted text-[11px]">→</span>
           <input type="date" v-model="to" @change="load" class="h-8 border border-line-2 rounded-[8px] px-2 text-[12px] focus:outline-none focus:border-accent/40" />
-          <button @click="exportCsv" class="h-8 px-2.5 rounded-[8px] text-[12px] font-semibold text-ink-2 border border-line-2 hover:bg-app-warm">CSV</button>
+          <UiButton variant="secondary" size="sm" @click="exportCsv" >CSV</UiButton>
           <a :href="excelUrl" class="h-8 px-2.5 rounded-[8px] text-[12px] font-bold text-white inline-flex items-center gap-1" style="background:#1d6f42" :title="L('Download as Excel (.xlsx)','تحميل Excel','Télécharger en Excel')"><Icon name="download" :size="12" color="#fff" />Excel</a>
-          <button @click="printIt" class="h-8 px-2.5 rounded-[8px] text-[12px] font-semibold text-white bg-ink hover:opacity-90 inline-flex items-center gap-1"><Icon name="doc" :size="12" color="#fff" />{{ L("Print","طباعة","Imprimer") }}</button>
+          <UiButton variant="secondary" size="sm" icon="doc" @click="printIt" > {{ L("Print","طباعة","Imprimer") }}</UiButton>
           <button @click="$emit('close')" class="h-8 w-8 grid place-items-center rounded-[8px] text-ink-3 hover:bg-app-warm">✕</button>
         </div>
       </div>
@@ -85,6 +85,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ open: Boolean, partyType: String, party: String, partyName: String });
 defineEmits(["close"]);

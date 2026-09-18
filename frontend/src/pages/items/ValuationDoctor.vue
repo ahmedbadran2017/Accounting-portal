@@ -42,7 +42,7 @@
             <td class="px-3 py-2 text-ink-3">{{ r.posting_date }}</td>
             <td class="px-3 py-2"><span class="px-2 py-0.5 rounded-chip text-[11px]" :class="r.status==='Failed' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'">{{ r.status }}</span></td>
             <td class="px-3 py-2 text-end">
-              <button v-if="canWrite && ['Queued','Failed'].includes(r.status)" type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40" :disabled="kicking===r.name" @click="kick(r)">{{ kicking===r.name ? '…' : L('Kick','ادفع','Relancer') }}</button>
+              <UiButton variant="secondary" size="xs" v-if="canWrite && ['Queued','Failed'].includes(r.status)" type="button" :disabled="kicking===r.name" @click="kick(r)">{{ kicking===r.name ? '…' : L('Kick','ادفع','Relancer') }}</UiButton>
             </td>
           </tr>
         </tbody>
@@ -63,9 +63,9 @@
       <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2 flex-wrap">
         <Icon name="alert" :size="14" color="#e11d48" />{{ L("Selling at zero cost — every delivery books 100% fake margin","بيتباعوا بتكلفة صفر — كل تسليمة هامشها وهمي 100%","Vendus à coût nul") }}
         <span class="text-[11px] text-ink-muted">{{ z.summary?.sellers || 0 }} {{ L("selling","بيتباعوا","vendus") }} / {{ z.summary?.bins || 0 }} · {{ L("missed COGS 2026 ≈","تكلفة ضايعة 2026 ≈","COGS manqué ≈") }} <b class="text-rose-600">{{ money(z.summary?.missed_cogs) }}</b></span>
-        <button v-if="canWrite && selZero.length" type="button" class="ms-auto h-8 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50" :disabled="bulkBusy" @click="fixSelected">
+        <UiButton variant="primary" size="sm" class="ms-auto" v-if="canWrite && selZero.length" type="button" :disabled="bulkBusy" @click="fixSelected">
           {{ bulkBusy ? bulkProgress : L(`Fix ${selZero.length} at benchmark`, `صحّح ${selZero.length} بالمرجع`, `Corriger ${selZero.length}`) }}
-        </button>
+        </UiButton>
       </div>
       <TableLoading v-if="zLoading" :rows="6" />
       <div v-else class="overflow-x-auto">
@@ -97,7 +97,7 @@
               <td class="px-4 py-2 text-end whitespace-nowrap">
                 <div v-if="canWrite && r.benchmark" class="inline-flex items-center gap-1.5">
                   <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="w-[80px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none" :placeholder="String(r.benchmark)" />
-                  <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" :disabled="busy===key(r)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</button>
+                  <UiButton variant="secondary" size="xs" type="button" :disabled="busy===key(r)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</UiButton>
                 </div>
                 <span v-else-if="!r.benchmark" class="text-[11px] text-ink-muted">{{ L("no purchase basis — set cost from Costing","بدون أساس شراء — حدد التكلفة من Costing","sans base") }}</span>
               </td>
@@ -149,7 +149,7 @@
                 <div v-if="canWrite && r.flag !== 'ok' && r.flag !== 'no_basis'" class="inline-flex items-center gap-1.5">
                   <input v-model.number="fixRate[key(r)]" type="number" step="0.01" min="0" class="w-[84px] h-7 bg-app-warm/40 border border-line-2 rounded-chip px-2 text-[11px] tnum text-end focus:outline-none" :placeholder="r.benchmark != null ? String(r.benchmark) : '0.00'" />
                   <input v-model="fixDate[key(r)]" type="date" :max="today" class="h-7 bg-app-warm/40 border border-line-2 rounded-chip px-1.5 text-[11px] focus:outline-none" />
-                  <button type="button" class="h-7 px-2.5 rounded-chip text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40" :disabled="busy===key(r) || !(Number(fixRate[key(r)] ?? r.benchmark) > 0)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</button>
+                  <UiButton variant="secondary" size="xs" type="button" :disabled="busy===key(r) || !(Number(fixRate[key(r)] ?? r.benchmark) > 0)" @click="fix(r)">{{ busy===key(r) ? '…' : L('Fix','صحّح','OK') }}</UiButton>
                 </div>
               </td>
             </tr>
@@ -179,6 +179,7 @@ import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import { fmtAmount } from "@/utils/helpers";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

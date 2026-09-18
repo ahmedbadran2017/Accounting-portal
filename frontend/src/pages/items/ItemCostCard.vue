@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-3.5">
-    <button type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-chip border border-line-2 bg-white text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="back">
+    <UiButton variant="secondary" size="sm" type="button" @click="back">
       <Icon name="arrow" :size="13" class="rotate-180" />{{ L("Costing","حساب التكلفة","Coûts") }}
-    </button>
+    </UiButton>
 
     <TableLoading v-if="loading" :rows="4" />
     <div v-else-if="!d.item_code" class="bg-white rounded-card border border-line shadow-card px-4 py-14 text-center text-[12px] text-ink-muted">{{ L("Item not found.","الصنف غير موجود.","Introuvable.") }}</div>
@@ -33,9 +33,9 @@
               <div class="text-[28px] font-extrabold tnum leading-none mt-1" style="color:#0f766e">{{ fmt(landed) }} <span class="text-[13px] text-ink-muted font-bold">{{ ccy }}</span></div>
               <div class="text-[11px] text-ink-muted mt-1">{{ L("current item cost","تكلفة الصنف الحالية","coût actuel") }}: <b class="tnum">{{ Number(d.valuation_rate)>0 ? fmt(d.valuation_rate) : "—" }}</b></div>
             </div>
-            <button v-if="isSuperAdmin && landed>0 && !d.flags.not_stock" type="button" :disabled="saving" class="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-chip text-[12px] font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60 self-center" @click="saveCost">
+            <UiButton variant="primary" size="md" class="self-center" v-if="isSuperAdmin && landed>0 && !d.flags.not_stock" type="button" :disabled="saving" @click="saveCost">
               <Icon :name="saving ? 'clock' : 'check'" :size="14" />{{ saving ? L("Saving…","جارٍ…","…") : L("Set as item cost","حفظ كتكلفة","Définir") }}
-            </button>
+            </UiButton>
             <div v-if="bookLanded && Math.abs(bookLanded-landed)>0.5" class="text-[11px]">
               <div class="text-ink-muted">{{ L("as booked","كما هو مسجّل","au livre") }}</div>
               <div class="tnum font-bold text-rose-500 line-through">{{ fmt(bookLanded) }}</div>
@@ -141,6 +141,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

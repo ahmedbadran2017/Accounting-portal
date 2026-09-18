@@ -20,9 +20,9 @@
         <span class="font-bold text-amber-800">{{ L("Collected via payment only","محصّل عبر الدفعة فقط","Encaissé via paiement") }}</span>
         <span class="text-amber-700"> — {{ L("carrier ref","مرجع الشحن","réf.") }} <b class="font-mono">{{ fixable.ref }}</b> {{ L("is on the payment, not this order — so it shows Delivered.","على الدفعة مش الأوردر — فبيظهر Delivered.","sur le paiement.") }}</span>
       </div>
-      <button v-if="canFix" type="button" :disabled="fixing" class="ms-auto shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-chip text-[12px] font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60" @click="stampRef">
+      <UiButton variant="primary" size="sm" class="ms-auto shrink-0" v-if="canFix" type="button" :disabled="fixing" @click="stampRef">
         <Icon :name="fixing ? 'clock' : 'check'" :size="13" />{{ fixing ? L("Stamping…","جارٍ…","…") : L("Stamp & fix","اختم وصلّح","Corriger") }}
-      </button>
+      </UiButton>
     </div>
 
     <!-- Header card -->
@@ -180,6 +180,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { t, locale } = useI18n();
 const route = useRoute();

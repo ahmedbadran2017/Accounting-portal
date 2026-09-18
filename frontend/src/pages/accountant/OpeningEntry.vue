@@ -2,9 +2,8 @@
   <div class="space-y-3">
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[13px] font-bold">{{ L("Opening balances","الأرصدة الافتتاحية","Soldes d'ouverture") }}</span>
-      <button class="ms-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark px-3 py-1.5 rounded-chip shadow-brand" @click="showForm = true">
-        <Icon name="plus" :size="14" />{{ L("New opening entry","قيد افتتاحي","Écriture d'ouverture") }}
-      </button>
+      <UiButton variant="create" size="sm" icon="plus" class="ms-auto" @click="showForm = true"> {{ L("New opening entry","قيد افتتاحي","Écriture d'ouverture") }}
+      </UiButton>
     </div>
 
     <div class="bg-white border border-line rounded-card shadow-card overflow-hidden">
@@ -48,6 +47,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

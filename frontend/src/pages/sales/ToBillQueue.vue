@@ -58,9 +58,8 @@
               <td class="px-4 py-2.5 text-end"><span class="text-[11px] font-bold px-2 py-0.5 rounded-badge" :style="ageBadge(r.age)">{{ r.age }}{{ L("d","ي","j") }}</span></td>
               <td class="px-4 py-2.5 text-end tnum font-semibold">{{ fmt(r.value) }}</td>
               <td class="px-4 py-2.5 text-end">
-                <button class="h-7 px-2.5 rounded-[8px] text-[11px] font-semibold text-white bg-brand hover:bg-brand-dark disabled:opacity-50 inline-flex items-center gap-1" :disabled="busy === r.name" @click.stop="bill(r)">
-                  <Icon name="receipt" :size="12" color="#fff" />{{ busy === r.name ? L("…","…","…") : L("Bill","فوترة","Facturer") }}
-                </button>
+                <UiButton variant="secondary" size="xs" icon="receipt" :disabled="busy === r.name" @click.stop="bill(r)"> {{ busy === r.name ? L("…","…","…") : L("Bill","فوترة","Facturer") }}
+                </UiButton>
               </td>
             </tr>
           </tbody>
@@ -89,6 +88,7 @@ import { useServerTable } from "@/composables/useServerTable";
 import { useDateFilter } from "@/composables/useDateFilter";
 import { useUi } from "@/composables/useUi";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

@@ -35,8 +35,8 @@
         </div>
         <p v-if="newErr" class="text-[12px] text-sale">{{ newErr }}</p>
         <div class="flex gap-2 justify-end pt-1">
-          <button @click="newOpen = false" class="h-9 px-3 rounded-[9px] text-[12px] font-semibold text-ink-3 hover:bg-app-warm">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <button @click="createAccount" :disabled="newBusy || !nf.parent_account || !nf.account_name" class="h-9 px-4 rounded-[9px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand disabled:opacity-50">{{ newBusy ? "…" : L("Create","إنشاء","Créer") }}</button>
+          <UiButton variant="quiet" size="md" @click="newOpen = false" >{{ L("Cancel","إلغاء","Annuler") }}</UiButton>
+          <UiButton variant="create" size="md" @click="createAccount" :disabled="newBusy || !nf.parent_account || !nf.account_name" >{{ newBusy ? "…" : L("Create","إنشاء","Créer") }}</UiButton>
         </div>
       </div>
     </div>
@@ -46,9 +46,8 @@
       <LiveBadge :live="isLive" />
       <span class="hidden md:inline text-[11px] text-ink-muted">{{ L("live balances · click any account to open its ledger","أرصدة حيّة · اضغط أي حساب لفتح الأستاذ","soldes en direct") }}</span>
       <div class="ms-auto flex items-center gap-2">
-        <button v-if="canWrite" type="button" @click="openNew" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-[10px] text-[12px] font-semibold text-white bg-brand hover:bg-brand-dark shadow-brand">
-          <Icon name="plus" :size="13" color="#fff" />{{ L("New account","حساب جديد","Nouveau compte") }}
-        </button>
+        <UiButton variant="create" size="md" icon="plus" v-if="canWrite" type="button" @click="openNew" > {{ L("New account","حساب جديد","Nouveau compte") }}
+        </UiButton>
         <button type="button" @click="onlyAnomalies = !onlyAnomalies" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-[10px] border text-[12px] font-semibold transition" :class="onlyAnomalies ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white border-line-2 text-ink-2 hover:bg-app-warm/50'">
           <Icon name="alert" :size="13" :color="onlyAnomalies ? '#be123c' : '#9a8f86'" />
           {{ L("Anomalies","الشذوذ","Anomalies") }}
@@ -149,6 +148,7 @@ import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
+import UiButton from "@/components/UiButton.vue";
 
 const { locale } = useI18n();
 const { entityId } = useUi();

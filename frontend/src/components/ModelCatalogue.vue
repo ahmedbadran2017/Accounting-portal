@@ -61,9 +61,9 @@
       </table>
       <div v-if="!data.rows.length" class="py-10 text-center text-[12px] text-ink-muted">{{ L("No models.","لا موديلات.","Aucun.") }}</div>
       <div class="px-4 py-2.5 border-t border-line-hair flex items-center gap-2 text-[12px] text-ink-muted" v-if="data.total > pageSize">
-        <button class="h-[26px] px-2.5 rounded-[7px] border border-line font-bold disabled:opacity-40" :disabled="start === 0" @click="start = Math.max(start - pageSize, 0); load()">‹</button>
+        <UiButton variant="secondary" size="xs" :disabled="start === 0" @click="start = Math.max(start - pageSize, 0); load()">‹</UiButton>
         <span class="tnum">{{ start + 1 }}–{{ Math.min(start + pageSize, data.total) }} / {{ data.total }}</span>
-        <button class="h-[26px] px-2.5 rounded-[7px] border border-line font-bold disabled:opacity-40" :disabled="start + pageSize >= data.total" @click="start += pageSize; load()">›</button>
+        <UiButton variant="secondary" size="xs" :disabled="start + pageSize >= data.total" @click="start += pageSize; load()">›</UiButton>
       </div>
     </div>
   </div>
@@ -73,6 +73,7 @@
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
+import UiButton from "@/components/UiButton.vue";
 
 const props = defineProps({ month: { type: String, default: "" } });
 defineEmits(["open"]);
