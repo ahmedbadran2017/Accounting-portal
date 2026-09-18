@@ -1261,31 +1261,108 @@ def make_debit_note(company=None, invoice=None, submit=1, dedupe_key=None):
 # ── Pull a supplier's open purchase orders into a draft bill ──────────────────
 PULL_PO_ACTION = "Bill from purchase order"
 
+# The Desk's "Get Items From" offers two sources on a Purchase Invoice, and the
+# portal only ever had the first. The difference is not cosmetic: a bill built
+# off the RECEIPT is the one that closes the three-way match, because it carries
+# `purchase_receipt` / `pr_detail` and moves the receipt's per_billed. Billing
+# off the order instead leaves every receipt sitting in "To Bill" forever.
+_PULL = {
+    "Purchase Order": {
+        "maker": "erpnext.buying.doctype.purchase_order.purchase_order.make_purchase_invoice",
+        "link": ("purchase_order", "po_detail"),
+        "date": "transaction_date",
+        "where": "docstatus=1 AND status NOT IN ('Closed','Delivered') AND IFNULL(per_billed,0) < 100",
+    },
+    "Purchase Receipt": {
+        "maker": "erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_purchase_invoice",
+        "link": ("purchase_receipt", "pr_detail"),
+        "date": "posting_date",
+        "where": "docstatus=1 AND status NOT IN ('Closed',) AND IFNULL(per_billed,0) < 100",
+    },
+}
+
+
+def _pull_spec(source):
+    spec = _PULL.get(source or "Purchase Order")
+    if not spec:
+        frappe.throw("Unknown source — expected Purchase Order or Purchase Receipt")
+    return spec
+
 
 @frappe.whitelist()
-def open_pos_for_supplier(company=None, supplier=None, invoice=None):
-    """The supplier's submitted purchase orders that still have something to bill."""
+def billable_sources(company=None, supplier=None, source="Purchase Order", invoice=None,
+                     search=None, limit=60):
+    """The supplier's submitted orders OR receipts that still have something to bill.
+
+    Paged by a name search rather than returned whole: Justyol China alone has
+    2,587 un-billed receipts on Morocco, and a checkbox list of those is not a
+    picker. The Desk's own dialog does the same thing — a Name box above the
+    list — so this matches it.
+    """
     assert_portal_access()
     target = _target(company)
+    spec = _pull_spec(source)
     if not supplier and invoice:
         supplier = frappe.db.get_value("Purchase Invoice", invoice, "supplier")
     if not target or not supplier:
-        return {"supplier": "", "orders": []}
+        return {"supplier": "", "source": source, "rows": []}
+    params = {"c": target, "sup": supplier, "lim": max(1, min(int(limit or 60), 200))}
+    extra = ""
+    if search:
+        extra = " AND name LIKE %(q)s"
+        params["q"] = f"%{search}%"
+    total = frappe.db.sql(
+        f"""SELECT COUNT(*) FROM `tab{source}`
+            WHERE company=%(c)s AND supplier=%(sup)s AND {spec['where']}{extra}""", params)[0][0]
     rows = frappe.db.sql(
-        """SELECT name, transaction_date AS date, schedule_date, status,
-                  ROUND(grand_total,2) AS total, ROUND(IFNULL(per_billed,0),1) AS per_billed
-           FROM `tabPurchase Order`
-           WHERE company=%s AND supplier=%s AND docstatus=1
-             AND status NOT IN ('Closed','Delivered') AND IFNULL(per_billed,0) < 100
-           ORDER BY transaction_date DESC LIMIT 50""", (target, supplier), as_dict=True)
+        f"""SELECT name, {spec['date']} AS date, status,
+                   ROUND(grand_total,2) AS total, ROUND(IFNULL(per_billed,0),1) AS per_billed
+            FROM `tab{source}`
+            WHERE company=%(c)s AND supplier=%(sup)s AND {spec['where']}{extra}
+            ORDER BY {spec['date']} DESC LIMIT %(lim)s""", params, as_dict=True)
     for r in rows:
         r["total"] = flt(r["total"]); r["per_billed"] = flt(r["per_billed"])
-        r["date"] = str(r.get("date") or ""); r["schedule_date"] = str(r.get("schedule_date") or "")
-    return {"supplier": supplier, "orders": rows}
+        r["date"] = str(r.get("date") or "")
+    return {"supplier": supplier, "source": source, "rows": rows, "total": total,
+            "truncated": total > len(rows),
+            "currency": frappe.db.get_value("Company", target, "default_currency")}
+
+
+def _mapped_lines(source, names, target, supplier, seen=None):
+    """Lines ERPNext itself would put on a bill made from these documents.
+
+    Never a hand-written SELECT: the mapper is what fills in the expense account,
+    the cost centre, the UOM and conversion factor, and the link fields whose
+    absence is why a document stays in "To Bill".
+    """
+    spec = _pull_spec(source)
+    link_doc, link_row = spec["link"]
+    make = frappe.get_attr(spec["maker"])
+    seen = set(seen or ())
+    out, skipped = [], []
+    for name in sorted(set(names)):
+        head = frappe.db.get_value(source, name, ["supplier", "company", "docstatus"], as_dict=True)
+        if not head or head.company != target:
+            frappe.throw(f"{name} was not found in this company")
+        if supplier and head.supplier != supplier:
+            frappe.throw(f"{name} belongs to {head.supplier}, this bill is for {supplier}")
+        if head.docstatus != 1:
+            frappe.throw(f"{name} is not submitted")
+        src = make(name)
+        for row in (src.get("items") or []):
+            if not flt(row.qty):
+                continue                                  # nothing left to bill
+            key = (row.get(link_doc), row.get(link_row))
+            if key[1] and key in seen:
+                skipped.append(row.item_code)             # already on this bill
+                continue
+            seen.add(key)
+            out.append(row)
+    return out, skipped, (link_doc, link_row)
 
 
 @frappe.whitelist()
-def pull_po_items(company=None, invoice=None, orders=None):
+def pull_po_items(company=None, invoice=None, orders=None, source="Purchase Order"):
     """Append the un-billed lines of one or more purchase orders to a DRAFT bill.
 
     The Desk calls this "Get Items From → Purchase Order", and it takes several
@@ -1301,51 +1378,74 @@ def pull_po_items(company=None, invoice=None, orders=None):
     """
     assert_can_write()
     target = _target(company)
+    spec = _pull_spec(source)
     names = orders if isinstance(orders, list) else json.loads(orders or "[]")
     names = [n for n in names if n]
     if not names:
-        frappe.throw("Select at least one purchase order")
+        frappe.throw("Select at least one document")
     doc = frappe.get_doc("Purchase Invoice", invoice)
     if doc.company != target:
         frappe.throw("Not permitted", frappe.PermissionError)
     if doc.docstatus != 0:
-        frappe.throw("Only a draft bill can take lines from an order")
-    seen = {(r.purchase_order, r.po_detail) for r in (doc.get("items") or []) if r.get("po_detail")}
-    make_pi = frappe.get_attr("erpnext.buying.doctype.purchase_order.purchase_order.make_purchase_invoice")
-    added, skipped = 0, []
-    for po in sorted(set(names)):
-        head = frappe.db.get_value("Purchase Order", po, ["supplier", "company", "docstatus"], as_dict=True)
-        if not head or head.company != target:
-            frappe.throw(f"{po} was not found in this company")
-        if head.supplier != doc.supplier:
-            frappe.throw(f"{po} belongs to {head.supplier}, this bill is for {doc.supplier}")
-        if head.docstatus != 1:
-            frappe.throw(f"{po} is not submitted")
-        src = make_pi(po)
-        for row in (src.get("items") or []):
-            if not flt(row.qty):
-                continue                       # nothing left to bill on this line
-            if (row.purchase_order, row.po_detail) in seen:
-                skipped.append(row.item_code)  # already on this bill
+        frappe.throw("Only a draft bill can take lines from an order or a receipt")
+    # The receipt already moved the stock. A bill that also updates stock would
+    # post it twice, and ERPNext refuses it with a message that does not say
+    # which of the two things to change — so say it here.
+    if source == "Purchase Receipt" and doc.get("update_stock"):
+        frappe.throw("This bill is set to update stock, and the receipt has already "
+                     "moved it. Turn off 'Update Stock' on the bill before taking "
+                     "lines from a purchase receipt.")
+    link_doc, link_row = spec["link"]
+    seen = {(r.get(link_doc), r.get(link_row)) for r in (doc.get("items") or []) if r.get(link_row)}
+    rows, skipped, _ = _mapped_lines(source, names, target, doc.supplier, seen)
+    if not rows:
+        frappe.throw("Every line on those documents is already on this bill")
+    for row in rows:
+        new = doc.append("items", {})
+        for f, v in row.as_dict().items():
+            if f in ("name", "parent", "parentfield", "parenttype", "idx",
+                     "owner", "creation", "modified", "modified_by", "docstatus"):
                 continue
-            new = doc.append("items", {})
-            for f, v in row.as_dict().items():
-                if f in ("name", "parent", "parentfield", "parenttype", "idx",
-                         "owner", "creation", "modified", "modified_by", "docstatus"):
-                    continue
-                if new.meta.has_field(f):
-                    new.set(f, v)
-            seen.add((row.purchase_order, row.po_detail))
-            added += 1
-    if not added:
-        frappe.throw("Every line on those orders is already on this bill")
+            if new.meta.has_field(f):
+                new.set(f, v)
     doc.flags.ignore_permissions = True
     doc.save()
     _actions.record(
         PULL_PO_ACTION, target, reference_doctype="Purchase Invoice", reference_name=doc.name,
         voucher_type="Purchase Invoice", voucher_no=doc.name,
-        amount=flt(doc.grand_total), payload=json.dumps({"orders": sorted(set(names)), "added": added}),
-        result=json.dumps({"added": added, "skipped": sorted(set(skipped))}),
-        notes=f"Pulled {added} line(s) from {len(set(names))} purchase order(s) into {doc.name}")
+        amount=flt(doc.grand_total), payload=json.dumps({"source": source, "names": sorted(set(names)), "added": len(rows)}),
+        result=json.dumps({"added": len(rows), "skipped": sorted(set(skipped))}),
+        notes=f"Pulled {len(rows)} line(s) from {len(set(names))} {source.lower()}(s) into {doc.name}")
     _bust_purch_cache()
-    return {"added": added, "skipped": sorted(set(skipped)), "invoice": doc.name}
+    return {"added": len(rows), "skipped": sorted(set(skipped)), "invoice": doc.name}
+
+
+@frappe.whitelist()
+def pull_preview(company=None, supplier=None, source="Purchase Order", names=None):
+    """The same lines, WITHOUT a bill to put them on.
+
+    The Desk offers Get Items From on a new invoice, before anything is saved.
+    The portal's equivalent screen builds the lines client-side, so it needs the
+    mapped rows back rather than a saved document — and it must carry the link
+    fields with them, or the bill it finally creates leaves the order or receipt
+    sitting in "To Bill".
+    """
+    assert_portal_access()
+    target = _target(company)
+    _pull_spec(source)
+    picked = names if isinstance(names, list) else json.loads(names or "[]")
+    picked = [n for n in picked if n]
+    if not picked:
+        return {"rows": []}
+    rows, skipped, (link_doc, link_row) = _mapped_lines(source, picked, target, supplier)
+    out = []
+    for r in rows:
+        out.append({
+            "item_code": r.item_code, "item_name": r.get("item_name") or r.item_code,
+            "description": (r.get("description") or "")[:140],
+            "qty": flt(r.qty), "rate": flt(r.rate), "uom": r.get("uom"),
+            "conversion_factor": flt(r.get("conversion_factor") or 1),
+            "account": r.get("expense_account"), "cost_center": r.get("cost_center"),
+            link_doc: r.get(link_doc), link_row: r.get(link_row),
+        })
+    return {"rows": out, "skipped": sorted(set(skipped)), "source": source}

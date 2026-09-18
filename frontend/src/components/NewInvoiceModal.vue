@@ -73,8 +73,19 @@
               </tbody>
             </table>
           </div>
-          <div class="px-3 py-2 border-t border-line-hair">
+          <div class="px-3 py-2 border-t border-line-hair flex items-center gap-4 flex-wrap">
             <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="addLine"><Icon name="plus" :size="12" />{{ L("Add line", "إضافة سطر", "Ajouter") }}</button>
+            <!-- The Desk's "Get Items From" sits on the NEW invoice form, which
+                 is where you need it — the portal only had it after the draft
+                 was saved. Needs a supplier first: the list is that supplier's
+                 open orders and receipts. -->
+            <button v-if="!sales" type="button" :disabled="!form.party"
+                    class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark disabled:text-ink-muted disabled:cursor-default"
+                    :title="form.party ? '' : L('Pick a supplier first','اختر المورّد الأول','Choisissez un fournisseur')"
+                    @click="pullOpen = true"><Icon name="cart" :size="12" />{{ L("Get items from", "اسحب الأصناف من", "Importer depuis") }}…</button>
+          </div>
+          <div v-if="pullOpen" class="px-3 py-2.5 border-t border-line-hair bg-app-warm/30">
+            <GetItemsFrom :supplier="form.party" :busy="pullBusy" @close="pullOpen = false" @picked="pullItems" />
           </div>
         </div>
 
@@ -131,6 +142,7 @@
 
 <script setup>
 import QuickItemPanel from "@/components/QuickItemPanel.vue";
+import GetItemsFrom from "@/components/GetItemsFrom.vue";
 import { ref, reactive, computed, onMounted, h, Teleport } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -171,6 +183,28 @@ const error = ref("");
 const net = computed(() => lines.value.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0));
 function addLine() { lines.value.push(newLine()); }
 function onItem(ln, it) { if (it?.item_name && !ln.rate) ln.description = it.item_name; }
+
+// Pull the un-billed lines of the supplier's orders or receipts onto this form.
+// The rows come back from ERPNext's own mapper, link fields included — without
+// `po_detail` / `pr_detail` the source document's per_billed never moves and it
+// stays in "To Bill" after being billed.
+const pullOpen = ref(false);
+const pullBusy = ref(false);
+async function pullItems({ source, names }) {
+  pullBusy.value = true; error.value = "";
+  try {
+    const r = await api.call("accounting_portal.api.purchases.pull_preview",
+      { company: currentCompany(), supplier: form.party, source, names }) || {};
+    const rows = r.rows || [];
+    if (!rows.length) { error.value = L("Nothing left to bill on those documents.", "مفيش حاجة متبقية للفوترة في المستندات دي.", "Rien à facturer."); return; }
+    // An untouched first row is the placeholder the form opens with, not data.
+    const blank = lines.value.length === 1 && !lines.value[0].item_code;
+    if (blank) lines.value = [];
+    for (const x of rows) lines.value.push({ ...newLine(), ...x });
+    pullOpen.value = false;
+  } catch (e) { error.value = String(e?.message || e).slice(0, 220); }
+  finally { pullBusy.value = false; }
+}
 
 onMounted(async () => {
   try {

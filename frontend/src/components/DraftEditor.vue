@@ -106,25 +106,13 @@
             </div>
             <div v-if="d.child.can_add" class="px-3 py-2 border-t border-line-hair flex items-center gap-4 flex-wrap">
               <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="addRow"><Icon name="plus" :size="12" />{{ L("Add row", "إضافة سطر", "Ajouter une ligne") }}</button>
-              <!-- The Desk's "Get Items From → Purchase Order", which takes several
-                   orders at once: one supplier, three deliveries, one monthly bill. -->
-              <button v-if="canPullPo" type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="openPo"><Icon name="cart" :size="12" />{{ L("Get items from purchase order", "اسحب الأصناف من أمر شراء", "Importer d'une commande") }}</button>
+              <!-- The Desk's "Get Items From", which takes several documents at
+                   once: one supplier, three deliveries, one monthly bill. -->
+              <button v-if="canPullPo" type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="openPo"><Icon name="cart" :size="12" />{{ L("Get items from", "اسحب الأصناف من", "Importer depuis") }}…</button>
             </div>
-            <div v-if="poOpen" class="border-t border-line-hair bg-app-warm/30 px-3 py-2.5 space-y-2">
-              <div class="text-[12px] font-bold">{{ L("Open purchase orders for", "أوامر الشراء المفتوحة لـ", "Commandes ouvertes de") }} {{ poSupplier }}</div>
-              <div v-if="poLoading" class="text-[12px] text-ink-muted py-2">…</div>
-              <div v-else-if="!pos.length" class="text-[12px] text-ink-muted py-2">{{ L("Nothing left to bill on this supplier's orders.", "مفيش حاجة متبقية للفوترة على أوامر المورّد ده.", "Rien à facturer.") }}</div>
-              <label v-for="o in pos" :key="o.name" class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-[9px] bg-white border border-line-2 cursor-pointer">
-                <input type="checkbox" :value="o.name" v-model="poPicked" class="accent-accent w-3.5 h-3.5" />
-                <span class="font-mono text-[12px] font-semibold flex-1 min-w-0 truncate">{{ o.name }}</span>
-                <span class="text-[11px] text-ink-muted">{{ o.date }}</span>
-                <span class="text-[11px] text-ink-muted tnum">{{ o.per_billed }}% {{ L("billed", "مفوتر", "facturé") }}</span>
-                <span class="tnum text-[12px] font-bold">{{ fmt(o.total) }}</span>
-              </label>
-              <div class="flex justify-end gap-2 pt-0.5">
-                <UiButton variant="quiet" size="sm" type="button" @click="poOpen = false">{{ L("Back", "رجوع", "Retour") }}</UiButton>
-                <UiButton variant="secondary" size="sm" type="button" :disabled="!poPicked.length || poBusy" @click="pullPo">{{ poBusy ? "…" : L("Add the lines", "أضف السطور", "Ajouter les lignes") }}</UiButton>
-              </div>
+            <div v-if="poOpen" class="border-t border-line-hair bg-app-warm/30 px-3 py-2.5">
+              <GetItemsFrom :invoice="props.name" :busy="poBusy"
+                            @close="poOpen = false" @picked="pullPo" />
             </div>
           </div>
 
@@ -189,6 +177,7 @@ import { useToast } from "@/composables/useToast";
 import { currentCompany } from "@/composables/useLive";
 import { useAnchoredMenu } from "@/utils/anchoredMenu";
 import QuickItemPanel from "@/components/QuickItemPanel.vue";
+import GetItemsFrom from "@/components/GetItemsFrom.vue";
 import { fmtAmount } from "@/utils/helpers";
 
 const props = defineProps({ doctype: { type: String, required: true }, name: { type: String, required: true } });
@@ -211,27 +200,15 @@ const BUYING = ["Purchase Invoice", "Purchase Order", "Purchase Receipt"];
 
 // ── Pull a supplier's open purchase orders into this draft bill ──
 const poOpen = ref(false);
-const poLoading = ref(false);
 const poBusy = ref(false);
-const pos = ref([]);
-const poPicked = ref([]);
-const poSupplier = ref("");
 const canPullPo = computed(() => props.doctype === "Purchase Invoice" && d.value.docstatus === 0);
-async function openPo() {
-  poOpen.value = true; poLoading.value = true; poPicked.value = []; pos.value = [];
-  try {
-    const r = await api.call("accounting_portal.api.purchases.open_pos_for_supplier",
-      { company: currentCompany(), invoice: props.name }) || {};
-    pos.value = r.orders || [];
-    poSupplier.value = r.supplier || "";
-  } catch (e) { error.value = String(e?.message || e).slice(0, 200); }
-  finally { poLoading.value = false; }
-}
-async function pullPo() {
+// The picker resolves the supplier from the draft itself, so nothing to look up.
+function openPo() { poOpen.value = true; }
+async function pullPo({ source, names }) {
   poBusy.value = true; error.value = "";
   try {
     const r = await api.call("accounting_portal.api.purchases.pull_po_items",
-      { company: currentCompany(), invoice: props.name, orders: poPicked.value });
+      { company: currentCompany(), invoice: props.name, orders: names, source });
     toast.success(L(`${r.added} line(s) added`, `اتضافت ${r.added} سطر`, `${r.added} ligne(s) ajoutée(s)`));
     poOpen.value = false;
     await load();                       // the server appended them; re-read the draft

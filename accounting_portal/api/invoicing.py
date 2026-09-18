@@ -67,9 +67,20 @@ def _lines(items):
     for it in items or []:
         if not it.get("item_code") or flt(it.get("qty")) <= 0:
             continue
-        out.append({"item_code": it["item_code"], "qty": flt(it["qty"]), "rate": flt(it.get("rate")),
-                    "account": it.get("account") or None, "cost_center": it.get("cost_center") or None,
-                    "description": it.get("description") or None})
+        ln = {"item_code": it["item_code"], "qty": flt(it["qty"]), "rate": flt(it.get("rate")),
+              "account": it.get("account") or None, "cost_center": it.get("cost_center") or None,
+              "description": it.get("description") or None}
+        # Lines pulled from an order or a receipt carry the link back to it.
+        # Drop these and the source document's per_billed never moves, so it
+        # sits in "To Bill" forever even though it has been billed — which is
+        # the whole reason the Desk's "Get Items From" exists rather than
+        # retyping the lines.
+        for f in ("purchase_order", "po_detail", "purchase_receipt", "pr_detail",
+                  "sales_order", "so_detail", "delivery_note", "dn_detail",
+                  "uom", "conversion_factor"):
+            if it.get(f):
+                ln[f] = it[f]
+        out.append(ln)
     if not out:
         frappe.throw("Add at least one item")
     return out
@@ -118,7 +129,12 @@ def _build(doctype, action):
             row["description"] = ln["description"]
         if ln.get("account"):
             row["income_account" if sales else "expense_account"] = ln["account"]
-        doc.append("items", row)
+        child = doc.append("items", row)
+        for f in ("purchase_order", "po_detail", "purchase_receipt", "pr_detail",
+                  "sales_order", "so_detail", "delivery_note", "dn_detail",
+                  "uom", "conversion_factor"):
+            if ln.get(f) and child.meta.has_field(f):
+                child.set(f, ln[f])
     if p.get("tax_template"):
         doc.taxes_and_charges = p["tax_template"]
         doc.set_taxes()
