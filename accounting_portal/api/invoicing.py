@@ -26,6 +26,34 @@ def _target(company):
     return company if (company and company in comps) else comps[0]
 
 
+def _template_rules(tpl_dt, names):
+    """The rows behind each tax template, keyed by template name.
+
+    The screen that picks a template and the screen that shows the tax were
+    reading two different endpoints, so the tax could be unknown on a template
+    the picker had happily listed. One source now feeds both.
+    """
+    if not names:
+        return {}
+    child_dt = ("Sales Taxes and Charges" if tpl_dt.startswith("Sales")
+                else "Purchase Taxes and Charges")
+    out = {}
+    for r in frappe.db.sql(
+            "SELECT parent, charge_type, rate, add_deduct_tax FROM `tab" + child_dt + "` "
+            "WHERE parenttype=%s AND parent IN %s ORDER BY parent, idx",
+            (tpl_dt, tuple(names)), as_dict=True):
+        out.setdefault(r.parent, []).append(
+            {"charge_type": r.charge_type, "rate": flt(r.rate),
+             "deduct": (r.add_deduct_tax or "Add") == "Deduct"})
+    # A percentage template can be previewed exactly. One carrying an Actual row
+    # cannot — the amount is on the paper, not in the rule.
+    return {n: {"rows": out.get(n, []),
+                "previewable": bool(out.get(n)) and all(
+                    x["charge_type"] in ("On Net Total", "On Previous Row Total",
+                                         "On Previous Row Amount") for x in out[n])}
+            for n in names}
+
+
 @frappe.whitelist()
 def invoice_options(company=None, kind="sales"):
     """Everything the standalone invoice form needs: tax templates, income /
@@ -50,6 +78,12 @@ def invoice_options(company=None, kind="sales"):
     return {
         "company": target, "currency": ccy,
         "tax_templates": [t.name for t in tpl],
+        # Same call that fills the picker now also carries what each template
+        # actually charges, so the total does not depend on a second request.
+        "tax_rules": _template_rules(
+            "Purchase Taxes and Charges Template" if kind == "purchase"
+            else "Sales Taxes and Charges Template",
+            [t.name for t in tpl]),
         "default_tax_template": next((t.name for t in tpl if t.is_default), ""),
         "accounts": accounts,
         "cost_centers": frappe.db.sql(

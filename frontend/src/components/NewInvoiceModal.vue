@@ -130,10 +130,14 @@
               <b class="tnum text-accent-dark">{{ taxKnown ? fmt(net + taxAmount) : "—" }}
                 <span class="text-[11px] font-normal text-ink-3">{{ form.currency || o.currency }}</span></b>
             </div>
-            <div v-if="!taxKnown" class="text-[10.5px] text-tone-warn pt-0.5 leading-relaxed">
+            <div v-if="taxFixedAmount" class="text-[10.5px] text-tone-warn pt-0.5 leading-relaxed">
               {{ L("This template carries a fixed amount, so the tax is only known once ERPNext applies it on save.",
                     "القالب ده فيه مبلغ ثابت، فالضريبة مش معروفة غير لما ERPNext يطبّقها عند الحفظ.",
                     "Ce modèle porte un montant fixe : la taxe n'est connue qu'à l'enregistrement.") }}
+            </div>
+            <div v-else-if="!taxKnown" class="text-[10.5px] text-ink-muted pt-0.5 leading-relaxed">
+              {{ L("Pick a tax template to see the total.", "اختر قالب الضريبة علشان تشوف الإجمالي.",
+                    "Choisissez un modèle de taxe pour voir le total.") }}
             </div>
           </div>
         </div>
@@ -200,16 +204,24 @@ const vatShown = computed(() => (vatMode.value === "amount" ? Number(form.vat_am
 // The chosen template's rows, so the tax can be shown before saving instead of
 // after. Both Morocco templates are a single "On Net Total" row, so this is the
 // exact figure, not an estimate — but the walk handles a multi-row template too.
-// `o.tax_templates` from invoice_options is a list of plain names; the rows
-// come from tax_options, which is the one that knows the rates.
-const taxTemplates = ref([]);
+//
+// Read from the SAME response that fills the picker. The first version took the
+// names from `invoice_options` and the rates from `tax_options`, which meant the
+// screen could list a template and then claim it did not know its rate — two
+// requests, two chances to disagree, and no way for the user to tell which.
 const pickedTemplate = computed(() =>
-  taxTemplates.value.find((t) => t.value === form.tax_template) || null);
+  (o.value.tax_rules || {})[form.tax_template] || null);
+// Three states, not two: known, not-applicable, and genuinely unknowable. The
+// last one is only an Actual row — anything else that fails to resolve is a
+// gap in what we loaded, and must not be reported to her as a fact about her
+// tax template.
 const taxKnown = computed(() => {
   if (vatMode.value === "none") return true;                 // no tax is a known tax
   if (vatMode.value === "amount") return true;               // she typed it
   return !!(pickedTemplate.value && pickedTemplate.value.previewable);
 });
+const taxFixedAmount = computed(() =>
+  !!(pickedTemplate.value && !pickedTemplate.value.previewable));
 const taxAmount = computed(() => {
   if (vatMode.value === "none") return 0;
   if (vatMode.value === "amount") return Number(form.vat_amount) || 0;
@@ -265,7 +277,6 @@ onMounted(async () => {
     const tx = await api.call("accounting_portal.api.invoicing.tax_options",
       { company: currentCompany(), side: sales.value ? "selling" : "buying" }) || {};
     vatAccounts.value = tx.accounts || [];
-    taxTemplates.value = tx.templates || [];
     form.vat_account = tx.default_account || (vatAccounts.value[0] || {}).value || "";
   } catch (e) { error.value = String(e?.message || e).slice(0, 160); }
 });
