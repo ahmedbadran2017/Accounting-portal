@@ -104,6 +104,16 @@
                 <UiButton variant="secondary" size="xs" class="ms-auto" type="button" :disabled="!selectedAlloc || allocating" @click="allocate">{{ allocating ? "…" : L("Add to payment", "إضافة للدفعة", "Ajouter") }}</UiButton>
               </div>
             </div>
+            <!-- The three figures she is checking against the paper. -->
+            <div v-if="hasItems" class="px-3 py-2 border-t border-line-hair bg-app-warm/30 flex items-center justify-end gap-x-6 gap-y-1 flex-wrap text-[12px]">
+              <span class="text-ink-3">{{ L("Qty", "الكمية", "Qté") }} <b class="tnum text-ink">{{ rv.length }}</b></span>
+              <span class="text-ink-3">{{ L("Total excl. tax", "الإجمالي بدون ضريبة", "Total HT") }}
+                <b class="tnum text-ink">{{ fmt(netTotal) }}</b></span>
+              <span v-if="discountAmt" class="text-ink-3">
+                {{ L("Discount", "الخصم", "Remise") }} <b class="tnum text-sale">−{{ fmt(discountAmt) }}</b>
+                <span class="text-[10px] text-ink-muted"> {{ discountOn }}</span>
+              </span>
+            </div>
             <div v-if="d.child.can_add" class="px-3 py-2 border-t border-line-hair flex items-center gap-4 flex-wrap">
               <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="addRow"><Icon name="plus" :size="12" />{{ L("Add row", "إضافة سطر", "Ajouter une ligne") }}</button>
               <!-- The Desk's "Get Items From", which takes several documents at
@@ -149,6 +159,37 @@
             <div v-if="d.tax.can_edit" class="px-3 py-2 border-t border-line-hair flex items-center gap-3 flex-wrap">
               <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="addTaxRow"><Icon name="plus" :size="12" />{{ L("Add a tax row", "إضافة سطر ضريبة", "Ajouter une taxe") }}</button>
               <span class="text-[11px] text-ink-muted">{{ L("Set the type to Actual and type the amount printed on the invoice when the rates are mixed.", "خلّي النوع Actual واكتبي المبلغ المطبوع في الفاتورة لما الضرايب تكون مختلطة.", "Type « Actual » pour saisir le montant figurant sur la facture.") }}</span>
+            </div>
+          </div>
+
+          <!-- The three figures, as their own card: a bill with no tax table at
+               all still has a total, and hanging them off the tax card hid them
+               exactly there. -->
+          <div v-if="hasItems" class="bg-white border border-line rounded-[12px] px-4 py-3">
+            <div class="ms-auto w-full max-w-[340px] space-y-1.5 text-[12px]">
+              <div class="flex items-center justify-between">
+                <span class="text-ink-3">{{ L("Total excl. tax", "الإجمالي بدون ضريبة", "Total HT") }}</span>
+                <b class="tnum">{{ fmt(netAfterDiscount) }}</b>
+              </div>
+              <div v-if="discountAmt" class="flex items-center justify-between">
+                <span class="text-ink-3">{{ L("Discount", "الخصم", "Remise") }}
+                  <span class="text-[10px] text-ink-muted">{{ discountOn }}</span></span>
+                <b class="tnum text-sale">−{{ fmt(discountAmt) }}</b>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-ink-3">{{ L("Total tax", "إجمالي الضريبة", "Total taxes") }}</span>
+                <b class="tnum">{{ fmt(totalTax) }}</b>
+              </div>
+              <div class="flex items-center justify-between pt-1.5 border-t border-line-2 text-[14px]">
+                <span class="font-semibold">{{ L("Total incl. tax", "الإجمالي مع الضريبة", "Total TTC") }}</span>
+                <b class="tnum text-accent-dark">{{ fmt(grandTotal) }}
+                  <span class="text-[11px] font-normal text-ink-3">{{ d.currency }}</span></b>
+              </div>
+              <div class="text-[10.5px] text-ink-muted pt-0.5 leading-relaxed">
+                {{ L("Arithmetic preview — ERPNext recomputes on save.",
+                      "حساب تقريبي — ERPNext بيعيد الحساب عند الحفظ.",
+                      "Aperçu — recalculé à l'enregistrement.") }}
+              </div>
             </div>
           </div>
         </template>
@@ -215,6 +256,69 @@ async function pullPo({ source, names }) {
   } catch (e) { error.value = String(e?.message || e).slice(0, 220); }
   finally { poBusy.value = false; }
 }
+// ── Live totals ──────────────────────────────────────────────────────────
+// Hanane asked for the three figures the Desk shows and this editor did not:
+// the total before tax, the tax, and the total with it. Without them she was
+// keying fifteen lines and a VAT row and only learning what the bill came to
+// after saving — the one moment she needs it is while she is still comparing
+// it with the paper in front of her.
+//
+// Computed here rather than read back from the server on purpose: the point is
+// that it moves as she types. It is an arithmetic preview, not the posted
+// figure — the banner under it says so, and ERPNext recomputes on save.
+const hasItems = computed(() => !!d.value.child && ["qty", "rate"].every(
+  (f) => (d.value.child.columns || []).some((c) => c.field === f)));
+
+const netTotal = computed(() =>
+  rv.value.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.rate) || 0), 0));
+
+// A discount on the NET reduces the base the taxes are charged on; a discount
+// on the GRAND TOTAL is taken after them. ERPNext treats the two differently
+// and so does the paper, so the preview cannot average over it.
+//
+// Kept as two separate values rather than one `discountAmt` that switches on
+// the mode: a single one has to read the grand total to compute a percentage,
+// and the grand total reads the net, which reads the discount — a cycle that
+// happens to work only because a JS ternary short-circuits. Two values that
+// each depend on one side of the tax walk cannot form one.
+const discountOn = computed(() => hv.apply_discount_on || "");
+const discPct = computed(() => Number(hv.additional_discount_percentage) || 0);
+const discFixed = computed(() => Number(hv.discount_amount) || 0);
+
+const netDiscount = computed(() => {
+  if (discountOn.value !== "Net Total") return 0;
+  return discFixed.value || (netTotal.value * discPct.value) / 100;
+});
+const netAfterDiscount = computed(() => netTotal.value - netDiscount.value);
+
+// ERPNext's own walk down the tax table: each row charges on the net, on the
+// previous row's amount, or on the running total, in table order.
+const taxWalk = computed(() => {
+  let running = netAfterDiscount.value;
+  let prevAmount = 0;
+  let tax = 0;
+  for (const r of txv.value) {
+    const ct = r.charge_type || "On Net Total";
+    const rate = Number(r.rate) || 0;
+    let amt;
+    if (ct === "Actual") amt = Number(r.tax_amount) || 0;
+    else if (ct === "On Previous Row Amount") amt = (prevAmount * rate) / 100;
+    else if (ct === "On Previous Row Total") amt = (running * rate) / 100;
+    else amt = (netAfterDiscount.value * rate) / 100;   // On Net Total
+    prevAmount = amt;
+    running += amt;
+    tax += amt;
+  }
+  return { tax, grand: running };
+});
+const totalTax = computed(() => taxWalk.value.tax);
+const grandDiscount = computed(() => {
+  if (discountOn.value !== "Grand Total") return 0;
+  return discFixed.value || (taxWalk.value.grand * discPct.value) / 100;
+});
+const discountAmt = computed(() => netDiscount.value + grandDiscount.value);
+const grandTotal = computed(() => taxWalk.value.grand - grandDiscount.value);
+
 const totDr = computed(() => rv.value.reduce((s, r) => s + (Number(r.debit_in_account_currency) || 0), 0));
 const totCr = computed(() => rv.value.reduce((s, r) => s + (Number(r.credit_in_account_currency) || 0), 0));
 const balanced = computed(() => Math.abs(totDr.value - totCr.value) < 0.005 && totDr.value > 0);
