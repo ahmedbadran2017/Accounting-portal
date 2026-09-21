@@ -82,6 +82,15 @@
               </tbody>
             </table>
           </div>
+          <!-- 321.01 is where 88% of bill lines belong, so it is offered — but
+               ERPNext only clears it per receipt. A line parked there by hand
+               credits the supplier and debits the clearing account with nothing
+               to net against, and the receipt stays "To Bill" forever. -->
+          <div v-if="srbnbLoose" class="px-3 py-2 border-t border-line-hair text-[11px] leading-relaxed" style="background:#fffbeb;color:#92400e">
+            {{ L("A line is booked to Stock Received But Not Billed without a receipt behind it. Use “Get items from → Purchase Receipt” and ERPNext sets this account itself and clears the receipt; picking it by hand leaves the receipt unbilled.",
+                  "فيه سطر متحطّ على «بضاعة مستلمة غير مفوترة» من غير إيصال وراه. استخدمي «اسحب الأصناف من ← إيصال استلام» و ERPNext بيحطّ الحساب لوحده ويقفل الإيصال؛ اختياره بالإيد بيسيب الإيصال غير مفوتر.",
+                  "Une ligne est imputée à « Stock reçu non facturé » sans réception derrière.") }}
+          </div>
           <div class="px-3 py-2 border-t border-line-hair flex items-center gap-4 flex-wrap">
             <button type="button" class="inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:text-accent-dark" @click="addLine"><Icon name="plus" :size="12" />{{ L("Add line", "إضافة سطر", "Ajouter") }}</button>
             <!-- The Desk's "Get Items From" sits on the NEW invoice form, which
@@ -252,6 +261,11 @@ const lines = ref([newLine()]);
 const busy = ref(false);
 const error = ref("");
 const net = computed(() => lines.value.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0));
+// A line on the stock-clearing account that did NOT come from a receipt.
+const srbnbLoose = computed(() => {
+  const acc = o.value.srbnb_account;
+  return !!acc && lines.value.some((l) => l.account === acc && !l.pr_detail);
+});
 function addLine() { lines.value.push(newLine()); }
 // Picking an item filled in nothing but the description — the rate the picker
 // already returns was dropped on the floor, so every line was typed from the

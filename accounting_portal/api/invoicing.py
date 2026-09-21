@@ -64,10 +64,21 @@ def invoice_options(company=None, kind="sales"):
     if kind == "purchase":
         tpl = frappe.get_all("Purchase Taxes and Charges Template", filters={"company": target},
                              fields=["name", "is_default"], order_by="is_default desc, name")
+        # `root_type='Expense'` hid the account 88% of her bill lines actually
+        # use. Of 4,364 purchase-invoice lines posted in 2026, 3,846 sit on
+        # 321.01 Stock Received But Not Billed — a LIABILITY — because that is
+        # what ERPNext itself puts on a line billed against a receipt. 484 go to
+        # an expense account and 34 to an asset. Offering only the 484-line case
+        # meant the main one could not be keyed here at all, and the draft
+        # editor next door has always offered every account.
+        srbnb = frappe.get_cached_value("Company", target, "stock_received_but_not_billed")
         accounts = frappe.db.sql(
             """SELECT name AS value, name AS label FROM `tabAccount`
-               WHERE company=%s AND is_group=0 AND disabled=0 AND root_type='Expense' ORDER BY name""",
-            (target,), as_dict=True)
+               WHERE company=%(c)s AND is_group=0 AND disabled=0
+                 AND (root_type IN ('Expense', 'Asset') OR name = %(s)s)
+               ORDER BY CASE WHEN name = %(s)s THEN 0
+                             WHEN root_type = 'Expense' THEN 1 ELSE 2 END, name""",
+            {"c": target, "s": srbnb or ""}, as_dict=True)
     else:
         tpl = frappe.get_all("Sales Taxes and Charges Template", filters={"company": target},
                              fields=["name", "is_default"], order_by="is_default desc, name")
@@ -77,6 +88,10 @@ def invoice_options(company=None, kind="sales"):
             (target,), as_dict=True)
     return {
         "company": target, "currency": ccy,
+        # The client needs to recognise this one account to warn when a line is
+        # parked on it without a receipt behind it.
+        "srbnb_account": (frappe.get_cached_value("Company", target, "stock_received_but_not_billed")
+                          if kind == "purchase" else None),
         "tax_templates": [t.name for t in tpl],
         # Same call that fills the picker now also carries what each template
         # actually charges, so the total does not depend on a second request.
