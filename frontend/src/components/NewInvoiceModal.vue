@@ -64,7 +64,16 @@
                   <td class="px-2 py-1.5 text-ink-muted tnum">{{ i + 1 }}</td>
                   <td class="px-1.5 py-1"><ItemBox v-model="ln.item_code" @picked="(it) => onItem(ln, it)" /></td>
                   <td class="px-1.5 py-1"><input type="number" step="any" min="0" v-model="ln.qty" dir="ltr" class="fld fld-sm w-full text-end tnum" /></td>
-                  <td class="px-1.5 py-1"><input type="number" step="any" min="0" v-model="ln.rate" dir="ltr" class="fld fld-sm w-full text-end tnum" /></td>
+                  <td class="px-1.5 py-1">
+                    <input type="number" step="any" min="0" v-model="ln.rate" dir="ltr" class="fld fld-sm w-full text-end tnum" />
+                    <div v-if="ln.ref" class="text-[10px] text-ink-muted text-end mt-0.5 leading-tight"
+                         :title="ln.ref.doc + ' · ' + ln.ref.supplier">
+                      {{ L("last", "آخر سعر", "dernier") }} <span class="tnum">{{ fmt(ln.ref.rate) }}</span>
+                      <span v-if="!ln.ref.same_supplier" class="text-tone-warn">
+                        · {{ L("other supplier", "مورّد آخر", "autre fourn.") }}</span>
+                      <span v-else> · {{ ln.ref.date }}</span>
+                    </div>
+                  </td>
                   <td class="px-2 py-2 text-end tnum text-ink-2">{{ fmt((Number(ln.qty) || 0) * (Number(ln.rate) || 0)) }}</td>
                   <td class="px-1.5 py-1"><SearchSelect v-model="ln.account" :items="o.accounts || []" :placeholder="L('default','افتراضي','défaut')" inputClass="h-8 text-[12px] bg-white" /></td>
                   <td class="px-1.5 py-1"><SearchSelect v-model="ln.cost_center" :items="o.cost_centers || []" :placeholder="L('none','بدون','aucun')" inputClass="h-8 text-[12px] bg-white" /></td>
@@ -238,13 +247,36 @@ const taxAmount = computed(() => {
   }
   return tax;
 });
-const newLine = () => ({ item_code: "", qty: 1, rate: 0, account: "", cost_center: "" });
+const newLine = () => ({ item_code: "", qty: 1, rate: 0, account: "", cost_center: "", ref: null });
 const lines = ref([newLine()]);
 const busy = ref(false);
 const error = ref("");
 const net = computed(() => lines.value.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0));
 function addLine() { lines.value.push(newLine()); }
-function onItem(ln, it) { if (it?.item_name && !ln.rate) ln.description = it.item_name; }
+// Picking an item filled in nothing but the description — the rate the picker
+// already returns was dropped on the floor, so every line was typed from the
+// paper with no reference at all.
+//
+// It is filled from the last invoice this supplier actually sent, NOT from the
+// buying price list. The price list on this site is polluted (see
+// purchases.last_purchase_rate) and would have put rates thirty times too high
+// onto her bills. The reference carries its source so she can check it.
+async function onItem(ln, it) {
+  if (it?.item_name && !ln.description) ln.description = it.item_name;
+  ln.ref = null;
+  if (!it?.item_code) return;
+  try {
+    const r = await api.call("accounting_portal.api.purchases.last_purchase_rate", {
+      company: currentCompany(), item_code: it.item_code,
+      supplier: form.party || undefined, currency: form.currency || undefined,
+    });
+    if (r && r.rate) {
+      ln.ref = r;
+      // Never overwrite something she has already typed.
+      if (!Number(ln.rate)) ln.rate = r.rate;
+    }
+  } catch { /* a missing reference is not an error worth a banner */ }
+}
 
 // Pull the un-billed lines of the supplier's orders or receipts onto this form.
 // The rows come back from ERPNext's own mapper, link fields included — without

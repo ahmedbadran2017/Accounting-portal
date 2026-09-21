@@ -1449,3 +1449,55 @@ def pull_preview(company=None, supplier=None, source="Purchase Order", names=Non
             link_doc: r.get(link_doc), link_row: r.get(link_row),
         })
     return {"rows": out, "skipped": sorted(set(skipped)), "source": source}
+
+
+@frappe.whitelist()
+def last_purchase_rate(company=None, item_code=None, supplier=None, currency=None):
+    """What this item last actually cost — from the books, not from a price list.
+
+    The obvious answer is the buying Item Price, and it is the wrong one here.
+    There are 31 buying price lists on this site and the picker was reading
+    whichever row happened to be modified last, which on a Morocco bill is
+    usually the *Maslak LTD* list. Measured against what was really billed:
+    48585486139646 last cost 123.16 and the list says 3,686.18; 47691884298494
+    cost 49.03 against 672.62; 45820014362878 cost 200.00 against 1.00. Filling
+    a bill from that is worse than filling nothing — a wrong number that looks
+    authoritative is copied, a blank one is typed.
+
+    So the reference is the last submitted purchase invoice line: same supplier
+    and same currency first, because that is the price she actually agreed with
+    this supplier; then the same currency from anyone, clearly labelled. Returns
+    the document and date with it so the figure can be checked rather than
+    trusted.
+    """
+    assert_portal_access()
+    target = _target(company)
+    if not (target and item_code):
+        return {}
+    rows = frappe.db.sql(
+        """SELECT it.rate, pi.name AS doc, pi.posting_date AS date,
+                  pi.supplier, pi.currency
+           FROM `tabPurchase Invoice Item` it
+           JOIN `tabPurchase Invoice` pi ON pi.name = it.parent
+           WHERE pi.company = %(c)s AND pi.docstatus = 1
+             AND IFNULL(pi.is_return, 0) = 0
+             AND it.item_code = %(i)s AND it.rate > 0
+           ORDER BY pi.posting_date DESC, pi.creation DESC
+           LIMIT 40""", {"c": target, "i": item_code}, as_dict=True)
+    if not rows:
+        return {}
+    ccy = currency or frappe.db.get_value("Company", target, "default_currency")
+
+    def pick(test):
+        for r in rows:
+            if test(r):
+                return r
+        return None
+
+    hit = (pick(lambda r: r.supplier == supplier and r.currency == ccy) if supplier else None) \
+        or pick(lambda r: r.currency == ccy)
+    if not hit:
+        return {}
+    return {"rate": flt(hit.rate), "doc": hit.doc, "date": str(hit.date),
+            "supplier": hit.supplier, "currency": hit.currency,
+            "same_supplier": bool(supplier) and hit.supplier == supplier}
