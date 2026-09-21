@@ -266,11 +266,19 @@ async function pullPo({ source, names }) {
 // Computed here rather than read back from the server on purpose: the point is
 // that it moves as she types. It is an arithmetic preview, not the posted
 // figure — the banner under it says so, and ERPNext recomputes on save.
-const hasItems = computed(() => !!d.value.child && ["qty", "rate"].every(
-  (f) => (d.value.child.columns || []).some((c) => c.field === f)));
+// The item table has TWO shapes and the first version of this only knew one.
+// A DRAFT gives editable `qty` and `rate`; a SUBMITTED bill gives a read-only
+// `amount` instead, because after submit the only thing ERPNext lets you change
+// on a line is the account. Requiring qty and rate meant the totals silently
+// vanished on every submitted document — which is most of what she opens.
+const childCols = computed(() => (d.value.child && d.value.child.columns) || []);
+const hasCol = (f) => childCols.value.some((c) => c.field === f);
+const byQtyRate = computed(() => hasCol("qty") && hasCol("rate"));
+const hasItems = computed(() => !!d.value.child && (byQtyRate.value || hasCol("amount")));
 
-const netTotal = computed(() =>
-  rv.value.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.rate) || 0), 0));
+const lineAmount = (r) =>
+  byQtyRate.value ? (Number(r.qty) || 0) * (Number(r.rate) || 0) : (Number(r.amount) || 0);
+const netTotal = computed(() => rv.value.reduce((s, r) => s + lineAmount(r), 0));
 
 // A discount on the NET reduces the base the taxes are charged on; a discount
 // on the GRAND TOTAL is taken after them. ERPNext treats the two differently
@@ -293,7 +301,17 @@ const netAfterDiscount = computed(() => netTotal.value - netDiscount.value);
 
 // ERPNext's own walk down the tax table: each row charges on the net, on the
 // previous row's amount, or on the running total, in table order.
+const taxCols = computed(() => (d.value.tax && d.value.tax.columns) || []);
+// Same split on the tax side: a submitted bill exposes `tax_amount` alone, with
+// no charge_type and no rate, so there is nothing to walk — those rows are the
+// posted amounts and the total is their sum.
+const taxIsPosted = computed(() => !taxCols.value.some((c) => c.field === "charge_type"));
+
 const taxWalk = computed(() => {
+  if (taxIsPosted.value) {
+    const t = txv.value.reduce((s, r) => s + (Number(r.tax_amount) || 0), 0);
+    return { tax: t, grand: netAfterDiscount.value + t };
+  }
   let running = netAfterDiscount.value;
   let prevAmount = 0;
   let tax = 0;
