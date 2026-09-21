@@ -110,11 +110,31 @@
                 <option v-for="a in vatAccounts" :key="a.value" :value="a.value">{{ a.label }}</option>
               </select></div>
           </div>
-          <div class="flex items-center gap-4 flex-wrap text-[12px] pt-0.5 border-t border-line-hair">
-            <span class="text-ink-muted">{{ L("Net", "الصافي", "HT") }} <b class="tnum">{{ fmt(net) }}</b></span>
-            <span class="text-ink-muted">{{ L("VAT", "الضريبة", "TVA") }} <b class="tnum">{{ fmt(vatShown) }}</b></span>
-            <span class="font-bold">{{ L("Total", "الإجمالي", "TTC") }} <span class="tnum">{{ fmt(net + vatShown) }}</span> {{ form.currency || o.currency }}</span>
-            <span v-if="vatMode === 'template'" class="text-[11px] text-ink-muted">{{ L("computed on save from the template", "بتتحسب عند الحفظ من القالب", "calculée à l'enregistrement") }}</span>
+        </div>
+
+        <!-- The same three figures as the draft editor, and shown whatever the
+             VAT setting is. They used to live inside the VAT block, so picking
+             "No tax" left the screen with nothing but a small "Net" chip. -->
+        <div class="border border-line rounded-[12px] px-4 py-3">
+          <div class="ms-auto w-full max-w-[340px] space-y-1.5 text-[12px]">
+            <div class="flex items-center justify-between">
+              <span class="text-ink-3">{{ L("Total excl. tax", "الإجمالي بدون ضريبة", "Total HT") }}</span>
+              <b class="tnum">{{ fmt(net) }}</b>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-ink-3">{{ L("Total tax", "إجمالي الضريبة", "Total taxes") }}</span>
+              <b class="tnum">{{ taxKnown ? fmt(taxAmount) : "—" }}</b>
+            </div>
+            <div class="flex items-center justify-between pt-1.5 border-t border-line-2 text-[14px]">
+              <span class="font-semibold">{{ L("Total incl. tax", "الإجمالي مع الضريبة", "Total TTC") }}</span>
+              <b class="tnum text-accent-dark">{{ taxKnown ? fmt(net + taxAmount) : "—" }}
+                <span class="text-[11px] font-normal text-ink-3">{{ form.currency || o.currency }}</span></b>
+            </div>
+            <div v-if="!taxKnown" class="text-[10.5px] text-tone-warn pt-0.5 leading-relaxed">
+              {{ L("This template carries a fixed amount, so the tax is only known once ERPNext applies it on save.",
+                    "القالب ده فيه مبلغ ثابت، فالضريبة مش معروفة غير لما ERPNext يطبّقها عند الحفظ.",
+                    "Ce modèle porte un montant fixe : la taxe n'est connue qu'à l'enregistrement.") }}
+            </div>
           </div>
         </div>
 
@@ -176,6 +196,36 @@ const vatAccounts = ref([]);
 // by ERPNext, and guessing it here would put a number on screen that the saved
 // document might not agree with.
 const vatShown = computed(() => (vatMode.value === "amount" ? Number(form.vat_amount) || 0 : 0));
+
+// The chosen template's rows, so the tax can be shown before saving instead of
+// after. Both Morocco templates are a single "On Net Total" row, so this is the
+// exact figure, not an estimate — but the walk handles a multi-row template too.
+// `o.tax_templates` from invoice_options is a list of plain names; the rows
+// come from tax_options, which is the one that knows the rates.
+const taxTemplates = ref([]);
+const pickedTemplate = computed(() =>
+  taxTemplates.value.find((t) => t.value === form.tax_template) || null);
+const taxKnown = computed(() => {
+  if (vatMode.value === "none") return true;                 // no tax is a known tax
+  if (vatMode.value === "amount") return true;               // she typed it
+  return !!(pickedTemplate.value && pickedTemplate.value.previewable);
+});
+const taxAmount = computed(() => {
+  if (vatMode.value === "none") return 0;
+  if (vatMode.value === "amount") return Number(form.vat_amount) || 0;
+  const t = pickedTemplate.value;
+  if (!t || !t.previewable) return 0;
+  let running = net.value, prev = 0, tax = 0;
+  for (const r of t.rows || []) {
+    const rate = Number(r.rate) || 0;
+    let amt = r.charge_type === "On Previous Row Amount" ? (prev * rate) / 100
+            : r.charge_type === "On Previous Row Total" ? (running * rate) / 100
+            : (net.value * rate) / 100;
+    if (r.deduct) amt = -amt;
+    prev = amt; running += amt; tax += amt;
+  }
+  return tax;
+});
 const newLine = () => ({ item_code: "", qty: 1, rate: 0, account: "", cost_center: "" });
 const lines = ref([newLine()]);
 const busy = ref(false);
@@ -215,6 +265,7 @@ onMounted(async () => {
     const tx = await api.call("accounting_portal.api.invoicing.tax_options",
       { company: currentCompany(), side: sales.value ? "selling" : "buying" }) || {};
     vatAccounts.value = tx.accounts || [];
+    taxTemplates.value = tx.templates || [];
     form.vat_account = tx.default_account || (vatAccounts.value[0] || {}).value || "";
   } catch (e) { error.value = String(e?.message || e).slice(0, 160); }
 });

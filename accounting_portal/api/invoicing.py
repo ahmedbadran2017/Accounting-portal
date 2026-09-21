@@ -252,6 +252,30 @@ def tax_options(company=None, side="buying"):
     templates = frappe.db.sql(
         "SELECT name AS value, name AS label, is_default FROM `tab" + tpl_dt + "` "
         "WHERE company=%s ORDER BY is_default DESC, name", (target,), as_dict=True)
+    # The screen showed "Total TTC" equal to the net whenever a template was
+    # chosen, because the tax was only known after saving — a 20% bill read as
+    # if it carried no VAT right up to the moment it was posted. Send the rows
+    # and the client can work out the same figure ERPNext will.
+    child_dt = "Sales Taxes and Charges" if sales else "Purchase Taxes and Charges"
+    if templates:
+        rows = frappe.db.sql(
+            "SELECT parent, charge_type, rate, add_deduct_tax, idx FROM `tab" + child_dt + "` "
+            "WHERE parenttype=%s AND parent IN %s ORDER BY parent, idx",
+            (tpl_dt, tuple(t["value"] for t in templates)), as_dict=True)
+        by = {}
+        for r in rows:
+            by.setdefault(r.parent, []).append(
+                {"charge_type": r.charge_type, "rate": flt(r.rate),
+                 "deduct": (r.add_deduct_tax or "Add") == "Deduct"})
+        for t in templates:
+            t["rows"] = by.get(t["value"], [])
+            # A percentage template can be previewed exactly. One carrying an
+            # Actual row cannot — the amount is on the paper, not in the rule —
+            # so the client is told to stop guessing rather than show a wrong
+            # number confidently.
+            t["previewable"] = bool(t["rows"]) and all(
+                r["charge_type"] in ("On Net Total", "On Previous Row Total",
+                                     "On Previous Row Amount") for r in t["rows"])
     accounts = frappe.db.sql(
         """SELECT name AS value, name AS label FROM `tabAccount`
            WHERE company=%s AND is_group=0 AND disabled=0
