@@ -657,18 +657,40 @@ def _run_poster(doc):
         "doctype": "Payroll Entry", "company": target, "posting_date": end,
         "start_date": start, "end_date": end, "payroll_frequency": "Monthly",
         "currency": _ccy(target), "exchange_rate": 1,
+        # HRMS looks salary structures up with
+        #   WHERE salary_slip_based_on_timesheet = %(salary_slip_based_on_timesheet)s
+        # and this field was never set, so it arrived as NULL — and `= NULL` is
+        # never true in SQL. Zero structures means zero employees, and the run
+        # died with "No employees found" on a company where all 27 active staff
+        # were correctly assigned. Measured on PROD: None -> 0 structures,
+        # 0 -> 21 structures -> 27 employees.
+        "salary_slip_based_on_timesheet": 0,
         "payroll_payable_account": payable, "cost_center": cc,
     })
     try:
         pe.fill_employee_details()
     except frappe.ValidationError:
         frappe.clear_last_message()
+        # The old message named the payable account and the assignment count, so
+        # it read as "your assignments are wrong" — and sent us auditing 127
+        # perfectly good assignments while the real cause was the NULL filter
+        # above. Report every input HRMS had, so a zero is visible where it is.
         n_slipped = frappe.db.count("Salary Slip", {"company": target, "start_date": start, "docstatus": 1})
+        n_active = frappe.db.count("Employee", {"company": target, "status": "Active"})
+        try:
+            n_struct = len(frappe.get_attr(
+                "hrms.payroll.doctype.payroll_entry.payroll_entry.get_salary_structure")(
+                target, _ccy(target), 0, "Monthly") or [])
+        except Exception:
+            n_struct = -1
         n_assigned = frappe.db.count("Salary Structure Assignment",
                                      {"company": target, "docstatus": 1, "payroll_payable_account": payable})
-        frappe.throw(f"No employee left to run for {month}: {n_slipped} already have a submitted slip, "
-                     f"{n_assigned} hold a Salary Structure Assignment on {payable}. "
-                     "Anyone missing needs an assignment (Employees → Assign structure).")
+        frappe.throw(
+            f"HRMS found no one to run for {month}. What it had to work with: "
+            f"{n_active} active employees · {n_struct} active monthly {_ccy(target)} salary structures · "
+            f"{n_assigned} assignments on {payable} · {n_slipped} already hold a submitted slip. "
+            "A zero on structures means the lookup is failing, not the data; otherwise "
+            "the missing people need an assignment (Employees → Assign structure).")
     if not pe.get("employees"):
         frappe.throw("No eligible employees to run (each needs a submitted Salary Structure Assignment).")
     pe.insert(ignore_permissions=True)
