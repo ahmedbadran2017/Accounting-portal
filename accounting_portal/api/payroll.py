@@ -481,7 +481,12 @@ def payroll_close_status(company=None, month=None):
     posted_gl = run_submitted or slips_n > 0
     closed = _closed_record(target, month)
 
+    # The sheet is the first step of the month now, so it belongs in the list of
+    # things that have to be true before it closes — first, because everything
+    # below it is built on the figures it approves.
+    appr = _sheet_approved(target, month)
     checklist = [
+        {"key": "sheet", "ok": bool(appr), "n": int(appr.get("documents") or 0) if appr else 0},
         {"key": "slips", "ok": (missing == [] and emps_n >= active and active > 0),
          "n": emps_n, "of": active},
         {"key": "drafts", "ok": int(drafts or 0) == 0, "n": int(drafts or 0)},
@@ -497,7 +502,7 @@ def payroll_close_status(company=None, month=None):
         "employer_contrib": employer, "cost_to_company": _m(gross + employer),
         "runs": runs, "posted_gl": bool(posted_gl),
         "salary_payable": _m(max(0.0, _salary_payable(target))),
-        "checklist": checklist, "ready": ready,
+        "checklist": checklist, "ready": ready, "sheet_approved": appr or None,
         "closed": bool(closed),
         "closed_on": str(closed.posted_on)[:19] if closed else None,
         "closed_by": (closed.proposed_by if closed else None),
@@ -617,6 +622,10 @@ def payroll_run_preview(company=None, month=None):
         "payable_account": payable, "cost_center": cc,
         "banks": _bank_accounts(target),
         "to_pay_net": _m(sum(p["amount"] for p in to_pay)), "to_pay_count": len(to_pay),
+        # Generating slips before the sheet is approved produces a full month for
+        # everyone — no absence, no delay, no overtime — and nothing on the screen
+        # said so. The run strip shows this as its own step now.
+        "sheet_approved": _sheet_approved(target, month) or None,
     }
 
 
@@ -998,11 +1007,18 @@ def pay_adjustments(company=None, month=None):
            FROM `tabAdditional Salary` a JOIN `tabEmployee` e ON e.name=a.employee
            WHERE a.company=%(c)s AND a.docstatus<2 AND """ + _ADDSAL_MONTH + """
            ORDER BY e.employee_name, a.type""", {"c": target, "s": start, "e": end}, as_dict=True)
+    # Approving the sheet writes Additional Salary too, so from this month on the
+    # board carries rows nobody keyed by hand. Editing or deleting one of those
+    # here would move the slip away from the sheet and leave no sign of it, so
+    # they are marked, and the two write endpoints refuse them.
+    mine = set(_sheet_approved(target, month).get("names") or [])
     by = {}
     for r in rows:
         r["amount"] = _m(r["amount"])
+        r["from_sheet"] = 1 if r.name in mine else 0
         emp = by.setdefault(r.employee, {"employee": r.employee, "nm": r.nm, "earn": 0.0, "ded": 0.0, "items": []})
-        emp["items"].append({"name": r.name, "comp": r.comp, "type": r.type, "amount": r["amount"]})
+        emp["items"].append({"name": r.name, "comp": r.comp, "type": r.type,
+                             "amount": r["amount"], "from_sheet": r["from_sheet"]})
         if r.type == "Earning":
             emp["earn"] += r["amount"]
         else:
@@ -1013,7 +1029,7 @@ def pay_adjustments(company=None, month=None):
         e["net"] = _m(e["earn"] - e["ded"])
     return {"company": target, "currency": _ccy(target), "month": month, "employees": emps,
             "earn_total": _m(sum(e["earn"] for e in emps)), "ded_total": _m(sum(e["ded"] for e in emps)),
-            "count": len(rows)}
+            "count": len(rows), "from_sheet_count": sum(1 for r in rows if r["from_sheet"])}
 
 
 @frappe.whitelist()
@@ -1056,6 +1072,25 @@ def _adj_poster(doc):
 ADJ_EDIT_ACTION = "Edit adjustment"
 
 
+def _assert_not_sheet_owned(target, name):
+    """Refuse to edit or delete an adjustment the payroll sheet wrote.
+
+    Once a month is approved the adjustments board carries rows nobody keyed by
+    hand. Changing one here moves the slip away from the sheet with nothing on
+    either screen to say so — and the next re-approval would overwrite the change
+    anyway. The sheet is where that figure lives.
+    """
+    d = frappe.db.get_value("Additional Salary", name, ["payroll_date", "from_date"], as_dict=True)
+    if not d:
+        return
+    month = str(d.payroll_date or d.from_date or "")[:7]
+    if not month:
+        return
+    if name in set(_sheet_approved(target, month).get("names") or []):
+        frappe.throw(f"This line came from the {month} payroll sheet. Change it on the sheet and "
+                     "re-approve the month — editing it here would silently split the two.")
+
+
 @frappe.whitelist()
 def update_adjustment(company=None, name=None, amount=None, salary_component=None, notes=None):
     """Change a bonus / deduction that is already there.
@@ -1081,6 +1116,7 @@ def update_adjustment(company=None, name=None, amount=None, salary_component=Non
         frappe.throw("Adjustment not found")
     if old.docstatus == 2:
         frappe.throw("This adjustment is already cancelled")
+    _assert_not_sheet_owned(target, old.name)
     amt = _m(amount) if amount is not None else _m(old.amount)
     comp = salary_component or old.salary_component
     if amt <= 0:
@@ -1130,6 +1166,7 @@ def remove_adjustment(company=None, name=None):
     target = _target(company)
     if not (target and name and frappe.db.exists("Additional Salary", {"name": name, "company": target})):
         frappe.throw("Adjustment not found")
+    _assert_not_sheet_owned(target, name)
     d = frappe.get_doc("Additional Salary", name)
     if d.docstatus == 1:
         d.cancel()
@@ -1656,6 +1693,42 @@ def _sheet_approved(target, month, ov=None):
     return ov.get(SHEET_APPROVED_KEY) or {}
 
 
+def _deducted_advances(target, before_month):
+    """What earlier approved months already took off an advance, per employee.
+
+    The advance column is an outstanding balance on `Employee Advance`, and
+    deducting it through an Additional Salary does not touch that document — no
+    claim, no return, nothing. So the balance survives the deduction and the next
+    month would present it again, and the month after that: a 5,000 advance
+    collected once and deducted for as long as the person is employed.
+
+    Until an approval also settles the advance itself, this is what keeps the
+    figure honest — each approved month records what it deducted, and later
+    months net it off. Only months strictly BEFORE this one count, so
+    re-approving a month never subtracts its own deduction from itself.
+    """
+    out = {}
+    prefix = _sheet_store(target, "")
+    for k, v in frappe.db.sql(
+            """SELECT defkey, defvalue FROM `tabDefaultValue` WHERE defkey LIKE %s""",
+            (prefix + "%",)):
+        # `_` is a single-character wildcard in LIKE and these keys are made of
+        # them, so the prefix is re-checked here rather than trusted to the query.
+        k = str(k)
+        if not k.startswith(prefix):
+            continue
+        m = k.rsplit("_", 1)[-1]
+        if not (len(m) == 7 and m < str(before_month)):
+            continue
+        try:
+            stamp = (frappe.parse_json(v or "{}") or {}).get(SHEET_APPROVED_KEY) or {}
+        except Exception:
+            continue
+        for emp, amt in (stamp.get("advances") or {}).items():
+            out[emp] = flt(out.get(emp) or 0) + flt(amt)
+    return out
+
+
 def _sheet_settings(target, month, ov=None):
     """The reference the delay column is measured against.
 
@@ -1796,6 +1869,10 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
            FROM `tabEmployee Advance` WHERE company=%s AND docstatus=1""",
             (target,), as_dict=True):
         adv[r.employee] = flt(adv.get(r.employee) or 0) + max(flt(r.bal), 0.0)
+    # …less whatever earlier approved months already deducted against it.
+    for emp, done in _deducted_advances(target, month).items():
+        if emp in adv:
+            adv[emp] = max(flt(adv[emp]) - flt(done), 0.0)
 
     approved = _sheet_approved(target, month, ov)
     mine = [n for n in (approved.get("names") or []) if n]
@@ -2200,6 +2277,11 @@ def _approve_poster(doc):
 
     ov[SHEET_APPROVED_KEY] = {
         "names": created, "month": month, "documents": len(created),
+        # Recorded per employee so later months can net it off — see
+        # `_deducted_advances`. An Employee Advance is not marked repaid by a
+        # salary deduction, so this is the only record that it happened.
+        "advances": {l["employee"]: i["amount"] for l in plan["lines"] for i in l["items"]
+                     if i["component"] == SHEET_ADVANCE_COMPONENT},
         "employees": len(plan["lines"]), "at": now_datetime().strftime("%Y-%m-%d %H:%M"),
         "by": frappe.session.user, "net": _m(plan["sheet_net"]), "action": doc.name,
     }

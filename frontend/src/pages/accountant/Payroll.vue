@@ -94,11 +94,33 @@
         <!-- ── RUN PAYROLL: generate → submit → pay, all from here ── -->
         <div v-if="can('post_entries') && !cl.closed" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
           <div class="px-4 py-2.5 border-b border-line-hair flex items-center gap-2"><Icon name="coins" :size="14" color="#0b5c4f" /><span class="text-[12px] font-bold">{{ L('Run payroll','تشغيل الرواتب','Exécuter la paie') }}</span><span class="text-[11px] text-ink-muted">{{ L('generate → submit → pay','إنشاء ← اعتماد ← دفع','générer → soumettre → payer') }}</span></div>
-          <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="p-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <!-- 0. Approve the sheet. Generating without it produces a full month
+                 for everyone — no absence, no delay, no overtime — and until now
+                 nothing on this strip said so. -->
+            <div class="rounded-card border p-3 flex flex-col gap-2"
+                 :class="cl.sheet_approved ? 'border-line-2' : 'border-amber-300 bg-amber-50/40'">
+              <div class="flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-semibold text-white"
+                      :class="cl.sheet_approved ? 'bg-ink' : 'bg-amber-600'">0</span>
+                <span class="text-[12px] font-semibold">{{ L('Approve the sheet','اعتماد الورقة','Approuver la feuille') }}</span>
+              </div>
+              <div class="text-[11px] flex-1" :class="cl.sheet_approved ? 'text-ink-muted' : 'text-amber-800'">
+                {{ cl.sheet_approved
+                    ? cl.sheet_approved.documents + ' ' + L('adjustments · ','بند · ','ajustements · ') + cl.sheet_approved.at
+                    : L('Not approved — slips would pay the full month to everyone.','مش معتمدة — المسيّرات هتدفع الشهر كامل للكل.','Non approuvée — mois complet pour tous.') }}
+              </div>
+              <UiButton :variant="cl.sheet_approved ? 'secondary' : 'create'" size="sm" type="button" @click="view = 'sheet'">
+                {{ cl.sheet_approved ? L('Open the sheet','افتح الورقة','Ouvrir') : L('Go to the sheet','روح للورقة','Aller à la feuille') }}
+              </UiButton>
+            </div>
             <!-- 1. Generate -->
             <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
               <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-semibold text-white bg-ink">1</span><span class="text-[12px] font-semibold">{{ L('Generate slips','إنشاء المسيّرات','Générer') }}</span></div>
-              <div class="text-[11px] text-ink-muted flex-1">{{ pv.eligible_count || 0 }} {{ L('eligible staff with no slip yet','موظف مؤهّل بلا مسيّر','éligibles sans bulletin') }}</div>
+              <div class="text-[11px] flex-1" :class="cl.sheet_approved ? 'text-ink-muted' : 'text-amber-800'">
+                {{ pv.eligible_count || 0 }} {{ L('eligible staff with no slip yet','موظف مؤهّل بلا مسيّر','éligibles sans bulletin') }}
+                <span v-if="!cl.sheet_approved"> · {{ L('at full salary','بالراتب الكامل','au salaire plein') }}</span>
+              </div>
               <UiButton variant="primary" size="sm" type="button" :disabled="runBusy || !(pv.eligible_count>0)" @click="doGenerate">
                 <Icon :name="runBusy==='gen' ? 'clock' : 'plus'" :size="12" class="inline -mt-0.5 me-1" />{{ pv.eligible_count>0 ? L('Generate','إنشاء','Générer')+' '+pv.eligible_count : L('None eligible','لا مؤهّلين','Aucun') }}
               </UiButton>
@@ -160,7 +182,7 @@
                   </tr>
                 </tbody></table>
               </div>
-              <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted">{{ L('Slips are created in ERPNext HR; the portal verifies & locks the month.','المسيّرات تُنشأ في ERPNext HR؛ البوابة تتحقق وتقفل الشهر.','Bulletins créés dans ERPNext HR.') }}</div>
+              <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted">{{ L('Generate above creates their slips from the approved sheet.','زرار الإنشاء فوق بيعمل مسيّراتهم من الورقة المعتمدة.','Générer ci-dessus crée leurs bulletins.') }}</div>
             </div>
             <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
               <div class="px-4 py-2.5 border-b border-line-hair text-[12px] font-bold flex items-center gap-2"><Icon name="list" :size="14" color="#0b5c4f" />{{ L('Payroll runs this month','تشغيلات الشهر','Exécutions du mois') }}</div>
@@ -179,13 +201,15 @@
     </template>
 
     <!-- ── ADJUSTMENTS (bonuses & deductions, reviewed before the slip) ── -->
-    <PayAdjustments v-else-if="view==='adjustments'" />
+    <PayAdjustments v-else-if="view==='adjustments'" v-model:month="clMonth" />
 
     <!-- ── ATTENDANCE PUNCHES & EMPLOYEE ADVANCES (were Desk-only) ── -->
     <HrQuick v-else-if="view==='hr'" />
 
+    <!-- ── THE MONTHLY SHEET (step one: the figures every step below it uses) ── -->
+    <PayrollSheet v-else-if="view==='sheet'" v-model:month="clMonth" />
+
     <!-- ── SALARY STRUCTURES (were Desk-only: 13 created, 156 line edits in 6 months) ── -->
-    <PayrollSheet v-else-if="view==='sheet'" />
     <SalaryStructures v-else-if="view==='structures'" />
 
     <!-- ── EMPLOYEES ── -->
@@ -362,9 +386,15 @@ Kpi.props = ["label", "value", "sub", "icon", "color"];
 
 // The active tab lives in the URL (?t=…) so browser Back / reload return you to
 // the same tab instead of resetting to the cockpit or bouncing you out.
-const TABS = ["cockpit", "close", "adjustments", "hr", "employees", "structures", "runs", "components", "accounting"];
+const TABS = ["cockpit", "sheet", "close", "adjustments", "hr", "employees",
+              "structures", "runs", "components", "accounting"];
 const view = ref(TABS.includes(route.query.t) ? route.query.t : "cockpit");
 watch(view, (v) => { if (route.query.t !== v) router.replace({ query: { ...route.query, t: v } }); });
+// And the other direction. The tab was read out of the query exactly once, at
+// setup — so the browser's back button moved the URL and left the screen on
+// whatever tab it was already showing, and a link into a tab from inside the
+// page did nothing at all because the route never remounts.
+watch(() => route.query.t, (t) => { if (t && TABS.includes(t) && t !== view.value) view.value = t; });
 const VIEWS = [
   { k: "cockpit", icon: "chart", label: () => L("Cockpit", "اللوحة", "Cockpit") },
   { k: "sheet", icon: "list", label: () => L("Sheet", "ورقة الرواتب", "Feuille") },
@@ -442,6 +472,9 @@ watch(view, (v) => {
   if (v === "accounting" && !gl.value.rows) loadGL();
   if (v === "close" && !cl.value.month) loadClose();
 });
+// Changing the month on the sheet changes it for the close tab too, so the
+// approval state and the figures it describes are never two different months.
+watch(clMonth, (m) => { if (m && cl.value.month && cl.value.month !== m) loadClose(); });
 let t; watch(empSearch, () => { clearTimeout(t); t = setTimeout(loadEmps, 300); });
 watch(entityId, () => {
   c.value = {}; emps.value = []; runs.value = []; k.value = {}; gl.value = {};
@@ -466,6 +499,7 @@ function onAssigned() { loadEmps(); if (view.value === "close") loadClose(); }
 function openDept(dept) { empDept.value = dept; empStatus.value = "all"; empSearch.value = ""; view.value = "employees"; loadEmps(); }
 
 function checkLabel(s) {
+  if (s.key === "sheet") return L("The payroll sheet is approved", "ورقة الرواتب معتمدة", "La feuille est approuvée");
   if (s.key === "slips") return L("Every active employee has a slip", "كل موظف نشط له مسيّر", "Chaque employé actif a un bulletin");
   if (s.key === "drafts") return L("No draft slips pending", "لا مسيّرات مسودّة معلّقة", "Aucun brouillon en attente");
   if (s.key === "posted") return L("Posted to the ledger", "مُرحّل إلى الأستاذ", "Comptabilisé au grand livre");

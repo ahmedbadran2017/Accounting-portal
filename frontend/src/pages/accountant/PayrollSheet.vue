@@ -232,7 +232,7 @@
 // This screen does that calculation once, from data we already hold. It posts
 // nothing: the banner says so, and it runs beside the spreadsheet until the two
 // agree for a full month.
-import { computed, h, ref } from "vue";
+import { computed, h, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import UiButton from "@/components/UiButton.vue";
@@ -250,8 +250,14 @@ const toast = useToast();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const money = (n) => fmtAmount(n || 0);
 
+const props = defineProps({ month: { type: String, default: "" } });
+const emit = defineEmits(["update:month"]);
 const now = new Date();
-const month = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+const month = ref(props.month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+// The parent's month arrives after its own fetch, so adopt it when it lands —
+// but never clear a month the accountant is already looking at.
+watch(() => props.month, (m) => { if (m && m !== month.value) { month.value = m; load(); } });
+watch(month, (m) => { if (m && m !== props.month) emit("update:month", m); });
 const d = ref({});
 const loading = ref(true);
 const rows = computed(() => d.value.rows || []);

@@ -37,11 +37,26 @@
             <div v-for="it in e.items" :key="it.name" class="flex items-center gap-2 py-1.5 text-[12px] border-b border-line-hair/50 last:border-b-0">
               <span class="w-2 h-2 rounded-sm shrink-0" :style="`background:${it.type==='Earning' ? '#0f766e' : '#be123c'}`"></span>
               <span class="flex-1 truncate">{{ it.comp }}</span>
+              <!-- Approving the sheet writes Additional Salary too, so this board
+                   now carries lines nobody keyed here. Editing one would move the
+                   slip away from the sheet with nothing to show it, and the next
+                   re-approval would overwrite the change — so they are labelled
+                   and read-only, and the label is the way back to the sheet. -->
+              <button v-if="it.from_sheet" type="button"
+                      class="text-[9.5px] px-1.5 rounded-badge shrink-0 hover:underline"
+                      style="background:#ecfdf5;color:#047857"
+                      :title="L('From the approved payroll sheet — change it there','من ورقة الرواتب المعتمدة — التعديل من هناك','Depuis la feuille approuvée')"
+                      @click="goToSheet()">{{ L("sheet", "الورقة", "feuille") }}</button>
               <!-- The amount is the thing that gets corrected, so it is the thing
                    you click. ERPNext cannot edit a submitted Additional Salary —
                    nothing on it is allow_on_submit — so saving replaces it, as
                    one audited action instead of a delete and a re-entry. -->
-              <template v-if="editing === it.name">
+              <template v-if="it.from_sheet">
+                <span class="tnum font-semibold" :class="it.type==='Earning' ? 'text-teal-700' : 'text-rose-600'">
+                  {{ it.type==='Earning' ? '+' : '−' }}{{ money(it.amount) }}
+                </span>
+              </template>
+              <template v-else-if="editing === it.name">
                 <input v-model="editAmt" type="number" step="0.01" dir="ltr"
                        class="fld fld-xs w-28 text-end" @keyup.enter="saveEdit(it)" @keyup.esc="editing = ''" />
                 <UiButton variant="primary" size="xs" :busy="busy === it.name" @click="saveEdit(it)">{{ L("Save","حفظ","OK") }}</UiButton>
@@ -62,6 +77,10 @@
       </div>
       <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted flex items-center gap-1.5">
         <Icon name="alert" :size="11" color="#9a8f86" />{{ L("These apply automatically when you Generate the month's slips.","بتتطبّق تلقائيًا لما تعمل Generate لمسيّرات الشهر.","Appliqués à la génération.") }}
+        <span v-if="d.from_sheet_count" class="ms-auto">
+          {{ d.from_sheet_count }}
+          {{ L("of them came from the approved sheet and are edited there.","منهم جايين من الورقة المعتمدة والتعديل من هناك.","viennent de la feuille approuvée.") }}
+        </span>
       </div>
     </div>
 
@@ -110,6 +129,7 @@
 <script setup>
 import { ref, reactive, computed, h, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import TableLoading from "@/components/TableLoading.vue";
@@ -142,7 +162,15 @@ const months = computed(() => {
   for (let i = 0; i < 14; i++) { out.push(dt.toISOString().slice(0, 7)); dt.setMonth(dt.getMonth() - 1); }
   return out;
 });
-const month = ref(curMonth);
+const props = defineProps({ month: { type: String, default: "" } });
+const emit = defineEmits(["update:month"]);
+const month = ref(props.month || curMonth);
+watch(() => props.month, (m) => { if (m && m !== month.value) { month.value = m; load(); } });
+watch(month, (m) => { if (m && m !== props.month) emit("update:month", m); });
+const router = useRouter();
+// The badge is a link, not a decoration: the figure it names is edited one tab
+// away and on the same month.
+function goToSheet() { router.push({ path: "/accounting/payroll", query: { t: "sheet" } }); }
 const d = ref({ employees: [] });
 const loading = ref(true);
 const open = reactive({});
