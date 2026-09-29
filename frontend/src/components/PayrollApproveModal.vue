@@ -83,9 +83,9 @@
           </div>
 
           <p class="text-[11px] text-ink-muted leading-relaxed">
-            {{ L("Nothing touches the general ledger here — these are pre-slip inputs. The accrual posts when the slips are submitted, and every line stays cancellable from the audit trail.",
-                  "مفيش حاجة بتنزل على الحسابات هنا — دي مدخلات قبل المسيّر. القيد بيتعمل وقت ترحيل المسيّرات، وكل بند يفضل قابل للإلغاء من سجل العمليات.",
-                  "Rien ne touche le grand livre ici.") }}
+            {{ L("Nothing touches the general ledger here — these are pre-slip inputs. The accrual posts when the slips are submitted, and every line stays cancellable from the audit trail. An advance deduction settles that advance itself, so next month it is not deducted again; undoing the approval puts it back.",
+                  "مفيش حاجة بتنزل على الحسابات هنا — دي مدخلات قبل المسيّر. القيد بيتعمل وقت ترحيل المسيّرات، وكل بند يفضل قابل للإلغاء من سجل العمليات. خصم السلفة بيسوّي السلفة نفسها، فالشهر الجاي مش هتتخصم تاني؛ ولو اتلغى الاعتماد ترجع زي ما كانت.",
+                  "Rien ne touche le grand livre ici. Une retenue d'avance solde l'avance elle-même.") }}
           </p>
         </template>
       </div>

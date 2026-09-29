@@ -1693,39 +1693,56 @@ def _sheet_approved(target, month, ov=None):
     return ov.get(SHEET_APPROVED_KEY) or {}
 
 
-def _deducted_advances(target, before_month):
-    """What earlier approved months already took off an advance, per employee.
+def _open_advances(target, exclude=None):
+    """Outstanding employee advances, oldest first, per employee.
 
-    The advance column is an outstanding balance on `Employee Advance`, and
-    deducting it through an Additional Salary does not touch that document — no
-    claim, no return, nothing. So the balance survives the deduction and the next
-    month would present it again, and the month after that: a 5,000 advance
-    collected once and deducted for as long as the person is employed.
+    Per DOCUMENT, not per person, because settling one is a reference to one:
+    an Additional Salary carrying `ref_doctype = "Employee Advance"` and that
+    advance's name is how HRMS is told the money came back. On submit it adds
+    the amount to that advance's `return_amount` and re-runs its status; on
+    cancel it takes it straight back out.
 
-    Until an approval also settles the advance itself, this is what keeps the
-    figure honest — each approved month records what it deducted, and later
-    months net it off. Only months strictly BEFORE this one count, so
-    re-approving a month never subtracts its own deduction from itself.
+    Which is why there is no bookkeeping of our own here any more. The first
+    version of this recorded what each approved month had deducted and netted
+    it off later months, because a plain Additional Salary left the advance
+    untouched and the same balance came round again every month — a 5,000
+    advance collected once and deducted for as long as the person is employed.
+    With the reference set, the balance falls on its own and the deduction
+    reverses with the document.
+
+    Each advance is floored at zero on its own. Summing the raw difference gave
+    -1,000 on this company, where one was returned for more than it paid — and
+    a negative deduction quietly ADDS to net pay.
+
+    `exclude` is the month's OWN approval rows, and their settlement is added
+    back. HRMS keeps one running `return_amount` per advance, so once September
+    is approved its deduction is already inside that number — and without this,
+    September's sheet would read its own settlement as money returned earlier:
+    advance 0, net up by the amount, sheet no longer matching the slip. Worse,
+    re-approving September would plan from the lowered balance, cancel the old
+    rows (which restores it) and write no advance line at all — dropping the
+    deduction without a word. Later months do NOT exclude it, which is exactly
+    what stops them deducting it twice.
     """
+    back = {}
+    names = [n for n in (exclude or []) if n]
+    if names:
+        for r in frappe.db.sql(
+            """SELECT ref_docname, SUM(amount) amt FROM `tabAdditional Salary`
+               WHERE name IN %s AND docstatus=1 AND ref_doctype='Employee Advance'
+               GROUP BY ref_docname""", (tuple(names),), as_dict=True):
+            back[r.ref_docname] = flt(r.amt)
     out = {}
-    prefix = _sheet_store(target, "")
-    for k, v in frappe.db.sql(
-            """SELECT defkey, defvalue FROM `tabDefaultValue` WHERE defkey LIKE %s""",
-            (prefix + "%",)):
-        # `_` is a single-character wildcard in LIKE and these keys are made of
-        # them, so the prefix is re-checked here rather than trusted to the query.
-        k = str(k)
-        if not k.startswith(prefix):
-            continue
-        m = k.rsplit("_", 1)[-1]
-        if not (len(m) == 7 and m < str(before_month)):
-            continue
-        try:
-            stamp = (frappe.parse_json(v or "{}") or {}).get(SHEET_APPROVED_KEY) or {}
-        except Exception:
-            continue
-        for emp, amt in (stamp.get("advances") or {}).items():
-            out[emp] = flt(out.get(emp) or 0) + flt(amt)
+    for r in frappe.db.sql(
+        """SELECT name, employee, posting_date,
+                  IFNULL(paid_amount,0) - IFNULL(claimed_amount,0)
+                                        - IFNULL(return_amount,0) AS bal
+           FROM `tabEmployee Advance`
+           WHERE company=%s AND docstatus=1
+           ORDER BY posting_date, name""", (target,), as_dict=True):
+        bal = max(flt(r.bal) + flt(back.get(r.name) or 0), 0.0)
+        if bal:
+            out.setdefault(r.employee, []).append({"name": r.name, "amount": _m(bal)})
     return out
 
 
@@ -1857,25 +1874,13 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
     cfg = _sheet_settings(target, month, ov)
     late = _auto_delay(target, start, end, cfg["day_start"], cfg["grace_minutes"])
 
-    # Outstanding advance, floored at zero PER ADVANCE. Summing the raw
-    # difference gave −1,000 on this company, because an advance that was
-    # claimed or returned for more than it paid goes negative — and a negative
-    # deduction quietly ADDS to net pay. An over-settled advance is a zero to
-    # deduct, not a bonus.
-    adv = {}
-    for r in frappe.db.sql(
-        """SELECT employee, IFNULL(paid_amount,0) - IFNULL(claimed_amount,0)
-                          - IFNULL(return_amount,0) AS bal
-           FROM `tabEmployee Advance` WHERE company=%s AND docstatus=1""",
-            (target,), as_dict=True):
-        adv[r.employee] = flt(adv.get(r.employee) or 0) + max(flt(r.bal), 0.0)
-    # …less whatever earlier approved months already deducted against it.
-    for emp, done in _deducted_advances(target, month).items():
-        if emp in adv:
-            adv[emp] = max(flt(adv[emp]) - flt(done), 0.0)
-
     approved = _sheet_approved(target, month, ov)
     mine = [n for n in (approved.get("names") or []) if n]
+
+    # One source for the column and for what approval settles against, so the
+    # two can never disagree.
+    open_adv = _open_advances(target, exclude=mine)
+    adv = {e: _m(sum(a["amount"] for a in lst)) for e, lst in open_adv.items()}
     extra, args = {}, {"c": target, "s": start, "e": end}
     skip = ""
     if mine:
@@ -2127,6 +2132,7 @@ def _approve_lines(target, month):
     d = payroll_sheet(company=target, month=month) or {}
     rows = d.get("rows") or []
     start, _end = _month_bounds(month)
+    open_adv = _open_advances(target, exclude=_sheet_approved(target, month).get("names"))
     lines, blocks, warns = [], [], []
 
     posted = frappe.db.sql(
@@ -2164,6 +2170,18 @@ def _approve_lines(target, month):
         # "Due to Late Entry OR Absence". The hours stay split on the sheet.
         cut = _m((flt(r["missing_hours"]) + flt(r["delay_hours"])) * rate)
         adv = _m(r["advance"])
+        # Split across the actual advance documents, oldest first, because each
+        # deduction settles ONE of them by reference. A part-payment — the
+        # column edited down to less than the balance — walks the list in the
+        # order the money went out.
+        alloc, left = [], adv
+        for a in open_adv.get(r["employee"], []):
+            if left <= 0:
+                break
+            take = _m(min(flt(a["amount"]), left))
+            if take > 0:
+                alloc.append({"ref": a["name"], "amount": take})
+                left = _m(left - take)
         if hol:
             per.append({"component": SHEET_HOLIDAY_COMPONENT, "type": "Earning", "amount": hol,
                         "basis": f"{r['holiday_hours']}h x {flt(rate, 2)}"})
@@ -2173,9 +2191,18 @@ def _approve_lines(target, month):
         if cut:
             per.append({"component": SHEET_ABSENCE_COMPONENT, "type": "Deduction", "amount": cut,
                         "basis": f"({r['missing_hours']} + {r['delay_hours']})h x {flt(rate, 2)}"})
-        if adv:
-            per.append({"component": SHEET_ADVANCE_COMPONENT, "type": "Deduction", "amount": adv,
-                        "basis": "outstanding advance"})
+        for a in alloc:
+            per.append({"component": SHEET_ADVANCE_COMPONENT, "type": "Deduction",
+                        "amount": a["amount"], "basis": a["ref"],
+                        # HRMS reads these two on submit and raises the advance's
+                        # `return_amount` by the amount; on cancel it takes it
+                        # back. That is what stops the same advance being
+                        # deducted again next month.
+                        "ref_doctype": "Employee Advance", "ref_docname": a["ref"]})
+        if left > 0:
+            warns.append(f"{r['employee_name']}: {left} of the advance deduction has no open "
+                         "advance behind it — the column was edited above the outstanding "
+                         "balance, and the excess is not written.")
         if per:
             lines.append({"employee": r["employee"], "employee_name": r["employee_name"],
                           "base": r["base"], "net": r["net"], "items": per})
@@ -2269,6 +2296,10 @@ def _approve_poster(doc):
                 "salary_component": i["component"], "type": i["type"],
                 "amount": flt(i["amount"]), "currency": _ccy(target),
                 "payroll_date": pay_date, "overwrite_salary_structure_amount": 0,
+                # Only the advance lines carry one. On submit HRMS settles that
+                # advance; on cancel it un-settles it, so the reverter needs no
+                # advance handling of its own.
+                "ref_doctype": i.get("ref_doctype"), "ref_docname": i.get("ref_docname"),
             })
             a.insert(ignore_permissions=True)
             if a.meta.is_submittable:
@@ -2277,11 +2308,6 @@ def _approve_poster(doc):
 
     ov[SHEET_APPROVED_KEY] = {
         "names": created, "month": month, "documents": len(created),
-        # Recorded per employee so later months can net it off — see
-        # `_deducted_advances`. An Employee Advance is not marked repaid by a
-        # salary deduction, so this is the only record that it happened.
-        "advances": {l["employee"]: i["amount"] for l in plan["lines"] for i in l["items"]
-                     if i["component"] == SHEET_ADVANCE_COMPONENT},
         "employees": len(plan["lines"]), "at": now_datetime().strftime("%Y-%m-%d %H:%M"),
         "by": frappe.session.user, "net": _m(plan["sheet_net"]), "action": doc.name,
     }
