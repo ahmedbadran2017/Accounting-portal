@@ -958,6 +958,30 @@ def component_options(company=None):
             "deductions": [r.name for r in rows if r.type == "Deduction"]}
 
 
+# An Additional Salary belongs to a month either by its `payroll_date` or, for a
+# ranged/recurring one, by its from/to window.
+#
+# The obvious way to write that is wrong, and shipped wrong:
+#
+#     payroll_date BETWEEN start AND end
+#     OR (IFNULL(from_date,'0001-01-01') <= end AND IFNULL(to_date,'9999-12-31') >= start)
+#
+# Every one-off entry here has from_date and to_date NULL, so the second branch
+# collapses to `'0001-01-01' <= end AND '9999-12-31' >= start` — true for every
+# month that ever was. Measured on production: for September 2026 it matched all
+# 640 adjustments ever created, 432,541 MAD, instead of none. That is what made
+# the payroll sheet report a net of 272,000 against a gross of 134,000.
+#
+# The window only applies when a window was actually set.
+_ADDSAL_MONTH = """(
+    (a.payroll_date IS NOT NULL AND a.payroll_date BETWEEN %(s)s AND %(e)s)
+ OR (a.payroll_date IS NULL
+     AND (a.from_date IS NOT NULL OR a.to_date IS NOT NULL)
+     AND IFNULL(a.from_date,'0001-01-01') <= %(e)s
+     AND IFNULL(a.to_date,'9999-12-31') >= %(s)s)
+)"""
+
+
 @frappe.whitelist()
 def pay_adjustments(company=None, month=None):
     """All bonuses / one-off deductions (Additional Salary) that apply to the month,
@@ -970,10 +994,8 @@ def pay_adjustments(company=None, month=None):
     rows = frappe.db.sql(
         """SELECT a.name, a.employee, e.employee_name nm, a.salary_component comp, a.type, a.amount
            FROM `tabAdditional Salary` a JOIN `tabEmployee` e ON e.name=a.employee
-           WHERE a.company=%s AND a.docstatus<2
-             AND (a.payroll_date BETWEEN %s AND %s
-                  OR (IFNULL(a.from_date,'0001-01-01')<=%s AND IFNULL(a.to_date,'9999-12-31')>=%s))
-           ORDER BY e.employee_name, a.type""", (target, start, end, end, start), as_dict=True)
+           WHERE a.company=%(c)s AND a.docstatus<2 AND """ + _ADDSAL_MONTH + """
+           ORDER BY e.employee_name, a.type""", {"c": target, "s": start, "e": end}, as_dict=True)
     by = {}
     for r in rows:
         r["amount"] = _m(r["amount"])
@@ -1691,9 +1713,7 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
         """SELECT a.employee, a.salary_component comp, c.type, SUM(a.amount) amt
            FROM `tabAdditional Salary` a
            JOIN `tabSalary Component` c ON c.name = a.salary_component
-           WHERE a.company=%(c)s AND a.docstatus=1
-             AND (a.payroll_date BETWEEN %(s)s AND %(e)s
-                  OR (IFNULL(a.from_date,'0001-01-01') <= %(e)s AND IFNULL(a.to_date,'9999-12-31') >= %(s)s))
+           WHERE a.company=%(c)s AND a.docstatus=1 AND """ + _ADDSAL_MONTH + """
            GROUP BY a.employee, a.salary_component, c.type""",
             {"c": target, "s": start, "e": end}, as_dict=True):
         slot = extra.setdefault(r.employee, {"bonus": 0.0, "deduct": 0.0})
