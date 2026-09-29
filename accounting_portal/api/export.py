@@ -121,8 +121,8 @@ def gl_xlsx(company=None, account=None, party=None, voucher_no=None, from_date=N
 
 _LIST_EXPORTS = {
     "payroll_sheet": ("accounting_portal.api.payroll.payroll_sheet", "Payroll sheet",
-                      [("employee_name", "Employee"), ("designation", "Position"),
-                       ("contract", "Contract"),
+                      [("employee", "ID"), ("employee_name", "Employee"),
+                       ("designation", "Position"), ("contract", "Contract"),
                        ("base", "Salary"), ("rate", "Salary per hour"),
                        ("contract_hours", "General hours"), ("holiday_hours", "Public holiday"),
                        ("overtime_hours", "Overtime (hour)"), ("missing_hours", "Missing"),

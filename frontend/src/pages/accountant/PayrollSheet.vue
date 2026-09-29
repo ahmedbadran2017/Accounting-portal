@@ -30,6 +30,12 @@
           </span>
         </span>
         <span class="ms-auto flex items-center gap-2">
+          <UiButton variant="secondary" size="sm" icon="inbox" @click="showImport = true">
+            {{ L("Upload", "ارفع", "Importer") }}
+          </UiButton>
+          <UiButton v-if="canWrite" variant="create" size="sm" icon="check" @click="showApprove = true">
+            {{ d.approved ? L("Re-approve", "إعادة الاعتماد", "Réapprouver") : L("Approve month", "اعتماد الشهر", "Approuver") }}
+          </UiButton>
           <a :href="excelUrl" class="h-8 px-3 rounded-[9px] text-[12px] font-medium text-white inline-flex items-center gap-1.5"
              style="background:#1d6f42" :title="L('Excel in the sheet\'s own layout','إكسيل بنفس شكل الشيت','Excel')">
             <Icon name="download" :size="13" color="#fff" />Excel
@@ -37,12 +43,20 @@
         </span>
       </div>
 
-      <!-- This page posts nothing. Saying so once, plainly, is what keeps it
-           trustworthy while it runs beside the spreadsheet. -->
-      <div class="px-4 py-2 text-[11px] leading-relaxed" style="background:#eff6ff;color:#0369a1">
-        {{ L("A reference sheet — nothing here is written to ERPNext. Compare it with the spreadsheet for a month before it drives anything.",
-              "ورقة مرجعية — مفيش حاجة هنا بتتكتب في ERPNext. قارنها بالشيت شهر كامل قبل ما تعتمد عليها.",
-              "Feuille de référence — rien n'est écrit dans ERPNext.") }}
+      <!-- The banner has to tell the truth about the month it is showing. Once a
+           month is approved the sheet is no longer "a reference that writes
+           nothing", and a stale reassurance is worse than none. -->
+      <div v-if="d.approved" class="px-4 py-2 text-[11px] leading-relaxed" style="background:#ecfdf5;color:#047857">
+        {{ L("Approved", "معتمد", "Approuvé") }} {{ d.approved.at }} · {{ d.approved.by }} —
+        {{ d.approved.documents }}
+        {{ L("adjustments written to ERPNext. Edit and re-approve to replace them; the run picks them up when slips are generated.",
+              "بند اتكتبوا في ERPNext. عدّلي واعتمدي تاني علشان يتبدّلوا؛ والتشغيل بياخدهم وقت توليد المسيّرات.",
+              "ajustements écrits dans ERPNext.") }}
+      </div>
+      <div v-else class="px-4 py-2 text-[11px] leading-relaxed" style="background:#eff6ff;color:#0369a1">
+        {{ L("Nothing here is written to ERPNext until you approve the month. Compare it with the spreadsheet first.",
+              "مفيش حاجة هنا بتتكتب في ERPNext لحد ما تعتمدي الشهر. قارنيها بالشيت الأول.",
+              "Rien n'est écrit dans ERPNext avant l'approbation du mois.") }}
       </div>
 
       <!-- Not one of the 27 active people carries a bank account on their
@@ -199,6 +213,8 @@
               "Taux = base ÷ heures. Total = contrat + fériés + sup×1,5 − absence − retard. Le RIB est écrit sur la fiche employé.") }}
       </div>
     </div>
+    <PayrollApproveModal v-if="showApprove" :month="month" @close="showApprove = false" @done="load" />
+    <PayrollSheetImportModal v-if="showImport" :month="month" @close="showImport = false" @done="load" />
   </div>
 </template>
 
@@ -219,10 +235,14 @@
 import { computed, h, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
+import UiButton from "@/components/UiButton.vue";
 import TableLoading from "@/components/TableLoading.vue";
+import PayrollApproveModal from "@/components/PayrollApproveModal.vue";
+import PayrollSheetImportModal from "@/components/PayrollSheetImportModal.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
+import { useAuth } from "@/composables/useAuth";
 import { fmtAmount } from "@/utils/helpers";
 
 const { locale } = useI18n();
@@ -237,6 +257,10 @@ const loading = ref(true);
 const rows = computed(() => d.value.rows || []);
 const dayStart = ref("");
 const grace = ref(15);
+const showApprove = ref(false);
+const showImport = ref(false);
+const { can } = useAuth();
+const canWrite = computed(() => can("post_entries"));
 
 // One editable cell. Blank means "no override" — the field goes back to whatever
 // the system derives, which is why an empty box and a zero must look different.

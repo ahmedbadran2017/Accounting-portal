@@ -1618,6 +1618,24 @@ DEFAULT_GRACE_MINUTES = 15.0
 # Employee ids are HR-EMP-*, so a settings row keyed like this cannot collide
 # with a person inside the same override store.
 SHEET_SETTINGS_KEY = "__sheet"
+SHEET_APPROVED_KEY = "__approved"
+
+# The four components approving a month writes, and the only ones the sheet owns.
+#
+# Not invented: these are what this company's own submitted slips already use —
+# 220 absence deductions, 121 overtime lines, 107 holiday lines, 26 advance
+# deductions — because the team already keys the sheet's result in by hand as
+# Additional Salary on top of a full `Net Wage of Employee` from the structure.
+# Approving the month does exactly what they do, from figures already computed.
+#
+# `Due to Late Entry or Absence Encashment` deliberately, NOT the `... MAD`
+# variant: the MAD one carries no Salary Component Account for this company, so
+# a slip built on it fails at submission. The unsuffixed one maps to
+# 720.001.007.010 MAD and is the one every existing slip used.
+SHEET_HOLIDAY_COMPONENT = "National Holiday  & Public Holiday Pay - Ulusal Bayram & Genel Tatil"
+SHEET_OVERTIME_COMPONENT = "Overtime - Fazla Mesai 50%"
+SHEET_ABSENCE_COMPONENT = "Due to Late Entry or Absence Encashment"
+SHEET_ADVANCE_COMPONENT = "Advance Deduction - Avans Kesintisi"
 
 
 def _sheet_store(target, month):
@@ -1629,6 +1647,13 @@ def _sheet_overrides(target, month):
         return frappe.parse_json(frappe.db.get_default(_sheet_store(target, month)) or "{}") or {}
     except Exception:
         return {}
+
+
+def _sheet_approved(target, month, ov=None):
+    """What a previous approval of this month wrote, if any."""
+    if ov is None:
+        ov = _sheet_overrides(target, month)
+    return ov.get(SHEET_APPROVED_KEY) or {}
 
 
 def _sheet_settings(target, month, ov=None):
@@ -1772,14 +1797,20 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
             (target,), as_dict=True):
         adv[r.employee] = flt(adv.get(r.employee) or 0) + max(flt(r.bal), 0.0)
 
-    extra = {}
+    approved = _sheet_approved(target, month, ov)
+    mine = [n for n in (approved.get("names") or []) if n]
+    extra, args = {}, {"c": target, "s": start, "e": end}
+    skip = ""
+    if mine:
+        skip = " AND a.name NOT IN %(skip)s"
+        args["skip"] = tuple(mine)
     for r in frappe.db.sql(
         """SELECT a.employee, a.salary_component comp, c.type, SUM(a.amount) amt
            FROM `tabAdditional Salary` a
            JOIN `tabSalary Component` c ON c.name = a.salary_component
-           WHERE a.company=%(c)s AND a.docstatus=1 AND """ + _ADDSAL_MONTH + """
+           WHERE a.company=%(c)s AND a.docstatus=1 AND """ + _ADDSAL_MONTH + skip + """
            GROUP BY a.employee, a.salary_component, c.type""",
-            {"c": target, "s": start, "e": end}, as_dict=True):
+            args, as_dict=True):
         slot = extra.setdefault(r.employee, {"bonus": 0.0, "deduct": 0.0})
         slot["bonus" if r.type == "Earning" else "deduct"] += flt(r.amt)
 
@@ -1867,6 +1898,7 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
             "total_gross": _m(totals["gross"]), "total_net": _m(totals["net"]),
             "total_advance": _m(totals["advance"]),
             "sent_count": totals["sent"], "sent_net": _m(totals["sent_net"]),
+            "approved": approved or None,
             "no_rib_count": totals["no_rib"],
             "day_start": cfg["day_start"], "grace_minutes": cfg["grace_minutes"],
             "posted_slips": len(slips)}
@@ -1980,3 +2012,412 @@ def payroll_sheet_bank(company=None, employee=None, rib=None, bank_name=None):
     }).insert(ignore_permissions=True)
     frappe.db.commit()
     return {"employee": emp.name, "rib": new}
+
+
+# ── Approve the month (write the sheet's figures into ERPNext) ─────────────────
+#
+# Up to here the sheet computed and posted nothing. This is the crossing.
+#
+# What it writes is deliberately NOT a salary slip. The structure already holds
+# each person's month at full value and the slips prove it: August's are all
+# 21/21 payment days with `Net Wage of Employee` untouched and every variable
+# piece hanging off an Additional Salary. That is the team's own convention,
+# arrived at by hand, and it is the right one — the base stays auditable against
+# the contract and the month's movement stays a document you can read, cancel and
+# re-post one line at a time.
+#
+# So approving a month writes four Additional Salary rows per person, on the four
+# components their slips already use, and the slip that follows lands on the
+# sheet's net by construction:
+#
+#     base (structure)  +  holiday x rate  +  overtime x 1.5 x rate
+#                       −  (missing + delay) x rate  −  advance
+#
+# Bonuses are the one thing it refuses to write. The sheet's bonus column reads
+# whatever Additional Salary already exists for the month, so writing it back
+# would pay it twice; and a bonus typed into a reference sheet has no component
+# and no account behind it. If that column was overridden, approval stops and
+# says which people to fix in Adjustments, where a bonus becomes a real document.
+
+APPROVE_ACTION = "Approve payroll sheet"
+
+
+def _approve_lines(target, month):
+    """Every Additional Salary approving this month would create, plus anything
+    that should stop it. Read-only, and the single source for both the preview
+    and the poster — a preview that computes its numbers differently from the
+    thing it previews is not a preview."""
+    d = payroll_sheet(company=target, month=month) or {}
+    rows = d.get("rows") or []
+    start, _end = _month_bounds(month)
+    lines, blocks, warns = [], [], []
+
+    posted = frappe.db.sql(
+        """SELECT COUNT(*) n, SUM(net_pay) net FROM `tabSalary Slip`
+           WHERE company=%s AND start_date=%s AND docstatus=1""", (target, start), as_dict=True)[0]
+    if posted.n:
+        blocks.append(f"{month} already has {int(posted.n)} submitted slips "
+                      f"({_m(posted.net)} {d.get('currency')}). Approve before the run, not after — "
+                      "revert the submission first if those slips are wrong.")
+
+    for comp in (SHEET_HOLIDAY_COMPONENT, SHEET_OVERTIME_COMPONENT,
+                 SHEET_ABSENCE_COMPONENT, SHEET_ADVANCE_COMPONENT):
+        if not frappe.db.exists("Salary Component", comp):
+            blocks.append(f"Salary component missing: {comp}")
+        elif not frappe.db.get_value("Salary Component Account",
+                                     {"parent": comp, "company": target}, "account"):
+            # Caught in review: the `... MAD` variant of the absence component has
+            # no account on this company, and a slip built on it fails only at
+            # submission — long after anyone would connect it to this screen.
+            blocks.append(f"{comp} has no account for {target} — the slip would fail at submission.")
+
+    edited_bonus = [r["employee_name"] for r in rows if "bonus" in (r.get("edited") or [])]
+    if edited_bonus:
+        blocks.append("Bonus was typed into the sheet for " + ", ".join(edited_bonus[:5])
+                      + ("…" if len(edited_bonus) > 5 else "")
+                      + ". A bonus needs a component and an account: put it in Adjustments and it "
+                        "flows into the slip on its own.")
+
+    for r in rows:
+        rate = flt(r["rate"])
+        per = []
+        hol = _m(flt(r["holiday_hours"]) * rate)
+        ot = _m(flt(r["overtime_hours"]) * OVERTIME_RATE * rate)
+        # One component, because the company has one: it is literally named
+        # "Due to Late Entry OR Absence". The hours stay split on the sheet.
+        cut = _m((flt(r["missing_hours"]) + flt(r["delay_hours"])) * rate)
+        adv = _m(r["advance"])
+        if hol:
+            per.append({"component": SHEET_HOLIDAY_COMPONENT, "type": "Earning", "amount": hol,
+                        "basis": f"{r['holiday_hours']}h x {flt(rate, 2)}"})
+        if ot:
+            per.append({"component": SHEET_OVERTIME_COMPONENT, "type": "Earning", "amount": ot,
+                        "basis": f"{r['overtime_hours']}h x {OVERTIME_RATE} x {flt(rate, 2)}"})
+        if cut:
+            per.append({"component": SHEET_ABSENCE_COMPONENT, "type": "Deduction", "amount": cut,
+                        "basis": f"({r['missing_hours']} + {r['delay_hours']})h x {flt(rate, 2)}"})
+        if adv:
+            per.append({"component": SHEET_ADVANCE_COMPONENT, "type": "Deduction", "amount": adv,
+                        "basis": "outstanding advance"})
+        if per:
+            lines.append({"employee": r["employee"], "employee_name": r["employee_name"],
+                          "base": r["base"], "net": r["net"], "items": per})
+
+    # Not a blocker — a month where nobody was absent is a real month. But a month
+    # where the device recorded absence and the sheet still says none is usually a
+    # sheet nobody has filled in yet, and that is worth seeing before it posts.
+    suggested = sum(flt(r.get("auto_missing_hours")) for r in rows)
+    if suggested and not any(flt(r["missing_hours"]) for r in rows):
+        warns.append(f"The sheet deducts nothing for absence, while attendance suggests "
+                     f"{flt(suggested, 1)} hours across the month. Review the Missing column first.")
+    if not any(flt(r["delay_hours"]) for r in rows) and not d.get("day_start"):
+        warns.append("No start of day is set, so the delay column is empty and nothing is "
+                     "deducted for lateness.")
+    if not lines and not blocks:
+        blocks.append(f"Nothing to write for {month}: no holiday, overtime, absence, delay or "
+                      "advance on any row. The structure already pays the full month.")
+
+    earn = sum(i["amount"] for l in lines for i in l["items"] if i["type"] == "Earning")
+    ded = sum(i["amount"] for l in lines for i in l["items"] if i["type"] == "Deduction")
+    return {
+        "company": target, "month": month, "currency": d.get("currency"),
+        "lines": lines, "employees": len(lines),
+        "rows": len(rows), "documents": sum(len(l["items"]) for l in lines),
+        "earn_total": _m(earn), "ded_total": _m(ded),
+        "sheet_gross": d.get("total_gross"), "sheet_net": d.get("total_net"),
+        "blocks": blocks, "warnings": warns,
+        "approved": _sheet_approved(target, month) or None,
+    }
+
+
+@frappe.whitelist()
+def payroll_sheet_approve_preview(company=None, month=None):
+    assert_portal_access()
+    target = _target(company)
+    if not (target and month):
+        return {}
+    return _approve_lines(target, month)
+
+
+@frappe.whitelist()
+def payroll_sheet_approve(company=None, month=None, notes=None):
+    assert_can_write()
+    target = _target(company)
+    if not (target and month):
+        frappe.throw("company and month are required")
+    plan = _approve_lines(target, month)
+    if plan["blocks"]:
+        frappe.throw("<br>".join(plan["blocks"]))
+    from accounting_portal.api import _actions
+    # The figures go into the key, so correcting the sheet and approving again is
+    # a new action rather than a silent no-op on the old one — and re-clicking the
+    # same numbers stays idempotent.
+    fig = ";".join(f"{l['employee']}:{i['component']}:{i['amount']}"
+                   for l in plan["lines"] for i in l["items"])
+    key = "payroll-approve:" + _digest(f"{target}:{month}:{fig}", 16)
+    return _actions.execute(
+        APPROVE_ACTION, target, key, payload={"month": month},
+        amount=_m(plan["earn_total"] - plan["ded_total"]),
+        notes=notes or f"Approve payroll sheet {month}: {plan['documents']} adjustments "
+                       f"for {plan['employees']} employees")
+
+
+def _approve_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    target, month = doc.company, p["month"]
+    plan = _approve_lines(target, month)
+    if plan["blocks"]:
+        frappe.throw("<br>".join(plan["blocks"]))
+
+    ov = _sheet_overrides(target, month)
+    prev = (ov.get(SHEET_APPROVED_KEY) or {}).get("names") or []
+    # Re-approving replaces the previous approval's rows rather than adding to
+    # them. Only the rows THIS screen created are touched — a bonus someone keyed
+    # by hand for the same month survives, because it was never ours.
+    removed = []
+    for n in prev:
+        if not frappe.db.exists("Additional Salary", n):
+            continue
+        a = frappe.get_doc("Additional Salary", n)
+        if a.docstatus == 1:
+            _as_privileged(a).cancel()
+        frappe.delete_doc("Additional Salary", n, force=1, ignore_permissions=True)
+        removed.append(n)
+
+    created, pay_date = [], _month_end(month)
+    for l in plan["lines"]:
+        for i in l["items"]:
+            a = frappe.get_doc({
+                "doctype": "Additional Salary", "company": target, "employee": l["employee"],
+                "salary_component": i["component"], "type": i["type"],
+                "amount": flt(i["amount"]), "currency": _ccy(target),
+                "payroll_date": pay_date, "overwrite_salary_structure_amount": 0,
+            })
+            a.insert(ignore_permissions=True)
+            if a.meta.is_submittable:
+                a.submit()
+            created.append(a.name)
+
+    ov[SHEET_APPROVED_KEY] = {
+        "names": created, "month": month, "documents": len(created),
+        "employees": len(plan["lines"]), "at": now_datetime().strftime("%Y-%m-%d %H:%M"),
+        "by": frappe.session.user, "net": _m(plan["sheet_net"]), "action": doc.name,
+    }
+    frappe.db.set_default(_sheet_store(target, month), json.dumps(ov))
+    # The names deliberately stay OUT of the result: an action's `result` column
+    # is truncated at 4,000 characters, and 27 people x 4 components is over a
+    # hundred ids — a reverter reading a half-truncated list would undo half a
+    # month and report success. The stamp in the sheet store is the record.
+    return {"voucher_type": "Additional Salary", "voucher_no": created[0] if created else None,
+            "result": {"month": month, "created": len(created), "replaced": len(removed),
+                       "employees": len(plan["lines"]), "first": created[0] if created else None,
+                       "last": created[-1] if created else None}}
+
+
+def _approve_reverter(doc):
+    """Undo an approval: cancel and delete exactly the rows it created, and clear
+    the stamp so the sheet stops excluding them from its own bonus column."""
+    target, month = doc.company, (json.loads(doc.payload or "{}") or {}).get("month")
+    if not month:
+        return {"noop": True}
+    ov = _sheet_overrides(target, month)
+    stamp = ov.get(SHEET_APPROVED_KEY) or {}
+    if stamp.get("action") and stamp["action"] != doc.name:
+        # A later approval already replaced these rows and owns the month now;
+        # deleting its documents to undo an older action would be wrong.
+        frappe.throw(f"{month} was approved again since ({stamp['action']}) — revert that one instead.")
+    names = stamp.get("names") or []
+    gone = []
+    for n in names:
+        if not frappe.db.exists("Additional Salary", n):
+            continue
+        a = frappe.get_doc("Additional Salary", n)
+        if a.docstatus == 1:
+            _as_privileged(a).cancel()
+        frappe.delete_doc("Additional Salary", n, force=1, ignore_permissions=True)
+        gone.append(n)
+    ov.pop(SHEET_APPROVED_KEY, None)
+    frappe.db.set_default(_sheet_store(target, month), json.dumps(ov))
+    return {"removed": len(gone), "month": month}
+
+
+def _register_sheet():
+    from accounting_portal.api import _actions
+    _actions.register_poster(APPROVE_ACTION, _approve_poster)
+    _actions.register_reverter(APPROVE_ACTION, _approve_reverter)
+
+
+_register_sheet()
+
+
+# ── Excel round-trip ──────────────────────────────────────────────────────────
+#
+# Download the sheet, edit it where a spreadsheet is genuinely faster — pasting a
+# month of absence hours out of the punch-device export, say — and upload it back.
+#
+# Only the columns the sheet does not derive are read. Rate, total hours, payment
+# and net are recomputed on the way back in, so a stale formula in the workbook
+# cannot become a salary. Rows are matched on the ID column the export now
+# carries; matching on the name was never going to hold here, where the same
+# person appears as "Hajar AOUAMER" in one system and "AOUAMER Hajar" in another.
+
+_IMPORT_FIELDS = {
+    "id": "__employee", "employee id": "__employee",
+    # Their own workbook heads the name column "Team" and carries no id at all,
+    # so it uploads too — matched on the name, with whatever misses reported.
+    "employee": "employee_name", "team": "employee_name",
+    "general hours": "contract_hours",
+    "public holiday": "holiday_hours",
+    "overtime (hour)": "overtime_hours",
+    "overtime(hour)": "overtime_hours",
+    "missing": "missing_hours",
+    "missing day": "missing_hours",
+    "delay (hour)": "delay_hours",
+    "delay(hour)": "delay_hours",
+    "performance": "bonus",
+    "advance": "advance",
+    "contract": "contract",
+    "send": "sent",
+    "rib": "__rib",
+}
+_IMPORT_NUMERIC = ("contract_hours", "holiday_hours", "overtime_hours",
+                   "missing_hours", "delay_hours", "bonus", "advance")
+
+
+def _import_bool(v):
+    return 1 if str(v).strip().lower() in ("1", "true", "yes", "oui", "y", "x", "✓", "نعم") else 0
+
+
+def _import_number(v):
+    """A figure out of a spreadsheet the team keys in French locale.
+
+    Their own workbook stores 48,07692308 and 9 762 — a comma decimal and a
+    non-breaking space thousands separator. `flt` on that reads 48 and 9, which
+    would land as a salary. Normalised here, once.
+    """
+    if v in (None, ""):
+        return None
+    if isinstance(v, (int, float)):
+        return flt(v)
+    t = str(v).replace(" ", "").replace(" ", "").strip()
+    if not t:
+        return None
+    if "," in t and "." in t:
+        t = t.replace(",", "") if t.rfind(".") > t.rfind(",") else t.replace(".", "").replace(",", ".")
+    else:
+        t = t.replace(",", ".")
+    try:
+        return flt(t)
+    except Exception:
+        return None
+
+
+@frappe.whitelist()
+def payroll_sheet_import(company=None, month=None, file_url=None, apply=0):
+    """Read an edited payroll-sheet workbook. With apply=0 it only reports what
+    would change — which is how it should be read before it is trusted."""
+    if cint(apply):
+        assert_can_write()
+    else:
+        assert_portal_access()
+    target = _target(company)
+    if not (target and month and file_url):
+        frappe.throw("company, month and file_url are required")
+    from accounting_portal.api.bank_import import _file_bytes, _rows_from_excel, _rows_from_csv
+
+    ext = (file_url or "").rsplit(".", 1)[-1].lower()
+    content = _file_bytes(file_url)
+    if ext in ("xlsx", "xlsm"):
+        raw = _rows_from_excel(content)
+    elif ext == "csv":
+        raw = _rows_from_csv(content)
+    else:
+        frappe.throw("Upload an .xlsx or .csv file")
+
+    head_at, cols = None, {}
+    for idx, row in enumerate(raw[:20]):
+        found = {}
+        for ci, cell in enumerate(row):
+            f = _IMPORT_FIELDS.get(str(cell or "").strip().lower())
+            if f and f not in found:
+                found[f] = ci
+        # A header row is the one carrying the columns that matter, not merely the
+        # first row with text in it — their workbook has a title band above it.
+        if len(found) >= 3:
+            head_at, cols = idx, found
+            break
+    if head_at is None:
+        frappe.throw("No payroll-sheet header found. Download the sheet, edit it and upload that file — "
+                     "the header needs at least the ID, Missing and Delay columns.")
+
+    sheet = payroll_sheet(company=target, month=month) or {}
+    by_id = {r["employee"]: r for r in (sheet.get("rows") or [])}
+    by_name = {}
+    for r in sheet.get("rows") or []:
+        by_name.setdefault(" ".join(sorted(str(r["employee_name"]).lower().split())), r)
+
+    def cell(row, field):
+        ci = cols.get(field)
+        return row[ci] if ci is not None and ci < len(row) else None
+
+    changes, unmatched, per_emp, ribs = [], [], {}, {}
+    for row in raw[head_at + 1:]:
+        if not any(str(c).strip() for c in row if c is not None):
+            continue
+        emp = str(cell(row, "__employee") or "").strip()
+        cur = by_id.get(emp)
+        if not cur:
+            nm = str(cell(row, "employee_name") or "").strip()
+            cur = by_name.get(" ".join(sorted(nm.lower().split()))) if nm else None
+        if not cur:
+            label = emp or str(cell(row, "employee_name") or "")
+            if label:
+                unmatched.append(label[:60])
+            continue
+
+        vals = {}
+        for f in _IMPORT_NUMERIC:
+            if f not in cols:
+                continue
+            v = _import_number(cell(row, f))
+            if v is None:
+                continue
+            if abs(flt(v) - flt(cur.get(f))) > 0.005:
+                vals[f] = v
+                changes.append({"employee": cur["employee"], "employee_name": cur["employee_name"],
+                                "field": f, "from": flt(cur.get(f)), "to": flt(v)})
+        if "contract" in cols:
+            v = str(cell(row, "contract") or "").strip()[:20]
+            if v and v != (cur.get("contract") or ""):
+                vals["contract"] = v
+                changes.append({"employee": cur["employee"], "employee_name": cur["employee_name"],
+                                "field": "contract", "from": cur.get("contract") or "", "to": v})
+        if "sent" in cols:
+            v = _import_bool(cell(row, "sent"))
+            if v != cint(cur.get("sent")):
+                vals["sent"] = v
+                changes.append({"employee": cur["employee"], "employee_name": cur["employee_name"],
+                                "field": "sent", "from": cint(cur.get("sent")), "to": v})
+        if "__rib" in cols:
+            v = str(cell(row, "__rib") or "").strip()[:60]
+            if v and v != (cur.get("rib") or ""):
+                ribs[cur["employee"]] = v
+                changes.append({"employee": cur["employee"], "employee_name": cur["employee_name"],
+                                "field": "rib", "from": cur.get("rib") or "", "to": v})
+        if vals:
+            per_emp[cur["employee"]] = vals
+
+    out = {"company": target, "month": month, "matched": len(per_emp) + len(ribs),
+           "unmatched": unmatched[:40], "unmatched_count": len(unmatched),
+           "changes": changes[:400], "change_count": len(changes),
+           "columns": sorted(k for k in cols if not k.startswith("__")),
+           "applied": False}
+    if not cint(apply):
+        return out
+
+    for emp, vals in per_emp.items():
+        payroll_sheet_save(company=target, month=month, employee=emp, values=vals)
+    for emp, rib in ribs.items():
+        payroll_sheet_bank(company=target, employee=emp, rib=rib)
+    out["applied"] = True
+    return out
