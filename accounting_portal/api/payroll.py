@@ -2406,6 +2406,15 @@ def payroll_sheet_approve(company=None, month=None, notes=None):
     fig = ";".join(f"{l['employee']}:{i['component']}:{i['amount']}"
                    for l in plan["lines"] for i in l["items"])
     key = "payroll-approve:" + _digest(f"{target}:{month}:{fig}", 16)
+    # Idempotent against the SAME state, not merely the same figures. Approve A,
+    # re-approve with B (which removes A's rows), undo B: the month is empty, and
+    # approving A's figures again matches A's old Posted action by key — which
+    # `execute` returns without posting. The toast says approved, nothing is
+    # written. If the action a key points at is no longer the one the month's
+    # stamp names, it is stale, and this is a new approval.
+    prior = frappe.db.get_value(_actions.APA, {"dedupe_key": key}, ["name", "status"], as_dict=True)
+    if prior and prior.status == "Posted" and _sheet_approved(target, month).get("action") != prior.name:
+        key = f"{key}:{frappe.generate_hash(length=8)}"
     return _actions.execute(
         APPROVE_ACTION, target, key, payload={"month": month},
         amount=_m(plan["earn_total"] - plan["ded_total"]),
