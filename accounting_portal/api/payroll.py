@@ -8,11 +8,13 @@ Money is returned at full precision (2 decimals) — this is an accounting syste
 so figures are exact, never rounded to thousands.
 """
 import json
+import re
 
 import frappe
 
 from accounting_portal.api._actions import digest as _digest
-from frappe.utils import flt, add_months, nowdate, getdate, get_last_day
+from frappe.utils import (flt, cint, add_months, nowdate, getdate, get_last_day,
+                          now_datetime)
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
 
@@ -1612,6 +1614,10 @@ SHEET_KEY = "ap_payroll_sheet"
 DEFAULT_CONTRACT_HOURS = 208.0      # 48h/week x 52 / 12, the sheet's own basis
 HOURS_PER_DAY = 8.0
 OVERTIME_RATE = 1.5
+DEFAULT_GRACE_MINUTES = 15.0
+# Employee ids are HR-EMP-*, so a settings row keyed like this cannot collide
+# with a person inside the same override store.
+SHEET_SETTINGS_KEY = "__sheet"
 
 
 def _sheet_store(target, month):
@@ -1623,6 +1629,61 @@ def _sheet_overrides(target, month):
         return frappe.parse_json(frappe.db.get_default(_sheet_store(target, month)) or "{}") or {}
     except Exception:
         return {}
+
+
+def _sheet_settings(target, month, ov=None):
+    """The reference the delay column is measured against.
+
+    Deliberately NOT the Shift Type. `Morocco Office` starts at 09:30 with
+    `enable_late_entry_marking = 0` and a zero grace period, so ERPNext never
+    computed lateness at all — while the arrival mode this month is 11:00 and
+    the spreadsheet's whole-month delay for the same people is under an hour.
+    Measuring from 09:30 would invent roughly thirty hours a month per person.
+
+    So the start of the day is a figure the person doing the payroll sets and
+    can see on screen, and the suggestion converges on their own numbers
+    instead of on a Shift Type nobody maintains.
+    """
+    if ov is None:
+        ov = _sheet_overrides(target, month)
+    s = ov.get(SHEET_SETTINGS_KEY) or {}
+    g = s.get("grace_minutes")
+    return {
+        "day_start": s.get("day_start") or "",
+        "grace_minutes": flt(DEFAULT_GRACE_MINUTES if g in (None, "") else g),
+    }
+
+
+def _auto_delay(target, start, end, day_start="", grace=DEFAULT_GRACE_MINUTES):
+    """Late arrival per employee, in hours, from the punch times we hold.
+
+    Only a row that carries a punch counts: `in_time` is set on 302 of this
+    month's 590 attendance rows, and a row without one says nothing about when
+    the person arrived. Arriving early is zero, never a credit — GREATEST(...,0)
+    is what stops an early bird from cancelling someone else's lateness.
+
+    With no reference start set there is NO suggestion. Falling back to the
+    shift was measured on this month: 284 hours of "lateness" across 15 people,
+    topping out at 31.7 for one of them, against a whole-month figure under an
+    hour in the spreadsheet. A number that wrong offered as a suggestion is
+    worse than an empty column, so the column stays empty until someone says
+    when the day starts.
+    """
+    if not day_start:
+        return {}
+    rows = frappe.db.sql(
+        """SELECT a.employee, SUM(GREATEST(
+                      TIME_TO_SEC(TIME(a.in_time))
+                    - TIME_TO_SEC(%(ds)s)
+                    - %(g)s * 60, 0)) / 3600 AS late
+           FROM `tabAttendance` a
+           WHERE a.company=%(c)s AND a.docstatus=1 AND a.in_time IS NOT NULL
+             AND a.status IN ('Present', 'Half Day')
+             AND a.attendance_date BETWEEN %(s)s AND %(e)s
+           GROUP BY a.employee""",
+        {"c": target, "s": start, "e": end,
+         "ds": day_start, "g": flt(grace)}, as_dict=True)
+    return {r.employee: flt(r.late, 2) for r in rows}
 
 
 def _holiday_hours(holiday_list, start, end):
@@ -1670,6 +1731,7 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
     emps = frappe.db.sql(
         """SELECT e.name, e.employee_name nm, e.designation, e.department,
                   e.holiday_list, e.status, e.relieving_date, e.date_of_joining,
+                  e.employment_type, e.bank_name, e.bank_ac_no, e.iban,
                   ssa.base, ssa.salary_structure
            FROM `tabEmployee` e
            JOIN `tabSalary Structure Assignment` ssa
@@ -1694,6 +1756,8 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
     punched = {r[0] for r in frappe.db.sql(
         """SELECT DISTINCT employee FROM `tabEmployee Checkin`
            WHERE time BETWEEN %s AND %s""", (start, end + " 23:59:59"))}
+    cfg = _sheet_settings(target, month, ov)
+    late = _auto_delay(target, start, end, cfg["day_start"], cfg["grace_minutes"])
 
     # Outstanding advance, floored at zero PER ADVANCE. Summing the raw
     # difference gave −1,000 on this company, because an advance that was
@@ -1719,7 +1783,8 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
         slot = extra.setdefault(r.employee, {"bonus": 0.0, "deduct": 0.0})
         slot["bonus" if r.type == "Earning" else "deduct"] += flt(r.amt)
 
-    rows, totals = [], {"gross": 0.0, "net": 0.0, "advance": 0.0}
+    rows, totals = [], {"gross": 0.0, "net": 0.0, "advance": 0.0,
+                        "sent": 0, "sent_net": 0.0, "no_rib": 0}
     for e in emps:
         o = ov.get(e.name, {})
         base = _base_salary(e.base, e.salary_structure)
@@ -1739,6 +1804,9 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
         # it would halve real salaries on bad data. It is shown beside the field
         # and applied only when a person accepts it.
         missing = flt(o["missing_hours"]) if "missing_hours" in o else 0.0
+        # Delay is offered on the same terms as absence: computed from real
+        # punches, shown beside the field, applied only when someone accepts it.
+        auto_delay = flt(late.get(e.name) or 0)
         delay = flt(o.get("delay_hours") or 0)
         over = flt(o.get("overtime_hours") or 0)
         hol = flt(o["holiday_hours"]) if "holiday_hours" in o else _holiday_hours(e.holiday_list, start, end)
@@ -1758,10 +1826,28 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
             "gross": gross, "bonus": _m(bonus), "advance": _m(advance),
             "other_deduction": _m(x.get("deduct") or 0), "net": net,
             "tracked": tracked, "present_days": int(a.present_days or 0),
-            "auto_missing_hours": auto_missing,
-            "edited": sorted(o.keys()), "note": o.get("note") or "",
+            "auto_missing_hours": auto_missing, "auto_delay_hours": auto_delay,
+            # ERPNext holds Full-time / Part-time here, not the CDI / CDD the
+            # spreadsheet tracks, and every contract end date on this company is
+            # empty — so the column shows what the master says and takes a typed
+            # value over it rather than guessing a contract type from nothing.
+            "contract": (o.get("contract") or e.employment_type or ""),
+            "employment_type": e.employment_type or "",
+            "rib": (e.bank_ac_no or e.iban or ""), "bank_name": e.bank_name or "",
+            # "Send" in the spreadsheet is the only record that a salary actually
+            # left the bank. It is a state, so it carries who ticked it and when.
+            "sent": 1 if o.get("sent") else 0, "sent_on": o.get("sent_on") or "",
+            "sent_by": o.get("sent_by") or "",
+            "edited": sorted(k for k in o.keys()
+                             if k not in ("sent", "sent_on", "sent_by")),
+            "note": o.get("note") or "",
         })
         totals["gross"] += gross; totals["net"] += net; totals["advance"] += _m(advance)
+        if o.get("sent"):
+            totals["sent"] += 1
+            totals["sent_net"] += net
+        if not (e.bank_ac_no or e.iban):
+            totals["no_rib"] += 1
 
     slips = {r.employee: r for r in frappe.db.sql(
         """SELECT employee, name, docstatus, ROUND(net_pay,2) net FROM `tabSalary Slip`
@@ -1780,6 +1866,9 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
             "rows": rows, "count": len(rows), "total": len(rows),
             "total_gross": _m(totals["gross"]), "total_net": _m(totals["net"]),
             "total_advance": _m(totals["advance"]),
+            "sent_count": totals["sent"], "sent_net": _m(totals["sent_net"]),
+            "no_rib_count": totals["no_rib"],
+            "day_start": cfg["day_start"], "grace_minutes": cfg["grace_minutes"],
             "posted_slips": len(slips)}
 
 
@@ -1793,11 +1882,12 @@ def payroll_sheet_save(company=None, month=None, employee=None, values=None):
     if not (target and month and employee):
         frappe.throw("company, month and employee are required")
     vals = values if isinstance(values, dict) else frappe.parse_json(values or "{}")
-    allowed = ("contract_hours", "holiday_hours", "overtime_hours", "missing_hours",
-               "delay_hours", "bonus", "advance", "note")
+    numeric = ("contract_hours", "holiday_hours", "overtime_hours", "missing_hours",
+               "delay_hours", "bonus", "advance")
+    text = ("note", "contract")
     ov = _sheet_overrides(target, month)
     row = ov.get(employee, {})
-    for k in allowed:
+    for k in numeric + text:
         if k not in vals:
             continue
         v = vals[k]
@@ -1806,7 +1896,18 @@ def payroll_sheet_save(company=None, month=None, employee=None, values=None):
         if v in (None, ""):
             row.pop(k, None)
         else:
-            row[k] = (str(v)[:200] if k == "note" else flt(v))
+            row[k] = (str(v)[:200] if k in text else flt(v))
+    # Marking a salary as sent is a claim about money leaving the bank, so it
+    # records who made it. Un-ticking clears the stamp with it — a stale name
+    # against a box nobody has ticked reads as evidence and is not.
+    if "sent" in vals:
+        if cint(vals.get("sent")):
+            row["sent"] = 1
+            row["sent_on"] = now_datetime().strftime("%Y-%m-%d %H:%M")
+            row["sent_by"] = frappe.session.user
+        else:
+            for k in ("sent", "sent_on", "sent_by"):
+                row.pop(k, None)
     if row:
         ov[employee] = row
     else:
@@ -1814,3 +1915,68 @@ def payroll_sheet_save(company=None, month=None, employee=None, values=None):
     frappe.db.set_default(_sheet_store(target, month), json.dumps(ov))
     frappe.db.commit()
     return {"saved": employee, "overrides": row}
+
+
+@frappe.whitelist()
+def payroll_sheet_settings(company=None, month=None, values=None):
+    """The month's reference start time and grace period for the delay column.
+
+    Stored beside the per-employee overrides and per month, because the office
+    day can move and last month's sheet must keep producing last month's
+    numbers.
+    """
+    assert_can_write()
+    target = _target(company)
+    if not (target and month):
+        frappe.throw("company and month are required")
+    vals = values if isinstance(values, dict) else frappe.parse_json(values or "{}")
+    ov = _sheet_overrides(target, month)
+    cur = ov.get(SHEET_SETTINGS_KEY) or {}
+    if "day_start" in vals:
+        v = (vals.get("day_start") or "").strip()
+        # HH:MM only — anything else would land in the SQL as a silent NULL and
+        # quietly fall back to the shift, which is the number we are avoiding.
+        if v and not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", v):
+            frappe.throw("Start time must look like 09:30")
+        cur["day_start"] = v
+    if "grace_minutes" in vals:
+        cur["grace_minutes"] = max(flt(vals.get("grace_minutes")), 0.0)
+    ov[SHEET_SETTINGS_KEY] = cur
+    frappe.db.set_default(_sheet_store(target, month), json.dumps(ov))
+    frappe.db.commit()
+    return _sheet_settings(target, month)
+
+
+@frappe.whitelist()
+def payroll_sheet_bank(company=None, employee=None, rib=None, bank_name=None):
+    """Store an employee's bank account, the one column the sheet cannot derive.
+
+    Not one of the 27 active people on this company carries a `bank_ac_no`, an
+    IBAN or a bank name — the account numbers live only in the spreadsheet's RIB
+    tab, which is why payroll cannot leave it. This writes them onto the
+    employee record where the rest of the system can reach them.
+
+    `db.set_value` rather than a document save: an Employee here can fail
+    validation on unrelated stale fields (a missing relieving date), and a bank
+    number must not be hostage to that. The comment is the audit trail.
+    """
+    assert_can_write()
+    target = _target(company)
+    emp = frappe.db.get_value("Employee", employee,
+                              ["name", "company", "employee_name", "bank_ac_no"], as_dict=True)
+    if not emp:
+        frappe.throw("Employee not found")
+    if emp.company != target:
+        frappe.throw("That employee is not on %s" % target)
+    new = (rib or "").strip()[:60]
+    frappe.db.set_value("Employee", emp.name, {
+        "bank_ac_no": new,
+        **({"bank_name": (bank_name or "").strip()[:80]} if bank_name is not None else {}),
+    }, update_modified=True)
+    frappe.get_doc({
+        "doctype": "Comment", "comment_type": "Info",
+        "reference_doctype": "Employee", "reference_name": emp.name,
+        "content": "Bank account set from the payroll sheet: %s" % (new or "(cleared)"),
+    }).insert(ignore_permissions=True)
+    frappe.db.commit()
+    return {"employee": emp.name, "rib": new}
