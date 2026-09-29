@@ -16,7 +16,8 @@ from accounting_portal.api._actions import digest as _digest
 from frappe.utils import (flt, cint, add_months, nowdate, getdate, get_last_day,
                           now_datetime)
 
-from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
+from accounting_portal.api.permissions import (assert_portal_access, assert_can_write, resolve_companies,
+                                               can_manage_users)
 
 
 def _m(v):
@@ -43,22 +44,53 @@ def _period(from_date, to_date):
 
 def _employer_contrib(target, fd, td):
     """Employer-side costs (social security, unemployment employer share) booked to
-    the GL directly, not inside the slip."""
+    the GL directly, not inside the slip.
+
+    Expense accounts only. The name match alone also caught the balance-sheet
+    side of the same thing — `36.12 Social Security Payable`, `361.001 Social
+    Security Premium Payable` and five more on Morocco — where debit minus
+    credit is payments minus accruals, not cost. They happen not to have moved
+    in the last year, which is the only reason the figure was right.
+    """
     return _m(frappe.db.sql(
         """SELECT SUM(g.debit-g.credit) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
            WHERE g.company=%s AND g.is_cancelled=0 AND g.posting_date BETWEEN %s AND %s
+             AND a.root_type='Expense'
              AND (a.account_name LIKE '%%Social Security%%' OR a.account_name LIKE '%%Unemployment%%'
                   OR a.account_name LIKE '%%Employer%%')""", (target, fd, td))[0][0])
 
 
+def _payable_accounts(target):
+    """The accounts payroll actually posts to — the company default plus every
+    one a salary structure assignment or a payroll run names — rather than
+    anything whose name happens to contain "Payroll Payable"."""
+    accs = {frappe.db.get_value("Company", target, "default_payroll_payable_account")}
+    for dt in ("Salary Structure Assignment", "Payroll Entry"):
+        accs.update(r[0] for r in frappe.db.sql(
+            f"""SELECT DISTINCT payroll_payable_account FROM `tab{dt}`
+                WHERE company=%s AND docstatus=1""", (target,)))
+    return tuple(a for a in accs if a)
+
+
 def _salary_payable(target):
-    """Outstanding owed to employees (credit balance on payable accounts)."""
-    v = frappe.db.sql(
-        """SELECT SUM(g.credit-g.debit) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-           WHERE g.company=%s AND g.is_cancelled=0
-             AND (a.account_name LIKE '%%Payroll Payable%%' OR a.account_name LIKE '%%Salary Payable%%'
-                  OR a.account_name LIKE '%%Wages Payable%%')""", (target,))[0][0]
-    return _m(v)
+    """Balance on the payroll payable accounts, SIGNED: credit is owed to staff,
+    debit is paid out beyond what was accrued."""
+    accs = _payable_accounts(target)
+    if not accs:
+        return 0.0
+    return _m(frappe.db.sql(
+        """SELECT SUM(credit-debit) FROM `tabGL Entry`
+           WHERE company=%s AND is_cancelled=0 AND account IN %s""", (target, accs))[0][0])
+
+
+def _bust_cockpit(target):
+    """The cockpit caches for ten minutes. Generate, submit and pay all change
+    what it shows, and without this the screen someone opens straight after
+    running payroll describes the month before they ran it."""
+    try:
+        frappe.cache().delete_keys(f"ap_payroll_cockpit:{target}:")
+    except Exception:
+        pass
 
 
 def _as_privileged(doc):
@@ -132,9 +164,12 @@ def payroll_cockpit(company=None, from_date=None, to_date=None):
         "slips": tot.slips or 0, "paid_employees": tot.emps or 0,
         "employer_contrib": employer,
         "cost_to_company": _m(_m(tot.gross) + employer),
-        # only a credit balance is genuinely "owed to employees"; a debit balance is
-        # an advance/overpayment, not an outstanding payable.
+        # Only a credit balance is owed to staff. But a debit balance is not
+        # nothing: it is salary paid out with no accrual behind it, and on
+        # Morocco it is 406,406.83 — which this tile used to report as a calm
+        # zero. The sign travels to the screen now and is shown as what it is.
         "salary_payable": _m(max(0.0, _salary_payable(target))),
+        "payable_balance": _salary_payable(target),
         "monthly": monthly, "by_department": by_dept,
         "last_month": last_m, "missing_slips": int(missing or 0), "no_structure": int(no_structure or 0),
     }
@@ -517,14 +552,22 @@ def _month_end(month):
 
 @frappe.whitelist()
 def payroll_close_month(company=None, month=None, notes=None, reopen=0):
-    """Lock (or reopen) a payroll month. Audited + reversible, no GL posting."""
-    assert_portal_access()
+    """Lock (or reopen) a payroll month. Audited + reversible, no GL posting.
+
+    Both are writes, and this used to check only that the caller could open the
+    portal at all — so a read-only viewer could lock a month, and could reopen
+    one the UI shows the Reopen button for only to user-managers. The UI hid
+    the button; the endpoint did not care.
+    """
+    assert_can_write()
     target = _target(company)
     if not (target and month):
         frappe.throw("company and month are required")
     from accounting_portal.api import _actions
     dk = _close_dedupe(target, month)
     if int(reopen or 0):
+        if not can_manage_users():
+            frappe.throw("Only a user manager can reopen a closed payroll month", frappe.PermissionError)
         rec = _closed_record(target, month)
         if rec:
             return _actions.revert_action(rec.name)
@@ -709,6 +752,7 @@ def _run_poster(doc):
     pe.submit()
     pe.create_salary_slips()  # inline for small runs; enqueues for big ones
     n = frappe.db.count("Salary Slip", {"payroll_entry": pe.name})
+    _bust_cockpit(target)
     return {"voucher_type": "Payroll Entry", "voucher_no": pe.name,
             "result": {"payroll_entry": pe.name, "employees": len(pe.employees), "slips_created": n}}
 
@@ -759,25 +803,86 @@ def _submit_poster(doc):
         _as_privileged(frappe.get_doc("Payroll Entry", r.name)).submit_salary_slips()
         done.append(r.name)
     # Any stray draft slips not tied to a run — submit directly.
+    stray = []
     for s in frappe.get_all("Salary Slip",
                             {"company": target, "docstatus": 0}, ["name", "start_date"]):
         if str(s.start_date)[:7] == month:
             _as_privileged(frappe.get_doc("Salary Slip", s.name)).submit()
+            stray.append(s.name)
+    _bust_cockpit(target)
     return {"voucher_type": "Payroll Entry", "voucher_no": ",".join(done) or None,
-            "result": {"runs_submitted": done, "month": month}}
+            "result": {"runs_submitted": done, "stray_slips": stray, "month": month}}
 
 
 def _submit_reverter(doc):
-    """Cancel the month's submitted slips (reverses the accrual GL)."""
+    """Undo a submission: take the accrual back out of the GL, then the slips.
+
+    Scoped to what THIS action submitted. The first version cancelled every
+    submitted slip the company had in the month — including slips submitted on
+    the Desk or by another run, and slips already paid.
+
+    And it cancelled only slips. HRMS books the accrual as a Journal Entry owned
+    by the Payroll Entry, and a Salary Slip's on_cancel does not touch it — only
+    cancelling the Payroll Entry itself does. So an undo left the salary expense
+    and the payable credit in the ledger for slips that no longer existed, and
+    submitting again posted a second accrual on top. Never triggered on
+    production (no submit has been reverted), which is the only reason the
+    ledger does not show it.
+
+    Refuses when any of those runs has been paid: salaries that left the bank
+    cannot be un-accrued, and pretending otherwise is how a payable goes debit.
+    """
     p = json.loads(doc.payload or "{}")
+    res = {}
+    try:
+        res = json.loads(doc.result or "{}") if getattr(doc, "result", None) else {}
+    except Exception:
+        res = {}
     target, month = doc.company, p["month"]
-    cancelled = 0
-    for s in frappe.get_all("Salary Slip",
-                            {"company": target, "docstatus": 1}, ["name", "start_date"]):
-        if str(s.start_date)[:7] == month:
-            _as_privileged(frappe.get_doc("Salary Slip", s.name)).cancel()
+    runs = [r for r in (res.get("runs_submitted") or []) if r]
+    stray = [n for n in (res.get("stray_slips") or []) if n]
+    if not runs and not stray:
+        frappe.throw("This submission did not record what it submitted, so it cannot be undone "
+                     "safely from here. Reverse it from the payroll run itself.")
+
+    if runs:
+        paid = frappe.db.sql(
+            """SELECT jea.reference_name, COUNT(*) FROM `tabJournal Entry Account` jea
+               JOIN `tabJournal Entry` je ON je.name=jea.parent
+               WHERE je.docstatus=1 AND je.voucher_type='Bank Entry'
+                 AND jea.reference_type='Payroll Entry' AND jea.reference_name IN %s
+               GROUP BY jea.reference_name""", (tuple(runs),))
+        if paid:
+            frappe.throw(f"{len(paid)} of these runs already have salary payments "
+                         f"({', '.join(r[0] for r in paid[:3])}{'…' if len(paid) > 3 else ''}). "
+                         "Reverse the payment first — salaries that left the bank cannot be un-accrued.")
+
+    cancelled_je, cancelled = [], 0
+    for pe in runs:
+        # The accrual only. On production every run-referencing accrual is a
+        # `Journal Entry` crediting the payable (317 of them) and every payment
+        # a `Bank Entry` debiting it (313) — but a payment typed the other way
+        # would be cancelled by a type test alone, so the credit side is
+        # required as well.
+        for je in frappe.db.sql_list(
+                """SELECT DISTINCT je.name FROM `tabJournal Entry` je
+                   JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
+                   WHERE je.docstatus=1 AND je.voucher_type<>'Bank Entry'
+                     AND jea.reference_type='Payroll Entry' AND jea.reference_name=%s
+                     AND jea.credit>0 AND jea.account IN %s""", (pe, _payable_accounts(target) or ("",))):
+            _as_privileged(frappe.get_doc("Journal Entry", je)).cancel()
+            cancelled_je.append(je)
+        for sl in frappe.get_all("Salary Slip", {"payroll_entry": pe, "docstatus": 1}, pluck="name"):
+            _as_privileged(frappe.get_doc("Salary Slip", sl)).cancel()
             cancelled += 1
-    return {"cancelled_slips": cancelled, "month": month}
+        # Leave the run in the state that lets it be submitted again.
+        frappe.db.set_value("Payroll Entry", pe, "salary_slips_submitted", 0)
+    for sl in stray:
+        if frappe.db.get_value("Salary Slip", sl, "docstatus") == 1:
+            _as_privileged(frappe.get_doc("Salary Slip", sl)).cancel()
+            cancelled += 1
+    _bust_cockpit(target)
+    return {"cancelled_slips": cancelled, "cancelled_accruals": cancelled_je, "month": month}
 
 
 # ── Pay salaries (bank entry that clears salary payable) ───────────────────────
@@ -881,6 +986,7 @@ def _pay_poster(doc):
     })
     je.insert(ignore_permissions=True)
     je.submit()
+    _bust_cockpit(target)
     return {"voucher_type": "Journal Entry", "voucher_no": je.name,
             "result": {"paid": total, "employees": len(plan), "bank": bank}}
 
@@ -1597,6 +1703,11 @@ def save_salary_structure(company=None, name=None, structure_name=None, currency
         frappe.throw("Structure name is required")
     if not name and frappe.db.exists("Salary Structure", structure_name):
         frappe.throw(f"A structure named '{structure_name}' already exists")
+    # Editing reaches the document by name alone, and the poster then saved it
+    # under this company's action without asking whose it was — any draft
+    # structure on any of the four companies was one request away.
+    if name and frappe.db.get_value("Salary Structure", name, "company") != target:
+        frappe.throw("That salary structure is not on this company", frappe.PermissionError)
     if not any(r.get("salary_component") for r in earnings):
         frappe.throw("At least one earning component is required")
     from accounting_portal.api import _actions
@@ -2029,6 +2140,8 @@ def payroll_sheet_save(company=None, month=None, employee=None, values=None):
     target = _target(company)
     if not (target and month and employee):
         frappe.throw("company, month and employee are required")
+    if not frappe.db.exists("Employee", {"name": employee, "company": target}):
+        frappe.throw("Employee not found on this company")
     vals = values if isinstance(values, dict) else frappe.parse_json(values or "{}")
     numeric = ("contract_hours", "holiday_hours", "overtime_hours", "missing_hours",
                "delay_hours", "bonus", "advance")

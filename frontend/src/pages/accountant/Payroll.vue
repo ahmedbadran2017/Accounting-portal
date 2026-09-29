@@ -16,8 +16,14 @@
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Kpi :label="L('Headcount','عدد الموظفين','Effectif')" :value="String(c.headcount||0)" icon="layers" color="#0f766e" :sub="L('active','نشط','actifs')" />
           <Kpi :label="L('Cost to company','تكلفة الشركة','Coût total')" :value="money(c.cost_to_company)" icon="wallet" color="#7c3aed" :sub="ccy + ' · +' + L('employer','صاحب العمل','employeur')" />
-          <Kpi :label="L('Net paid','الصافي المدفوع','Net payé')" :value="money(c.net)" icon="check" color="#0369a1" :sub="(c.slips||0)+' '+L('slips','مسير','bulletins')" />
-          <Kpi :label="L('Owed to staff','مستحق للموظفين','Dû au personnel')" :value="money(c.salary_payable)" icon="clock" :color="c.salary_payable ? '#b45309' : '#94a3b8'" :sub="L('salary payable','رواتب مستحقة','à payer')" />
+          <Kpi :label="L('Net payroll','صافي الرواتب','Net à payer')" :value="money(c.net)" icon="check" color="#0369a1" :sub="(c.slips||0)+' '+L('submitted slips','مسيّر مرحّل','bulletins soumis')" />
+          <!-- A debit balance on the payable is salary paid with nothing accrued
+               behind it. This tile showed it as a zero; on Morocco it is 406K. -->
+          <Kpi v-if="(c.payable_balance || 0) < -0.005"
+               :label="L('Paid beyond accrual','مدفوع بدون استحقاق','Payé au-delà')"
+               :value="money(-c.payable_balance)" icon="alert" color="#be123c"
+               :sub="L('payable account is in debit','حساب المستحقات مدين','compte débiteur')" />
+          <Kpi v-else :label="L('Owed to staff','مستحق للموظفين','Dû au personnel')" :value="money(c.salary_payable)" icon="clock" :color="c.salary_payable ? '#b45309' : '#94a3b8'" :sub="L('salary payable','رواتب مستحقة','à payer')" />
         </div>
 
         <div v-if="c.missing_slips || c.no_structure" class="flex flex-wrap gap-2">
@@ -86,7 +92,7 @@
         <!-- KPIs -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Kpi :label="L('Slips','المسيّرات','Bulletins')" :value="cl.emps_with_slip + ' / ' + cl.active" icon="list" :color="cl.missing_count ? '#b45309' : '#0f766e'" :sub="L('active staff covered','من الموظفين النشطين','couverts')" />
-          <Kpi :label="L('Net paid','الصافي','Net payé')" :value="money(cl.net)" icon="check" color="#0369a1" :sub="ccy" />
+          <Kpi :label="L('Net payroll','صافي الرواتب','Net à payer')" :value="money(cl.net)" icon="check" color="#0369a1" :sub="ccy" />
           <Kpi :label="L('Employer cost','تكلفة صاحب العمل','Charges patronales')" :value="money(cl.employer_contrib)" icon="coins" color="#7c3aed" :sub="ccy" />
           <Kpi :label="L('Cost to company','تكلفة الشركة','Coût total')" :value="money(cl.cost_to_company)" icon="wallet" color="#0f766e" :sub="ccy" />
         </div>
