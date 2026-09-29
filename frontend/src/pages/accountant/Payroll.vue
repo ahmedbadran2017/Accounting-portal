@@ -185,6 +185,7 @@
     <HrQuick v-else-if="view==='hr'" />
 
     <!-- ── SALARY STRUCTURES (were Desk-only: 13 created, 156 line edits in 6 months) ── -->
+    <PayrollSheet v-else-if="view==='sheet'" />
     <SalaryStructures v-else-if="view==='structures'" />
 
     <!-- ── EMPLOYEES ── -->
@@ -332,6 +333,7 @@ import EmployeeEditModal from "@/components/EmployeeEditModal.vue";
 import PayAdjustments from "@/pages/accountant/PayAdjustments.vue";
 import HrQuick from "@/pages/accountant/HrQuick.vue";
 import SalaryStructures from "@/pages/accountant/SalaryStructures.vue";
+import PayrollSheet from "@/pages/accountant/PayrollSheet.vue";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
@@ -365,6 +367,7 @@ const view = ref(TABS.includes(route.query.t) ? route.query.t : "cockpit");
 watch(view, (v) => { if (route.query.t !== v) router.replace({ query: { ...route.query, t: v } }); });
 const VIEWS = [
   { k: "cockpit", icon: "chart", label: () => L("Cockpit", "اللوحة", "Cockpit") },
+  { k: "sheet", icon: "list", label: () => L("Sheet", "ورقة الرواتب", "Feuille") },
   { k: "close", icon: "lock", label: () => L("Month close", "إقفال الشهر", "Clôture") },
   { k: "adjustments", icon: "coins", label: () => L("Adjustments", "الحوافز والخصومات", "Ajustements") },
   { k: "hr", icon: "clock", label: () => L("Attendance & advances", "الحضور والسلف", "Présence & avances") },

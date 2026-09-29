@@ -1,0 +1,207 @@
+<template>
+  <div class="space-y-3">
+    <!-- Header -->
+    <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <div class="flex items-center gap-2.5 px-4 py-3 border-b border-line-hair flex-wrap">
+        <span class="w-[26px] h-[26px] rounded-[8px] grid place-items-center" style="background:#ecfdf5">
+          <Icon name="list" :size="14" color="#047857" /></span>
+        <span class="text-[13px] font-semibold">{{ L("Payroll sheet", "ورقة الرواتب", "Feuille de paie") }}</span>
+        <input v-model="month" type="month" class="fld fld-sm w-36" @change="load" />
+        <span class="text-[11px] text-ink-muted hidden lg:inline">
+          {{ L("hours × rate, the way the team already computes it",
+                "بالساعة × السعر — نفس طريقة الفريق",
+                "heures × taux, comme l'équipe calcule déjà") }}
+        </span>
+        <span class="ms-auto flex items-center gap-2">
+          <a :href="excelUrl" class="h-8 px-3 rounded-[9px] text-[12px] font-medium text-white inline-flex items-center gap-1.5"
+             style="background:#1d6f42" :title="L('Excel in the sheet\'s own layout','إكسيل بنفس شكل الشيت','Excel')">
+            <Icon name="download" :size="13" color="#fff" />Excel
+          </a>
+        </span>
+      </div>
+
+      <!-- This page posts nothing. Saying so once, plainly, is what keeps it
+           trustworthy while it runs beside the spreadsheet. -->
+      <div class="px-4 py-2 text-[11px] leading-relaxed" style="background:#eff6ff;color:#0369a1">
+        {{ L("A reference sheet — nothing here is written to ERPNext. Compare it with the spreadsheet for a month before it drives anything.",
+              "ورقة مرجعية — مفيش حاجة هنا بتتكتب في ERPNext. قارنها بالشيت شهر كامل قبل ما تعتمد عليها.",
+              "Feuille de référence — rien n'est écrit dans ERPNext.") }}
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-px" style="background:#f0efed">
+        <div class="bg-white px-4 py-3">
+          <div class="text-[11px] text-ink-muted">{{ L("Employees", "الموظفون", "Employés") }}</div>
+          <div class="text-[18px] font-medium tnum">{{ d.count || 0 }}</div>
+        </div>
+        <div class="bg-white px-4 py-3">
+          <div class="text-[11px] text-ink-muted">{{ L("Gross", "المستحق", "Brut") }}</div>
+          <div class="text-[18px] font-medium tnum">{{ money(d.total_gross) }}</div>
+        </div>
+        <div class="bg-white px-4 py-3">
+          <div class="text-[11px] text-ink-muted">{{ L("Advances", "السلف", "Avances") }}</div>
+          <div class="text-[18px] font-medium tnum text-sale">−{{ money(d.total_advance) }}</div>
+        </div>
+        <div class="bg-white px-4 py-3">
+          <div class="text-[11px] text-ink-muted">{{ L("Net", "الصافي", "Net") }}</div>
+          <div class="text-[18px] font-semibold tnum text-accent-dark">{{ money(d.total_net) }} <span class="text-[11px] font-normal text-ink-3">{{ d.currency }}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- The sheet -->
+    <div class="bg-white rounded-card border border-line shadow-card overflow-hidden">
+      <TableLoading v-if="loading" :rows="8" />
+      <div v-else-if="!rows.length" class="px-4 py-12 text-center text-[12px] text-ink-muted">
+        {{ L("No employees with a salary structure this month.", "مفيش موظفين عليهم هيكل رواتب في الشهر ده.", "Aucun employé.") }}
+      </div>
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-[12px]">
+          <thead>
+            <tr class="text-[10px] font-bold uppercase tracking-wider text-ink-muted" style="background:#fafaf9">
+              <th class="px-3 py-2 text-start">{{ L("Employee", "الموظف", "Employé") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Base", "الأساسي", "Base") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("/hour", "/ساعة", "/heure") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Contract h", "تعاقدي", "Contrat") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Holiday", "أعياد", "Fériés") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Overtime", "إضافي", "Heures sup") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Missing", "غياب", "Absence") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Delay", "تأخير", "Retard") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Total h", "إجمالي س", "Total h") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Gross", "المستحق", "Brut") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Bonus", "مكافأة", "Prime") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Advance", "سلفة", "Avance") }}</th>
+              <th class="px-3 py-2 text-end">{{ L("Net", "الصافي", "Net") }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.employee" class="border-t border-line-hair align-top"
+                :class="r.edited.length ? 'bg-app-warm/40' : ''">
+              <td class="px-3 py-2">
+                <div class="font-medium truncate max-w-[190px]">{{ r.employee_name }}</div>
+                <div class="text-[10px] text-ink-muted truncate max-w-[190px]">{{ r.designation || r.department || "—" }}</div>
+                <!-- Untracked is a fact about the device, not about the person. -->
+                <span v-if="!r.tracked" class="inline-block mt-0.5 text-[9.5px] px-1.5 rounded-badge"
+                      style="background:#eff6ff;color:#0369a1">{{ L("no device", "مفيش جهاز", "sans pointeuse") }}</span>
+              </td>
+              <td class="px-2 py-2 text-end tnum">{{ money(r.base) }}</td>
+              <td class="px-2 py-2 text-end tnum text-ink-3">{{ Number(r.rate).toFixed(2) }}</td>
+              <td class="px-2 py-2 text-end"><Cell :r="r" f="contract_hours" @save="save" /></td>
+              <td class="px-2 py-2 text-end"><Cell :r="r" f="holiday_hours" @save="save" /></td>
+              <td class="px-2 py-2 text-end"><Cell :r="r" f="overtime_hours" @save="save" /></td>
+              <td class="px-2 py-2 text-end">
+                <Cell :r="r" f="missing_hours" @save="save" />
+                <!-- The attendance figure is offered, never applied. 69% of what
+                     the device calls absence is noise; a one-click accept keeps
+                     the judgement with the person doing the payroll. -->
+                <button v-if="r.auto_missing_hours && r.missing_hours !== r.auto_missing_hours"
+                        type="button" class="block ms-auto mt-0.5 text-[9.5px] px-1.5 rounded-badge hover:underline"
+                        style="background:#fffbeb;color:#b45309"
+                        :title="L('Attendance suggests this — click to apply','الحضور بيقترح الرقم ده — اضغط لتطبيقه','Suggestion de la présence')"
+                        @click="save(r, { missing_hours: r.auto_missing_hours })">
+                  {{ L("attendance", "الحضور", "présence") }}: {{ r.auto_missing_hours }}
+                </button>
+              </td>
+              <td class="px-2 py-2 text-end"><Cell :r="r" f="delay_hours" @save="save" /></td>
+              <td class="px-2 py-2 text-end tnum font-medium">{{ Number(r.total_hours).toFixed(2) }}</td>
+              <td class="px-2 py-2 text-end tnum">{{ money(r.gross) }}</td>
+              <td class="px-2 py-2 text-end"><Cell :r="r" f="bonus" @save="save" /></td>
+              <td class="px-2 py-2 text-end"><Cell :r="r" f="advance" @save="save" /></td>
+              <td class="px-3 py-2 text-end">
+                <div class="tnum font-semibold">{{ money(r.net) }}</div>
+                <!-- A posted slip that disagrees is the thing worth seeing. -->
+                <div v-if="r.slip && Math.abs(r.gap) >= 1" class="text-[9.5px] tnum" style="color:#b45309"
+                     :title="r.slip">{{ L("slip", "المسيّر", "bulletin") }} {{ money(r.slip_net) }}</div>
+                <div v-else-if="r.slip" class="text-[9.5px]" style="color:#047857">✓ {{ L("matches slip", "مطابق للمسيّر", "conforme") }}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted leading-relaxed">
+        {{ L("Rate = base ÷ contract hours. Total = contract + holiday + overtime×1.5 − missing − delay. Edited cells are shaded; clear one to hand it back to the system.",
+              "سعر الساعة = الأساسي ÷ الساعات التعاقدية. الإجمالي = تعاقدي + أعياد + إضافي×١٫٥ − غياب − تأخير. الخلايا المعدّلة مظللة؛ فضّيها ترجع للنظام.",
+              "Taux = base ÷ heures. Total = contrat + fériés + sup×1,5 − absence − retard.") }}
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+// The monthly payroll sheet.
+//
+// The team's real model lives in a Google Sheet and is hour-based:
+//   rate  = base / 208
+//   hours = 208 + public holidays + overtime×1.5 − missing − delay
+//   gross = hours × rate
+// Checked against their own January figures to the dirham, and against August's
+// submitted slips, which match the spreadsheet on every line — because the sheet
+// is calculated and the result is then typed into ERPNext by hand.
+//
+// This screen does that calculation once, from data we already hold. It posts
+// nothing: the banner says so, and it runs beside the spreadsheet until the two
+// agree for a full month.
+import { computed, h, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import Icon from "@/components/Icon.vue";
+import TableLoading from "@/components/TableLoading.vue";
+import api from "@/services/api";
+import { currentCompany } from "@/composables/useLive";
+import { useToast } from "@/composables/useToast";
+import { fmtAmount } from "@/utils/helpers";
+
+const { locale } = useI18n();
+const toast = useToast();
+const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
+const money = (n) => fmtAmount(n || 0);
+
+const now = new Date();
+const month = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+const d = ref({});
+const loading = ref(true);
+const rows = computed(() => d.value.rows || []);
+
+// One editable cell. Blank means "no override" — the field goes back to whatever
+// the system derives, which is why an empty box and a zero must look different.
+const Cell = {
+  props: { r: { type: Object, required: true }, f: { type: String, required: true } },
+  emits: ["save"],
+  setup(p, { emit }) {
+    return () => {
+      const on = p.r.edited.includes(p.f);
+      return h("input", {
+        type: "number", step: "any", dir: "ltr",
+        value: p.r[p.f] || (p.r[p.f] === 0 ? 0 : ""),
+        class: "fld fld-xs w-[74px] text-end tnum " + (on ? "fld-sunk" : ""),
+        title: on ? "edited" : "",
+        onChange: (e) => emit("save", p.r, { [p.f]: e.target.value }),
+      });
+    };
+  },
+};
+
+async function load() {
+  loading.value = true;
+  try {
+    d.value = await api.call("accounting_portal.api.payroll.payroll_sheet",
+      { company: currentCompany(), month: month.value }, { fresh: true }) || {};
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 200)); d.value = {}; }
+  finally { loading.value = false; }
+}
+
+async function save(r, values) {
+  try {
+    await api.call("accounting_portal.api.payroll.payroll_sheet_save", {
+      company: currentCompany(), month: month.value, employee: r.employee,
+      values: JSON.stringify(values),
+    });
+    await load();
+  } catch (e) { toast.error(String(e?.message || e).slice(0, 200)); }
+}
+
+const excelUrl = computed(() => {
+  const q = new URLSearchParams({ key: "payroll_sheet", company: currentCompany(), month: month.value });
+  return `/api/method/accounting_portal.api.export.list_xlsx?${q.toString()}`;
+});
+
+load();
+</script>

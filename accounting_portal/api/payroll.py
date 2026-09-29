@@ -1564,3 +1564,233 @@ def _register():
 
 
 _register()
+
+
+# ── The monthly payroll sheet ─────────────────────────────────────────────────
+#
+# The team's real payroll model lives in a Google Sheet ("EXTRA 2026") and is
+# hour-based, not month-based:
+#
+#     rate      = base / contract hours (208)
+#     hours     = contract + public holidays + overtime x rate − missing − delay
+#     gross     = hours x rate
+#     net       = gross + bonus + commission − advance
+#
+# Verified against their own numbers: 10,000/208 = 48.0769/h, and
+# (208 − 4 missing − 0.95 delay) x 48.0769 = 9,762 — the figure in their January
+# sheet to the dirham. August's submitted ERPNext slips match the sheet on every
+# line, because the sheet is calculated and then the result is typed in by hand.
+#
+# This endpoint computes that model from the data we already hold, so the
+# calculation happens once instead of twice. It writes nothing to ERPNext: this
+# is the reference sheet, and `payroll_sheet_save` only stores the few figures
+# that have no system source yet (delay, overtime, manual corrections).
+
+SHEET_KEY = "ap_payroll_sheet"
+DEFAULT_CONTRACT_HOURS = 208.0      # 48h/week x 52 / 12, the sheet's own basis
+HOURS_PER_DAY = 8.0
+OVERTIME_RATE = 1.5
+
+
+def _sheet_store(target, month):
+    return f"{SHEET_KEY}_{frappe.scrub(target)}_{month}"
+
+
+def _sheet_overrides(target, month):
+    try:
+        return frappe.parse_json(frappe.db.get_default(_sheet_store(target, month)) or "{}") or {}
+    except Exception:
+        return {}
+
+
+def _holiday_hours(holiday_list, start, end):
+    """Paid public holidays in the month, in hours.
+
+    `weekly_off` is the field that separates a rest day from a public holiday —
+    on this site the Morocco list carries every Sunday with weekly_off = 1 and
+    real holidays with 0. Counting the whole list would pay four extra Sundays.
+    """
+    if not holiday_list:
+        return 0.0
+    n = frappe.db.sql(
+        """SELECT COUNT(*) FROM `tabHoliday`
+           WHERE parent=%s AND holiday_date BETWEEN %s AND %s AND IFNULL(weekly_off,0)=0""",
+        (holiday_list, start, end))[0][0]
+    return flt(n) * HOURS_PER_DAY
+
+
+def _base_salary(ssa_base, structure):
+    """`SSA.base` is 0 for most people here; the monthly salary sits in the
+    structure's own `Net Wage of Employee` earning. Prefer the assignment when
+    it carries a figure, fall back to the structure."""
+    if flt(ssa_base) > 0:
+        return flt(ssa_base)
+    amt = frappe.db.get_value("Salary Detail",
+                              {"parent": structure, "parentfield": "earnings",
+                               "salary_component": "Net Wage of Employee"}, "amount")
+    return flt(amt)
+
+
+@frappe.whitelist()
+def payroll_sheet(company=None, month=None, start=0, page_size=None):
+    """The month's payroll sheet — one row per employee, the sheet's own columns.
+
+    `start` / `page_size` exist so the generic Excel exporter can call this like
+    any other list; the sheet is one screen of people and is never paged.
+    """
+    assert_portal_access()
+    target = _target(company)
+    if not (target and month):
+        return {}
+    start, end = _month_bounds(month)
+    ov = _sheet_overrides(target, month)
+
+    emps = frappe.db.sql(
+        """SELECT e.name, e.employee_name nm, e.designation, e.department,
+                  e.holiday_list, e.status, e.relieving_date, e.date_of_joining,
+                  ssa.base, ssa.salary_structure
+           FROM `tabEmployee` e
+           JOIN `tabSalary Structure Assignment` ssa
+             ON ssa.employee = e.name AND ssa.docstatus = 1
+            AND ssa.from_date = (SELECT MAX(s2.from_date) FROM `tabSalary Structure Assignment` s2
+                                 WHERE s2.employee = e.name AND s2.docstatus = 1 AND s2.from_date <= %(end)s)
+           WHERE e.company = %(c)s AND e.status = 'Active'
+           ORDER BY e.employee_name""", {"c": target, "end": end}, as_dict=True)
+
+    # Absences, in hours, already split from the noise. A day nobody recorded is
+    # NOT an absence — see the attendance review: 69% of what the device calls
+    # absence is a rest day, someone who has left, or someone with no device.
+    att = {r.employee: r for r in frappe.db.sql(
+        """SELECT a.employee,
+                  SUM(CASE WHEN a.status='Absent' THEN 1 ELSE 0 END) absent_days,
+                  SUM(CASE WHEN a.status='Half Day' THEN 1 ELSE 0 END) half_days,
+                  SUM(CASE WHEN a.status='Present' THEN 1 ELSE 0 END) present_days
+           FROM `tabAttendance` a
+           WHERE a.company=%(c)s AND a.docstatus=1
+             AND a.attendance_date BETWEEN %(s)s AND %(e)s
+           GROUP BY a.employee""", {"c": target, "s": start, "e": end}, as_dict=True)}
+    punched = {r[0] for r in frappe.db.sql(
+        """SELECT DISTINCT employee FROM `tabEmployee Checkin`
+           WHERE time BETWEEN %s AND %s""", (start, end + " 23:59:59"))}
+
+    # Outstanding advance, floored at zero PER ADVANCE. Summing the raw
+    # difference gave −1,000 on this company, because an advance that was
+    # claimed or returned for more than it paid goes negative — and a negative
+    # deduction quietly ADDS to net pay. An over-settled advance is a zero to
+    # deduct, not a bonus.
+    adv = {}
+    for r in frappe.db.sql(
+        """SELECT employee, IFNULL(paid_amount,0) - IFNULL(claimed_amount,0)
+                          - IFNULL(return_amount,0) AS bal
+           FROM `tabEmployee Advance` WHERE company=%s AND docstatus=1""",
+            (target,), as_dict=True):
+        adv[r.employee] = flt(adv.get(r.employee) or 0) + max(flt(r.bal), 0.0)
+
+    extra = {}
+    for r in frappe.db.sql(
+        """SELECT a.employee, a.salary_component comp, c.type, SUM(a.amount) amt
+           FROM `tabAdditional Salary` a
+           JOIN `tabSalary Component` c ON c.name = a.salary_component
+           WHERE a.company=%(c)s AND a.docstatus=1
+             AND (a.payroll_date BETWEEN %(s)s AND %(e)s
+                  OR (IFNULL(a.from_date,'0001-01-01') <= %(e)s AND IFNULL(a.to_date,'9999-12-31') >= %(s)s))
+           GROUP BY a.employee, a.salary_component, c.type""",
+            {"c": target, "s": start, "e": end}, as_dict=True):
+        slot = extra.setdefault(r.employee, {"bonus": 0.0, "deduct": 0.0})
+        slot["bonus" if r.type == "Earning" else "deduct"] += flt(r.amt)
+
+    rows, totals = [], {"gross": 0.0, "net": 0.0, "advance": 0.0}
+    for e in emps:
+        o = ov.get(e.name, {})
+        base = _base_salary(e.base, e.salary_structure)
+        hours = flt(o.get("contract_hours") or DEFAULT_CONTRACT_HOURS)
+        rate = (base / hours) if hours else 0.0
+        a = att.get(e.name) or frappe._dict({})
+        tracked = e.name in punched
+        # An employee with no punch at all this month is not absent — they are
+        # untracked. Calling that absence is how the device's blind spot turns
+        # into a pay cut.
+        auto_missing = ((flt(a.absent_days) * HOURS_PER_DAY)
+                        + (flt(a.half_days) * HOURS_PER_DAY / 2)) if tracked else 0.0
+        # The attendance figure is a SUGGESTION, never the default. The review of
+        # this data found 69% of recorded absence to be a rest day, someone who
+        # had left, or someone with no device — and on this month it proposes 92
+        # missing hours for one logistics agent and 88 for another. Defaulting to
+        # it would halve real salaries on bad data. It is shown beside the field
+        # and applied only when a person accepts it.
+        missing = flt(o["missing_hours"]) if "missing_hours" in o else 0.0
+        delay = flt(o.get("delay_hours") or 0)
+        over = flt(o.get("overtime_hours") or 0)
+        hol = flt(o["holiday_hours"]) if "holiday_hours" in o else _holiday_hours(e.holiday_list, start, end)
+        x = extra.get(e.name) or {}
+        bonus = flt(o["bonus"]) if "bonus" in o else flt(x.get("bonus") or 0)
+        advance = flt(o["advance"]) if "advance" in o else flt(adv.get(e.name) or 0)
+
+        total_hours = hours + hol + (over * OVERTIME_RATE) - missing - delay
+        gross = _m(max(total_hours, 0) * rate)
+        net = _m(gross + bonus - advance - flt(x.get("deduct") or 0))
+        rows.append({
+            "employee": e.name, "employee_name": e.nm,
+            "designation": e.designation, "department": e.department,
+            "base": _m(base), "rate": flt(rate, 4), "contract_hours": hours,
+            "holiday_hours": hol, "overtime_hours": over, "missing_hours": missing,
+            "delay_hours": delay, "total_hours": flt(max(total_hours, 0), 2),
+            "gross": gross, "bonus": _m(bonus), "advance": _m(advance),
+            "other_deduction": _m(x.get("deduct") or 0), "net": net,
+            "tracked": tracked, "present_days": int(a.present_days or 0),
+            "auto_missing_hours": auto_missing,
+            "edited": sorted(o.keys()), "note": o.get("note") or "",
+        })
+        totals["gross"] += gross; totals["net"] += net; totals["advance"] += _m(advance)
+
+    slips = {r.employee: r for r in frappe.db.sql(
+        """SELECT employee, name, docstatus, ROUND(net_pay,2) net FROM `tabSalary Slip`
+           WHERE company=%s AND docstatus<2 AND start_date=%s""", (target, start), as_dict=True)}
+    for r in rows:
+        s = slips.get(r["employee"])
+        r["slip"] = s.name if s else None
+        r["slip_net"] = flt(s.net) if s else None
+        r["slip_docstatus"] = s.docstatus if s else None
+        # The number the portal computes and the number already posted should be
+        # the same. While they are not, that gap is the whole point of the sheet.
+        r["gap"] = _m((flt(s.net) - r["net"])) if s else None
+
+    return {"company": target, "month": month, "currency": _ccy(target),
+            "contract_hours": DEFAULT_CONTRACT_HOURS, "overtime_rate": OVERTIME_RATE,
+            "rows": rows, "count": len(rows), "total": len(rows),
+            "total_gross": _m(totals["gross"]), "total_net": _m(totals["net"]),
+            "total_advance": _m(totals["advance"]),
+            "posted_slips": len(slips)}
+
+
+@frappe.whitelist()
+def payroll_sheet_save(company=None, month=None, employee=None, values=None):
+    """Store the figures the systems cannot supply — delay, overtime, and any
+    correction to what attendance produced. Kept in the portal, not written to
+    ERPNext: nothing here posts until the month is approved."""
+    assert_can_write()
+    target = _target(company)
+    if not (target and month and employee):
+        frappe.throw("company, month and employee are required")
+    vals = values if isinstance(values, dict) else frappe.parse_json(values or "{}")
+    allowed = ("contract_hours", "holiday_hours", "overtime_hours", "missing_hours",
+               "delay_hours", "bonus", "advance", "note")
+    ov = _sheet_overrides(target, month)
+    row = ov.get(employee, {})
+    for k in allowed:
+        if k not in vals:
+            continue
+        v = vals[k]
+        # An empty value clears the override and hands the field back to the
+        # system that derives it, rather than pinning it at zero forever.
+        if v in (None, ""):
+            row.pop(k, None)
+        else:
+            row[k] = (str(v)[:200] if k == "note" else flt(v))
+    if row:
+        ov[employee] = row
+    else:
+        ov.pop(employee, None)
+    frappe.db.set_default(_sheet_store(target, month), json.dumps(ov))
+    frappe.db.commit()
+    return {"saved": employee, "overrides": row}
