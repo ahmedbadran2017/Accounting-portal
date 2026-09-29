@@ -152,7 +152,7 @@ const connections = computed(() => {
   const c = d.value?.connections || {};
   return [
     { label: L("Bills", "الفواتير", "Factures"), value: String(c.bills || 0), sub: "bills" },
-    { label: L("Purchase orders", "أوامر الشراء", "Bons de commande"), value: String(c.pos || 0), sub: "tobuy" },
+    { label: L("Purchase orders", "أوامر الشراء", "Bons de commande"), value: String(c.pos || 0), sub: "pos" },
     { label: L("Goods receipts", "سندات الاستلام", "Réceptions"), value: String(c.receipts || 0), sub: "received" },
     { label: L("Payments", "المدفوعات", "Paiements"), value: String(c.payments || 0), sub: "payments" },
   ];

@@ -116,7 +116,7 @@ const flowLabel = (c) => { const l = FLOW_LABELS[c.key]; return l ? L(...l) : c.
 const statusLabel = (s) => { const l = STATUS_LABELS[s.key]; return l ? L(...l) : s.label; };
 const ROUTE = {
   "Sales Order": "/accounting/sales/orders", "Sales Invoice": "/accounting/sales/invoices", "Delivery Note": "/accounting/sales/challans",
-  "Purchase Order": "/accounting/purchases/tobuy", "Purchase Receipt": "/accounting/purchases/received", "Purchase Invoice": "/accounting/purchases/bills",
+  "Purchase Order": "/accounting/purchases/pos", "Purchase Receipt": "/accounting/purchases/received", "Purchase Invoice": "/accounting/purchases/bills",
   "Journal Entry": "/accounting/accountant/journals", "Landed Cost Voucher": "/accounting/items/landed",
 };
 function routeFor(res) {

@@ -128,7 +128,7 @@ const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigit
 const d = ref(null);
 const loading = ref(true);
 function back() { router.push("/accounting/items/items"); }
-function openPO(doc) { if (doc) router.push({ path: "/accounting/purchases/tobuy", query: { id: doc } }); }
+function openPO(doc) { if (doc) router.push({ path: "/accounting/purchases/pos", query: { id: doc } }); }
 async function load() {
   const id = route.query.id;
   if (!id) { loading.value = false; return; }

@@ -169,7 +169,7 @@ const DOC_PATHS = {
   "Sales Order":          "sales/orders",
   "Delivery Note":        "sales/challans",
   "Purchase Invoice":     "purchases/bills",
-  "Purchase Order":       "purchases/tobuy",
+  "Purchase Order":       "purchases/pos",
   "Purchase Receipt":     "purchases/received",
   "Journal Entry":        "accountant/journals",
   "Landed Cost Voucher":  "items/landed",

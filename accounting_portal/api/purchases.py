@@ -1501,3 +1501,79 @@ def last_purchase_rate(company=None, item_code=None, supplier=None, currency=Non
     return {"rate": flt(hit.rate), "doc": hit.doc, "date": str(hit.date),
             "supplier": hit.supplier, "currency": hit.currency,
             "same_supplier": bool(supplier) and hit.supplier == supplier}
+
+
+_PO_SORT = {"date": "po.transaction_date", "amount": "po.base_grand_total",
+            "supplier": "po.supplier", "id": "po.name"}
+
+
+@frappe.whitelist()
+def list_purchase_orders(company=None, search=None, from_date=None, to_date=None, start=0,
+                         page_size=25, sort_field="date", sort_dir="desc", status=None, owner=None):
+    """Every purchase order, as a list of its own.
+
+    The portal had no such list. Orders were reachable only through the
+    procure-to-pay strip, whose "To buy" stage is defined as `per_received < 100`
+    — so the moment an order was fully received it left that bucket and there was
+    nowhere else it appeared. For Justyol Morocco in 2026 that hid 1,696 orders
+    still waiting to be billed plus 228 completed ones: 1,924 documents, 14.7M,
+    findable on the Desk and nowhere here.
+
+    The stage strip answers "what is the pipeline doing"; this answers "where is
+    that order". Both are needed and neither substitutes for the other.
+    """
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {"rows": [], "total": 0}
+    conds = ["po.company = %(company)s"]
+    params = {"company": target}
+    st = (status or "open").lower()
+    if st == "draft":
+        conds.append("po.docstatus = 0")
+    elif st == "cancelled":
+        conds.append("po.docstatus = 2")
+    elif st == "submitted":
+        conds.append("po.docstatus = 1")
+    elif st == "toreceive":
+        conds.append("po.docstatus = 1 AND IFNULL(po.per_received,0) < 100 AND po.status NOT IN ('Closed')")
+    elif st == "tobill":
+        conds.append("po.docstatus = 1 AND IFNULL(po.per_billed,0) < 100 AND po.status NOT IN ('Closed')")
+    elif st == "completed":
+        conds.append("po.docstatus = 1 AND po.status = 'Completed'")
+    elif st == "closed":
+        conds.append("po.status = 'Closed'")
+    elif st != "all":
+        # "open" = anything still carrying work, which is the question people
+        # actually arrive with. Fully received is NOT done — it is To Bill.
+        conds.append("po.docstatus = 1 AND po.status NOT IN ('Closed','Completed')")
+    if from_date:
+        conds.append("po.transaction_date >= %(fd)s"); params["fd"] = from_date
+    if to_date:
+        conds.append("po.transaction_date <= %(td)s"); params["td"] = to_date
+    if owner:
+        conds.append("po.owner = %(own)s"); params["own"] = owner
+    if search:
+        conds.append("(po.name LIKE %(s)s OR po.supplier LIKE %(s)s "
+                     "OR IFNULL(po.supplier_name,'') LIKE %(s)s)")
+        params["s"] = f"%{search}%"
+    col = _PO_SORT.get(sort_field, "po.transaction_date")
+    d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    rows, total, s, ps = _paginate.page_query(
+        "`tabPurchase Order` po", " AND ".join(conds), params,
+        "po.name, po.supplier, IFNULL(po.supplier_name, po.supplier) AS supplier_name, "
+        "po.transaction_date AS date, po.schedule_date, po.status, po.docstatus, "
+        "po.currency AS doc_currency, po.grand_total, po.base_grand_total, "
+        "ROUND(IFNULL(po.per_received,0),1) AS per_received, "
+        "ROUND(IFNULL(po.per_billed,0),1) AS per_billed",
+        f"{col} {d}, po.creation {d}", start, page_size, max_ps=200)
+    base = frappe.db.get_value("Company", target, "default_currency")
+    for r in rows:
+        r["currency"] = r.get("doc_currency") or base
+        r["base_currency"] = base
+        r["amount"] = flt(r["grand_total"])
+        r["base_amount"] = flt(r["base_grand_total"])
+        r["date"] = str(r.get("date") or "")
+        r["schedule_date"] = str(r.get("schedule_date") or "")
+    return {"rows": rows, "total": total, "start": s, "page_size": ps,
+            "currency": base}

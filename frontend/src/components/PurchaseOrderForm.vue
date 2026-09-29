@@ -129,7 +129,7 @@ async function save() {
       let res = r && r.result; res = typeof res === "string" ? JSON.parse(res) : res;
       const po = res && res.voucher_no || r.voucher_no;
       toast.success(L("Purchase order created", "تم إنشاء أمر الشراء", "Commande créée"));
-      if (po) router.push({ path: "/accounting/purchases/tobuy", query: { id: po } });
+      if (po) router.push({ path: "/accounting/purchases/pos", query: { id: po } });
     }
     emit("created");
     close();

@@ -17,7 +17,8 @@
 
     <VendorDetail v-if="activeSub === 'vendors' && route.query.id" />
     <VendorsList v-else-if="activeSub === 'vendors'" />
-    <PurchaseDocDetail v-else-if="['tobuy','received','billed','topay','paid'].includes(activeSub) && route.query.id" />
+    <PurchaseDocDetail v-else-if="['pos','tobuy','received','billed','topay','paid'].includes(activeSub) && route.query.id" />
+    <PurchaseOrdersList v-else-if="activeSub === 'pos'" @new="showPo = true" />
     <PurchaseBucket v-else-if="['tobuy','received','billed','topay','paid'].includes(activeSub)" />
     <BillDetail v-else-if="activeSub === 'bills' && route.query.id" />
     <BillsList v-else-if="activeSub === 'bills'" />
@@ -49,6 +50,7 @@ import VendorsList from "@/pages/purchases/VendorsList.vue";
 import VendorDetail from "@/pages/purchases/VendorDetail.vue";
 import PurchaseBucket from "@/pages/purchases/PurchaseBucket.vue";
 import PurchaseDocDetail from "@/pages/purchases/PurchaseDocDetail.vue";
+import PurchaseOrdersList from "@/pages/purchases/PurchaseOrdersList.vue";
 import BillsList from "@/pages/purchases/BillsList.vue";
 import BillDetail from "@/pages/purchases/BillDetail.vue";
 import PaymentsMade from "@/pages/purchases/PaymentsMade.vue";
@@ -75,6 +77,7 @@ const showBill = ref(false);
 // The button names what the screen lists, like the Desk's "Add <doctype>".
 const NEW = {
   tobuy:    { label: () => L("New PO", "أمر شراء", "Nouvelle CA"), open: () => (showPo.value = true) },
+  pos:      { label: () => L("New PO", "أمر شراء", "Nouvelle CA"), open: () => (showPo.value = true) },
   payments: { label: () => L("Record payment", "تسجيل دفعة", "Enregistrer un paiement"), open: () => (showPayment.value = true) },
   bills:    { label: () => L("New bill", "فاتورة مورد", "Nouvelle facture"), open: () => (showBill.value = true) },
 };

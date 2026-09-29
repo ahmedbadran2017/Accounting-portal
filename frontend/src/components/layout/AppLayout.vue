@@ -320,7 +320,7 @@ async function loadNotif() {
 function toggleNotif() { notifOpen.value = !notifOpen.value; if (notifOpen.value) loadNotif(); }
 const NOTIF_ROUTE = {
   "Sales Invoice": "sales/invoices", "Purchase Invoice": "purchases/bills", "Sales Order": "sales/orders",
-  "Purchase Order": "purchases/tobuy", "Delivery Note": "sales/challans", "Purchase Receipt": "purchases/received",
+  "Purchase Order": "purchases/pos", "Delivery Note": "sales/challans", "Purchase Receipt": "purchases/received",
   "Journal Entry": "accountant/journals", "Payment Entry": "purchases/payments", "Item": "items/items",
 };
 function openNotif(n) {

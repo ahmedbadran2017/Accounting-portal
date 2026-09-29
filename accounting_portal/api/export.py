@@ -120,6 +120,11 @@ def gl_xlsx(company=None, account=None, party=None, voucher_no=None, from_date=N
 # not the 25 rows that happened to be on the page.
 
 _LIST_EXPORTS = {
+    "purchase_orders": ("accounting_portal.api.purchases.list_purchase_orders", "Purchase orders",
+                        [("name", "Order"), ("date", "Date"), ("schedule_date", "Required by"),
+                         ("supplier_name", "Vendor"), ("currency", "Currency"), ("amount", "Amount"),
+                         ("base_amount", "Amount (company ccy)"), ("per_received", "% received"),
+                         ("per_billed", "% billed"), ("status", "Status"), ("docstatus", "Docstatus")]),
     "bills": ("accounting_portal.api.purchases.list_bills", "Bills",
               [("name", "Bill"), ("date", "Date"), ("supplier", "Supplier"), ("bill_no", "Supplier invoice"),
                ("currency", "Currency"), ("amount", "Amount"), ("base_amount", "Amount (company ccy)"),

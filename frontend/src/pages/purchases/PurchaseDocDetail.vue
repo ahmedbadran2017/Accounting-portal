@@ -48,7 +48,7 @@
         <!-- connections -->
         <div v-if="hasConn" class="flex items-center gap-1.5 flex-wrap mt-4 pt-3 border-t border-line-hair">
           <span class="text-[11px] font-bold uppercase tracking-wider text-ink-muted me-1">{{ L("Connections","الروابط","Liens") }}</span>
-          <button v-for="o in d.connections.orders" :key="o" @click="open('tobuy', o)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="11" color="#0369a1" />{{ o }}</button>
+          <button v-for="o in d.connections.orders" :key="o" @click="open('pos', o)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="11" color="#0369a1" />{{ o }}</button>
           <button v-for="r in d.connections.receipts" :key="r" @click="open('received', r)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="box" :size="11" color="#b45309" />{{ r }}</button>
           <button v-for="i in d.connections.invoices" :key="i" @click="open('topay', i)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="doc" :size="11" color="#0891b2" />{{ i }}</button>
           <button v-for="p in d.connections.payments" :key="p" @click="open('payments', p)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="11" color="#047857" />{{ p }}</button>
@@ -180,7 +180,9 @@ const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const DT = { tobuy: "Purchase Order", received: "Purchase Receipt", billed: "Purchase Invoice", topay: "Purchase Invoice", paid: "Purchase Invoice" };
+// `tobuy` stays so old links and bookmarks keep resolving; `pos` is the
+// canonical list now, and the only one that contains a fully-received order.
+const DT = { pos: "Purchase Order", tobuy: "Purchase Order", received: "Purchase Receipt", billed: "Purchase Invoice", topay: "Purchase Invoice", paid: "Purchase Invoice" };
 const sub = computed(() => route.params.sub);
 const doctype = computed(() => DT[sub.value] || "Purchase Invoice");
 const META = {

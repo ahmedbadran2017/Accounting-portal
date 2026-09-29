@@ -115,7 +115,7 @@
     <div class="bg-white rounded-card border border-line p-4">
       <div class="flex items-center gap-2 mb-2.5"><span class="w-[24px] h-[24px] rounded-[7px] grid place-items-center" style="background:#f5f3ff"><Icon name="layers" :size="13" color="#7c3aed" /></span><span class="text-[13px] font-bold">{{ L("Related documents","المستندات المرتبطة","Documents liés") }}</span></div>
       <div v-if="related.orders.length || related.receipts.length || related.payments.length" class="flex flex-wrap gap-2">
-        <button v-for="po in related.orders" :key="po" @click="openDoc('tobuy', po)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="12" color="#b45309" />{{ po }}</button>
+        <button v-for="po in related.orders" :key="po" @click="openDoc('pos', po)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="12" color="#b45309" />{{ po }}</button>
         <button v-for="gr in related.receipts" :key="gr" @click="openDoc('received', gr)" class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-chip border border-line-2 bg-app-warm"><Icon name="truck" :size="12" color="#c2410c" />{{ gr }}</button>
       </div>
       <div v-if="!related.orders.length && !related.receipts.length && !payments.length" class="text-[12px] text-ink-muted">{{ L("No linked PO, receipt or payment.","لا أمر شراء أو استلام أو دفعة مرتبطة.","Aucun document lié.") }}</div>
