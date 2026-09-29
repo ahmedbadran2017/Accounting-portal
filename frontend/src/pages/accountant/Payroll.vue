@@ -136,7 +136,18 @@
             <!-- 3. Pay -->
             <div class="rounded-card border border-line-2 p-3 flex flex-col gap-2">
               <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full grid place-items-center text-[11px] font-semibold text-white bg-ink">3</span><span class="text-[12px] font-semibold">{{ L('Pay salaries','دفع الرواتب','Payer') }}</span></div>
-              <div class="text-[11px] text-ink-muted flex-1">{{ money(pv.to_pay_net) }} {{ ccy }} · {{ pv.to_pay_count || 0 }} {{ L('unpaid','غير مدفوع','non payés') }}</div>
+              <div class="text-[11px] text-ink-muted flex-1">
+                {{ money(pv.to_pay_net) }} {{ ccy }} · {{ pv.to_pay_count || 0 }} {{ L('unpaid','غير مدفوع','non payés') }}
+                <!-- The pay step never pays past what the payable ledger says a
+                     person is owed. When it pays less than the slips show, it
+                     says so and names who — a held salary is a thing to check,
+                     not something to lose silently. -->
+                <div v-if="pv.held_count" class="mt-1 text-amber-800"
+                     :title="(pv.held || []).map(h => `${h.nm || h.employee}: ${money(h.held)}`).join('\n')">
+                  {{ pv.held_count }} {{ L('held','متوقّف','retenus') }} · {{ money(pv.held_total) }} —
+                  {{ L('the payable ledger says already paid','دفتر المستحقات بيقول اتدفعوا','déjà payés selon le grand livre') }}
+                </div>
+              </div>
               <div class="flex gap-1.5">
                 <div class="min-w-0 flex-1"><SearchSelect v-model="payBank" :items="payBankItems" :placeholder="L('bank…','البنك…','banque…')" :empty-text="L('No bank','لا بنك','Aucun')" input-class="h-8 text-[11px] bg-app-warm/40" /></div>
                 <UiButton variant="primary" size="sm" type="button" :disabled="runBusy || !(pv.to_pay_count>0) || !payBank" @click="doPay">

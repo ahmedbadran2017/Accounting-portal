@@ -613,7 +613,7 @@ def payroll_run_preview(company=None, month=None):
            WHERE company=%s AND docstatus=1 AND DATE_FORMAT(start_date,'%%Y-%%m')=%s""",
         (target, month), as_dict=True)[0]
     payable, cc = _payroll_defaults(target)
-    to_pay = _pay_plan(target, month)
+    to_pay, held = _pay_plan(target, month, with_held=True)
     return {
         "company": target, "currency": _ccy(target), "month": month,
         "eligible": eligible, "eligible_count": len(eligible),
@@ -622,6 +622,7 @@ def payroll_run_preview(company=None, month=None):
         "payable_account": payable, "cost_center": cc,
         "banks": _bank_accounts(target),
         "to_pay_net": _m(sum(p["amount"] for p in to_pay)), "to_pay_count": len(to_pay),
+        "held": held, "held_count": len(held), "held_total": _m(sum(h["held"] for h in held)),
         # Generating slips before the sheet is approved produces a full month for
         # everyone — no absence, no delay, no overtime — and nothing on the screen
         # said so. The run strip shows this as its own step now.
@@ -781,30 +782,62 @@ def _submit_reverter(doc):
 
 # ── Pay salaries (bank entry that clears salary payable) ───────────────────────
 
-def _pay_plan(target, month):
-    """Per-employee net still owed for the month = submitted-slip net minus what a
-    prior Bank Entry already paid against that employee's payable/run."""
+def _pay_plan(target, month, with_held=False):
+    """Per-employee net still owed for the month — capped at what the payable
+    ledger says that person is actually owed.
+
+    The first version trusted run references alone: a slip counted as paid only
+    by Bank Entry lines carrying `reference_type = Payroll Entry` and that run's
+    name. The team's payments were not always tagged — December 2025 was paid
+    in full before its run even existed, and January 2026 has 6 tagged lines out
+    of 36. Measured on PROD, the button offered to pay 130,874 MAD for December
+    2025 to 28 people whose payable balance, all payments counted, came to
+    3,847 — most of them in DEBIT. With the approval gate off during the
+    correction period, one click on an old month in the close tab's picker
+    would have paid the whole month a second time.
+
+    So the reference is used to see what a run still shows open, and the
+    employee's balance on the payable account — credit minus debit, every run,
+    every payment, tagged or not — is the ceiling. The portal will not pay
+    anyone into a deeper overpayment on its own. Those it holds back are
+    returned with the reason, not dropped: a legitimate salary for someone whose
+    ledger is overdrawn from an old mistake is a thing to look at, not to skip
+    in silence.
+    """
     slips = frappe.db.sql(
         """SELECT s.employee, s.employee_name nm, s.net_pay, s.payroll_entry pe
            FROM `tabSalary Slip` s
-           WHERE s.company=%s AND s.docstatus=1 AND DATE_FORMAT(s.start_date,'%%Y-%%m')=%s""",
+           WHERE s.company=%s AND s.docstatus=1 AND DATE_FORMAT(s.start_date,'%%Y-%%m')=%s
+           ORDER BY s.employee, s.start_date""",
         (target, month), as_dict=True)
-    plan = []
+    payable, _cc = _payroll_defaults(target)
+    plan, held, room = [], [], {}
     for s in slips:
-        payable, _cc = _payroll_defaults(target)
-        acct = frappe.db.get_value("Payroll Entry", s.pe, "payroll_payable_account") if s.pe else payable
-        # already paid to this employee against this run
+        acct = (frappe.db.get_value("Payroll Entry", s.pe, "payroll_payable_account") if s.pe else None) or payable
         paid = flt(frappe.db.sql(
             """SELECT SUM(jea.debit) FROM `tabJournal Entry Account` jea
                JOIN `tabJournal Entry` je ON je.name=jea.parent
                WHERE je.docstatus=1 AND jea.party_type='Employee' AND jea.party=%s
                  AND jea.reference_type='Payroll Entry' AND jea.reference_name=%s""",
             (s.employee, s.pe))[0][0]) if s.pe else 0.0
-        owe = _m(flt(s.net_pay) - paid)
+        by_run = _m(flt(s.net_pay) - paid)
+        if by_run <= 0.005:
+            continue
+        key = (s.employee, acct)
+        if key not in room:
+            room[key] = max(_m(frappe.db.sql(
+                """SELECT SUM(credit-debit) FROM `tabGL Entry`
+                   WHERE account=%s AND is_cancelled=0 AND party_type='Employee' AND party=%s""",
+                (acct, s.employee))[0][0]), 0.0)
+        owe = _m(min(by_run, room[key]))
+        room[key] = _m(room[key] - owe)
         if owe > 0.005:
-            plan.append({"employee": s.employee, "nm": s.employee_name, "amount": owe,
+            plan.append({"employee": s.employee, "nm": s.nm, "amount": owe,
                          "account": acct, "pe": s.pe})
-    return plan
+        if by_run - owe > 0.005:
+            held.append({"employee": s.employee, "nm": s.nm, "slip_open": by_run,
+                         "ledger_owed": _m(owe), "held": _m(by_run - owe), "pe": s.pe})
+    return (plan, held) if with_held else plan
 
 
 @frappe.whitelist()
@@ -834,7 +867,8 @@ def _pay_poster(doc):
     total = _m(sum(x["amount"] for x in plan))
     accounts = [{"account": x["account"], "party_type": "Employee", "party": x["employee"],
                  "debit_in_account_currency": x["amount"], "credit_in_account_currency": 0,
-                 "reference_type": "Payroll Entry", "reference_name": x["pe"]} for x in plan]
+                 **({"reference_type": "Payroll Entry", "reference_name": x["pe"]} if x["pe"] else {})}
+                for x in plan]
     accounts.append({"account": bank, "debit_in_account_currency": 0,
                      "credit_in_account_currency": total})
     mm = month[5:7] + "-" + month[2:4]
