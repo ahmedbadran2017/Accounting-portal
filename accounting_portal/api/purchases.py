@@ -440,13 +440,32 @@ def _make_receipt_poster(action):
 
 def _make_invoice_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
-    pi = frappe.get_attr("erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_purchase_invoice")(p["source"])
-    pi.flags.ignore_permissions = True
-    pi.insert()
-    pi.reload()
-    pi.submit()
+    # Items disabled AFTER the goods arrived block the bill for them: ERPNext
+    # refuses any invoice line whose item is disabled ("Item 47022928494846 is
+    # disabled"). The catalogue cleanup of 2026-04-20 disabled items with no
+    # stock and no sales — right for the catalogue, wrong for a receipt that was
+    # still waiting to be billed: 11 unbilled receipts carried 12 of them.
+    # Disabling says "don't sell or buy this any more", not "don't pay for what
+    # already came in". So those items — only those, only on this receipt — are
+    # re-enabled for the length of this transaction and disabled again before it
+    # ends, whatever happens; the action result names them.
+    items = [r[0] for r in frappe.db.sql(
+        """SELECT DISTINCT pri.item_code FROM `tabPurchase Receipt Item` pri JOIN `tabItem` i ON i.name=pri.item_code
+           WHERE pri.parent=%s AND i.disabled=1""", (p["source"],))]
+    for it in items:
+        frappe.db.set_value("Item", it, "disabled", 0, update_modified=False)
+    try:
+        pi = frappe.get_attr("erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_purchase_invoice")(p["source"])
+        pi.flags.ignore_permissions = True
+        pi.insert()
+        pi.reload()
+        pi.submit()
+    finally:
+        for it in items:
+            frappe.db.set_value("Item", it, "disabled", 1, update_modified=False)
     return {"voucher_type": "Purchase Invoice", "voucher_no": pi.name,
-            "result": {"from_pr": p["source"], "grand_total": flt(pi.grand_total)}}
+            "result": {"from_pr": p["source"], "grand_total": flt(pi.grand_total),
+                       "disabled_items_billed": items}}
 
 
 def _pay_bill_poster(action):
