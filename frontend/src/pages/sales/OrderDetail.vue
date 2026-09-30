@@ -70,7 +70,14 @@
           <span v-else class="w-14 h-14 rounded-[10px] grid place-items-center bg-app-warm border border-line flex-shrink-0"><Icon name="box" :size="20" color="#a8a29e" /></span>
           <div class="flex-1 min-w-0">
             <div class="text-[13px] font-semibold leading-snug">{{ it.name }}</div>
-            <div class="text-[11px] text-ink-3 mt-0.5">{{ it.qty }} × {{ it.rate }} <span class="text-ink-muted">{{ o.currency }}</span></div>
+            <div class="text-[11px] text-ink-3 mt-0.5">{{ it.qty }} × {{ it.rate }} <span class="text-ink-muted">{{ o.currency }}</span>
+              <!-- A line discount lowers the rate itself, so the list price is the
+                   only place the reader can see what it was before. -->
+              <template v-if="it.listRate">
+                <s class="ms-1 text-ink-muted tnum">{{ it.listRate }}</s>
+                <span v-if="it.discPct" class="ms-1 text-[10px] font-bold px-1.5 rounded-badge" style="background:#fef2f2;color:#be123c">−{{ it.discPct }}%</span>
+              </template>
+            </div>
           </div>
           <div class="text-[14px] font-bold tnum whitespace-nowrap">{{ it.amount }} <span class="text-[11px] text-ink-muted">{{ o.currency }}</span></div>
         </div>
@@ -90,7 +97,9 @@
       </FactCard>
 
       <FactCard :title="L('Financial','المالي','Financier')"
-                icon="coins" tint="#ecfdf5" color="#047857" :facts="financialFacts" />
+                icon="coins" tint="#ecfdf5" color="#047857" :facts="financialFacts">
+        <div v-if="discountHint" class="mt-2.5 text-[11px] leading-relaxed text-ink-muted">{{ discountHint }}</div>
+      </FactCard>
     </div>
 
     <!-- Related documents -->
@@ -261,7 +270,18 @@ const financialFacts = computed(() => {
   // "VAT 20%" beside a zero asserts a rate the order does not carry. Nine
   // percent of 2026 orders have no tax rows at all.
   const noTax = !Number(String(f.vat || "0").replace(/[^\d.-]/g, ""));
+  // The discount sits between the subtotal and the net, which is where it is
+  // taken. Without these two rows an order with a Shopify discount read as if
+  // it had been sold at the lower price all along.
+  const disc = f.discount > 0.005 ? [
+    { label: L("Subtotal", "قبل الخصم", "Sous-total"), value: f.subtotal, num: true },
+    { label: L("Discount", "الخصم", "Remise"), value: "−" + f.discountFmt, num: true,
+      note: [f.discountPct ? `${f.discountPct}%` : "",
+             f.discountOn === "Grand Total" ? L("on the gross", "على الإجمالي", "sur le TTC")
+               : f.discountOn === "Net Total" ? L("on the net", "على الصافي", "sur le HT") : ""].filter(Boolean).join(" · ") },
+  ] : [];
   return [
+    ...disc,
     { label: L("Net", "الصافي", "Net"), value: f.net, num: true },
     { label: L("VAT", "ض.ق.م", "TVA"), value: f.vat, num: true,
       note: noTax ? L("no tax on this order", "بدون ضريبة على هذا الطلب", "aucune taxe") : "" },
@@ -270,6 +290,28 @@ const financialFacts = computed(() => {
     { label: L("Billed / delivered", "مفوتر / مُسلّم", "Facturé / livré"),
       value: (f.billed || f.delivered) ? `${f.billed}% / ${f.delivered}%` : "", num: true },
   ];
+});
+// Adding a discount depends on how far the order has gone, and ERPNext is
+// right to be strict about it: the discount changes a total that, once
+// submitted, has been posted. A draft takes one in Edit; a submitted order that
+// has not shipped is amended; one that is already invoiced gets a credit note,
+// because the revenue it corrects lives on the invoice, not the order.
+const discountHint = computed(() => {
+  const f = financial.value;
+  if (!f || f.docstatus === undefined || f.discount > 0.005) return "";
+  if (f.docstatus === 0)
+    return L("To add a discount: Edit — percentage or amount, on the net or the gross.",
+             "لإضافة خصم: تعديل — نسبة أو مبلغ، على الصافي أو الإجمالي.",
+             "Pour une remise : Modifier.");
+  if (f.docstatus === 1 && (f.billed > 0 || f.delivered > 0))
+    return L("A discount can't change a submitted order. This one is already invoiced — give it as a credit note on the invoice.",
+             "الخصم مايتضافش على طلب مرحّل. الطلب ده اتفوتر — اعمله إشعار دائن على الفاتورة.",
+             "Commande facturée — passez par un avoir.");
+  if (f.docstatus === 1)
+    return L("A discount can't change a submitted order. Amend it (Cancel → Amend), add the discount, submit again.",
+             "الخصم مايتضافش على طلب مرحّل. اعمله Amend (إلغاء ← تعديل)، ضيف الخصم، وارحّله تاني.",
+             "Commande soumise — annulez puis modifiez.");
+  return "";
 });
 function back() { router.push({ path: "/accounting/sales/orders" }); }
 </script>

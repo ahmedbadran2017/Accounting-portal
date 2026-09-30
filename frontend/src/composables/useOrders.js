@@ -53,7 +53,9 @@ function liveVM(d, l) {
       { k: L(l, "VAT", "ض.ق.م", "TVA"), v: intFmt(d.total_taxes_and_charges) },
       ...(d.remittance_ref ? [{ k: L(l, "Remittance", "التحصيل", "Remise"), v: d.remittance_ref, mono: true }] : []),
     ],
-    items: (d.items || []).map((it) => ({ name: it.name, image: it.image, qty: it.qty, rate: fmt2(it.rate), amount: fmt2(it.amount) })),
+    items: (d.items || []).map((it) => ({ name: it.name, image: it.image, qty: it.qty, rate: fmt2(it.rate), amount: fmt2(it.amount),
+                                          listRate: Number(it.price_list_rate) > Number(it.rate) ? fmt2(it.price_list_rate) : "",
+                                          discPct: Number(it.discount_percentage) || 0 })),
     shipping: {
       phone: d.custom_customer_phone || d.custom_shipping_phone || "—",
       city: d.custom_shipping_city || "—",
@@ -70,6 +72,9 @@ function liveVM(d, l) {
     financial: {
       net: intFmt(d.net_total), vat: intFmt(d.total_taxes_and_charges), gross: intFmt(d.grand_total),
       advance: intFmt(d.advance_paid), billed: Math.round(d.per_billed || 0), delivered: Math.round(d.per_delivered || 0),
+      subtotal: intFmt(d.total), discount: Number(d.discount_amount) || 0, discountFmt: intFmt(d.discount_amount),
+      discountPct: Number(d.additional_discount_percentage) || 0, discountOn: d.apply_discount_on || "",
+      docstatus: d.docstatus,
     },
     related: { invoices: d.related_invoices || [], deliveries: d.related_deliveries || [], payments: d.related_payments || [] },
     timeline, journal,

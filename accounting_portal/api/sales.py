@@ -359,7 +359,11 @@ def get_order(name):
     so = frappe.db.get_value(
         "Sales Order", name,
         ["name", "customer", "company", "grand_total", "net_total", "currency",
-         "total_taxes_and_charges", "status", "transaction_date",
+         "total_taxes_and_charges", "status", "transaction_date", "docstatus",
+         # The additional discount. 1,042 submitted orders carry one in 2026
+         # (41,893 MAD, mostly Shopify discounts) and the page showed none of it:
+         # Net and Gross already had it subtracted, with nothing to say so.
+         "total", "discount_amount", "additional_discount_percentage", "apply_discount_on",
          "custom_sales_status", "custom_logistics_status",
          "custom_track_shipment_status", "custom_tracking_company",
          "custom_shipping_city", "custom_shipping_governorate",
@@ -375,7 +379,8 @@ def get_order(name):
         frappe.throw("Not permitted", frappe.PermissionError)
     so["state"] = _order_state(so)
     so["items"] = frappe.db.sql(
-        """SELECT soi.item_name AS name, soi.item_code, soi.qty, soi.rate, soi.amount, i.image
+        """SELECT soi.item_name AS name, soi.item_code, soi.qty, soi.rate, soi.amount, i.image,
+                  soi.price_list_rate, soi.discount_percentage, soi.discount_amount
            FROM `tabSales Order Item` soi
            LEFT JOIN `tabItem` i ON i.name = soi.item_code
            WHERE soi.parent = %s ORDER BY soi.idx""",
