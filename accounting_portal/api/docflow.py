@@ -345,6 +345,52 @@ _actions._NO_GATE.add(FLOW_ACTION)      # creates a DRAFT; submit is gated separ
 _actions._NO_GATE.add(STATUS_ACTION)
 
 
+def _guard_po_to_invoice(name):
+    """Two ways billing straight from a purchase order goes wrong here, both
+    stopped before ERPNext's mapper runs.
+
+    1. Lines marked billed with no invoice behind them. ERPNext maps only the
+       lines where billed_amt < amount; when every line already shows billed, it
+       builds an invoice with NO lines and then dies in set_payment_schedule on a
+       base total nothing calculated — the user sees "unsupported operand
+       type(s) for -: 'NoneType' and 'float'". PUR-ORD-2026-00033 was like this:
+       all 5 lines billed_amt == amount, per_billed 0, and not one invoice line
+       pointing at it. Ten orders carry the same stale marks.
+
+    2. The order's exchange rate is wrong and the receipt's is right. An invoice
+       built from the order copies the ORDER's rate. PUR-ORD-2026-00033 is at
+       41.14 MAD per USD — the lira rate — while its receipt is at 9.5, so the
+       bill would have been booked at 1,275,275 MAD instead of ~294,481.
+       Billing from the receipt carries the receipt's rate and closes the
+       three-way match as well.
+    """
+    lines = frappe.db.sql(
+        """SELECT name, amount, base_amount, billed_amt FROM `tabPurchase Order Item` WHERE parent=%s""",
+        (name,), as_dict=True)
+    open_lines = [l for l in lines if flt(l.base_amount) == 0 or abs(flt(l.billed_amt)) < abs(flt(l.amount))]
+    receipts = frappe.db.sql(
+        """SELECT DISTINCT pr.name, pr.conversion_rate FROM `tabPurchase Receipt Item` pri
+           JOIN `tabPurchase Receipt` pr ON pr.name=pri.parent
+           WHERE pri.purchase_order=%s AND pr.docstatus=1""", (name,), as_dict=True)
+    via = (" Bill it from its receipt instead: " + ", ".join(r.name for r in receipts[:3])
+           + ("…" if len(receipts) > 3 else "") + ".") if receipts else ""
+    if not open_lines:
+        real = frappe.db.sql(
+            """SELECT COUNT(*) FROM `tabPurchase Invoice Item` pii JOIN `tabPurchase Invoice` pi ON pi.name=pii.parent
+               WHERE pi.docstatus=1 AND pii.purchase_order=%s""", (name,))[0][0]
+        if not real:
+            frappe.throw(f"Every line on {name} is marked as already invoiced, but no invoice exists — the marks "
+                         "are stale data, not a real bill, so ERPNext has nothing left to put on a new one." + via)
+        frappe.throw(f"{name} is fully invoiced already.")
+    po_rate = flt(frappe.db.get_value("Purchase Order", name, "conversion_rate"))
+    for r in receipts:
+        pr_rate = flt(r.conversion_rate)
+        if po_rate and pr_rate and abs(po_rate - pr_rate) / pr_rate > 0.2:
+            frappe.throw(f"{name} carries an exchange rate of {po_rate:g} but its receipt {r.name} carries "
+                         f"{pr_rate:g}. An invoice made from the order copies the order's rate, so it would be "
+                         f"booked about {po_rate / pr_rate:.1f}× too high." + via)
+
+
 @frappe.whitelist()
 def create(doctype=None, name=None, key=None, company=None):
     """Create the linked document as a draft (ERPNext's own mapper), audited."""
@@ -357,6 +403,8 @@ def create(doctype=None, name=None, key=None, company=None):
     spec = next((s for s in _CREATES[doctype] if s[0] == key), None)
     if not spec or not _safe(spec[4], d):
         frappe.throw("That action is not available for this document right now")
+    if doctype == "Purchase Order" and key == "purchase_invoice":
+        _guard_po_to_invoice(name)
     # A second partial invoice/receipt from the same order is legitimate → unique key per call.
     dk = f"flow:{doctype}:{name}:{key}:{str(now_datetime())[:19]}"
     return _actions.execute(FLOW_ACTION, d.company, dk, payload={"doctype": doctype, "name": name, "key": key},
