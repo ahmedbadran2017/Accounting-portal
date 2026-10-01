@@ -1,5 +1,10 @@
 <template>
-  <div class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:p-8 overflow-y-auto" style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
+  <!-- An internal transfer is the same ERPNext document as on the Desk (Payment
+       Entry, type Internal Transfer) and the portal already had it — but only
+       on the Banking page, so the accountant looking for it in the payment form
+       did not find it. One implementation, opened from here too. -->
+  <TransferModal v-if="asTransfer" @close="$emit('close')" @posted="(r) => $emit('posted', r)" />
+  <div v-else class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:p-8 overflow-y-auto" style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
     <div class="bg-white rounded-[18px] shadow-cardHover w-full max-w-lg my-6 overflow-hidden">
       <div class="flex items-center gap-2.5 px-5 py-4 border-b border-line">
         <span class="w-8 h-8 rounded-[10px] grid place-items-center" :style="{ background: out ? '#fef2f2' : '#ecfdf5' }"><Icon name="coins" :size="16" :color="out ? '#b91c1c' : '#047857'" /></span>
@@ -11,6 +16,18 @@
       </div>
 
       <div class="p-5 space-y-3.5">
+        <div class="flex gap-1 p-1 rounded-chip bg-app-warm" role="tablist">
+          <button type="button" role="tab" aria-selected="true"
+                  class="flex-1 py-1.5 rounded-lg text-[12px] font-semibold bg-white shadow-card text-ink">
+            {{ out ? L("Payment to a supplier", "دفع لمورد", "Paiement fournisseur") : L("Receipt from a customer", "تحصيل من عميل", "Encaissement client") }}
+          </button>
+          <button type="button" role="tab" aria-selected="false"
+                  class="flex-1 py-1.5 rounded-lg text-[12px] font-semibold text-ink-3 hover:text-ink"
+                  :title="L('Between two of our own bank or cash accounts', 'بين حسابين بنك أو خزنة تبعنا', 'Entre deux de nos comptes banque / caisse')"
+                  @click="asTransfer = true">
+            {{ L("Internal transfer", "تحويل داخلي", "Virement interne") }}
+          </button>
+        </div>
         <!-- Party search -->
         <label class="block relative">
           <span class="text-[11px] font-semibold text-ink-3">{{ out ? L("Supplier", "المورد", "Fournisseur") : L("Customer", "العميل", "Client") }}</span>
@@ -67,6 +84,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import UiButton from "@/components/UiButton.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
+import TransferModal from "@/components/TransferModal.vue";
 import api from "@/services/api";
 import { newClientKey } from "@/utils/helpers";
 import { currentCompany } from "@/composables/useLive";
@@ -76,6 +94,7 @@ import { useUi } from "@/composables/useUi";
 // "Payments made" — a screen of 2,129 supplier payments — had no way to add one,
 // and the header offered "New PO" instead.
 const props = defineProps({ direction: { type: String, default: "in" } });   // "in" | "out"
+const asTransfer = ref(false);
 const out = computed(() => props.direction === "out");
 const emit = defineEmits(["close", "posted"]);
 const { locale } = useI18n();
