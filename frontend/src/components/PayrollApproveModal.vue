@@ -1,8 +1,8 @@
 <template>
   <div class="fixed inset-0 z-[100] overflow-y-auto flex items-start justify-center p-4"
        style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
-    <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-3xl my-4">
-      <header class="flex items-center gap-2.5 px-5 py-3.5 border-b border-line-hair">
+    <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-3xl my-4 flex flex-col max-h-[calc(100vh-2rem)]">
+      <header class="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-line-hair">
         <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#ecfdf5">
           <Icon name="check" :size="16" color="#047857" /></span>
         <div class="min-w-0">
@@ -15,7 +15,7 @@
           <Icon name="close" :size="14" /></button>
       </header>
 
-      <div class="p-5 space-y-3">
+      <div class="p-5 space-y-3 overflow-y-auto min-h-0 flex-1">
         <div v-if="loading" class="py-10 text-center text-[12px] text-ink-muted">…</div>
         <template v-else>
           <p class="text-[12px] text-ink-3 leading-relaxed">
@@ -90,7 +90,7 @@
         </template>
       </div>
 
-      <footer class="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-hair">
+      <footer class="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t border-line-hair">
         <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
         <UiButton variant="primary" :busy="busy" :disabled="loading || !!(p.blocks && p.blocks.length) || !p.documents" @click="go">
           {{ p.approved ? L("Re-approve", "إعادة الاعتماد", "Réapprouver") : L("Approve the month", "اعتمد الشهر", "Approuver") }}

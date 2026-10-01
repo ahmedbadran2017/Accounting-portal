@@ -1,8 +1,8 @@
 <template>
   <div class="fixed inset-0 z-[100] overflow-y-auto flex items-start justify-center p-4"
        style="background:rgba(28,25,23,.45)" @click.self="$emit('close')">
-    <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-2xl my-4">
-      <header class="flex items-center gap-2.5 px-5 py-3.5 border-b border-line-hair">
+    <div class="bg-white rounded-[16px] shadow-cardHover w-full max-w-2xl my-4 flex flex-col max-h-[calc(100vh-2rem)]">
+      <header class="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-line-hair">
         <span class="w-8 h-8 rounded-[10px] grid place-items-center" style="background:#f0fdf4">
           <Icon name="inbox" :size="16" color="#15803d" /></span>
         <div class="min-w-0">
@@ -15,7 +15,7 @@
           <Icon name="close" :size="14" /></button>
       </header>
 
-      <div class="p-5 space-y-3">
+      <div class="p-5 space-y-3 overflow-y-auto min-h-0 flex-1">
         <p class="text-[12px] text-ink-3 leading-relaxed">
           {{ L("Only the columns the sheet does not calculate are read: general hours, public holiday, overtime, missing, delay, performance, advance, contract, RIB and Send. Rate, total hours, payment and net are recomputed here, so a stale formula in the workbook can never become a salary.",
                 "بيتقرا بس الأعمدة اللي الورقة مابتحسبهاش: الساعات التعاقدية، الأعياد، الإضافي، الغياب، التأخير، المكافأة، السلفة، العقد، رقم الحساب، واتحوّل. سعر الساعة والإجمالي والمستحق والصافي بيتحسبوا هنا من جديد، فمعادلة قديمة في الملف عمرها ما تبقى راتب.",
@@ -52,6 +52,11 @@
             </div>
           </div>
 
+          <div v-if="r.change_count" class="flex items-center justify-end">
+            <UiButton variant="primary" size="sm" :busy="busy" @click="apply">
+              {{ L("Apply", "طبّق", "Appliquer") }} ({{ r.change_count }})
+            </UiButton>
+          </div>
           <!-- A name the file carries and the company does not is the one thing a
                silent import would lose, so it is named, not counted. -->
           <div v-if="r.unmatched_count" class="px-3 py-2 rounded-[10px] text-[12px] leading-relaxed" style="background:#fffbeb;color:#b45309">
@@ -83,7 +88,7 @@
         </template>
       </div>
 
-      <footer class="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-hair">
+      <footer class="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t border-line-hair">
         <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
         <UiButton variant="primary" :busy="busy" :disabled="!r || !r.change_count" @click="apply">
           {{ L("Apply", "طبّق", "Appliquer") }} {{ r && r.change_count ? `(${r.change_count})` : "" }}
