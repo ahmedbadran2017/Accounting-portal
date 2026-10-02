@@ -1102,9 +1102,21 @@ ADJ_ACTION = "Add pay adjustment"
 
 @frappe.whitelist()
 def component_options(company=None):
-    """Salary components split into earnings / deductions for the adjustment picker."""
+    """Salary components split into earnings / deductions for the adjustment picker.
+
+    Only components that carry an account on this company. The list used to offer
+    every enabled component, including the `... MAD` twins that have none —
+    `Commission MAD`, `Bonus Payment - İkramiye MAD`, `Due to Late Entry or Absence
+    Encashment MAD` — and September 2026 was keyed on all three: lines that look
+    fine in Adjustments and fail at slip submission for sixteen people.
+    """
     assert_portal_access()
-    rows = frappe.db.sql("SELECT name, type FROM `tabSalary Component` WHERE disabled=0 ORDER BY type, name", as_dict=True)
+    target = _target(company)
+    rows = frappe.db.sql(
+        """SELECT c.name, c.type FROM `tabSalary Component` c
+           WHERE c.disabled=0 AND EXISTS(SELECT 1 FROM `tabSalary Component Account` sca
+                                         WHERE sca.parent=c.name AND sca.company=%s AND IFNULL(sca.account,'')<>'')
+           ORDER BY c.type, c.name""", (target,), as_dict=True)
     return {"earnings": [r.name for r in rows if r.type == "Earning"],
             "deductions": [r.name for r in rows if r.type == "Deduction"]}
 
@@ -1185,6 +1197,7 @@ def add_adjustment(company=None, employee=None, salary_component=None, amount=No
         frappe.throw("Amount must be greater than zero")
     if not frappe.db.exists("Employee", {"name": employee, "company": target}):
         frappe.throw("Employee not found in this company")
+    _assert_component_has_account(salary_component, target)
     from accounting_portal.api import _actions
     key = "payadj:" + _digest(f"{target}:{employee}:{salary_component}:{amt}:{month}", 14)
     return _actions.execute(
@@ -1210,6 +1223,13 @@ def _adj_poster(doc):
 
 
 ADJ_EDIT_ACTION = "Edit adjustment"
+
+
+def _assert_component_has_account(component, target):
+    if component and not frappe.db.get_value("Salary Component Account",
+                                             {"parent": component, "company": target}, "account"):
+        frappe.throw(f"\"{component}\" has no account on {target}, so a slip carrying it fails at submission. "
+                     "Pick the component without the MAD suffix — it is the one with an account.")
 
 
 def _assert_not_sheet_owned(target, name):
@@ -1259,6 +1279,7 @@ def update_adjustment(company=None, name=None, amount=None, salary_component=Non
     _assert_not_sheet_owned(target, old.name)
     amt = _m(amount) if amount is not None else _m(old.amount)
     comp = salary_component or old.salary_component
+    _assert_component_has_account(comp, target)
     if amt <= 0:
         frappe.throw("Amount must be greater than zero")
     # Changing it after the slip is out changes nothing on the payslip and
@@ -2301,21 +2322,93 @@ def _approve_lines(target, month):
             # submission — long after anyone would connect it to this screen.
             blocks.append(f"{comp} has no account for {target} — the slip would fail at submission.")
 
-    edited_bonus = [r["employee_name"] for r in rows if "bonus" in (r.get("edited") or [])]
-    if edited_bonus:
-        blocks.append("Bonus was typed into the sheet for " + ", ".join(edited_bonus[:5])
-                      + ("…" if len(edited_bonus) > 5 else "")
-                      + ". A bonus needs a component and an account: put it in Adjustments and it "
-                        "flows into the slip on its own.")
+    # What was keyed by hand in Adjustments for this month — everything except
+    # the rows a previous approval of this very month wrote.
+    mine = set(_sheet_approved(target, month).get("names") or [])
+    manual = {}
+    for a in frappe.db.sql(
+        """SELECT a.name, a.employee, a.salary_component comp, c.type, a.amount
+           FROM `tabAdditional Salary` a JOIN `tabSalary Component` c ON c.name=a.salary_component
+           WHERE a.company=%(c)s AND a.docstatus=1 AND """ + _ADDSAL_MONTH,
+            {"c": target, "s": start, "e": _end}, as_dict=True):
+        if a.name not in mine:
+            manual.setdefault(a.employee, []).append(a)
+
+    # 1. Twice: the sheet writes holiday, overtime, absence/delay and advance from
+    # its own hours. The same thing keyed by hand in Adjustments is the same money
+    # a second time. Seen on September 2026: overtime for four people and delay
+    # for two, entered as hours in the sheet AND as amounts in Adjustments.
+    kinds = {SHEET_HOLIDAY_COMPONENT: "holiday_hours", SHEET_ADVANCE_COMPONENT: "advance"}
+    def _kind(comp):
+        if comp in kinds:
+            return kinds[comp]
+        c = (comp or "").lower()
+        if c.startswith("overtime"):
+            return "overtime_hours"
+        if c.startswith("due to late entry or absence"):
+            return "missing_delay"
+        if "holiday" in c:
+            return "holiday_hours"
+        return None
+    twice = []
+    by_emp = {r["employee"]: r for r in rows}
+    for emp, items in manual.items():
+        r = by_emp.get(emp)
+        if not r:
+            continue
+        for a in items:
+            k = _kind(a.comp)
+            on_sheet = (flt(r["missing_hours"]) + flt(r["delay_hours"])) if k == "missing_delay" else flt(r.get(k) or 0)
+            if k and on_sheet:
+                twice.append(f"{r['employee_name']} — {a.comp.split(' - ')[0]} {_m(a.amount)}")
+    if twice:
+        blocks.append("Entered twice — as hours on the sheet AND by hand in Adjustments: "
+                      + "; ".join(twice[:8]) + ("…" if len(twice) > 8 else "")
+                      + ". Approving would pay or deduct them a second time. Remove those lines from "
+                        "Adjustments (the sheet writes them), or clear the hours on the sheet.")
+
+    # 2. A bonus typed into the sheet is fine when Adjustments carry the same
+    # money — five of nine did on September 2026 and were blocked anyway, because
+    # the old check fired on the typed value existing at all. It stops only when
+    # the two disagree, and compares against money items only (bonus, commission),
+    # since overtime and holiday are the sheet's own and sit in its hours.
+    off = []
+    for r in rows:
+        if "bonus" not in (r.get("edited") or []):
+            continue
+        keyed = sum(flt(a.amount) for a in manual.get(r["employee"], [])
+                    if a.type == "Earning" and not _kind(a.comp))
+        if abs(flt(r["bonus"]) - keyed) > 0.5:
+            off.append(f"{r['employee_name']} (sheet {_m(r['bonus'])} vs Adjustments {_m(keyed)})")
+    if off:
+        blocks.append("Bonus on the sheet differs from Adjustments for " + "; ".join(off[:6])
+                      + ("…" if len(off) > 6 else "") + ". A bonus is paid from Adjustments — "
+                        "make the two agree, or clear the sheet's bonus cell.")
+
+    # 3. A component with no account on this company fails at slip submission,
+    # long after anyone would connect the error to the line keyed today.
+    # `Commission MAD` and `Due to Late Entry or Absence Encashment MAD` are both
+    # like that on Justyol Morocco, and both were used in September.
+    noacc = {}
+    for emp, items in manual.items():
+        for a in items:
+            if not frappe.db.get_value("Salary Component Account", {"parent": a.comp, "company": target}, "account"):
+                noacc.setdefault(a.comp, []).append((by_emp.get(emp) or {}).get("employee_name") or emp)
+    for comp, who in noacc.items():
+        blocks.append(f"\"{comp}\" has no account on {target}, so the slip would fail at submission — "
+                      f"used for {', '.join(sorted(set(who))[:5])}. Re-enter those lines on a component that has one.")
 
     for r in rows:
         rate = flt(r["rate"])
+        base, ch = flt(r["base"]), flt(r["contract_hours"]) or DEFAULT_CONTRACT_HOURS
         per = []
-        hol = _m(flt(r["holiday_hours"]) * rate)
-        ot = _m(flt(r["overtime_hours"]) * OVERTIME_RATE * rate)
+        hol = _m(base * flt(r["holiday_hours"]) / ch)
+        ot = _m(base * flt(r["overtime_hours"]) * OVERTIME_RATE / ch)
         # One component, because the company has one: it is literally named
         # "Due to Late Entry OR Absence". The hours stay split on the sheet.
-        cut = _m((flt(r["missing_hours"]) + flt(r["delay_hours"])) * rate)
+        # Never more than the month's salary — a deduction past it is a
+        # negative slip, not a correction.
+        cut = min(_m(base * (flt(r["missing_hours"]) + flt(r["delay_hours"])) / ch), _m(base))
         adv = _m(r["advance"])
         # Split across the actual advance documents, oldest first, because each
         # deduction settles ONE of them by reference. A part-payment — the

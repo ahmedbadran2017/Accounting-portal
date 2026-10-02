@@ -40,6 +40,10 @@ before_request = ["accounting_portal.api.deskguard.block_desk_for_accountants"]
 # (ap_fx_guard / ap_fx_guard_tolerance defaults) — see api/fx_guard.py.
 doc_events = {
     "Purchase Receipt": {
+        # bill/receive items disabled after the order or receipt — see api/disabled_items.py
+        "before_validate": "accounting_portal.api.disabled_items.allow_disabled_on_continued_lines",
+        "on_update": "accounting_portal.api.disabled_items.restore_after_save",
+        "on_submit": "accounting_portal.api.disabled_items.restore_after_submit",
         "validate": [
             "accounting_portal.api.fx_guard.validate_fx",
             # stock may not arrive at no cost — OFF by default, see stock_guard
@@ -47,6 +51,9 @@ doc_events = {
         ],
     },
     "Purchase Invoice": {
+        "before_validate": "accounting_portal.api.disabled_items.allow_disabled_on_continued_lines",
+        "on_update": "accounting_portal.api.disabled_items.restore_after_save",
+        "on_submit": "accounting_portal.api.disabled_items.restore_after_submit",
         "validate": [
             "accounting_portal.api.fx_guard.validate_fx",
             # new freight bills must debit 153.03 (clearing), not the 770.07
