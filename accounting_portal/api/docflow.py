@@ -405,6 +405,9 @@ def create(doctype=None, name=None, key=None, company=None):
         frappe.throw("That action is not available for this document right now")
     if doctype == "Purchase Order" and key == "purchase_invoice":
         _guard_po_to_invoice(name)
+    if doctype == "Purchase Receipt" and key == "purchase_invoice":
+        from accounting_portal.api.purchases import _guard_receipt_rates
+        _guard_receipt_rates([name])
     # A second partial invoice/receipt from the same order is legitimate → unique key per call.
     dk = f"flow:{doctype}:{name}:{key}:{str(now_datetime())[:19]}"
     return _actions.execute(FLOW_ACTION, d.company, dk, payload={"doctype": doctype, "name": name, "key": key},

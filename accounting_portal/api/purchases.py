@@ -541,6 +541,36 @@ def make_receipt(company=None, purchase_order=None, dedupe_key=None):
     return res
 
 
+def _guard_receipt_rates(receipts):
+    """Refuse a bill whose receipt lines still carry an inflated rate.
+
+    Earlier valuation fixes corrected what the stock was booked at
+    (valuation_rate, the SLE and the GL) but left the line's own `rate` alone.
+    A bill made from the receipt copies `rate`, not the valuation: the unbilled
+    83% of MAT-PRE-2026-02353 would have been billed at 15,555.56 TRY a pair
+    (4,666.67 MAD) for slippers booked into stock at 72 MAD. So a line not yet
+    fully billed whose rate (in MAD, per stock unit) is more than 3x what the
+    stock was booked at stops the bill. Landed cost only raises the valuation,
+    so it never trips this.
+    """
+    bad = frappe.db.sql(
+        """SELECT parent, idx, item_code, rate, base_net_rate, valuation_rate, conversion_factor
+           FROM `tabPurchase Receipt Item`
+           WHERE parent IN %(n)s AND docstatus=1 AND valuation_rate > 0
+             AND ABS(billed_amt) < ABS(amount)
+             AND base_net_rate > 3 * valuation_rate * IFNULL(NULLIF(conversion_factor, 0), 1)
+           ORDER BY parent, idx""", {"n": tuple(receipts)}, as_dict=True)
+    if not bad:
+        return
+    shown = "; ".join(
+        f"{b.parent} line {b.idx} ({b.item_code}): rate {flt(b.base_net_rate):,.2f} MAD vs stock "
+        f"{flt(b.valuation_rate) * (flt(b.conversion_factor) or 1):,.2f}" for b in bad[:4])
+    more = f" … and {len(bad) - 4} more line(s)" if len(bad) > 4 else ""
+    frappe.throw(
+        "This bill would copy a rate far above what the goods were booked into stock at — "
+        f"{shown}{more}. Correct the rate on the receipt line before billing.")
+
+
 @frappe.whitelist()
 def make_invoice_from_receipt(company=None, purchase_receipt=None, dedupe_key=None):
     """Create + submit a Purchase Invoice from a Receipt (Received → Billed/To Pay)."""
@@ -556,6 +586,7 @@ def make_invoice_from_receipt(company=None, purchase_receipt=None, dedupe_key=No
         frappe.throw("Purchase Receipt is not submitted")
     if flt(pr.per_billed) >= 100:
         frappe.throw("Already fully billed")
+    _guard_receipt_rates([purchase_receipt])
     res = _actions.execute(PI_ACTION, target, dedupe_key or f"pi:{purchase_receipt}",
                            payload={"source": purchase_receipt}, amount=flt(pr.grand_total),
                            reference_doctype="Purchase Receipt", reference_name=purchase_receipt,
@@ -773,6 +804,7 @@ def make_invoice_group(company=None, receipts=None, dedupe_key=None):
             frappe.throw(f"{r.name} is not a submitted receipt")
         if flt(r.per_billed) >= 100:
             frappe.throw(f"{r.name} is already billed")
+    _guard_receipt_rates(names)
     total = sum(flt(r.grand_total) for r in rows)
     key = dedupe_key or "billgrp:" + _digest("".join(sorted(names)), 16)
     res = _actions.execute(
