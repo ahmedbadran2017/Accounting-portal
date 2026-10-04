@@ -6,6 +6,7 @@ the team sees exactly where each number comes from (and the auditor's anomalies,
 like the stock-adjustment pile in the P&L, stay visible rather than hidden).
 """
 import frappe
+from accounting_portal.api import vat_gross
 from frappe.utils import flt, nowdate
 
 from accounting_portal.api import _cache
@@ -35,7 +36,7 @@ def pnl(company=None, from_date=None, to_date=None):
         from_date, to_date = _year_bounds()
     # ~1.5s over the full year of GL. Repeat visits and the report tabs that
     # re-read it should not pay for it again.
-    pnl_key = f"ap_pnl:{target}:{from_date}:{to_date}"
+    pnl_key = f"ap_pnl:v2:{target}:{from_date}:{to_date}"
     pnl_hit = frappe.cache().get_value(pnl_key)
     if pnl_hit is not None:
         return pnl_hit
@@ -56,6 +57,14 @@ def pnl(company=None, from_date=None, to_date=None):
               for r in rows if r.root_type == "Income"]
     expense = [{"account": r.name, "name": r.account_name, "amount": flt(r.debit_net)}
                for r in rows if r.root_type == "Expense"]
+    # revenue at the price the customer pays — see api/vat_gross.py
+    vat_in, vat_paid = vat_gross.totals(target, from_date, to_date)
+    if round(vat_in):
+        income.append({"account": vat_gross.VAT_IN_PRICE, "name": vat_gross.VAT_IN_PRICE_LABEL, "amount": round(vat_in)})
+        income.sort(key=lambda r: -abs(r["amount"]))
+    if round(vat_paid):
+        expense.append({"account": vat_gross.VAT_PAID, "name": vat_gross.VAT_PAID_LABEL, "amount": round(vat_paid)})
+        expense.sort(key=lambda r: -abs(r["amount"]))
     income_total = sum(r["amount"] for r in income)
     expense_total = sum(r["amount"] for r in expense)
 
@@ -70,6 +79,8 @@ def pnl(company=None, from_date=None, to_date=None):
         "income": income[:20], "expense": expense[:20],
         "income_total": income_total, "expense_total": expense_total,
         "net": income_total - expense_total, "anomaly": anomaly,
+        "vat_inclusive": True, "vat_in_price": round(vat_in), "vat_paid": round(vat_paid),
+        "statutory_net": income_total - expense_total - round(vat_in) + round(vat_paid),
     }
     try:
         frappe.cache().set_value(pnl_key, res, expires_in_sec=300)
@@ -296,7 +307,7 @@ def sales_collections_cohort(company=None, from_date=None, to_date=None):
         return {}
     if not (from_date and to_date):
         from_date, to_date = _year_bounds()
-    ck = f"ap_sales_cohort:{target}:{from_date}:{to_date}"
+    ck = f"ap_sales_cohort:v2:{target}:{from_date}:{to_date}"
     cached = frappe.cache().get_value(ck)
     if cached is not None:
         return cached
@@ -326,7 +337,7 @@ def sales_collections_cohort(company=None, from_date=None, to_date=None):
     # the header net by the line count, then attribute to the order's month.
     inv = frappe.db.sql(
         """SELECT DATE_FORMAT(so.transaction_date,'%%Y-%%m') m, ROUND(SUM(x.net)) invoiced
-           FROM (SELECT si.name, si.base_net_total net, MIN(sii.sales_order) so_name
+           FROM (SELECT si.name, si.base_grand_total net, MIN(sii.sales_order) so_name
                  FROM `tabSales Invoice` si JOIN `tabSales Invoice Item` sii ON sii.parent=si.name
                  WHERE si.company=%(c)s AND si.docstatus=1 GROUP BY si.name) x
            JOIN `tabSales Order` so ON so.name=x.so_name
@@ -954,7 +965,7 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
     if not (from_date and to_date):
         from_date, to_date = _year_bounds()
     compare = int(compare or 0)
-    ck = f"ap_fs:{target}:{from_date}:{to_date}:{compare}:{pres_ccy or ''}"
+    ck = f"ap_fs:v2:{target}:{from_date}:{to_date}:{compare}:{pres_ccy or ''}"
     cached_hit = frappe.cache().get_value(ck)
     if cached_hit is not None:
         return cached_hit
@@ -969,7 +980,18 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
 
     # ── P&L ──
     cur = _pnl_rows(target, from_date, to_date)
-    pri = {r["name"]: r for r in _pnl_rows(target, p_from, p_to)} if compare else {}
+    pri_rows = _pnl_rows(target, p_from, p_to) if compare else []
+    # revenue at the price the customer pays — see api/vat_gross.py
+    vat_cur = vat_gross.totals(target, from_date, to_date)
+    vat_pri = vat_gross.totals(target, p_from, p_to) if compare else (0.0, 0.0)
+    for rows_, (v_in, v_paid) in ((cur, vat_cur), (pri_rows, vat_pri)):
+        if round(v_in):
+            rows_.append(frappe._dict(name=vat_gross.VAT_IN_PRICE, account_name=vat_gross.VAT_IN_PRICE_LABEL,
+                                      root_type="Income", at="", net=round(v_in), je=0))
+        if round(v_paid):
+            rows_.append(frappe._dict(name=vat_gross.VAT_PAID, account_name=vat_gross.VAT_PAID_LABEL,
+                                      root_type="Expense", at="Tax", net=-round(v_paid), je=0))
+    pri = {r["name"]: r for r in pri_rows}
     inc = [r for r in cur if r["root_type"] == "Income"]
     exp = []
     for r in (x for x in cur if x["root_type"] == "Expense"):
@@ -1064,6 +1086,9 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
         "gross_margin": round(gross / rev_total * 100, 1) if rev_total else 0,
         "opex_total": round(opex_total), "opex_prior": round(opex_prior),
         "net": round(net), "net_prior": round(net_p), "anomaly": anomaly,
+        "vat_inclusive": True, "vat_in_price": round(vat_cur[0]), "vat_paid": round(vat_cur[1]),
+        "statutory_net": round(net - vat_cur[0] + vat_cur[1]),
+        "statutory_net_prior": round(net_p - vat_pri[0] + vat_pri[1]),
     }
 
     # ── Balance Sheet (classified) ──
@@ -1155,7 +1180,7 @@ def verified_dd(company=None):
     target = _target(company)
     if not target:
         return {}
-    ck = f"ap_vdd:{target}"
+    ck = f"ap_vdd:v2:{target}"
     cached_hit = frappe.cache().get_value(ck)
     if cached_hit is not None:
         return cached_hit
@@ -1171,7 +1196,7 @@ def verified_dd(company=None):
                 WHERE g.company=%s AND g.is_cancelled=0 AND a.root_type=%s AND {cond}""",
             (args[0], rt) + args[1:])[0][0])
 
-    rev = _root("Income", fy)
+    rev = _root("Income", fy) + vat_gross.totals(target, fy, _year_bounds()[1])[0]  # VAT-inclusive
     cogs = flt(frappe.db.sql(
         """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
            WHERE g.company=%s AND g.is_cancelled=0 AND g.posting_date>=%s
@@ -1278,7 +1303,7 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
     if not target:
         return {}
     y = int(year or nowdate()[:4])
-    ck = f"ap_fs:{target}:monthly:{y}:{pres_ccy or ''}"
+    ck = f"ap_fs:v2:{target}:monthly:{y}:{pres_ccy or ''}"
     hit = frappe.cache().get_value(ck)
     if hit is not None:
         return hit
@@ -1293,6 +1318,14 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
              AND g.posting_date BETWEEN %s AND %s
            GROUP BY a.name, ym, g.voucher_type""",
         (target, f"{y}-01-01", f"{y}-12-31"), as_dict=True)
+    # revenue at the price the customer pays — see api/vat_gross.py
+    for ym, v in vat_gross.by_month(target, f"{y}-01-01", f"{y}-12-31").items():
+        if round(v["in_price"]):
+            rows.append(frappe._dict(name=vat_gross.VAT_IN_PRICE, an=vat_gross.VAT_IN_PRICE_LABEL, rt="Income",
+                                     at="", ym=ym, vt="Sales Invoice", net=round(v["in_price"])))
+        if round(v["paid"]):
+            rows.append(frappe._dict(name=vat_gross.VAT_PAID, an=vat_gross.VAT_PAID_LABEL, rt="Expense",
+                                     at="Tax", ym=ym, vt="Payment Entry", net=-round(v["paid"])))
     # months run to the LAST month carrying data, not just the current one —
     # a future-dated entry (e.g. a mis-dated October bill) must show up and
     # be seen, not silently vanish from every total (audit caught 1,340 MAD
@@ -1390,6 +1423,7 @@ def pnl_monthly(company=None, year=None, pres_ccy=None):
         "sections": sections,
         "gross_monthly": gross, "gross_total": sum(gross),
         "net_monthly": net, "net_total": sum(net),
+        "vat_inclusive": True,
     }
     # per-group subtotals for the COGS block presentation
     cg = {}

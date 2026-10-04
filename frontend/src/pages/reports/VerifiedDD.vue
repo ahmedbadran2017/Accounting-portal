@@ -66,7 +66,7 @@ watch(entityId, load);
 const metricCards = computed(() => {
   const m = d.value.metrics || {};
   return [
-    { label: L("Revenue (FY)", "الإيراد", "Produits"), value: money(m.revenue) + " " + d.value.currency },
+    { label: L("Revenue (FY, incl. VAT)", "الإيراد (شامل الضريبة)", "Produits TTC"), value: money(m.revenue) + " " + d.value.currency },
     { label: L("Gross margin", "هامش إجمالي", "Marge brute"), value: m.gross_margin + "%", color: m.gross_margin < 0 ? "#be123c" : "#047857" },
     { label: L("Cash", "النقد", "Trésorerie"), value: money(m.cash), color: m.cash < 0 ? "#be123c" : undefined },
     { label: L("Debtors", "المدينون", "Débiteurs"), value: money(m.debtors), color: m.debtors < 0 ? "#be123c" : undefined },

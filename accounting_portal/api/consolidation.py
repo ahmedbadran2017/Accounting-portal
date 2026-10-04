@@ -56,6 +56,12 @@ def _company_figures(company, fy):
            WHERE g.company=%s AND g.is_cancelled=0
              AND (a.account_name LIKE '%%Internal%%' OR a.account_name LIKE '%%Intercompany%%'
                   OR a.account_name LIKE '%%Inter Company%%')""", (company,))[0][0] or 0)
+    # revenue at the price the customer pays — see api/vat_gross.py
+    from accounting_portal.api import vat_gross
+    from frappe.utils import nowdate
+    v_in, v_paid = vat_gross.totals(company, fy, nowdate())
+    pl.income = flt(pl.income) + v_in
+    pl.expense = flt(pl.expense) + v_paid
     return {
         "income": flt(pl.income), "expense": flt(pl.expense), "net": flt(pl.income) - flt(pl.expense),
         "assets": flt(bs.assets), "liabilities": flt(bs.liabilities), "cash": flt(bs.cash),
@@ -69,7 +75,7 @@ def consolidated_financials(base=None):
     consolidated totals + the FX rates used."""
     assert_portal_access()
     base = base or GROUP_CCY
-    ck = f"ap_consol:{base}"
+    ck = f"ap_consol:v2:{base}"
     hit = frappe.cache().get_value(ck)
     if hit is not None:
         return hit

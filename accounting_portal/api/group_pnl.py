@@ -125,6 +125,14 @@ def group_pnl(year=None, ccy="MAD"):
                  AND YEAR(g.posting_date)=%s
                GROUP BY a.name, MONTH(g.posting_date)""", (co, y), as_dict=True)
         fx = rates.get(ccys[co], {})
+        if role == "sales":
+            # external revenue at the price the customer pays — see api/vat_gross.py
+            from accounting_portal.api import vat_gross
+            for ym, vv in vat_gross.by_month(co, f"{y}-01-01", f"{y}-12-31").items():
+                mm = int(ym[5:7])
+                out_m[mm]["revenue"] += flt(vv["in_price"]) * flt(fx.get(mm))
+                out_m[mm]["opex"] += flt(vv["paid"]) * flt(fx.get(mm))
+                opex_by_co[co] += flt(vv["paid"]) * flt(fx.get(mm))
         for r in rows:
             m = int(r.m)
             v = flt(r.cr) * flt(fx.get(m))
@@ -157,7 +165,7 @@ def group_pnl(year=None, ccy="MAD"):
                          "opex": round(op), "net": round(rev - cg - op)})
     tot = {k: sum(r[k] for r in rows_out) for k in ("revenue", "cogs", "gross", "opex", "net")}
     tot["gm_pct"] = round(100 * tot["gross"] / tot["revenue"], 1) if tot["revenue"] else 0
-    return {"year": y, "ccy": ccy, "roles": roles, "rows": rows_out, "total": tot,
+    return {"year": y, "ccy": ccy, "roles": roles, "rows": rows_out, "total": tot, "vat_inclusive": True,
             "opex_by_company": {k: round(v) for k, v in opex_by_co.items()},
             "eliminated": {k: {kk: round(vv) for kk, vv in v.items()}
                            for k, v in eliminated.items() if any(v.values())},

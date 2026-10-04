@@ -94,7 +94,7 @@
         <table class="w-full text-[12px]">
           <thead><tr style="background:#fafaf9">
             <th class="px-4 py-2 text-start text-[11px] font-bold text-ink-muted">{{ L("Month","الشهر","Mois") }}</th>
-            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Revenue","الإيراد","Revenu") }}</th>
+            <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Revenue (incl. VAT)","الإيراد (شامل الضريبة)","Revenu TTC") }}</th>
             <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">COGS</th>
             <th class="px-3 py-2 text-end text-[11px] font-bold text-ink-muted">{{ L("Gross","مجمل","Brut") }}</th>
             <th class="px-3 py-2 text-center text-[11px] font-bold text-ink-muted">GM%</th>
@@ -285,7 +285,7 @@ const digest = computed(() => {
 const kpis = computed(() => {
   const t = d.value.totals || {};
   return [
-    { label: L("Group revenue (FY)", "إيراد المجموعة", "Produits groupe"), value: money(t.income), sub: d.value.base, icon: "trend", ibg: "#ecfdf5", ic: "#047857" },
+    { label: L("Group revenue (FY, incl. VAT)", "إيراد المجموعة (شامل الضريبة)", "Produits groupe TTC"), value: money(t.income), sub: d.value.base, icon: "trend", ibg: "#ecfdf5", ic: "#047857" },
     { label: L("Group net (FY)", "صافي المجموعة", "Résultat groupe"), value: money(t.net), sub: L("distorted by stock", "متأثر بالمخزون", "faussé par le stock"), icon: "scale", ibg: "#faf5ff", ic: "#7c3aed", color: t.net < 0 ? "#be123c" : undefined },
     { label: L("Group assets", "أصول المجموعة", "Actifs groupe"), value: money(t.assets), sub: d.value.base, icon: "bank", ibg: "#eff6ff", ic: "#0369a1" },
     { label: L("Cash on hand", "النقد", "Trésorerie"), value: money(t.cash), sub: L("all entities", "كل الكيانات", "toutes entités"), icon: "coins", ibg: "#fff7ed", ic: "#c2410c", color: (t.cash || 0) < 0 ? "#be123c" : undefined },

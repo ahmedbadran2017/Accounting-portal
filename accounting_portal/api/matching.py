@@ -37,7 +37,7 @@ def warm_caches():
     for fn, args in ((monthly, (co, y)), (cycle, (co, y))):
         try:
             frappe.cache().delete_value(
-                ("ap_match:%s:%s" if fn is monthly else "ap_cycle:%s:%s") % (co, y))
+                ("ap_match:v2:%s:%s" if fn is monthly else "ap_cycle:v2:%s:%s") % (co, y))
             fn(co, y)
         except Exception:
             frappe.log_error(title="report cache warmer", message=frappe.get_traceback())
@@ -74,7 +74,7 @@ def _base_sets(company, year):
            GROUP BY sle.voucher_no""", (company, year)))
     sis = frappe.db.sql(
         """SELECT s.name, DATE_FORMAT(s.posting_date,'%%Y-%%m') ym, s.customer,
-                  s.base_net_total value,
+                  s.base_grand_total value,
                   (SELECT x.sales_order FROM `tabSales Invoice Item` x
                    WHERE x.parent=s.name AND IFNULL(x.sales_order,'')!='' LIMIT 1) so,
                   (SELECT 1 FROM `tabSales Invoice Item` x WHERE x.parent=s.name
@@ -169,7 +169,7 @@ def monthly(company=None, year=None):
     if not target:
         return {}
     y = int(year or nowdate()[:4])
-    ck = f"ap_match:{target}:{y}"
+    ck = f"ap_match:v2:{target}:{y}"
     hit = frappe.cache().get_value(ck)
     if hit is not None:
         return hit
@@ -416,7 +416,7 @@ def _cycle_payload(company, year):
 
 
 def _cycle_cached(company, year):
-    ck = f"ap_cycle:{company}:{year}"
+    ck = f"ap_cycle:v2:{company}:{year}"
     hit = frappe.cache().get_value(ck)
     if hit is None:
         hit = _cycle_payload(company, year)

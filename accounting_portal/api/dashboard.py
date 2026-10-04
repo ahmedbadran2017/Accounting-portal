@@ -132,6 +132,12 @@ def get_overview():
         elif r.root_type == "Expense":
             row["expense_ytd"] += -amt       # expenses are debit-positive
 
+    # revenue at the price the customer pays — see api/vat_gross.py
+    from accounting_portal.api import vat_gross
+    for c, row in by_company.items():
+        v_in, v_paid = vat_gross.totals(c, fy_start, nowdate())
+        row["income_ytd"] += v_in
+        row["expense_ytd"] += v_paid
     for row in by_company.values():
         row["net_ytd"] = row["income_ytd"] - row["expense_ytd"]
 
@@ -555,7 +561,9 @@ def sales_headline(company=None, year=None):
 
       ordered  — value of orders placed (demand; a COD order is not a sale yet)
       billed   — invoiced to customers INCLUDING VAT (what they actually owe)
-      revenue  — the P&L line, net of VAT (what the business earns)
+      revenue  — the P&L line, VAT-inclusive like every management report here
+                 (api/vat_gross.py); `revenue_net` keeps the statutory figure
+      vat_paid — the VAT that actually left the bank for the state
       collected— cash received in the period
 
     The gap between `ordered` and `billed` is the return/failure rate — the
@@ -573,7 +581,7 @@ def sales_headline(company=None, year=None):
     # uncached, because it ran three queries per month in a 12-month loop and
     # wrapped every date in YEAR()/MONTH(), which no index can serve. One grouped
     # query per source over a plain date range answers all twelve months at once.
-    ck = f"ap_headline:{target}:{yr}"
+    ck = f"ap_headline:v2:{target}:{yr}"
     hit = frappe.cache().get_value(ck)
     if hit is not None:
         return hit
@@ -622,11 +630,16 @@ def sales_headline(company=None, year=None):
                        "revenue": round(r), "vat": round(v)})
 
     billed = revenue + vat
+    from accounting_portal.api import vat_gross
+    vat_paid = vat_gross.totals(target, y0, y1)[1]
+    for mo in months:
+        mo["revenue_net"] = mo["revenue"]; mo["revenue"] = mo["billed"]
     res = {
         "company": target, "currency": ccy, "year": yr,
         "orders": int(orders or 0),
         "ordered": round(ordered), "billed": round(billed),
-        "revenue": round(revenue), "vat": round(vat), "collected": round(collected),
+        "revenue": round(billed), "revenue_net": round(revenue), "vat": round(vat),
+        "vat_paid": round(vat_paid), "collected": round(collected),
         # how much of what customers asked for actually became an invoice
         "conversion": round(100.0 * billed / ordered, 1) if ordered else None,
         "months": months,

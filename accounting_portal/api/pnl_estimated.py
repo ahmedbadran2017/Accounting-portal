@@ -410,7 +410,7 @@ def pnl_estimated(company=None, year=None, scope=None):
         return {}
     group = str(scope or "") == "group"
     y = int(year or nowdate()[:4])
-    ck = f"ap_pnlest:{target}:{y}:{scope or ''}"
+    ck = f"ap_pnlest:v2:{target}:{y}:{scope or ''}"
     hit = frappe.cache().get_value(ck)
     if hit is not None:
         return hit
@@ -646,19 +646,16 @@ def _vat(company, idx, n, fr, to):
            WHERE company=%s AND is_cancelled=0
              AND (account LIKE '191.%%' OR account LIKE '391.1%%' OR account LIKE '391.6%%')""",
         (company,))[0][0])
-    # what is actually settled with the state: a debit to the VAT liability from
-    # something that is not a sales or purchase invoice — i.e. a payment or a filing
+    # what is actually settled with the state: cash that left a bank/cash account
+    # against the VAT liability — one rule for every report (api/vat_gross.py);
+    # a filing netted against the input credit, or the Dec-2025 "VAT Return" JE
+    # that parked a recovery in revenue, is not a payment
+    from accounting_portal.api import vat_gross
     settled = [0.0] * n
-    for r in frappe.db.sql(
-            """SELECT DATE_FORMAT(posting_date,'%%Y-%%m') AS ym, SUM(debit) AS v
-               FROM `tabGL Entry` WHERE company=%s AND is_cancelled=0
-                 AND account LIKE '391.%%'
-                 AND voucher_type NOT IN ('Sales Invoice','Purchase Invoice')
-                 AND posting_date BETWEEN %s AND %s
-               GROUP BY ym""", (company, fr, to), as_dict=True):
-        i = idx.get(r["ym"])
+    for ym, v in vat_gross.by_month(company, fr, to).items():
+        i = idx.get(ym)
         if i is not None:
-            settled[i] += flt(r["v"])
+            settled[i] += flt(v["paid"])
     net = [out[i] - inp[i] for i in range(n)]
     burn = (sum(net) / n) if n else 0.0
     return {

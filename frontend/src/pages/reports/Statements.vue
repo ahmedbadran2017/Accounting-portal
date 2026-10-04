@@ -51,7 +51,7 @@
                     <template v-if="compare"><td class="px-5 py-1.5 text-end tnum text-ink-muted">{{ fmt(g.prior) }}</td><td class="px-5 py-1.5 text-end tnum" :class="delta(g.total, g.prior).c">{{ delta(g.total, g.prior).t }}</td></template>
                   </tr>
                   <tr v-for="(a, i) in (openGroups.has(sec.key + g.group) ? g.accounts : [])" :key="sec.key + g.group + i"
-                      class="border-t border-line-hair hover:bg-app-warm/40" :class="a.account && 'cursor-pointer'" @click="a.account && drill(a.account)"
+                      class="border-t border-line-hair hover:bg-app-warm/40" :class="drillable(a) && 'cursor-pointer'" @click="drillable(a) && drill(a.account)"
                       style="background:#fcfcfb">
                     <td class="px-5 py-1 ps-12 text-[12px] text-ink-3 truncate max-w-[280px] hover:text-accent-dark">{{ a.name }}</td>
                     <td class="px-5 py-1 text-end tnum text-[12px]">{{ fmt(a.amount) }}</td>
@@ -59,7 +59,7 @@
                   </tr>
                 </template>
               </template>
-              <tr v-else v-for="(a, i) in sec.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/40" :class="a.account && 'cursor-pointer'" @click="a.account && drill(a.account)">
+              <tr v-else v-for="(a, i) in sec.accounts" :key="i" class="border-t border-line-hair hover:bg-app-warm/40" :class="drillable(a) && 'cursor-pointer'" @click="drillable(a) && drill(a.account)">
                 <td class="px-5 py-1.5 ps-8 text-ink-2 truncate max-w-[280px] hover:text-accent-dark">{{ a.name }}</td>
                 <td class="px-5 py-1.5 text-end tnum">{{ fmt(a.amount) }}</td>
                 <template v-if="compare"><td class="px-5 py-1.5 text-end tnum text-ink-muted">{{ fmt(a.prior) }}</td><td class="px-5 py-1.5 text-end tnum" :class="delta(a.amount, a.prior).c">{{ delta(a.amount, a.prior).t }}</td></template>
@@ -76,7 +76,9 @@
             </tr>
           </tbody>
         </table>
-        <div class="px-5 py-2 border-t border-line-hair text-[11px] text-ink-muted">{{ L("Gross margin","هامش إجمالي","Marge brute") }} {{ d.pnl.gross_margin }}%</div>
+        <div class="px-5 py-2 border-t border-line-hair text-[11px] text-ink-muted">{{ L("Gross margin","هامش إجمالي","Marge brute") }} {{ d.pnl.gross_margin }}%
+          <template v-if="d.pnl.vat_inclusive"> · {{ L("Revenue includes VAT","الإيراد شامل الضريبة","Revenu TTC") }} ({{ fmt(d.pnl.vat_in_price) }}) — {{ L("only VAT actually paid is a cost","الضريبة المدفوعة فعليًا بس هي التكلفة","seule la TVA payée est une charge") }} · {{ L("statutory net (excl. VAT)","الصافي القانوني (بدون الضريبة)","résultat légal HT") }} <span class="tnum" dir="ltr">{{ fmt(d.pnl.statutory_net) }}</span></template>
+        </div>
       </div>
     </div>
 
@@ -146,7 +148,7 @@
                   <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(cGroup('core').total) }}</td>
                 </tr>
                 <template v-if="showCore">
-                  <tr v-for="(a, i) in cGroup('core').accounts" :key="'core' + i" class="border-t border-line-hair text-[12px] hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
+                  <tr v-for="(a, i) in cGroup('core').accounts" :key="'core' + i" class="border-t border-line-hair text-[12px] hover:bg-app-warm/40 cursor-pointer" @click="drillable(a) && drill(a.account)">
                     <td class="px-4 py-1 ps-9 truncate max-w-[220px] sticky start-0 bg-white text-ink-muted hover:text-accent-dark">{{ a.name }}</td>
                     <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1 text-end tnum text-ink-muted">{{ v ? money(v) : "·" }}</td>
                     <td class="px-4 py-1 text-end tnum text-ink-2">{{ money(a.total) }}</td>
@@ -186,7 +188,7 @@
                 </template>
               </template>
               <template v-else>
-                <tr v-for="(a, i) in mSection(sk).accounts" :key="sk + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="a.account && drill(a.account)">
+                <tr v-for="(a, i) in mSection(sk).accounts" :key="sk + i" class="border-t border-line-hair hover:bg-app-warm/40 cursor-pointer" @click="drillable(a) && drill(a.account)">
                   <td class="px-4 py-1.5 truncate max-w-[220px] sticky start-0 bg-white hover:text-accent-dark">{{ a.name }}</td>
                   <td v-for="(v, j) in a.monthly" :key="j" class="px-3 py-1.5 text-end tnum" :class="v < 0 ? 'text-sale' : 'text-ink-2'">{{ v ? money(v) : "·" }}</td>
                   <td class="px-4 py-1.5 text-end tnum font-semibold">{{ money(a.total) }}</td>
@@ -349,7 +351,9 @@ const cogsGroupOrder = [
   { key: "legacy", label: () => L("Legacy corrections (closed)", "تصحيحات قديمة (مقفولة)", "Corrections héritées"), color: "#78716c" },
   { key: "intercompany", label: () => L("Intercompany — under cleanup", "بينية — قيد التنضيف", "Intersociétés — en cours"), color: "#b45309" },
 ];
-const secLabel = (k) => ({ revenue: L("Revenue", "الإيرادات", "Produits"), cogs: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), opex: L("Operating expenses", "المصروفات التشغيلية", "Charges") }[k] || k);
+// the VAT-in-price / VAT-paid lines are computed, not ledger accounts — nothing to drill into
+const drillable = (a) => !!a.account && !String(a.account).startsWith("__");
+const secLabel = (k) => ({ revenue: L("Revenue (incl. VAT)", "الإيرادات (شامل الضريبة)", "Produits (TTC)"), cogs: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), opex: L("Operating expenses", "المصروفات التشغيلية", "Charges") }[k] || k);
 function mCsv() {
   const mo = dm.value.months || [];
   const head = ["Section", "Account", ...mo.map(monLabel), "Total"];
@@ -365,7 +369,7 @@ function mCsv() {
 const pnlSections = computed(() => {
   const p = d.value.pnl || {};
   const secs = [];
-  (p.revenue || []).forEach((s) => secs.push({ key: "rev", title: L("Revenue", "الإيرادات", "Produits"), accounts: s.accounts }));
+  (p.revenue || []).forEach((s) => secs.push({ key: "rev", title: L("Revenue (incl. VAT)", "الإيرادات (شامل الضريبة)", "Produits (TTC)"), accounts: s.accounts }));
   secs.push({ key: "revtot", title: "", accounts: [], subtotal: p.revenue_total, subtotalPrior: p.revenue_prior, subtotalLabel: L("Total revenue", "إجمالي الإيراد", "Total produits") });
   if (p.cogs && p.cogs.accounts) { secs.push({ key: "cogs", title: L("Cost of goods sold", "تكلفة المبيعات", "CMV"), accounts: p.cogs.accounts, groups: p.cogs.groups }); secs.push({ key: "gp", title: "", accounts: [], subtotal: p.gross_profit, subtotalPrior: p.gross_prior, subtotalLabel: L("Gross profit", "الربح الإجمالي", "Marge brute") }); }
   // sections below gross profit, ordered so corrections read as corrections:
@@ -423,7 +427,7 @@ const BsBlock = {
       h("tr", { style: "background:#fcfcfb", class: "border-t border-line-hair" }, [h("td", { class: "px-5 py-1.5 font-bold text-[11px] uppercase tracking-wide text-ink-3", colspan: p.compare ? 4 : 2 }, p.title)]),
       ...(p.sections || []).flatMap((s) => [
         h("tr", { class: "border-t border-line-hair", style: "background:#fff" }, [h("td", { class: "px-5 py-1 ps-7 font-semibold text-ink-2 text-[12px]", colspan: p.compare ? 4 : 2 }, s.section)]),
-        ...(s.accounts || []).map((a) => h("tr", { class: "border-t border-line-hair hover:bg-app-warm/40" + (a.account ? " cursor-pointer" : ""), onClick: () => a.account && p.onDrill && p.onDrill(a.account) }, [
+        ...(s.accounts || []).map((a) => h("tr", { class: "border-t border-line-hair hover:bg-app-warm/40" + (drillable(a) ? " cursor-pointer" : ""), onClick: () => drillable(a) && p.onDrill && p.onDrill(a.account) }, [
           h("td", { class: "px-5 py-1 ps-10 text-ink-3 truncate hover:text-accent-dark", style: "max-width:280px" }, a.name),
           h("td", { class: "px-5 py-1 text-end tnum" }, fmt(a.amount)),
           ...(p.compare ? [h("td", { class: "px-5 py-1 text-end tnum text-ink-muted" }, fmt(a.prior)), h("td", { class: "px-5 py-1 text-end tnum" })] : []),

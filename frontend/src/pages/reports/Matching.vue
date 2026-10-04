@@ -85,7 +85,7 @@
           <thead><tr style="background:#fafaf9">
             <th class="px-3 py-2.5 text-start hcell">{{ L("Month","الشهر","Mois") }}</th>
             <th class="px-3 py-2.5 text-end hcell">{{ L("Invoices","فواتير","Factures") }}</th>
-            <th class="px-3 py-2.5 text-end hcell">{{ L("Revenue","الإيراد","CA") }}</th>
+            <th class="px-3 py-2.5 text-end hcell">{{ L("Revenue (incl. VAT)","الإيراد (شامل الضريبة)","CA TTC") }}</th>
             <th class="px-3 py-2.5 text-end hcell">{{ L("DNs","أذون","BL") }}</th>
             <th class="px-3 py-2.5 text-end hcell">{{ L("DN cost","تكلفة الأذون","Coût BL") }}</th>
             <th class="px-3 py-2.5 text-end hcell" :title="L('cost went out and came back — cancels itself','خرجت ورجعت — تلغي نفسها','annulé par retour')">{{ L("Returns","مرتجعات","Retours") }}</th>

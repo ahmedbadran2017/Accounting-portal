@@ -114,10 +114,10 @@
         </div>
       </div>
       <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted">
-        {{ L("Revenue is the P&L line (net of VAT); the VAT you charge belongs to the state, not to you.",
-             "الإيراد هو سطر قائمة الدخل (صافي الضريبة) — الضريبة اللي بتحصّلها فلوس الدولة مش فلوسك.",
-             "Le revenu est net de TVA ; la TVA collectée appartient à l'État.") }}
-        <span v-if="sh.vat" dir="ltr"> · VAT {{ fmt(sh.vat) }}</span>
+        {{ L("Revenue includes VAT: the input-VAT credit on purchases absorbs almost all of it, so only the VAT actually paid is counted as a cost.",
+             "الإيراد شامل الضريبة: رصيد ضريبة المشتريات بيغطي معظمها، فاللي بيتحسب تكلفة هو الضريبة المدفوعة فعليًا بس.",
+             "Revenu TVA incluse : le crédit de TVA sur achats en absorbe presque tout ; seule la TVA réellement payée est une charge.") }}
+        <span v-if="sh.vat" dir="ltr"> · VAT {{ fmt(sh.vat) }} · {{ L("net of VAT", "صافي الضريبة", "HT") }} {{ fmt(sh.revenue_net) }}</span>
       </div>
     </div>
 
@@ -495,12 +495,12 @@ const shFigs = computed(() => {
     { k: "ordered", v: d.ordered, strong: false,
       label: L("Orders placed", "الطلبات", "Commandes"),
       hint: L("demand — before returns", "الطلب — قبل المرتجعات", "demande") },
-    { k: "billed", v: d.billed, strong: true,
-      label: L("Billed to customers", "المفوتر للعملاء", "Facturé"),
-      hint: L("including VAT", "شامل الضريبة", "TVA incluse") },
     { k: "revenue", v: d.revenue, strong: true,
-      label: L("Revenue (P&L)", "الإيراد (قائمة الدخل)", "Revenu (P&L)"),
-      hint: L("net of VAT", "صافي الضريبة", "hors TVA") },
+      label: L("Revenue", "الإيراد", "Revenu"),
+      hint: L("including VAT — the price the customer pays", "شامل الضريبة — السعر اللي العميل بيدفعه", "TVA incluse — prix payé par le client") },
+    { k: "vat_paid", v: d.vat_paid, strong: false,
+      label: L("VAT paid to the state", "الضريبة المدفوعة للدولة", "TVA payée à l'État"),
+      hint: L("cash actually paid this year", "المدفوع فعليًا هذه السنة", "réellement payée cette année") },
     { k: "collected", v: d.collected, strong: false,
       label: L("Cash collected", "المحصّل نقدًا", "Encaissé"),
       hint: L("received this year", "المستلم هذه السنة", "reçu cette année") },
