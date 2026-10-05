@@ -393,14 +393,22 @@ def get_order(name):
     # Purchase orders raised for this order. Each vendor PO is created per sales
     # order (named "#264026-Christelle Paris-JM") and its lines carry
     # `sales_order` — 182k lines on Morocco — but neither screen showed the link.
-    so["related_purchase_orders"] = frappe.db.sql(
-        """SELECT po.name, po.supplier, po.status, po.docstatus, ROUND(po.grand_total, 2) AS grand_total,
-                  po.currency, ROUND(po.per_received, 1) AS per_received, ROUND(po.per_billed, 1) AS per_billed
-           FROM `tabPurchase Order` po
-           JOIN (SELECT parent FROM `tabPurchase Order Item` WHERE sales_order = %(so)s
-                 UNION SELECT name FROM `tabPurchase Order` WHERE custom_sales_order = %(so)s) l ON l.parent = po.name
-           WHERE po.docstatus < 2
-           ORDER BY po.creation LIMIT 50""", {"so": name}, as_dict=True)
+    po_cols = """SELECT po.name, po.supplier, po.status, po.docstatus, ROUND(po.grand_total, 2) AS grand_total,
+                        po.currency, ROUND(po.per_received, 1) AS per_received, ROUND(po.per_billed, 1) AS per_billed,
+                        po.creation FROM `tabPurchase Order` po WHERE po.docstatus < 2 AND """
+    # Two indexed lookups, merged here: an OR between them, or a scan of the
+    # unindexed custom_sales_order, costs 0.2–1.3s per order page. Header-only
+    # links (1,556 POs) are named "<order id>-<supplier>-JM", so the primary key
+    # finds them by prefix.
+    pre = name.replace("%", r"\%").replace("_", r"\_") + "-%"
+    found = {r.name: r for r in frappe.db.sql(
+        po_cols + "po.name IN (SELECT parent FROM `tabPurchase Order Item` WHERE sales_order = %(so)s)",
+        {"so": name}, as_dict=True)}
+    for r in frappe.db.sql(po_cols + "po.name LIKE %(pre)s AND po.custom_sales_order = %(so)s",
+                           {"so": name, "pre": pre}, as_dict=True):
+        found.setdefault(r.name, r)
+    so["related_purchase_orders"] = [{k: v for k, v in r.items() if k != "creation"}
+                                     for r in sorted(found.values(), key=lambda x: x.creation)[:50]]
     # Payments: those that settled this order's invoices AND advances paid
     # against the order itself. Prepaid orders (Payzone, bank transfer) are paid
     # before any invoice exists, so the payment references the Sales Order —
