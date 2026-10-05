@@ -6,7 +6,7 @@ from accounting_portal.api.permissions import (
     PORTAL_ROLES_SET, ROLE_VIEWER, get_portal_role, can_manage_users,
     assert_portal_access,
 )
-from accounting_portal.api.deskguard import LOCK_ROLE, ensure_lock_role, is_locked
+from accounting_portal.api.deskguard import BLOCK_ROLE, LOCK_ROLE, ensure_lock_role, is_locked, set_marker
 
 _ASSIGNABLE = [
     {"role": "Accounting Super Admin", "label": "Super Admin", "desc": "Full access + manages users"},
@@ -62,11 +62,9 @@ def set_desk_locked(user=None, locked=None):
     if flag and user in (frappe.session.user, "Administrator"):
         frappe.throw("You can't lock this account out of the Desk")
     ensure_lock_role()
-    u = frappe.get_doc("User", user)
-    if flag:
-        u.add_roles(LOCK_ROLE)
-    else:
-        u.remove_roles(LOCK_ROLE)
+    set_marker(user, LOCK_ROLE, flag)
+    if not flag:
+        set_marker(user, BLOCK_ROLE, 0)   # unlocking also lifts a hard block
     try:
         frappe.cache().hdel("roles", user)   # so the lock bites on the very next request
     except Exception:

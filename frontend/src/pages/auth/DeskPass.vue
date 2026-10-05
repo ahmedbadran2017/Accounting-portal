@@ -17,6 +17,12 @@
         <a :href="next" class="block text-center rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-btn">{{ L("Open the Desk", "افتح الـ Desk", "Ouvrir le Desk") }}</a>
       </template>
 
+      <!-- hard block: no pass on offer -->
+      <template v-else-if="st.blocked">
+        <p class="text-[13px] text-ink-2 leading-relaxed mb-4">{{ L("The Desk is closed for this account. All work is done in the portal — if a screen you need is missing, tell the admin.", "الـ Desk مقفول على الحساب ده. كل الشغل بيتعمل من البورتال — لو في شاشة ناقصة بلّغ الأدمن.", "Le Desk est fermé pour ce compte. Tout le travail se fait dans le portail.") }}</p>
+        <a href="/accounting" class="block text-center rounded-chip bg-brand hover:bg-brand-dark text-white text-[13px] font-semibold py-2.5 shadow-btn">{{ L("Go to the portal", "روح للبورتال", "Aller au portail") }}</a>
+      </template>
+
       <!-- active pass -->
       <template v-else-if="st.remaining_min > 0">
         <div class="rounded-[10px] px-3 py-2.5 mb-4 text-[13px]" style="background:#ecfdf5;color:#065f46">

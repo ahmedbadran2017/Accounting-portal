@@ -32,6 +32,9 @@ from werkzeug.wrappers import Response
 from accounting_portal.api.permissions import assert_super_admin
 
 LOCK_ROLE = "Portal Only"
+# Hard lock: same bounce, but no self-served pass. For someone who kept working
+# on the Desk instead of the portal; only an admin removing the role reopens it.
+BLOCK_ROLE = "Desk Blocked"
 PASS_MINUTES = 60
 _PASS_KEY = "ap_desk_pass:"          # NOT in _cache._PREFIXES — a write must not revoke a pass
 _PASS_PAGE = "/accounting/desk-pass"
@@ -56,12 +59,36 @@ _VERSION_NOISE = {"ToDo", "Comment", "Communication", "Notification Log", "Versi
 # ── state ──────────────────────────────────────────────────────────────────────
 
 def ensure_lock_role():
-    """Create the marker role if missing (idempotent; no desk access of its own)."""
-    if frappe.db.exists("Role", LOCK_ROLE):
-        return
-    frappe.get_doc({"doctype": "Role", "role_name": LOCK_ROLE, "desk_access": 0,
-                    "restrict_to_domain": ""}).insert(ignore_permissions=True)
-    frappe.db.commit()
+    """Create the marker roles if missing (idempotent; no desk access of their own)."""
+    made = False
+    for role in (LOCK_ROLE, BLOCK_ROLE):
+        if not frappe.db.exists("Role", role):
+            frappe.get_doc({"doctype": "Role", "role_name": role, "desk_access": 0,
+                            "restrict_to_domain": ""}).insert(ignore_permissions=True)
+            made = True
+    if made:
+        frappe.db.commit()
+
+
+def set_marker(user, role, on):
+    """Add / remove a marker role WITHOUT saving the User.
+
+    `User.add_roles()` saves the user, and a user with a Role Profile has their
+    roles reset to the profile's on every save — so the marker was dropped the
+    moment it was added. Every accountant here sits on the "Accounts" profile:
+    the Settings lock toggle had never locked anyone. Writing the Has Role row
+    directly keeps it until someone re-saves the user from the Desk.
+    """
+    has = frappe.db.get_value("Has Role", {"parent": user, "parenttype": "User", "role": role}, "name")
+    if on and not has:
+        frappe.get_doc({"doctype": "Has Role", "parent": user, "parenttype": "User",
+                        "parentfield": "roles", "role": role, "idx": 900}).db_insert()
+    elif has and not on:
+        frappe.delete_doc("Has Role", has, ignore_permissions=True, force=1)
+    try:
+        frappe.cache().hdel("roles", user)
+    except Exception:
+        pass
 
 
 def is_locked(user=None):
@@ -69,14 +96,22 @@ def is_locked(user=None):
     if not user or user in ("Guest", "Administrator"):
         return False
     roles = set(frappe.get_roles(user) or [])
-    if LOCK_ROLE not in roles:
+    if not (roles & {LOCK_ROLE, BLOCK_ROLE}):
         return False
     return not (roles & _SAFE_ROLES)
+
+
+def is_hard_blocked(user=None):
+    """Locked with no pass available — the Desk stays shut until an admin lifts it."""
+    user = user or frappe.session.user
+    return is_locked(user) and BLOCK_ROLE in set(frappe.get_roles(user) or [])
 
 
 def pass_until(user=None):
     """Datetime the user's current desk pass expires, or None."""
     user = user or frappe.session.user
+    if is_hard_blocked(user):
+        return None
     raw = frappe.cache().get_value(_PASS_KEY + user)
     if not raw:
         return None
@@ -144,7 +179,7 @@ def desk_status():
         frappe.throw("Not permitted", frappe.PermissionError)
     until = pass_until(user)
     remaining = int((until - now_datetime()).total_seconds() // 60) if until else 0
-    return {"user": user, "locked": is_locked(user), "pass_until": str(until)[:16] if until else None,
+    return {"user": user, "locked": is_locked(user), "blocked": is_hard_blocked(user), "pass_until": str(until)[:16] if until else None,
             "remaining_min": max(0, remaining), "minutes": PASS_MINUTES}
 
 
@@ -158,6 +193,9 @@ def request_desk_pass(reason=None, next=None, company=None):
     dest = _safe_next(next)
     if not is_locked(user):
         return {"locked": False, "redirect": dest}
+    if is_hard_blocked(user):
+        frappe.throw("The Desk is closed for this account — no desk pass. Do the work in the portal; "
+                     "if a screen is missing, tell the admin.", frappe.PermissionError)
     reason = (reason or "").strip()
     if len(reason) < 3:
         frappe.throw("Write what you need the Desk for")
