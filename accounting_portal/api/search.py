@@ -74,7 +74,12 @@ def global_search(company=None, query=None, limit=5):
 
     amt = None
     bare = q.replace(",", "").replace(".", "")
-    if bare.isdigit():
+    # A bare run of 6+ digits is an order number (Shopify orders are #246525),
+    # not an amount. Matching it as an amount was ROUND(grand_total)=..., which
+    # no index can serve: 0.9s on Sales Order alone, ~9s per search across the
+    # eight tables, for "246525". Amounts are still matched when typed with a
+    # decimal point or as five digits or fewer.
+    if bare.isdigit() and ("." in q or "," in q or len(bare) <= 5):
         try:
             amt = float(q.replace(",", ""))
         except ValueError:
@@ -86,6 +91,9 @@ def global_search(company=None, query=None, limit=5):
         # Anchored on the id so the primary key serves it. Frappe ids are
         # prefixed by series, so a prefix match is what an accountant types.
         conds.append("name LIKE %s"); params.append(f"{q}%")
+        if table == "Sales Order" and q.isdigit():
+            # 96% of order ids are "#" + the Shopify number; nobody types the "#".
+            conds.append("name LIKE %s"); params.append(f"#{q}%")
         # Deliberately NOT searching the party column here. A name-shaped query is
         # answered by the Customer and Supplier lookups above, and repeating it
         # as a leading-wildcard scan across eight document tables cost 3.3s for
