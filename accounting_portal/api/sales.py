@@ -390,16 +390,18 @@ def get_order(name):
         "SELECT DISTINCT parent AS name FROM `tabSales Invoice Item` WHERE sales_order=%s ORDER BY parent", (name,), as_dict=True)]
     so["related_deliveries"] = [r.name for r in frappe.db.sql(
         "SELECT DISTINCT parent AS name FROM `tabDelivery Note Item` WHERE against_sales_order=%s ORDER BY parent", (name,), as_dict=True)]
-    # Payments that settled this order's invoices.
-    if so["related_invoices"]:
-        so["related_payments"] = [r.name for r in frappe.db.sql(
-            """SELECT DISTINCT per.parent AS name FROM `tabPayment Entry Reference` per
-               JOIN `tabPayment Entry` pe ON pe.name = per.parent
-               WHERE per.reference_doctype='Sales Invoice' AND per.reference_name IN %(inv)s
-                 AND pe.docstatus=1 ORDER BY per.parent""",
-            {"inv": tuple(so["related_invoices"])}, as_dict=True)]
-    else:
-        so["related_payments"] = []
+    # Payments: those that settled this order's invoices AND advances paid
+    # against the order itself. Prepaid orders (Payzone, bank transfer) are paid
+    # before any invoice exists, so the payment references the Sales Order —
+    # looking only through invoices hid every one of them (#246525: PAY-25457-1,
+    # 360.70 to Payzone Transactions, invisible while "Advance 361" showed).
+    refs = [("Sales Order", name)] + [("Sales Invoice", i) for i in so["related_invoices"]]
+    so["related_payments"] = [r.name for r in frappe.db.sql(
+        """SELECT DISTINCT per.parent AS name FROM `tabPayment Entry Reference` per
+           JOIN `tabPayment Entry` pe ON pe.name = per.parent
+           WHERE pe.docstatus=1 AND (per.reference_doctype, per.reference_name) IN %(refs)s
+           ORDER BY per.parent""",
+        {"refs": tuple(refs)}, as_dict=True)]
     # Cathedis remittance ref — on the Sales Order, else on a matched invoice
     # (the book's reconciliation stamps custom_reference_number on either).
     ref = (so.get("custom_reference_number") or "").strip()
