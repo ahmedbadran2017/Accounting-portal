@@ -51,6 +51,7 @@
           <button v-for="o in d.connections.orders" :key="o" @click="open('pos', o)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="cart" :size="11" color="#0369a1" />{{ o }}</button>
           <button v-for="r in d.connections.receipts" :key="r" @click="open('received', r)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="box" :size="11" color="#b45309" />{{ r }}</button>
           <button v-for="i in d.connections.invoices" :key="i" @click="open('topay', i)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="doc" :size="11" color="#0891b2" />{{ i }}</button>
+          <button v-for="so in d.connections.sales_orders || []" :key="so" @click="router.push({ path: '/accounting/sales/orders', query: { id: so } })" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white" :title="L('Customer order','طلب العميل','Commande client')"><Icon name="receipt" :size="11" color="#7c3aed" />{{ so }}</button>
           <button v-for="p in d.connections.payments" :key="p" @click="open('payments', p)" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-chip border border-line-2 bg-app-warm hover:bg-white"><Icon name="coins" :size="11" color="#047857" />{{ p }}</button>
         </div>
       </div>
@@ -199,7 +200,7 @@ const backLabel = computed(() => L("Back", "رجوع", "Retour"));
 const d = ref(null);
 const loading = ref(true);
 const h = computed(() => d.value?.header || {});
-const hasConn = computed(() => { const c = d.value?.connections; return c && (c.orders.length || c.receipts.length || c.invoices.length || c.payments.length); });
+const hasConn = computed(() => { const c = d.value?.connections; return c && (c.orders.length || c.receipts.length || c.invoices.length || c.payments.length || c.sales_orders?.length); });
 
 function back() { router.push(`/accounting/purchases/${sub.value}`); }
 function open(targetSub, id) { router.push({ path: `/accounting/purchases/${targetSub}`, query: { id } }); }

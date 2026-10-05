@@ -76,7 +76,7 @@ function liveVM(d, l) {
       discountPct: Number(d.additional_discount_percentage) || 0, discountOn: d.apply_discount_on || "",
       docstatus: d.docstatus,
     },
-    related: { invoices: d.related_invoices || [], deliveries: d.related_deliveries || [], payments: d.related_payments || [] },
+    related: { invoices: d.related_invoices || [], deliveries: d.related_deliveries || [], payments: d.related_payments || [], purchaseOrders: d.related_purchase_orders || [] },
     timeline, journal,
   };
 }

@@ -390,6 +390,17 @@ def get_order(name):
         "SELECT DISTINCT parent AS name FROM `tabSales Invoice Item` WHERE sales_order=%s ORDER BY parent", (name,), as_dict=True)]
     so["related_deliveries"] = [r.name for r in frappe.db.sql(
         "SELECT DISTINCT parent AS name FROM `tabDelivery Note Item` WHERE against_sales_order=%s ORDER BY parent", (name,), as_dict=True)]
+    # Purchase orders raised for this order. Each vendor PO is created per sales
+    # order (named "#264026-Christelle Paris-JM") and its lines carry
+    # `sales_order` — 182k lines on Morocco — but neither screen showed the link.
+    so["related_purchase_orders"] = frappe.db.sql(
+        """SELECT po.name, po.supplier, po.status, po.docstatus, ROUND(po.grand_total, 2) AS grand_total,
+                  po.currency, ROUND(po.per_received, 1) AS per_received, ROUND(po.per_billed, 1) AS per_billed
+           FROM `tabPurchase Order` po
+           JOIN (SELECT parent FROM `tabPurchase Order Item` WHERE sales_order = %(so)s
+                 UNION SELECT name FROM `tabPurchase Order` WHERE custom_sales_order = %(so)s) l ON l.parent = po.name
+           WHERE po.docstatus < 2
+           ORDER BY po.creation LIMIT 50""", {"so": name}, as_dict=True)
     # Payments: those that settled this order's invoices AND advances paid
     # against the order itself. Prepaid orders (Payzone, bank transfer) are paid
     # before any invoice exists, so the payment references the Sales Order —

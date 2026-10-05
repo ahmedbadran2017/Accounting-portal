@@ -407,6 +407,16 @@ def get_purchase_doc(name=None, doctype=None):
         conn["payments"] = [r.parent for r in frappe.db.sql(
             "SELECT DISTINCT parent FROM `tabPayment Entry Reference` "
             "WHERE reference_doctype='Purchase Invoice' AND reference_name=%s", name, as_dict=True)]
+    # The customer orders this purchase serves — straight off the PO lines, or
+    # through the PO for a receipt / bill.
+    pos = [name] if dt == "Purchase Order" else conn["orders"]
+    conn["sales_orders"] = []
+    if pos:
+        conn["sales_orders"] = [r[0] for r in frappe.db.sql(
+            """SELECT DISTINCT so FROM (
+                 SELECT sales_order AS so FROM `tabPurchase Order Item` WHERE parent IN %(p)s AND IFNULL(sales_order,'')<>''
+                 UNION SELECT custom_sales_order FROM `tabPurchase Order` WHERE name IN %(p)s AND IFNULL(custom_sales_order,'')<>''
+               ) t ORDER BY so LIMIT 50""", {"p": tuple(pos)})]
     gl = frappe.db.sql(
         "SELECT a.account_name AS name, ge.account, ROUND(ge.debit) dr, ROUND(ge.credit) cr "
         "FROM `tabGL Entry` ge JOIN `tabAccount` a ON a.name=ge.account "
