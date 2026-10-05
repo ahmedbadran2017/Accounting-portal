@@ -119,6 +119,7 @@
               <th class="px-2 py-2 text-end">{{ L("Gross", "المستحق", "Brut") }}</th>
               <th class="px-2 py-2 text-end">{{ L("Bonus", "مكافأة", "Prime") }}</th>
               <th class="px-2 py-2 text-end">{{ L("Advance", "سلفة", "Avance") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("Deductions", "خصومات", "Retenues") }}</th>
               <th class="px-3 py-2 text-end">{{ L("Net", "الصافي", "Net") }}</th>
               <th class="px-2 py-2 text-start">{{ L("RIB", "رقم الحساب", "RIB") }}</th>
               <th class="px-2 py-2 text-center">{{ L("Sent", "اتحوّل", "Envoyé") }}</th>
@@ -180,8 +181,19 @@
               <td class="px-2 py-2 text-end tnum">{{ money(r.gross) }}</td>
               <td class="px-2 py-2 text-end"><Cell :r="r" f="bonus" @save="save" /></td>
               <td class="px-2 py-2 text-end"><Cell :r="r" f="advance" @save="save" /></td>
+              <!-- Deductions keyed in Adjustments. It was always in the net and never on
+                   screen, so a net that "didn't add up" had no column to explain it. -->
+              <td class="px-2 py-2 text-end tnum" :class="r.other_deduction ? 'text-rose-600' : 'text-ink-muted'">
+                {{ r.other_deduction ? '−' + money(r.other_deduction) : '—' }}
+              </td>
               <td class="px-3 py-2 text-end">
                 <div class="tnum font-semibold">{{ money(r.net) }}</div>
+                <!-- Same money as the sheet's own hours: left out of the net, named here. -->
+                <div v-if="r.duplicates?.length" class="text-[9.5px] leading-tight mt-0.5" style="color:#b45309"
+                     :title="r.duplicates.map(x => x.component + ' ' + money(x.amount)).join('\n')">
+                  {{ L("also in Adjustments — not counted", "مكرر في التعديلات — مش محسوب", "aussi dans Ajustements — ignoré") }}:
+                  <span class="tnum">{{ r.duplicates.map(x => (x.type === 'Earning' ? '+' : '−') + money(x.amount)).join(' ') }}</span>
+                </div>
                 <!-- A posted slip that disagrees is the thing worth seeing. -->
                 <div v-if="r.slip && Math.abs(r.gap) >= 1" class="text-[9.5px] tnum" style="color:#b45309"
                      :title="r.slip">{{ L("slip", "المسيّر", "bulletin") }} {{ money(r.slip_net) }}</div>

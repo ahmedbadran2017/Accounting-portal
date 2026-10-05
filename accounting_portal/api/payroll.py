@@ -2017,6 +2017,22 @@ def _base_salary(ssa_base, structure):
     return flt(amt)
 
 
+def _sheet_kind(comp):
+    """Which sheet column an adjustment's component is the money for, if any."""
+    if comp == SHEET_HOLIDAY_COMPONENT:
+        return "holiday_hours"
+    if comp == SHEET_ADVANCE_COMPONENT:
+        return "advance"
+    c = (comp or "").lower()
+    if c.startswith("overtime"):
+        return "overtime_hours"
+    if c.startswith("due to late entry or absence"):
+        return "missing_delay"
+    if "holiday" in c:
+        return "holiday_hours"
+    return None
+
+
 @frappe.whitelist()
 def payroll_sheet(company=None, month=None, start=0, page_size=None):
     """The month's payroll sheet — one row per employee, the sheet's own columns.
@@ -2081,8 +2097,7 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
            WHERE a.company=%(c)s AND a.docstatus=1 AND """ + _ADDSAL_MONTH + skip + """
            GROUP BY a.employee, a.salary_component, c.type""",
             args, as_dict=True):
-        slot = extra.setdefault(r.employee, {"bonus": 0.0, "deduct": 0.0})
-        slot["bonus" if r.type == "Earning" else "deduct"] += flt(r.amt)
+        extra.setdefault(r.employee, []).append(r)
 
     rows, totals = [], {"gross": 0.0, "net": 0.0, "advance": 0.0,
                         "sent": 0, "sent_net": 0.0, "no_rib": 0}
@@ -2111,13 +2126,31 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
         delay = flt(o.get("delay_hours") or 0)
         over = flt(o.get("overtime_hours") or 0)
         hol = flt(o["holiday_hours"]) if "holiday_hours" in o else _holiday_hours(e.holiday_list, start, end)
-        x = extra.get(e.name) or {}
-        bonus = flt(o["bonus"]) if "bonus" in o else flt(x.get("bonus") or 0)
+        # Adjustments keyed by hand. Overtime, lateness/absence and holiday are
+        # the sheet's own columns: when the sheet carries hours for one, the
+        # same thing keyed as an amount is that money a second time. Asmaa
+        # Zirary, September 2026: 0.87h delay on the sheet AND 14.64 in
+        # Adjustments, deducted twice; Amal Farjini and Said Ennakri showed a
+        # net of -4,000 / -3,500 the same way. The hours win (approval writes
+        # them); the duplicate is left out of the net and named on the row.
+        on_sheet = {"overtime_hours": over, "missing_delay": missing + delay, "holiday_hours": hol}
+        x_bonus = x_ded = 0.0
+        dups = []
+        for a in extra.get(e.name) or []:
+            k = _sheet_kind(a.comp)
+            if k in on_sheet and flt(on_sheet[k]):
+                dups.append({"component": a.comp, "type": a.type, "amount": _m(a.amt)})
+                continue
+            if a.type == "Earning":
+                x_bonus += flt(a.amt)
+            else:
+                x_ded += flt(a.amt)
+        bonus = flt(o["bonus"]) if "bonus" in o else x_bonus
         advance = flt(o["advance"]) if "advance" in o else flt(adv.get(e.name) or 0)
 
         total_hours = hours + hol + (over * OVERTIME_RATE) - missing - delay
         gross = _m(max(total_hours, 0) * rate)
-        net = _m(gross + bonus - advance - flt(x.get("deduct") or 0))
+        net = _m(gross + bonus - advance - x_ded)
         rows.append({
             "employee": e.name, "employee_name": e.nm,
             "designation": e.designation, "department": e.department,
@@ -2125,7 +2158,7 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
             "holiday_hours": hol, "overtime_hours": over, "missing_hours": missing,
             "delay_hours": delay, "total_hours": flt(max(total_hours, 0), 2),
             "gross": gross, "bonus": _m(bonus), "advance": _m(advance),
-            "other_deduction": _m(x.get("deduct") or 0), "net": net,
+            "other_deduction": _m(x_ded), "net": net, "duplicates": dups,
             "tracked": tracked, "present_days": int(a.present_days or 0),
             "auto_missing_hours": auto_missing, "auto_delay_hours": auto_delay,
             # ERPNext holds Full-time / Part-time here, not the CDI / CDD the
@@ -2360,18 +2393,7 @@ def _approve_lines(target, month):
     # its own hours. The same thing keyed by hand in Adjustments is the same money
     # a second time. Seen on September 2026: overtime for four people and delay
     # for two, entered as hours in the sheet AND as amounts in Adjustments.
-    kinds = {SHEET_HOLIDAY_COMPONENT: "holiday_hours", SHEET_ADVANCE_COMPONENT: "advance"}
-    def _kind(comp):
-        if comp in kinds:
-            return kinds[comp]
-        c = (comp or "").lower()
-        if c.startswith("overtime"):
-            return "overtime_hours"
-        if c.startswith("due to late entry or absence"):
-            return "missing_delay"
-        if "holiday" in c:
-            return "holiday_hours"
-        return None
+    _kind = _sheet_kind
     twice = []
     by_emp = {r["employee"]: r for r in rows}
     for emp, items in manual.items():

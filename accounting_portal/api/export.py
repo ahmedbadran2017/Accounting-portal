@@ -128,7 +128,7 @@ _LIST_EXPORTS = {
                        ("overtime_hours", "Overtime (hour)"), ("missing_hours", "Missing"),
                        ("delay_hours", "Delay (hour)"), ("total_hours", "Total hour"),
                        ("gross", "Payment"), ("bonus", "Performance"), ("advance", "Advance"),
-                       ("net", "Net payment"), ("rib", "RIB"), ("sent", "Send"),
+                       ("other_deduction", "Other deductions"), ("net", "Net payment"), ("rib", "RIB"), ("sent", "Send"),
                        ("sent_on", "Sent on")]),
     "purchase_orders": ("accounting_portal.api.purchases.list_purchase_orders", "Purchase orders",
                         [("name", "Order"), ("date", "Date"), ("schedule_date", "Required by"),
