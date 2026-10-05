@@ -1200,10 +1200,32 @@ def add_adjustment(company=None, employee=None, salary_component=None, amount=No
     _assert_component_has_account(salary_component, target)
     from accounting_portal.api import _actions
     key = "payadj:" + _digest(f"{target}:{employee}:{salary_component}:{amt}:{month}", 14)
+    key = _fresh_adj_key(key)
     return _actions.execute(
         ADJ_ACTION, target, key,
         payload={"employee": employee, "salary_component": salary_component, "amount": amt, "month": month},
         amount=0, notes=notes or f"{salary_component} for {employee} ({month})")
+
+
+def _fresh_adj_key(key):
+    """The value-derived key outlives the line it posted.
+
+    Same employee + component + amount + month = same key, and a Posted action
+    under that key is returned as "already done". After the line is cancelled
+    (the September cleanup cancelled 16) keying it again showed "Added" and
+    wrote nothing — on 5 Oct that sent eleven re-keys to the Desk. A key whose
+    line is gone or cancelled is spent: move to the next one.
+    """
+    base, n = key, 0
+    while True:
+        row = frappe.db.get_value("Accounting Portal Action", {"dedupe_key": key},
+                                  ["status", "voucher_no"], as_dict=True)
+        if not row or row.status != "Posted":
+            return key
+        if row.voucher_no and frappe.db.get_value("Additional Salary", row.voucher_no, "docstatus") == 1:
+            return key   # the line is live: a genuine double-submit, keep deduping
+        n += 1
+        key = f"{base}:r{n}"
 
 
 def _adj_poster(doc):

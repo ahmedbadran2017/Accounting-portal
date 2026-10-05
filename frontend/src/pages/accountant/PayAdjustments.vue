@@ -197,13 +197,15 @@ function toggle(k) { open[k] = !open[k]; }
 
 const adding = ref(false), saving = ref(false), err = ref("");
 const form = reactive({ employee: "", kind: "earn", component: "", amount: null });
+// one key per form opening: a double-click dedupes, a deliberate re-entry posts
+let clientKey = "";
 function setKind(k) { form.kind = k; form.component = ""; }
-function openAdd(e) { form.employee = e ? e.employee : ""; form.kind = "earn"; form.component = ""; form.amount = null; err.value = ""; adding.value = true; }
+function openAdd(e) { form.employee = e ? e.employee : ""; form.kind = "earn"; form.component = ""; form.amount = null; err.value = ""; clientKey = `${Date.now()}`; adding.value = true; }
 async function save() {
   if (saving.value) return;
   saving.value = true; err.value = "";
   try {
-    await api.call("accounting_portal.api.payroll.add_adjustment", { company: currentCompany(), employee: form.employee, salary_component: form.component, amount: Number(form.amount), month: month.value });
+    await api.call("accounting_portal.api.payroll.add_adjustment", { company: currentCompany(), employee: form.employee, salary_component: form.component, amount: Number(form.amount), month: month.value, client_key: clientKey });
     toast.success(L("Added", "تمت الإضافة", "Ajouté")); adding.value = false; load();
   } catch (e) { err.value = String(e?.message || e).slice(0, 200); }
   finally { saving.value = false; }
