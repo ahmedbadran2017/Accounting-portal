@@ -29,7 +29,13 @@ export function useQuickItem() {
         loaded = true;
       } catch (e) { error.value = String(e?.message || e).slice(0, 140); }
     }
-    if (!form.value.item_group) form.value.item_group = opts.value.groups[0] || "";
+    // No silent default: the first group alphabetically ("Air Fryer") used to become
+    // every new item's group. Offer the last group this person chose, else make them pick.
+    if (!form.value.item_group) {
+      let last = "";
+      try { last = localStorage.getItem("ap_quickitem_group") || ""; } catch { /* storage blocked */ }
+      form.value.item_group = opts.value.groups.includes(last) ? last : "";
+    }
     if (!opts.value.uoms.includes(form.value.uom)) form.value.uom = opts.value.uoms[0] || "Nos";
   }
   function close() { form.value = null; error.value = ""; }
@@ -38,12 +44,13 @@ export function useQuickItem() {
   // caller can select it straight onto the line.
   async function create() {
     const f = form.value;
-    if (!f || !f.item_code || !f.item_group) { error.value = "Code and group are required"; return null; }
+    if (!f || !f.item_code || !f.item_group) { error.value = "Code and category are required"; return null; }
     busy.value = true; error.value = "";
     try {
       await api.call("accounting_portal.api.items.create_service_item", {
         item_code: f.item_code, item_name: f.item_name || f.item_code,
         item_group: f.item_group, uom: f.uom });
+      try { localStorage.setItem("ap_quickitem_group", f.item_group); } catch { /* storage blocked */ }
       const made = { item_code: f.item_code, item_name: f.item_name || f.item_code,
                      sku: "", image: "", description: "", variant_of: null, rate: 0 };
       close();

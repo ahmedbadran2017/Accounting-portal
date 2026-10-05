@@ -376,7 +376,7 @@ function makeBox(fetch, rowOf, idOf, quick) {
       return () => h("div", { class: "relative" }, [
         h("input", { ref: inputEl, value: p.modelValue, dir: "ltr", placeholder: "…",
           class: "h-8 w-full min-w-[180px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40",
-          onInput, onFocus: () => { if (hits.value.length) show(); }, onBlur: () => setTimeout(hide, 150) }),
+          onInput, onFocus: () => { if (hits.value.length) show(); }, onBlur: () => setTimeout(() => { if (document.activeElement?.closest?.("[data-keep-open]")) return; hide(); }, 150) }),
         // to <body>, so the table's overflow cannot cut the list to one row
         open.value && (hits.value.length || (quick && lastQ.value.trim().length > 1))
           ? h(Teleport, { to: "body" }, [
@@ -387,7 +387,7 @@ function makeBox(fetch, rowOf, idOf, quick) {
                 // find — so keying a bill for a new fee meant leaving the modal.
                 quick && lastQ.value.trim().length > 1
                   ? h(QuickItemPanel, { q: lastQ.value.trim(), hasHits: !!hits.value.length,
-                                        onCreated: (made) => { hits.value = [made]; pick(made); } })
+                                        onCreated: (made) => { hits.value = [made]; pick(made); }, onLeave: () => { if (document.activeElement !== inputEl.value) hide(); } })
                   : null,
               ])])
           : null,

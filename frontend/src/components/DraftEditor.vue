@@ -465,7 +465,7 @@ const ItemPick = {
     return () => h("div", { class: "relative" }, [
       h("input", { ref: inputEl, value: p.modelValue, placeholder: "—", dir: "ltr",
         class: "h-8 w-full min-w-[170px] rounded-[8px] border border-line-2 px-2 text-[12px] bg-white focus:outline-none focus:border-accent/40",
-        onInput, onFocus: () => { if (hits.value.length) show(); }, onBlur: () => setTimeout(hide, 150) }),
+        onInput, onFocus: () => { if (hits.value.length) show(); }, onBlur: () => setTimeout(() => { if (document.activeElement?.closest?.("[data-keep-open]")) return; hide(); }, 150) }),
       // to <body>: the rows table scrolls, and a scrolling ancestor clips an
       // absolute child no matter how high its z-index is
       open.value && (hits.value.length || lastQ.value.length > 1)
@@ -496,7 +496,7 @@ const ItemPick = {
               // three screens never had it.
               lastQ.value.trim().length > 1
                 ? h(QuickItemPanel, { q: lastQ.value.trim(), hasHits: !!hits.value.length,
-                                      onCreated: (made) => pick(made) })
+                                      onCreated: (made) => pick(made), onLeave: () => { if (document.activeElement !== inputEl.value) hide(); } })
                 : null,
             ])
           ])

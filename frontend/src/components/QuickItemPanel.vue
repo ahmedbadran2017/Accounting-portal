@@ -11,11 +11,18 @@
   </button>
 
   <!-- Open: four fields, which is all a non-stock item needs. -->
-  <div v-else class="border-t border-line-hair p-3 space-y-2" @mousedown.prevent>
+  <!-- The panel lives inside a type-ahead list that closes when its search box
+       loses focus. Blocking every mousedown kept the list open but also stopped the
+       category <select> from ever opening, so the first group alphabetically
+       ("Air Fryer") silently became every new item's group. Now only clicks on
+       non-controls are held back; the fields take focus normally and
+       data-keep-open tells the host not to close the list meanwhile. -->
+  <div v-else data-keep-open class="border-t border-line-hair p-3 space-y-2" @mousedown="guard" @focusout="onFocusOut">
     <div class="text-[12px] font-semibold">{{ L("New item", "صنف جديد", "Nouvel article") }}</div>
     <input v-model="qi.form.value.item_code" :placeholder="L('Code','الكود','Code')" :class="INP" dir="ltr" />
     <input v-model="qi.form.value.item_name" :placeholder="L('Name','الاسم','Nom')" :class="INP" />
-    <select v-model="qi.form.value.item_group" :class="INP">
+    <select v-model="qi.form.value.item_group" :class="INP" :aria-label="L('Category','التصنيف','Catégorie')">
+      <option value="" disabled>{{ L("— Choose a category —", "— اختر التصنيف —", "— Choisir une catégorie —") }}</option>
       <option v-for="g in qi.opts.value.groups" :key="g" :value="g">{{ g }}</option>
     </select>
     <select v-model="qi.form.value.uom" :class="INP">
@@ -28,7 +35,7 @@
             "Créé comme article hors stock.") }}
     </div>
     <div class="flex justify-end gap-2">
-      <UiButton variant="quiet" size="sm" @click="qi.close()">{{ L("Back", "رجوع", "Retour") }}</UiButton>
+      <UiButton variant="quiet" size="sm" @click="back">{{ L("Back", "رجوع", "Retour") }}</UiButton>
       <UiButton variant="primary" size="sm" :busy="qi.busy.value" @click="make">
         {{ L("Create and use", "أنشئ واستخدم", "Créer et utiliser") }}
       </UiButton>
@@ -52,7 +59,7 @@ const props = defineProps({
   q: { type: String, default: "" },
   hasHits: { type: Boolean, default: false },
 });
-const emit = defineEmits(["created"]);
+const emit = defineEmits(["created", "leave"]);
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
 const qi = useQuickItem();
@@ -62,5 +69,14 @@ async function make() {
   const made = await qi.create();
   if (made) emit("created", made);
 }
+// a click on a field or the category list must reach it; anything else keeps focus put
+const CONTROLS = new Set(["INPUT", "SELECT", "TEXTAREA", "OPTION"]);
+function guard(e) { if (!CONTROLS.has(e.target?.tagName)) e.preventDefault(); }
+// focus left the panel for good (not to another field inside it) → let the host close
+function onFocusOut(e) {
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+  setTimeout(() => { if (!document.activeElement?.closest?.("[data-keep-open]")) emit("leave"); }, 150);
+}
+function back() { qi.close(); emit("leave"); }
 defineExpose({ close: qi.close });
 </script>
