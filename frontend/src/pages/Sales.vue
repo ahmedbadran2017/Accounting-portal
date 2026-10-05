@@ -28,6 +28,7 @@
     <ChallanDetail v-else-if="activeSub === 'challans' && route.query.id" />
     <ChallansList v-else-if="activeSub === 'challans'" />
     <ToBillQueue v-else-if="activeSub === 'tobill'" />
+    <TransfersQueue v-else-if="activeSub === 'transfers'" />
     <CreditsList v-else-if="activeSub === 'credits'" />
     <InvoiceDetail v-else-if="activeSub === 'invoices' && route.query.id" />
     <InvoicesList v-else-if="activeSub === 'invoices'" />
@@ -65,6 +66,7 @@ import ChallansList from "@/pages/sales/ChallansList.vue";
 import ChallanDetail from "@/pages/sales/ChallanDetail.vue";
 import CreditsList from "@/pages/sales/CreditsList.vue";
 import ToBillQueue from "@/pages/sales/ToBillQueue.vue";
+import TransfersQueue from "@/pages/sales/TransfersQueue.vue";
 import { useUi } from "@/composables/useUi";
 import { SUBTABS, defaultSub, tabsFor } from "@/data/nav";
 
