@@ -99,6 +99,20 @@ def _is_ic_name(name):
     return next((True for k in _IC_KEYWORDS if k in n), False)
 
 
+# An EXPENSE row is intercompany only when its name says so. The entity/city
+# keywords above are right for finding intercompany BALANCES (“Justyol
+# Morocco-Istanbul Exchanges”) but wrong for costs: “Justyol Istanbul Office
+# Rent Expenses - ML” (954,000 TRY in 2026) and “Electric Bill Maslak Office”
+# are Türkiye's own running costs, and matching them as intercompany dropped
+# them from the group P&L.
+_IC_EXPENSE_KEYWORDS = ("intercompan", "internal invoic")
+
+
+def _is_ic_expense(name):
+    n = (name or "").lower()
+    return next((True for k in _IC_EXPENSE_KEYWORDS if k in n), False)
+
+
 @frappe.whitelist()
 def group_pnl(year=None, ccy="MAD"):
     """The group's policy-eliminated P&L by month, with full disclosure of
@@ -149,7 +163,7 @@ def group_pnl(year=None, ccy="MAD"):
                 d = -v   # expense as positive debit
                 if role == "sales" and _is_cogs_row(r.at, r.name):
                     out_m[m]["cogs"] += d
-                elif role != "sales" and (_is_cogs_row(r.at, r.name) or _is_ic_name(r.name)):
+                elif role != "sales" and (_is_cogs_row(r.at, r.name) or _is_ic_expense(r.name)):
                     eliminated[co]["ic_cost"] += d
                 else:
                     out_m[m]["opex"] += d
@@ -286,7 +300,7 @@ def group_pnl_corrected(year=None, ccy="USD"):
                 d = -v
                 if role == "sales" and _is_cogs_row(r.at, r.name):
                     out_m[m]["cogs_booked"] += d      # booked, kept only for the gap
-                elif role != "sales" and (_is_cogs_row(r.at, r.name) or _is_ic_name(r.name)):
+                elif role != "sales" and (_is_cogs_row(r.at, r.name) or _is_ic_expense(r.name)):
                     eliminated[co]["ic_cost"] += d
                 else:
                     out_m[m]["opex"] += d
