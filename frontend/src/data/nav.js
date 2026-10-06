@@ -43,7 +43,7 @@ export const SUBTABS = {
   // (its own inner tabs), so it carries no sidebar sub-tabs.
   expenses: [],
   payroll: [],
-  reports: [["grouppnl", "sub.grouppnl"], ["matching", "sub.matching"], ["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["missingdocs", "sub.missingdocs"], ["statements", "sub.statements"], ["investors", "sub.investors"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"],],
+  reports: [["clearpnl", "sub.clearpnl"], ["grouppnl", "sub.grouppnl"], ["matching", "sub.matching"], ["salescol", "sub.salescol"], ["arap", "sub.arap"], ["forecast", "sub.forecast"], ["missingdocs", "sub.missingdocs"], ["statements", "sub.statements"], ["investors", "sub.investors"], ["taxreports", "sub.taxreports"], ["dd", "sub.dd"],],
   settings: [
     ["orgs", "sub.orgs"], ["users", "sub.users"], ["activity", "sub.activity"], ["taxconf", "sub.taxconf"], ["currencies", "sub.currencies"],
   ],

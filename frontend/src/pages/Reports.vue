@@ -14,7 +14,8 @@
          module they belong to, and is the navigation on mobile already. -->
 
 
-    <GroupPnl v-if="activeSub === 'grouppnl'" />
+    <ClearPnl v-if="activeSub === 'clearpnl'" />
+    <GroupPnl v-else-if="activeSub === 'grouppnl'" />
     <Matching v-else-if="activeSub === 'matching'" />
     <SalesCollections v-else-if="activeSub === 'salescol'" />
     <ReceivablesPayables v-else-if="activeSub === 'arap'" />
@@ -35,6 +36,7 @@ import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ScaffoldTable from "@/components/ScaffoldTable.vue";
+import ClearPnl from "@/pages/reports/ClearPnl.vue";
 import GroupPnl from "@/pages/reports/GroupPnl.vue";
 import SalesCollections from "@/pages/reports/SalesCollections.vue";
 import ReceivablesPayables from "@/pages/reports/ReceivablesPayables.vue";
