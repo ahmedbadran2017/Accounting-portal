@@ -1570,7 +1570,8 @@ _PO_SORT = {"date": "po.transaction_date", "amount": "po.base_grand_total",
 
 @frappe.whitelist()
 def list_purchase_orders(company=None, search=None, from_date=None, to_date=None, start=0,
-                         page_size=25, sort_field="date", sort_dir="desc", status=None, owner=None):
+                         page_size=25, sort_field="date", sort_dir="desc", status=None, owner=None,
+                         item=None):
     """Every purchase order, as a list of its own.
 
     The portal had no such list. Orders were reachable only through the
@@ -1618,6 +1619,17 @@ def list_purchase_orders(company=None, search=None, from_date=None, to_date=None
         conds.append("(po.name LIKE %(s)s OR po.supplier LIKE %(s)s "
                      "OR IFNULL(po.supplier_name,'') LIKE %(s)s)")
         params["s"] = f"%{search}%"
+    item = (item or "").strip()
+    if item:
+        # Orders that carry this SKU. A code prefix rides the item_code index
+        # (~1 ms); a name search scans every order line (~1.5 s on 250K lines),
+        # so it only runs when the text has a letter — SKUs here are digits.
+        sub = "poi.item_code LIKE %(it)s"
+        params["it"] = f"{item}%"
+        if any(ch.isalpha() for ch in item):
+            sub += " OR poi.item_name LIKE %(itn)s"
+            params["itn"] = f"%{item}%"
+        conds.append(f"po.name IN (SELECT poi.parent FROM `tabPurchase Order Item` poi WHERE {sub})")
     col = _PO_SORT.get(sort_field, "po.transaction_date")
     d = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
     rows, total, s, ps = _paginate.page_query(

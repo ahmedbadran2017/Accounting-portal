@@ -12,6 +12,10 @@
                 "Toutes les commandes — réception et facturation suivies séparément") }}
         </span>
         <div class="relative ms-auto">
+          <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="box" :size="15" /></span>
+          <input id="po-item-filter" v-model.trim="itemQ" :placeholder="L('SKU / item…','SKU / الصنف…','SKU / article…')" class="fld fld-md fld-sunk w-36 sm:w-44" />
+        </div>
+        <div class="relative">
           <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
           <input v-model.trim="st.search.value" :placeholder="L('Search order / vendor…','بحث بالرقم أو المورّد…','Rechercher…')" class="fld fld-md fld-sunk w-44 sm:w-64" />
         </div>
@@ -172,6 +176,15 @@ watch([listStatus, listPageSize, listOwner], () => {
 }, { immediate: true });
 
 watch(() => route.query.supplier, (v) => { if (v) st.search.value = String(v); }, { immediate: true });
+
+// Orders carrying a given SKU — what the Desk list's item filter did.
+const itemQ = ref(String(route.query.item || st.filters.value.item || ""));
+let _itemT;
+watch(itemQ, (v) => {
+  clearTimeout(_itemT);
+  _itemT = setTimeout(() => st.setFilters({ item: v || undefined }), 350);
+});
+if (itemQ.value && !st.filters.value.item) st.filters.value = { ...st.filters.value, item: itemQ.value };
 st.load();
 watch(entityId, () => { st.page.value = 1; st.load(); });
 
