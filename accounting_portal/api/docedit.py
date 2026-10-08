@@ -84,7 +84,9 @@ _SCHEMA = {
         # and batch handling, which this editor does not ask for.
         "child": {"field": "items", "can_add": True, "can_remove": True,
                   "columns": [_H("item_code", "Item"), _H("item_name", "Data", ro=True),
-                              _H("qty", "Float"), _H("rate", "Currency"), _H("expense_account", "Link", "accounts"),
+                              _H("qty", "Float"), _H("rate", "Currency"),
+                              _H("item_tax_template", "Link", "item_tax_templates"),
+                              _H("expense_account", "Link", "accounts"),
                               _H("cost_center", "Link", "cost_centers")]},
         # After submit: the account a line hit can still change (allow_on_submit) —
         # the clean-fix doctrine (edit the line, repost the ledger; no correction JE).
@@ -213,6 +215,21 @@ def _options(doctype, company):
         out["payment_types"] = [{"value": v, "label": v} for v in ("Receive", "Pay", "Internal Transfer")]
         out["modes"] = [{"value": r[0], "label": r[0]} for r in frappe.db.sql(
             "SELECT name FROM `tabMode of Payment` WHERE enabled=1 ORDER BY name")]
+    if doctype == "Purchase Invoice":
+        # VAT per line (a Cathedis bill carries cargo at 20% and service at 10%).
+        # Only templates whose every account is an ASSET — input VAT, 191.x — are
+        # offered on a bill. The older "Morroco VAT 10%/20% - JM" templates point at
+        # the OUTPUT accounts (391.6xx); used on a purchase they post deductible VAT
+        # as VAT owed, which is the misposting cleaned up in September.
+        out["item_tax_templates"] = [{"value": "", "label": "—"}] + [
+            {"value": r[0], "label": r[0]} for r in frappe.db.sql(
+                """SELECT t.name FROM `tabItem Tax Template` t
+                   WHERE t.company=%s AND IFNULL(t.disabled,0)=0
+                     AND EXISTS (SELECT 1 FROM `tabItem Tax Template Detail` d WHERE d.parent=t.name)
+                     AND NOT EXISTS (SELECT 1 FROM `tabItem Tax Template Detail` d
+                                     JOIN `tabAccount` a ON a.name=d.tax_type
+                                     WHERE d.parent=t.name AND a.root_type<>'Asset')
+                   ORDER BY t.name""", (company,))]
     if doctype == "Additional Salary":
         out["components"] = [{"value": r[0], "label": f"{r[0]} ({r[1]})"} for r in frappe.db.sql(
             "SELECT name, type FROM `tabSalary Component` WHERE IFNULL(disabled,0)=0 ORDER BY type, name")]
@@ -414,6 +431,8 @@ def save_draft(doctype=None, name=None, header=None, rows=None, tax=None):
     ts = spec.get("submitted_tax")
     if ts is not None and tax is not None and doc.meta.has_field(ts["field"]):
         _apply_tax_rows(doc, ts["field"], tax)
+    if doctype in ("Purchase Invoice", "Sales Invoice"):
+        _sync_item_tax(doc)
     if doctype in ("Purchase Invoice", "Sales Invoice") and changed.get("posting_date"):
         doc.set_posting_time = 1
     # Moving a date leaves the payment schedule behind. The schedule was written
@@ -459,6 +478,34 @@ def _submitted_header_changes(doc, spec, header):
             doc.set(f, new)
     return before, after
 
+
+
+def _sync_item_tax(doc):
+    """Make the tax table carry every account a line's VAT template names.
+
+    ERPNext works out each line's VAT from its Item Tax Template, but only against
+    tax rows that already exist on the document — the Desk adds them from its form
+    script, the server does not. A line set to 10% with no 10% row on the bill is
+    taxed nothing. Each missing account gets an "On Net Total" row at rate 0; the
+    rate then comes per line from the template (cargo at 20%, service at 10%), and
+    a line without a template contributes 0 to it.
+    """
+    tax_field = "taxes"
+    if not doc.meta.has_field(tax_field):
+        return
+    have = {t.account_head for t in (doc.get(tax_field) or [])}
+    need = []
+    for row in doc.get("items") or []:
+        tpl = row.get("item_tax_template")
+        if not tpl:
+            continue
+        for acc, in frappe.db.sql("SELECT tax_type FROM `tabItem Tax Template Detail` WHERE parent=%s ORDER BY idx", (tpl,)):
+            if acc not in have and acc not in need:
+                need.append(acc)
+    for acc in need:
+        doc.append(tax_field, {"charge_type": "On Net Total", "account_head": acc, "rate": 0,
+                               "category": "Total", "add_deduct_tax": "Add",
+                               "description": acc.split(" - ")[0] + " " + (acc.split(" - ")[1] if " - " in acc else "")})
 
 
 def _apply_tax_rows(doc, field, rows):
