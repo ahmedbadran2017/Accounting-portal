@@ -284,6 +284,9 @@ def _flow_poster(action):
                 d.employee, d.company, name, amt, d.advance_account, d.mode_of_payment,
                 d.currency, d.exchange_rate or 1))
         else:
+            # A disabled price list on the source stops ERPNext's mapper cold.
+            from accounting_portal.api.purchases import drop_dead_price_list
+            drop_dead_price_list(doctype, name)
             new = frappe.get_attr(fn)(name)
     finally:
         frappe.flags.ignore_permissions = False

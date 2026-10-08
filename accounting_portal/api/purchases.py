@@ -1393,6 +1393,42 @@ def billable_sources(company=None, supplier=None, source="Purchase Order", invoi
             "currency": frappe.db.get_value("Company", target, "default_currency")}
 
 
+_PRICE_LIST_FIELD = {"Purchase Order": "buying_price_list", "Purchase Receipt": "buying_price_list",
+                     "Purchase Invoice": "buying_price_list", "Supplier Quotation": "buying_price_list",
+                     "Sales Order": "selling_price_list", "Delivery Note": "selling_price_list",
+                     "Sales Invoice": "selling_price_list", "Quotation": "selling_price_list"}
+
+
+def drop_dead_price_list(doctype, name):
+    """Unlink a disabled or deleted price list from a submitted source document.
+
+    ERPNext's mappers copy the source's price list onto the new document and then
+    refuse it ("The price list … does not exist or is disabled"). The "Morocco"
+    buying list was disabled on 6 Oct 2026 — deliberately, it fed absurd rates —
+    and from that moment 8,170 open orders and 2,551 receipts could no longer be
+    billed or received; versioned supplier lists ("Awani - Buying - 19/9/2026")
+    do the same each time a newer version replaces them.
+
+    The list is only where the rates came from. The rates themselves are on the
+    lines and are not touched, so clearing the pointer changes no amount. The
+    document gets a comment saying what was cleared.
+    """
+    field = _PRICE_LIST_FIELD.get(doctype)
+    if not field or not name:
+        return None
+    pl = frappe.db.get_value(doctype, name, field)
+    if not pl or frappe.db.get_value("Price List", pl, "enabled"):
+        return None
+    frappe.db.set_value(doctype, name, field, None, update_modified=False)
+    try:
+        frappe.get_doc(doctype, name).add_comment(
+            "Info", f"Price list '{pl}' is disabled — unlinked so this document can still be "
+                    f"billed or received. Line rates are unchanged.")
+    except Exception:
+        pass
+    return pl
+
+
 def _mapped_lines(source, names, target, supplier, seen=None):
     """Lines ERPNext itself would put on a bill made from these documents.
 
@@ -1413,6 +1449,7 @@ def _mapped_lines(source, names, target, supplier, seen=None):
             frappe.throw(f"{name} belongs to {head.supplier}, this bill is for {supplier}")
         if head.docstatus != 1:
             frappe.throw(f"{name} is not submitted")
+        drop_dead_price_list(source, name)
         src = make(name)
         for row in (src.get("items") or []):
             if not flt(row.qty):
