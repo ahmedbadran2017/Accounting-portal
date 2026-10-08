@@ -48,18 +48,18 @@
         <button v-if="b.outstanding > 0 && b.outstanding <= 200" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-3 border border-line-2 hover:bg-app-warm px-3 py-1.5 rounded-chip disabled:opacity-50" :disabled="busy" @click="writeOff">
           {{ L("Write off","شطب","Passer en perte") }} {{ fmt2(b.outstanding) }}
         </button>
-        <UiButton variant="danger" size="sm" icon="refresh" :disabled="busy" @click="confirmDebit = true"> {{ L("Debit note / return","إشعار مدين / مرتجع","Note de débit") }}
+        <UiButton variant="secondary" size="sm" icon="refresh" :disabled="busy" @click="confirmDebit = true"> {{ L("Credit note / return","إشعار دائن / مرتجع","Avoir / retour") }}
         </UiButton>
       </div>
     </div>
 
     <div v-if="confirmDebit" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 px-4" @click.self="confirmDebit = false">
       <div class="bg-white rounded-card shadow-pop w-full max-w-sm p-5">
-        <div class="text-[14px] font-bold">{{ L("Create a debit note?","إنشاء إشعار مدين؟","Créer une note de débit ?") }}</div>
-        <div class="text-[12px] text-ink-3 mt-1.5">{{ L("Posts a return against this bill (reverses it / claws back the payable). Amounts over 10,000 need approval.","يسجّل مرتجعًا مقابل هذه الفاتورة. ما فوق 10٬000 يحتاج موافقة.","Enregistre un retour sur cette facture.") }}</div>
+        <div class="text-[14px] font-bold">{{ L("Supplier credit note","إشعار دائن من المورّد","Avoir fournisseur") }}</div>
+        <div class="text-[12px] text-ink-3 mt-1.5">{{ L("Opens a draft against this bill with all its lines. Keep only what the supplier credits — change quantities or prices, remove the other lines, add the supplier's credit-note number — then submit. Nothing is posted until you submit.","بيفتح مسودة على الفاتورة دي فيها كل السطور. سيب بس اللي المورّد عامل عليه الإشعار: غيّر الكميات أو الأسعار، امسح باقي السطور، واكتب رقم إشعار المورّد، وبعدين رحّل. مفيش حاجة بتترحّل قبل ما تضغط ترحيل.","Ouvre un brouillon avec toutes les lignes de la facture. Gardez seulement ce que le fournisseur crédite, puis soumettez. Rien n'est comptabilisé avant la soumission.") }}</div>
         <div class="flex justify-end gap-2 mt-4">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-app-warm" @click="confirmDebit = false">{{ L("Cancel","إلغاء","Annuler") }}</button>
-          <UiButton variant="danger" size="md" :disabled="busy" @click="makeDebit">{{ busy ? L("Working…","جارٍ…","…") : L("Create","إنشاء","Créer") }}</UiButton>
+          <UiButton variant="primary" size="md" :disabled="busy" @click="makeDebit">{{ busy ? L("Working…","جارٍ…","…") : L("Open draft","افتح المسودة","Ouvrir le brouillon") }}</UiButton>
         </div>
       </div>
     </div>
@@ -181,6 +181,7 @@ import Icon from "@/components/Icon.vue";
 import PayBillModal from "@/components/PayBillModal.vue";
 import DocHub from "@/components/DocHub.vue";
 import DocActions from "@/components/DocActions.vue";
+import { openCreditNoteDraft } from "@/composables/useCreditNote";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useToast } from "@/composables/useToast";
@@ -203,13 +204,17 @@ function onPaid(res) {
   load();
 }
 const confirmDebit = ref(false);
+// A supplier credit note is almost always partial — one line, a price
+// correction, a few units. This used to post a full return of the whole bill on
+// the spot, so the accountant cancelled it and amended it down (PUR-INV-06582:
+// 12,099 posted, 954 meant). It now opens a draft with the bill's lines in the
+// editor; she keeps what is credited and submits.
 async function makeDebit() {
   busy.value = true;
   try {
-    const r = await api.call("accounting_portal.api.purchases.make_debit_note", { company: currentCompany(), invoice: route.query.id, submit: 1 });
-    if (r && r.status && r.status !== "Posted") toast.success(L("Queued for approval (over 10,000)", "بانتظار الموافقة (فوق 10٬000)", "En attente d'approbation"));
-    else { toast.success(L("Debit note created", "تم إنشاء الإشعار", "Note créée")); load(); }
+    const nd = await openCreditNoteDraft(route.query.id);
     confirmDebit.value = false;
+    if (nd) router.push({ query: { id: nd, edit: "1" } });
   } catch (err) { toast.error(String((err && err.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
   finally { busy.value = false; }
 }

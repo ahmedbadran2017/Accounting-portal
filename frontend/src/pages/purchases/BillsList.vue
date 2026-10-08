@@ -12,6 +12,36 @@
         <span class="absolute top-1/2 -translate-y-1/2 start-3 text-ink-muted pointer-events-none flex"><Icon name="search" :size="15" /></span>
         <input v-model.trim="st.search.value" :placeholder="L('Search bill / vendor…','بحث…','Rechercher…')" class="fld fld-md fld-sunk w-44 sm:w-64" />
       </div>
+      <UiButton v-if="canWrite" variant="secondary" size="sm" icon="refresh" @click="openCn">
+        {{ L("New credit note", "إشعار دائن جديد", "Nouvel avoir") }}
+      </UiButton>
+    </div>
+
+    <!-- Supplier credit note: pick the bill it reduces, then finish the draft. -->
+    <div v-if="cnOpen" class="fixed inset-0 z-50 grid place-items-center bg-ink/30 px-4" @click.self="cnOpen = false">
+      <div class="bg-white rounded-card shadow-pop w-full max-w-lg p-5">
+        <div class="text-[14px] font-bold">{{ L("New supplier credit note", "إشعار دائن جديد من مورّد", "Nouvel avoir fournisseur") }}</div>
+        <div class="text-[12px] text-ink-3 mt-1">{{ L("Choose the bill the supplier is crediting. A draft opens with its lines — keep what is credited, then submit.",
+          "اختار الفاتورة اللي المورّد عامل عليها الإشعار. هتتفتح مسودة فيها سطورها، سيب اللي عليه الإشعار وبعدين رحّل.",
+          "Choisissez la facture créditée. Un brouillon s'ouvre avec ses lignes.") }}</div>
+        <input id="cn-bill-search" v-model.trim="cnQ" autofocus :placeholder="L('Supplier, bill no. or PUR-INV…','المورّد أو رقم الفاتورة…','Fournisseur, n° facture…')" class="fld fld-md fld-sunk w-full mt-3" />
+        <div class="mt-2 max-h-[320px] overflow-y-auto border border-line-hair rounded-[10px]">
+          <div v-if="cnLoading" class="py-6 text-center text-[12px] text-ink-muted">{{ L("Loading…", "جارٍ التحميل…", "Chargement…") }}</div>
+          <div v-else-if="cnError" class="py-6 text-center text-[12px] text-sale">{{ L("Load failed", "فشل التحميل", "Échec du chargement") }}</div>
+          <div v-else-if="!cnRows.length" class="py-6 text-center text-[12px] text-ink-muted">{{ L("No posted bill matches.", "مفيش فاتورة مرحّلة مطابقة.", "Aucune facture.") }}</div>
+          <button v-for="r in cnRows" :key="r.name" type="button" :disabled="cnBusy"
+                  class="w-full flex items-center gap-3 px-3 py-2 text-start text-[12px] border-b border-line-hair last:border-0 hover:bg-app-warm disabled:opacity-50"
+                  @click="pickCn(r.name)">
+            <span class="font-mono font-semibold whitespace-nowrap">{{ r.name }}</span>
+            <span class="truncate flex-1">{{ r.supplier }}<span v-if="r.bill_no" class="text-ink-muted"> · {{ r.bill_no }}</span></span>
+            <span class="text-ink-3 whitespace-nowrap">{{ r.date }}</span>
+            <span class="font-semibold tnum whitespace-nowrap">{{ r.currency }} {{ fmt(r.amount) }}</span>
+          </button>
+        </div>
+        <div class="flex justify-end mt-3">
+          <UiButton variant="quiet" size="md" @click="cnOpen = false">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
+        </div>
+      </div>
     </div>
 
     <div class="overflow-x-auto">
@@ -78,6 +108,10 @@ import { useDateFilter } from "@/composables/useDateFilter";
 import DateFilterBar from "@/components/DateFilterBar.vue";
 import { useUi } from "@/composables/useUi";
 import api from "@/services/api";
+import UiButton from "@/components/UiButton.vue";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
+import { openCreditNoteDraft } from "@/composables/useCreditNote";
 
 const { locale } = useI18n();
 const route = useRoute();
@@ -129,4 +163,32 @@ const displayRows = computed(() => (st.rows.value || []).map((r) => ({
 })));
 
 function open(id) { router.push({ path: "/accounting/purchases/bills", query: { id } }); }
+
+// ── New supplier credit note ──
+const { can } = useAuth();
+const toast = useToast();
+const canWrite = computed(() => can("post_entries"));
+const cnOpen = ref(false), cnQ = ref(""), cnRows = ref([]), cnLoading = ref(false), cnError = ref(false), cnBusy = ref(false);
+let _cnT, _cnSeq = 0;
+async function loadCn() {
+  const seq = ++_cnSeq;
+  cnLoading.value = true; cnError.value = false;
+  try {
+    const r = await api.call("accounting_portal.api.purchases.list_bills",
+      { company: currentCompany(), status: "returnable", search: cnQ.value || undefined, page_size: 15 });
+    if (seq === _cnSeq) cnRows.value = ((r && r.rows) || []).map((x) => ({ ...x, date: String(x.date || "") }));
+  } catch { if (seq === _cnSeq) { cnRows.value = []; cnError.value = true; } }
+  finally { if (seq === _cnSeq) cnLoading.value = false; }
+}
+function openCn() { cnOpen.value = true; cnQ.value = st.search.value || ""; loadCn(); }
+watch(cnQ, () => { if (!cnOpen.value) return; clearTimeout(_cnT); _cnT = setTimeout(loadCn, 300); });
+async function pickCn(bill) {
+  cnBusy.value = true;
+  try {
+    const nd = await openCreditNoteDraft(bill);
+    cnOpen.value = false;
+    router.push({ path: "/accounting/purchases/bills", query: { id: nd, edit: "1" } });
+  } catch (err) { toast.error(String((err && err.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
+  finally { cnBusy.value = false; }
+}
 </script>

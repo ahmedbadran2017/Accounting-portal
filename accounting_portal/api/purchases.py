@@ -59,6 +59,10 @@ def list_bills(company=None, search=None, from_date=None, to_date=None, start=0,
         conds.append("pi.docstatus = 1 AND pi.status = 'Paid'")
     elif st == "ret":
         conds.append("pi.docstatus < 2 AND IFNULL(pi.is_return,0) = 1")
+    elif st == "returnable":
+        # What a supplier credit note can be raised against: a posted bill that is
+        # not itself a return.
+        conds.append("pi.docstatus = 1 AND IFNULL(pi.is_return,0) = 0")
     elif st != "all":
         conds.append("pi.docstatus < 2")
     if from_date:

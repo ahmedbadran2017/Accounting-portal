@@ -376,4 +376,18 @@ watch(() => [props.doctype, props.name], () => {
   loadActivity();
   loadTags();
 }, { immediate: true });
+
+// `?edit=1` on arrival opens a fresh draft straight in the full editor — used when
+// a screen creates a draft the user must finish (a supplier credit note starts as
+// a copy of the whole bill and has to be trimmed). Only a real draft opens; the
+// flag is then dropped so a refresh does not reopen it.
+watch(() => [props.name, route.query.edit], async ([n, e]) => {
+  if (!n || e !== "1" || !DRAFT_DOCTYPES.includes(props.doctype)) return;
+  const q = { ...route.query }; delete q.edit;
+  router.replace({ query: q });
+  try {
+    const g = await api.call("accounting_portal.api.docedit.get_draft", { doctype: props.doctype, name: n }, { fresh: true });
+    if (g && g.supported && g.docstatus !== 1) draftOpen.value = true;
+  } catch { /* the page still shows the draft and its Edit button */ }
+}, { immediate: true });
 </script>
