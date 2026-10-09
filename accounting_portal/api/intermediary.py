@@ -103,7 +103,7 @@ def intermediary_options(company=None):
              for a in accts if _is_inter(a.nm, a.pa)]
     banks = frappe.db.sql(
         """SELECT name, account_name nm FROM `tabAccount`
-           WHERE company=%s AND is_group=0 AND disabled=0 AND account_type='Bank' ORDER BY name""",
+           WHERE company=%s AND is_group=0 AND disabled=0 AND account_type='Bank' AND root_type='Asset' ORDER BY name""",
         (target,), as_dict=True)
     bills = frappe.db.sql(
         """SELECT pi.name, pi.supplier, IFNULL(s.supplier_name, pi.supplier) supplier_name,

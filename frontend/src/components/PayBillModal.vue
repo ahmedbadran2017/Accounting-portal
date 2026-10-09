@@ -28,21 +28,25 @@
 
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label for="pay-ref" class="text-[11px] font-bold text-ink-3">{{ L("Reference No", "رقم المرجع", "Référence") }}</label>
+          <label for="pay-ref" class="text-[11px] font-bold text-ink-3">{{ isPdc ? L("Cheque no", "رقم الشيك", "N° chèque") : L("Reference No", "رقم المرجع", "Référence") }}</label>
           <input id="pay-ref" v-model.trim="reference" :placeholder="L('Cheque / txn no', 'شيك / معاملة', 'Chèque / réf')" class="fld fld-md w-full mt-1" />
         </div>
         <div>
-          <label for="pay-date" class="text-[11px] font-bold text-ink-3">{{ L("Date", "التاريخ", "Date") }}</label>
+          <label for="pay-date" class="text-[11px] font-bold text-ink-3">{{ isPdc ? L("Cheque maturity", "تاريخ صرف الشيك", "Échéance du chèque") : L("Date", "التاريخ", "Date") }}</label>
           <input id="pay-date" type="date" v-model="date" class="fld fld-md w-full mt-1" />
         </div>
       </div>
 
-      <p class="text-[11px] text-ink-muted">{{ L("Bank / cheque methods require a reference.", "طرق البنك/الشيك تتطلب مرجعًا.", "Les méthodes banque/chèque exigent une référence.") }}</p>
+      <p v-if="isPdc" class="text-[11px] rounded-[8px] px-2.5 py-2" style="background:#eff6ff;color:#1e3a8a">{{ L(
+        "The bill is settled today. The bank is debited only on the maturity date — post it then from Banking › Supplier cheques.",
+        "الفاتورة بتتقفل النهارده، والبنك مش بيتخصم غير يوم صرف الشيك. سجّل الصرف يومها من البنوك › شيكات الموردين.",
+        "La facture est soldée aujourd'hui. La banque n'est débitée qu'à l'échéance — à passer ce jour-là depuis Banque › Chèques fournisseurs.") }}</p>
+      <p v-else class="text-[11px] text-ink-muted">{{ L("Bank / cheque methods require a reference.", "طرق البنك/الشيك تتطلب مرجعًا.", "Les méthodes banque/chèque exigent une référence.") }}</p>
       <p v-if="error" class="text-[12px] text-rose-600">{{ error }}</p>
 
       <div class="flex gap-2 justify-end pt-1">
         <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
-        <UiButton variant="primary" size="md" @click="pay" :disabled="posting || !mode" >{{ posting ? L("Paying…", "جارٍ…", "…") : L("Pay", "دفع", "Payer") }}</UiButton>
+        <UiButton variant="primary" size="md" @click="pay" :disabled="posting || !mode || (isPdc && !reference)" >{{ posting ? L("Paying…", "جارٍ…", "…") : L("Pay", "دفع", "Payer") }}</UiButton>
       </div>
     </div>
   </div>
@@ -56,7 +60,7 @@
 // ledger. So the AP clerk had to know that the same document has a second page
 // under a different tab, because the page they landed on had Hold, Write off
 // and Debit note, and no way to pay.
-import { ref, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import UiButton from "@/components/UiButton.vue";
@@ -81,6 +85,14 @@ const date = ref(new Date().toISOString().slice(0, 10));
 const amount = ref(0);
 const posting = ref(false);
 const error = ref("");
+// "Chèque à échéance": the reference is the cheque number and the date is the
+// cheque's maturity (≈ 90 days), not today — the payment itself posts today.
+const isPdc = computed(() => !!(modes.value.find((x) => x.mode === mode.value) || {}).pdc);
+watch(isPdc, (on) => {
+  const d = new Date();
+  if (on) d.setDate(d.getDate() + 90);
+  date.value = d.toISOString().slice(0, 10);
+});
 
 onMounted(async () => {
   try { modes.value = await api.call("accounting_portal.api.purchases.payment_modes", { company: currentCompany() }) || []; }

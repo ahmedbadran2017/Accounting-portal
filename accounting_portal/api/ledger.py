@@ -430,7 +430,7 @@ def cash_bank_review(company=None):
                   (SELECT COUNT(*) FROM `tabGL Entry` g WHERE g.account=a.name AND g.is_cancelled=0) n,
                   (SELECT MAX(g.posting_date) FROM `tabGL Entry` g WHERE g.account=a.name AND g.is_cancelled=0) last
            FROM `tabAccount` a
-           WHERE a.company=%s AND a.is_group=0 AND a.account_type IN ('Bank','Cash')
+           WHERE a.company=%s AND a.is_group=0 AND a.account_type IN ('Bank','Cash') AND a.root_type='Asset'
            ORDER BY a.account_type, a.account_number""", (target,), as_dict=True)
     out = []
     for r in rows:
@@ -715,7 +715,7 @@ def disable_dead_accounts(company=None):
         frappe.throw("company required")
     accts = frappe.db.sql(
         """SELECT a.name FROM `tabAccount` a
-           WHERE a.company=%s AND a.is_group=0 AND a.account_type IN ('Bank','Cash') AND a.disabled=0
+           WHERE a.company=%s AND a.is_group=0 AND a.account_type IN ('Bank','Cash') AND a.root_type='Asset' AND a.disabled=0
              AND NOT EXISTS(SELECT 1 FROM `tabGL Entry` g WHERE g.account=a.name AND g.is_cancelled=0)""",
         (target,), pluck=True)
     done = []

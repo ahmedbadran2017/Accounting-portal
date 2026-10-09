@@ -607,7 +607,7 @@ def daily_entry_checklist(company=None, date=None):
     # 2) bank ledger freshness — days since the last posting on any Bank account
     last_bank = frappe.db.sql(
         "SELECT MAX(g.posting_date) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account "
-        "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Bank' AND g.posting_date<=%s",
+        "WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Bank' AND a.root_type='Asset' AND g.posting_date<=%s",
         (target, d))[0][0]
     bank_lag = date_diff(d, str(last_bank)) if last_bank else 99
 
@@ -784,7 +784,7 @@ def cash_forecast(company=None):
     ccy = frappe.db.get_value("Company", target, "default_currency") or "MAD"
     cash = flt(frappe.db.sql(
         """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash')""", (target,))[0][0])
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash') AND a.root_type='Asset'""", (target,))[0][0])
     # Inflow — delivered COD still with the carrier (will land).
     carrier_float = 0.0
     try:
@@ -1129,14 +1129,14 @@ def financial_statements(company=None, from_date=None, to_date=None, compare=1, 
     def _cash_at(as_on):
         return flt(frappe.db.sql(
             f"""SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-               WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash'){_cfc} AND g.posting_date<=%s""",
+               WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash') AND a.root_type='Asset'{_cfc} AND g.posting_date<=%s""",
             (target,) + _cfe + (as_on,))[0][0])
     open_cash = _cash_at(prior_as_on)
     close_cash = _cash_at(to_date)
     mv = frappe.db.sql(
         f"""SELECT ROUND(SUM(g.debit)) cin, ROUND(SUM(g.credit)) cout
            FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash'){_cfc}
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash') AND a.root_type='Asset'{_cfc}
              AND g.posting_date BETWEEN %s AND %s""", (target,) + _cfe + (from_date, to_date), as_dict=True)[0]
     cash_in = flt(mv.cin); cash_out = flt(mv.cout)
     cf_pack = {
@@ -1209,7 +1209,7 @@ def verified_dd(company=None):
     gross_margin = round((rev - cogs) / rev * 100, 1) if rev else 0
     cash = flt(frappe.db.sql(
         """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
-           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash')""", (target,))[0][0])
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash') AND a.root_type='Asset'""", (target,))[0][0])
     debtors = flt(frappe.db.sql(
         """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
            WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type='Receivable'""", (target,))[0][0])

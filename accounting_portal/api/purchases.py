@@ -690,6 +690,12 @@ def payment_modes(company=None):
             AND acc.account_type IN ('Bank', 'Cash')
            WHERE mop.enabled = 1
            ORDER BY acc.account_type, mop.name""", (target, target), as_dict=True)
+    # A cheque at maturity pays from the "Chèques fournisseurs à payer" account;
+    # the dialog then asks for the cheque number and its maturity date.
+    from accounting_portal.api.pdc import pdc_account
+    pdc = pdc_account(target)
+    for r in rows:
+        r["pdc"] = 1 if (pdc and r.account == pdc) else 0
     return rows
 
 
@@ -830,7 +836,8 @@ def make_invoice_group(company=None, receipts=None, dedupe_key=None):
 
 
 # ── Cheque register (supplier cheques — track issued → cleared) ──
-_CHQ_COND = "(IFNULL(pe.reference_no,'') LIKE 'CHQ%%' OR pe.mode_of_payment IN ('Cheque','Bank Draft'))"
+_CHQ_COND = ("(IFNULL(pe.reference_no,'') LIKE 'CHQ%%' OR pe.mode_of_payment IN ('Cheque','Bank Draft','Chèque à échéance')"
+             " OR pe.paid_from LIKE 'Chèques fournisseurs à payer%%' OR pe.paid_from LIKE '%% - Chèques fournisseurs à payer - %%')")
 CLEAR_CHQ_ACTION = "Clear Cheque"
 # An outstanding cheque this many days past its cheque date has almost certainly
 # been cashed at the bank — the cash-out is already in the GL; it's just never
@@ -893,14 +900,18 @@ def list_cheques(company=None, search=None, status=None, from_date=None, to_date
         f"""SELECT pe.name, pe.party, IFNULL(s.supplier_name, pe.party) AS supplier_name,
                    IFNULL(pe.reference_no,'') AS cheque_no, pe.reference_date AS due,
                    pe.clearance_date AS cleared_on, pe.paid_amount AS amount,
-                   pe.paid_from_account_currency AS currency, IFNULL(pe.mode_of_payment,'') AS bank,
+                   pe.paid_from_account_currency AS currency, IFNULL(pe.mode_of_payment,'') AS bank, pe.paid_from,
                    DATEDIFF(CURDATE(), pe.reference_date) AS age_days
             FROM `tabPayment Entry` pe LEFT JOIN `tabSupplier` s ON s.name=pe.party
             WHERE {' AND '.join(conds)}
             ORDER BY pe.clearance_date IS NOT NULL, pe.reference_date ASC LIMIT %(limit)s""",
         params, as_dict=True)
+    from accounting_portal.api.pdc import pdc_account
+    pdc = pdc_account(target)
     out = []
     for r in rows:
+        # A cheque at maturity: clearing it posts the bank leg, not just a date.
+        r["pdc"] = 1 if (pdc and r.pop("paid_from", None) == pdc) else 0
         st = _chq_status(r.get("due"), r.get("cleared_on"))
         age = int(r.get("age_days") or 0)
         stale = st == "outstanding" and age > STALE_CHQ_DAYS
@@ -979,12 +990,33 @@ def mark_cheques_cleared(company=None, names=None, clearance_date=None, dates=No
             frappe.throw(f"{r.name} belongs to another company")
     date = clearance_date or nowdate()
     dates = {n: d for n, d in dates.items() if n in names and d}
-    sig = "".join(f"{n}:{dates.get(n, date)}" for n in sorted(names))
-    key = "clrchq:" + _digest(sig, 16)
-    res = _actions.execute(CLEAR_CHQ_ACTION, target, key,
-                           payload={"names": sorted(names), "date": date, "dates": dates}, amount=0,
-                           notes=f"Cleared {len(names)} cheque(s)")
+    # Cheques paid through "Chèques fournisseurs à payer" are cleared by posting
+    # the bank leg (bank → cheque account on the debit date); the date alone
+    # would leave the money in BMCE forever. The others keep the date stamp.
+    from accounting_portal.api import pdc as _pdc
+    pacc = _pdc.pdc_account(target)
+    pdc_names = [r[0] for r in frappe.db.sql(
+        "SELECT name FROM `tabPayment Entry` WHERE name IN %(n)s AND paid_from=%(a)s",
+        {"n": tuple(names), "a": pacc or "-"})]
+    posted, failed = [], []
+    for n in pdc_names:
+        try:
+            _pdc.encash(target, n, dates.get(n) or clearance_date or None)
+            posted.append(n)
+        except Exception as e:
+            frappe.db.rollback()
+            failed.append({"name": n, "error": str(e)[:160]})
+    rest = sorted(n for n in names if n not in pdc_names)
+    res = {"encashed": posted, "failed": failed}
+    if rest:
+        sig = "".join(f"{n}:{dates.get(n, date)}" for n in rest)
+        key = "clrchq:" + _digest(sig, 16)
+        res.update(_actions.execute(CLEAR_CHQ_ACTION, target, key,
+                                    payload={"names": rest, "date": date, "dates": {n: d for n, d in dates.items() if n in rest}},
+                                    amount=0, notes=f"Cleared {len(rest)} cheque(s)") or {})
     _bust_purch_cache()
+    if failed and not posted and not rest:
+        frappe.throw(failed[0]["error"])
     return res
 
 

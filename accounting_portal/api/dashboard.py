@@ -246,7 +246,7 @@ def get_cod_cockpit(company=None, from_date=None, to_date=None):
         FROM `tabGL Entry` gl
         JOIN `tabAccount` acc ON acc.name = gl.account
         WHERE gl.is_cancelled = 0 AND gl.company = %s
-          AND acc.account_type IN ('Bank', 'Cash')
+          AND acc.account_type IN ('Bank', 'Cash') AND acc.root_type = 'Asset'
           AND gl.posting_date >= %s AND gl.posting_date <= %s
         GROUP BY gl.account
         ORDER BY cash_in DESC
@@ -276,7 +276,7 @@ def get_cod_cockpit(company=None, from_date=None, to_date=None):
         FROM `tabGL Entry` gl
         JOIN `tabAccount` acc ON acc.name = gl.account
         WHERE gl.is_cancelled = 0 AND gl.company = %s
-          AND acc.account_type IN ('Bank', 'Cash')
+          AND acc.account_type IN ('Bank', 'Cash') AND acc.root_type = 'Asset'
           AND gl.posting_date >= %s AND gl.posting_date <= %s
         GROUP BY day ORDER BY day
         """,
@@ -315,7 +315,7 @@ def get_cod_cockpit(company=None, from_date=None, to_date=None):
                      THEN gl.debit_in_account_currency - gl.credit_in_account_currency
                      ELSE gl.debit - gl.credit END) AS book
         FROM `tabGL Entry` gl JOIN `tabAccount` acc ON acc.name = gl.account
-        WHERE gl.is_cancelled = 0 AND gl.company = %s AND acc.account_type IN ('Bank', 'Cash'){_opc}
+        WHERE gl.is_cancelled = 0 AND gl.company = %s AND acc.account_type IN ('Bank', 'Cash') AND acc.root_type = 'Asset'{_opc}
         GROUP BY acc.account_type, ccy
         """,
         (currency, currency, currency, target) + _ope, as_dict=True)
@@ -431,7 +431,7 @@ def _build_alerts(target, ccy):
     cash = flt(frappe.db.sql(
         """SELECT COALESCE(SUM(g.debit-g.credit),0) FROM `tabGL Entry` g
            JOIN `tabAccount` a ON a.name=g.account
-           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash')""",
+           WHERE g.company=%s AND g.is_cancelled=0 AND a.account_type IN ('Bank','Cash') AND a.root_type='Asset'""",
         (target,))[0][0])
     if cash < 0:
         add("high", "Negative cash balance", f"{round(cash):,.0f} {ccy} across bank + cash", "/accounting/banking")

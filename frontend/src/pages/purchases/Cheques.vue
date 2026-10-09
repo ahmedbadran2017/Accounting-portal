@@ -66,7 +66,7 @@
           <tbody>
             <tr v-for="o in tt.pageRows.value" :key="o.name" class="border-t border-line-hair hover:bg-app-warm/70 cursor-pointer" :class="tt.isSelected(o) ? 'bg-accent/5' : ''" @click="open(o.name)">
               <td class="px-3 py-2.5 w-9" @click.stop><input type="checkbox" :checked="tt.isSelected(o)" @change="tt.toggleRow(o)" class="accent-accent w-3.5 h-3.5 align-middle" /></td>
-              <td v-show="!tt.hidden.value.has('cheque_no')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.cheque_no || "—" }}</td>
+              <td v-show="!tt.hidden.value.has('cheque_no')" class="px-4 py-2.5 font-mono font-semibold whitespace-nowrap">{{ o.cheque_no || "—" }}<span v-if="o.pdc" class="ms-1.5 text-[10px] font-sans font-bold px-1.5 py-0.5 rounded-badge" style="background:#eff6ff;color:#1d4ed8">{{ L("at maturity", "مؤجّل", "à échéance") }}</span></td>
               <td v-show="!tt.hidden.value.has('supplier_name')" class="px-4 py-2.5 truncate max-w-[200px]">{{ o.supplier_name }}</td>
               <td v-show="!tt.hidden.value.has('due')" class="px-4 py-2.5 whitespace-nowrap">
                 <span :class="o.status === 'outstanding' && o.due && o.due < today ? 'text-sale font-semibold' : 'text-ink-2'">{{ o.due || "—" }}</span>

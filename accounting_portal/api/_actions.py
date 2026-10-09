@@ -129,6 +129,7 @@ def _ensure_posters():
     import accounting_portal.api.settlement       # noqa: F401 — monthly-settlement poster + reverter
     import accounting_portal.api.reclass          # noqa: F401 — reclassify-balance poster + reverter
     import accounting_portal.api.cogs_trueup      # noqa: F401 — monthly COGS true-up poster + reverter
+    import accounting_portal.api.pdc              # noqa: F401 — supplier-cheque encashment poster + reverter
 
 
 def _existing(dedupe_key):

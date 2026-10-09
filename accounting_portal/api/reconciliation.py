@@ -69,7 +69,7 @@ def list_accounts(company=None):
                ROUND(SUM(gl.debit - gl.credit)) AS balance
         FROM `tabAccount` a
         JOIN `tabGL Entry` gl ON gl.account = a.name AND gl.is_cancelled = 0
-        WHERE a.company = %s AND a.account_type IN ('Bank', 'Cash')
+        WHERE a.company = %s AND a.account_type IN ('Bank', 'Cash') AND a.root_type = 'Asset'
         GROUP BY a.name, a.account_type, a.account_currency
         ORDER BY ABS(SUM(gl.debit - gl.credit)) DESC
         """,
@@ -315,7 +315,7 @@ def bank_rec_accounts(company=None, from_date=None, to_date=None):
                             ELSE g.debit - g.credit END)) AS book,
                   ROUND(SUM(g.debit - g.credit)) AS book_base
            FROM `tabAccount` a JOIN `tabGL Entry` g ON g.account=a.name AND g.is_cancelled=0
-           WHERE a.company=%(c)s AND a.is_group=0 AND a.account_type IN ('Bank','Cash')
+           WHERE a.company=%(c)s AND a.is_group=0 AND a.account_type IN ('Bank','Cash') AND a.root_type='Asset'
            GROUP BY a.name HAVING COUNT(*) > 0
            ORDER BY ABS(SUM(g.debit - g.credit)) DESC LIMIT 120""",
         {"c": target, "base": base_ccy}, as_dict=True)
@@ -653,7 +653,7 @@ def bank_transactions(company=None, from_date=None, to_date=None, search=None,
     target = _target(company)
     if not target:
         return {"rows": [], "total": 0}
-    conds = ["g.company=%(c)s", "g.is_cancelled=0", "a.account_type IN ('Bank','Cash')"]
+    conds = ["g.company=%(c)s", "g.is_cancelled=0", "a.account_type IN ('Bank','Cash')", "a.root_type='Asset'"]
     p = {"c": target}
     if from_date:
         conds.append("g.posting_date>=%(fd)s"); p["fd"] = from_date

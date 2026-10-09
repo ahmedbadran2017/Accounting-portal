@@ -21,7 +21,8 @@
       <div class="max-h-[46vh] overflow-y-auto divide-y divide-line-hair">
         <div v-for="r in rows" :key="r.name" class="px-5 py-2.5 flex items-center gap-3">
           <div class="min-w-0 flex-1">
-            <div class="text-[12px] font-mono font-semibold truncate">{{ r.cheque_no || r.name }}</div>
+            <div class="text-[12px] font-mono font-semibold truncate">{{ r.cheque_no || r.name }}
+              <span v-if="r.pdc" class="ms-1 text-[10px] font-sans font-bold px-1.5 py-0.5 rounded-badge" style="background:#eff6ff;color:#1d4ed8">{{ L("at maturity", "مؤجّل", "à échéance") }}</span></div>
             <div class="text-[11px] text-ink-muted truncate">{{ r.supplier_name }} · {{ r.currency }} {{ fmt(r.amount) }}</div>
           </div>
           <input type="date" v-model="perDate[r.name]" class="fld fld-sm shrink-0" />
@@ -29,7 +30,11 @@
       </div>
 
       <div class="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-line bg-app-warm/40">
-        <span class="text-[11px] text-ink-muted">{{ L("Reconciliation only — no GL impact. Reversible.", "مطابقة فقط — لا أثر على الأستاذ. قابل للتراجع.", "Rapprochement seul — réversible.") }}</span>
+        <span v-if="rows.some((r) => r.pdc)" class="text-[11px]" style="color:#1d4ed8">{{ L(
+          "Cheques at maturity: posts the bank debit (BMCE → cheque account) on the date shown. Reversible.",
+          "الشيكات المؤجّلة: بيتسجل خصم البنك (BMCE ← حساب الشيكات) بالتاريخ ده. قابل للتراجع.",
+          "Chèques à échéance : passe le débit banque (BMCE → compte chèques) à la date indiquée. Réversible.") }}</span>
+        <span v-else class="text-[11px] text-ink-muted">{{ L("Reconciliation only — no GL impact. Reversible.", "مطابقة فقط — لا أثر على الأستاذ. قابل للتراجع.", "Rapprochement seul — réversible.") }}</span>
         <div class="flex items-center gap-2">
           <button class="px-3.5 py-2 rounded-chip text-[12px] font-semibold text-ink-2 hover:bg-white" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</button>
           <UiButton variant="primary" size="md" :disabled="!allSet || saving" @click="confirm">

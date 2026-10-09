@@ -48,7 +48,7 @@ def _company_figures(company, fy):
         """SELECT
              ROUND(SUM(CASE WHEN a.root_type='Asset'     THEN g.debit-g.credit ELSE 0 END)) assets,
              ROUND(SUM(CASE WHEN a.root_type='Liability' THEN g.credit-g.debit ELSE 0 END)) liabilities,
-             ROUND(SUM(CASE WHEN a.account_type IN ('Bank','Cash') THEN g.debit-g.credit ELSE 0 END)) cash
+             ROUND(SUM(CASE WHEN a.account_type IN ('Bank','Cash') AND a.root_type='Asset' THEN g.debit-g.credit ELSE 0 END)) cash
            FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name=g.account
            WHERE g.company=%s AND g.is_cancelled=0""", (company,), as_dict=True)[0]
     inter = flt(frappe.db.sql(

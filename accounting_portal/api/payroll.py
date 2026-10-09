@@ -625,7 +625,7 @@ def _month_bounds(month):
 def _bank_accounts(target):
     return frappe.db.sql(
         """SELECT name, account_name nm FROM `tabAccount`
-           WHERE company=%s AND is_group=0 AND disabled=0 AND account_type='Bank' ORDER BY name""",
+           WHERE company=%s AND is_group=0 AND disabled=0 AND account_type='Bank' AND root_type='Asset' ORDER BY name""",
         (target,), as_dict=True)
 
 
