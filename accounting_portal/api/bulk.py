@@ -34,7 +34,15 @@ def _bulk_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     dt, names, op = p["doctype"], p["names"], p["op"]
     done, failed = [], []
-    for n in names:
+    for i, n in enumerate(names):
+        # One savepoint per document. submit() writes docstatus=1 BEFORE it posts
+        # the ledger; when the ledger then fails (PAY-49181: dated 2027, no fiscal
+        # year) the exception was caught here, the loop moved on, and the action
+        # committed — leaving a payment "submitted" with no GL and no payment
+        # ledger, which nothing can then allocate, cancel or amend. Cancel had the
+        # same hole the other way round. A failure now undoes that one document.
+        sp = f"bulk_{i}"
+        frappe.db.savepoint(sp)
         try:
             d = frappe.get_doc(dt, n)
             d.flags.ignore_permissions = True
@@ -46,6 +54,8 @@ def _bulk_poster(action):
                 failed.append({"name": n, "error": "wrong state"}); continue
             done.append(n)
         except Exception as e:
+            frappe.db.rollback(save_point=sp)
+            frappe.clear_document_cache(dt, n)
             failed.append({"name": n, "error": str(e)[:140]})
     return {"voucher_type": dt, "voucher_no": (done[0] if done else None),
             "result": {"op": op, "doctype": dt, "done": done, "failed": failed,
