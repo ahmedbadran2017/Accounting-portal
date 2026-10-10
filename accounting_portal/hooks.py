@@ -64,6 +64,13 @@ doc_events = {
     "Stock Entry": {
         "validate": "accounting_portal.api.stock_guard.validate_stock_entry",
     },
+    # a delivered parcel must end with an invoice — see api/invoice_net.py
+    "Shipment Tracking": {
+        "after_insert": "accounting_portal.api.invoice_net.on_tracking",
+    },
+    "Sales Invoice": {
+        "after_insert": "accounting_portal.api.invoice_net.on_draft_invoice",
+    },
 }
 
 # hourly cache warmer — the matching/cycle screens are year-wide scans

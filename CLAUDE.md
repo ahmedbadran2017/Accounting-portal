@@ -155,10 +155,13 @@ Deeper reference:
   redate (`api/docedit.py`), and the performance waves.
 
 ## Known open work (code side)
-- **Duplicate sales invoices:** 2,469 Sales Invoices for Justyol Morocco in 2026 (mostly Jan and Apr) are
-  exact copies created twice, and each copy has its own Cathedis Payment Entry (≈441K MAD).
-  - Cancellation is **pending the owner's go-ahead**: cancel the Payment Entry first, then the invoice.
-  - Find out which bulk path created them and make sure it is now covered by `_actions.digest`.
+- **Duplicate sales invoices:** the 2,469 copies (≈441K MAD) and their Payment Entries were cancelled on
+  10 Oct 2026. Still open: find out which bulk path created them and make sure `_actions.digest` covers it.
+- **Delivered but not invoiced:** about 2,100 orders were back-invoiced on 10 Oct 2026. `api/invoice_net.py`
+  (event hooks, no polling) now closes the gap as it happens; its docstring explains the two causes.
+  - 13 orders are left with data errors.
+  - 8 orders have a duplicate delivery note (same parcel), so stock is counted twice; cancelling those notes
+    needs the owner's go-ahead.
 - **Missing COD collection Payment Entries.** Some cash reached the bank with no invoice matched to it. It
   shows once the duplicate copies are gone. This is the "Cathedis close" feature (`api/cod_close.py`).
 - Clear P&L classifier: in `_cat()`, `770.012.*` subscriptions match the `770.01` premises prefix. Make
