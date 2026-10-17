@@ -299,11 +299,16 @@ def _classify(company, year):
     lines_by_dn = {}
     all_lines = []
     units = {}            # DN posting month -> [qty, cost]  (cost per unit sold)
+    y0 = f"{year}-01-01"
     for dn, item, qty, cst in cost_rows:
         ln = (dn, item, flt(qty), flt(cst), price.get((dn, item), 0.0))
         lines_by_dn.setdefault(dn, []).append(ln)
-        all_lines.append(ln)
         d = dn_by_name.get(dn)
+        # item references come from THIS year's deliveries only: Nov–Dec of the
+        # year before still carry the costs the vendor workbench later fixed
+        # (an item verified at 29 showed a 118 "median" from 2025 lines)
+        if d is not None and str(d.posting_date) >= y0:
+            all_lines.append(ln)
         if d is not None:
             u = units.setdefault(str(d.posting_date)[:7], [0.0, 0.0])
             u[0] += ln[2]
