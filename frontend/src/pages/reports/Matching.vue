@@ -1,18 +1,19 @@
 <template>
   <div class="space-y-3.5">
-    <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-[13px] font-bold">{{ L("Revenue ↔ Cost matching","مطابقة الإيراد والتكلفة","Rapprochement CA ↔ coût") }}</span>
-      <span class="text-[11px] text-ink-muted">{{ L("every month: does each dirham of revenue have its cost, and each cost its revenue?","كل شهر: هل كل إيراد قصاده تكلفته وكل تكلفة قصادها إيرادها؟","chaque mois : chaque dirham a-t-il sa contrepartie ?") }}</span>
-      <div class="ms-auto flex items-center gap-1.5">
-        <button @click="view = 'radar'" class="text-[12px] font-semibold px-3 py-1.5 rounded-full border transition"
-                :class="view === 'radar' ? 'bg-accent text-white border-accent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ L("Radar","الرادار","Radar") }}</button>
-        <button @click="view = 'month'; if (!d0) load();" class="text-[12px] font-semibold px-3 py-1.5 rounded-full border transition"
-                :class="view === 'month' ? 'bg-accent text-white border-accent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ L("By month","بالشهور","Par mois") }}</button>
-        <button @click="view = 'cycle'; if (!cy) loadCycle();" class="text-[12px] font-semibold px-3 py-1.5 rounded-full border transition"
-                :class="view === 'cycle' ? 'bg-accent text-white border-accent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ L("By cycle","بالدورة","Par cycle") }}</button>
-        <span class="w-2"></span>
-        <button v-for="yy in years" :key="yy" @click="year = yy; reload()" class="text-[12px] font-semibold px-3 py-1.5 rounded-full border transition"
-                :class="year === yy ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ yy }}</button>
+    <div class="flex items-center gap-x-3 gap-y-2 flex-wrap">
+      <div class="min-w-0">
+        <div class="text-[15px] font-bold leading-tight">{{ view === "radar" ? L("Monthly cycle","الدورة الشهرية","Cycle mensuel") : view === "month" ? L("Revenue ↔ cost detail","تفاصيل الإيراد والتكلفة","Détail CA ↔ coût") : L("Order contract","عقد الأوردر","Contrat de commande") }}</div>
+        <div class="text-[11px] text-ink-muted">{{ view === "radar" ? L("sales → collections → cost of goods → margin, month by month — and a radar for what does not add up","المبيعات ← التحصيل ← تكلفة البضاعة ← الهامش، شهر بشهر — ورادار يمسك أي حاجة مش منطقية","ventes → encaissements → coût → marge, et un radar pour ce qui cloche") : view === "month" ? L("does each dirham of revenue have its cost, and each cost its revenue?","هل كل إيراد قصاده تكلفته وكل تكلفة قصادها إيرادها؟","chaque dirham a-t-il sa contrepartie ?") : L("does every order tell its complete story in documents?","هل كل أوردر بيحكي قصته كاملة في المستندات؟","chaque commande a-t-elle tous ses documents ?") }}</div>
+      </div>
+      <div class="ms-auto flex items-center gap-2 flex-wrap">
+        <div class="inline-flex rounded-full border border-line-2 bg-white p-0.5">
+          <button v-for="v in VIEWS" :key="v.key" @click="setView(v.key)" class="text-[12px] font-semibold px-3 py-1 rounded-full transition"
+                  :class="view === v.key ? 'bg-accent text-white' : 'text-ink-3 hover:bg-app-warm'">{{ v.label() }}</button>
+        </div>
+        <div class="inline-flex rounded-full border border-line-2 bg-white p-0.5">
+          <button v-for="yy in years" :key="yy" @click="year = yy; reload()" class="text-[12px] font-semibold px-3 py-1 rounded-full transition"
+                  :class="year === yy ? 'bg-ink text-white' : 'text-ink-3 hover:bg-app-warm'">{{ yy }}</button>
+        </div>
       </div>
     </div>
 
@@ -196,6 +197,16 @@ const n = (v) => (v == null ? "—" : Math.round(v).toLocaleString("en-US"));
 const years = [2026, 2025];
 const year = ref(2026);
 const view = ref("radar");
+const VIEWS = [
+  { key: "radar", label: () => L("Monthly cycle", "الدورة الشهرية", "Cycle mensuel") },
+  { key: "month", label: () => L("Revenue ↔ cost", "الإيراد ↔ التكلفة", "CA ↔ coût") },
+  { key: "cycle", label: () => L("Order contract", "عقد الأوردر", "Contrat") },
+];
+function setView(v) {
+  view.value = v;
+  if (v === "month" && !d0.value) load();
+  if (v === "cycle" && !cy.value) loadCycle();
+}
 const radarRef = ref(null);
 const cy = ref(null);
 const cyLoading = ref(false);

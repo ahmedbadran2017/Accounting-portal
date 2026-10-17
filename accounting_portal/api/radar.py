@@ -28,8 +28,10 @@ button) and served from cache. It is deliberately NOT in _cache._PREFIXES:
 busting it on every posting would mean a ~30 s year-wide rebuild on the next
 view; the screen shows when the snapshot was taken instead.
 """
+import os
+
 import frappe
-from frappe.utils import flt, getdate, nowdate, now_datetime, date_diff
+from frappe.utils import flt, nowdate, now_datetime, date_diff
 
 from accounting_portal.api.permissions import assert_portal_access, assert_can_write, resolve_companies
 from accounting_portal.api import _actions
@@ -200,7 +202,25 @@ def _load(company, year):
                  AND voucher_type = 'Journal Entry' AND posting_date BETWEEN %s AND %s
                GROUP BY 1""", (company, CATHEDIS + "%", y0, y1))),
     }
-    return sos, dns, sis, pays, je_pays, cost, price, parcels, bank
+    # money by POSTING month, so the cycle view agrees with the P&L
+    money = {
+        "sales": frappe.db.sql(
+            """SELECT DATE_FORMAT(posting_date, '%%Y-%%m'), is_return, SUM(base_grand_total),
+                      SUM(outstanding_amount), COUNT(*)
+               FROM `tabSales Invoice` WHERE docstatus = 1 AND company = %s
+                 AND posting_date BETWEEN %s AND %s GROUP BY 1, 2""", (company, y0, y1)),
+        "receipts": frappe.db.sql(
+            """SELECT DATE_FORMAT(posting_date, '%%Y-%%m'), payment_type,
+                      LEFT(IF(payment_type = 'Receive', paid_to, paid_from), 11), SUM(base_paid_amount)
+               FROM `tabPayment Entry` WHERE docstatus = 1 AND company = %s AND party_type = 'Customer'
+                 AND posting_date BETWEEN %s AND %s GROUP BY 1, 2, 3""", (company, y0, y1)),
+        "cogs": frappe.db.sql(
+            """SELECT DATE_FORMAT(g.posting_date, '%%Y-%%m'), g.voucher_type, SUM(g.debit - g.credit)
+               FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name = g.account
+               WHERE g.company = %s AND g.is_cancelled = 0 AND g.posting_date BETWEEN %s AND %s
+                 AND a.account_type = 'Cost of Goods Sold' GROUP BY 1, 2""", (company, y0, y1)),
+    }
+    return sos, dns, sis, pays, je_pays, cost, price, parcels, bank, money
 
 
 # ──────────────────────────────── classification ─────────────────────────────
@@ -235,7 +255,7 @@ def _carrier(dn, parcels, have_parcels, rdn):
 
 
 def _classify(company, year):
-    sos, dns, sis, pays, je_pays, cost_rows, price_rows, parcels, bank = _load(company, year)
+    sos, dns, sis, pays, je_pays, cost_rows, price_rows, parcels, bank, money = _load(company, year)
     have_parcels = bool(parcels)
     today = nowdate()
 
@@ -278,10 +298,16 @@ def _classify(company, year):
     price = {(r[0], r[1]): flt(r[2]) for r in price_rows}
     lines_by_dn = {}
     all_lines = []
+    units = {}            # DN posting month -> [qty, cost]  (cost per unit sold)
     for dn, item, qty, cst in cost_rows:
         ln = (dn, item, flt(qty), flt(cst), price.get((dn, item), 0.0))
         lines_by_dn.setdefault(dn, []).append(ln)
         all_lines.append(ln)
+        d = dn_by_name.get(dn)
+        if d is not None:
+            u = units.setdefault(str(d.posting_date)[:7], [0.0, 0.0])
+            u[0] += ln[2]
+            u[1] += ln[3]
     cref, pref = _item_refs(all_lines)
 
     months = {}
@@ -448,6 +474,8 @@ def _classify(company, year):
                      "diff": round(flt(bank["credited"].get(ym)) - f[1])}
         out_months.append(m)
 
+    _attach_money(out_months, money, units, bank, today)
+
     # items whose whole cost history sits above what they sell for — fix at the
     # source (Vendor Workbench), not order by order
     items = []
@@ -463,6 +491,12 @@ def _classify(company, year):
               "invoiced_value", "collected", "cod_collected", "cogs", "clean", "exceptions",
               "exception_value", "watch", "not_shipped", "cancelled"):
         tot[k] = sum(m[k] for m in out_months)
+    tot["money"] = {k: round(sum(flt(m["money"][k]) for m in out_months))
+                    for k in ("sales", "invoices", "uncollected", "collected", "cathedis", "payzone",
+                              "bank", "refunds", "cogs", "cogs_dn", "cogs_other", "margin")}
+    tot["money"]["gm_pct"] = (round(100.0 * tot["money"]["margin"] / tot["money"]["sales"], 1)
+                              if tot["money"]["sales"] else None)
+    tot["anomalies"] = sum(len(m["anomalies"]) for m in out_months)
     done = tot["clean"] + tot["exceptions"]
     tot["clean_pct"] = round(100.0 * tot["clean"] / done, 1) if done else None
     tb = {}
@@ -483,6 +517,135 @@ def _classify(company, year):
     return summary, rows
 
 
+# ───────────────────────── money + month-level radar ─────────────────────────
+
+PAYZONE = "108.021.006"
+
+
+def _attach_money(out_months, money, units, bank, today):
+    """Per month (posting date): sales, collections, cost of goods, margin —
+    then the month-level radar: things that are not logical for a month even
+    when every single order looks fine."""
+    by = {m["month"]: m for m in out_months}
+
+    def mm(ym):
+        if ym not in by:   # a month with postings but no orders of its own
+            by[ym] = {"month": ym, "orders": 0, "order_value": 0, "cancelled": 0, "not_shipped": 0,
+                      "shipped": 0, "delivered": 0, "returned": 0, "open": 0, "invoiced": 0,
+                      "invoiced_value": 0, "collected": 0, "cod_collected": 0, "cogs": 0, "clean": 0,
+                      "exceptions": 0, "exception_value": 0, "watch": 0, "buckets": {}, "clean_pct": None,
+                      "bank": {"funded_parcels": 0, "cathedis_funded": 0, "bank_credited": 0, "diff": 0}}
+            out_months.append(by[ym])
+        m = by[ym]
+        m.setdefault("money", {"sales": 0.0, "invoices": 0, "credit_notes": 0.0, "uncollected": 0.0,
+                               "collected": 0.0, "cathedis": 0.0, "payzone": 0.0, "bank": 0.0,
+                               "refunds": 0.0, "cogs": 0.0, "cogs_dn": 0.0, "cogs_bills": 0.0,
+                               "cogs_receipts": 0.0, "cogs_journals": 0.0, "cogs_other": 0.0})
+        return m["money"]
+
+    for m in list(out_months):
+        mm(m["month"])
+    for ym, is_ret, gt, os_, n in money["sales"]:
+        x = mm(ym)
+        x["sales"] += flt(gt)
+        if is_ret:
+            x["credit_notes"] += flt(gt)
+        else:
+            x["invoices"] += int(n)
+            x["uncollected"] += flt(os_)
+    for ym, ptype, acc, amt in money["receipts"]:
+        x = mm(ym)
+        if ptype == "Pay":
+            x["refunds"] += flt(amt)
+            continue
+        key = "cathedis" if acc == CATHEDIS else ("payzone" if acc == PAYZONE else "bank")
+        x[key] += flt(amt)
+    for ym, vt, amt in money["cogs"]:
+        x = mm(ym)
+        x["cogs"] += flt(amt)
+        k = {"Delivery Note": "cogs_dn", "Purchase Invoice": "cogs_bills",
+             "Purchase Receipt": "cogs_receipts", "Journal Entry": "cogs_journals"}.get(vt, "cogs_other")
+        x[k] += flt(amt)
+
+    out_months.sort(key=lambda m: m["month"])
+    cur = str(today)[:7]
+    for m in out_months:
+        x = m["money"]
+        x["collected"] = x["cathedis"] + x["payzone"] + x["bank"] - x["refunds"]
+        x["cogs_other"] = x["cogs"] - x["cogs_dn"]
+        x["margin"] = x["sales"] - x["cogs"]
+        x["gm_pct"] = round(100.0 * x["margin"] / x["sales"], 1) if x["sales"] else None
+        q, c = units.get(m["month"], [0.0, 0.0])
+        x["units"] = round(q)
+        x["unit_cost"] = round(c / q, 2) if q else None
+        for k, v in list(x.items()):
+            if isinstance(v, float) and k not in ("gm_pct", "unit_cost"):
+                x[k] = round(v)
+        fin = m["delivered"] + m["returned"]
+        m["return_rate"] = round(100.0 * m["returned"] / fin, 1) if fin else None
+
+    closed = [m for m in out_months if m["month"] < cur]
+    med_gm = _median([m["money"]["gm_pct"] for m in closed if m["money"]["gm_pct"] is not None])
+    med_uc = _median([m["money"]["unit_cost"] for m in closed if m["money"]["unit_cost"]])
+    med_rr = _median([m["return_rate"] for m in closed if m["return_rate"] is not None])
+
+    for m in out_months:
+        x, an = m["money"], []
+        is_closed = m["month"] < cur
+        if x["sales"] and x["cogs"] > x["sales"]:
+            an.append({"key": "negative_margin", "sev": "high", "a": x["cogs"], "b": x["sales"]})
+        elif is_closed and x["gm_pct"] is not None and med_gm and abs(x["gm_pct"] - med_gm) > 8:
+            an.append({"key": "margin_off", "sev": "high" if abs(x["gm_pct"] - med_gm) > 15 else "medium",
+                       "a": x["gm_pct"], "b": round(med_gm, 1)})
+        if x["cogs"] and abs(x["cogs_other"]) > 0.03 * abs(x["cogs"]):
+            an.append({"key": "cost_outside_deliveries", "sev": "high" if abs(x["cogs_other"]) > 0.15 * abs(x["cogs"]) else "medium",
+                       "a": x["cogs_other"], "b": x["cogs_bills"], "c": x["cogs_journals"]})
+        if x["unit_cost"] and med_uc and (x["unit_cost"] > 1.25 * med_uc or x["unit_cost"] < 0.8 * med_uc):
+            an.append({"key": "unit_cost_jump", "sev": "medium", "a": x["unit_cost"], "b": round(med_uc, 2)})
+        if is_closed and x["sales"] and x["uncollected"] > 0.01 * x["sales"]:
+            an.append({"key": "uncollected", "sev": "high" if x["uncollected"] > 0.03 * x["sales"] else "medium",
+                       "a": x["uncollected"], "b": x["sales"]})
+        if x["sales"] and x["uncollected"] < -0.005 * x["sales"]:
+            an.append({"key": "overcollected", "sev": "medium", "a": -x["uncollected"]})
+        f, cr = flt(m["bank"]["cathedis_funded"]), flt(m["bank"]["bank_credited"])
+        if is_closed and f and abs(cr - f) > 0.03 * f:
+            an.append({"key": "bank_gap", "sev": "medium", "a": round(cr), "b": round(f)})
+        if is_closed and m["return_rate"] is not None and med_rr and m["return_rate"] > med_rr + 8:
+            an.append({"key": "returns_spike", "sev": "medium", "a": m["return_rate"], "b": round(med_rr, 1)})
+        m["anomalies"] = an
+
+
+def _path(company, year, part):
+    d = frappe.get_site_path("private", "radar")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, f"{frappe.scrub(company)}-{year}-{part}.json")
+
+
+def _save(company, year, summary, rows):
+    """The snapshot lives in a file — redis on this bench is cleared by other
+    apps' cache resets, which dropped it twice on its first day. Redis is only
+    a fast copy in front of the file."""
+    for part, val in (("summary", summary), ("rows", rows)):
+        tmp = _path(company, year, part) + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(frappe.as_json(val, indent=None))
+        os.replace(tmp, _path(company, year, part))
+        frappe.cache().set_value(CK.format(company, year) + ":" + part, val)
+
+
+def _read(company, year, part):
+    hit = frappe.cache().get_value(CK.format(company, year) + ":" + part)
+    if hit is not None:
+        return hit
+    try:
+        with open(_path(company, year, part)) as f:
+            val = frappe.parse_json(f.read())
+    except FileNotFoundError:
+        return None
+    frappe.cache().set_value(CK.format(company, year) + ":" + part, val)
+    return val
+
+
 def rebuild(company="Justyol Morocco", year=None):
     """Build and store the snapshot (nightly, after the Cathedis sync)."""
     y = int(year or nowdate()[:4])
@@ -490,8 +653,7 @@ def rebuild(company="Justyol Morocco", year=None):
         return {"skipped": "already building"}
     try:
         summary, rows = _classify(company, y)
-        frappe.cache().set_value(CK.format(company, y), summary)
-        frappe.cache().set_value(CK.format(company, y) + ":rows", rows)
+        _save(company, y, summary, rows)
     finally:
         frappe.db.sql("SELECT RELEASE_LOCK(%s)", JOB)
     return {"built_on": summary["built_on"]}
@@ -509,11 +671,11 @@ def summary(company=None, year=None):
     if not target:
         return {}
     y = int(year or nowdate()[:4])
-    hit = frappe.cache().get_value(CK.format(target, y))
+    hit = _read(target, y, "summary")
     if hit is None:
-        # first view ever (or redis flushed): build it now, once
+        # first view ever: build it now, once
         rebuild(target, y)
-        hit = frappe.cache().get_value(CK.format(target, y))
+        hit = _read(target, y, "summary")
     return hit or {"building": True}
 
 
@@ -525,7 +687,7 @@ def drill(company=None, year=None, month=None, bucket=None, limit=100):
     if not target or not bucket:
         return {"rows": []}
     y = int(year or nowdate()[:4])
-    rows = frappe.cache().get_value(CK.format(target, y) + ":rows") or {}
+    rows = _read(target, y, "rows") or {}
     lim = min(int(limit or 100), DRILL_CAP)
     if month and month != "all":
         lst = rows.get(f"{month}|{bucket}") or []
@@ -536,6 +698,47 @@ def drill(company=None, year=None, month=None, bucket=None, limit=100):
                 lst.extend(rows[k])
     lst = sorted(lst, key=lambda r: -(r.get("invoiced") or r.get("cod") or r.get("cost") or 0))
     return {"rows": lst[:lim], "total": len(lst), "shown": min(len(lst), lim)}
+
+
+@frappe.whitelist()
+def month_docs(company=None, month=None, kind=None, limit=200):
+    """The documents behind a month-level alert, read live (small, indexed):
+    unpaid_invoices · overpaid_invoices · cost_outside (COGS not from a
+    delivery note: supplier bills, journals, receipts posted straight to cost)."""
+    assert_portal_access()
+    target = _target(company)
+    if not target or not month or kind not in ("unpaid_invoices", "overpaid_invoices", "cost_outside"):
+        return {"rows": []}
+    d0 = f"{month}-01"
+    d1 = str(frappe.utils.get_last_day(d0))
+    lim = min(int(limit or 200), 500)
+    if kind == "cost_outside":
+        rows = frappe.db.sql(
+            """SELECT g.voucher_type doctype, g.voucher_no name, MIN(g.posting_date) date,
+                      SUM(g.debit - g.credit) amount, MAX(g.against) party, MAX(a.account_name) note
+               FROM `tabGL Entry` g JOIN `tabAccount` a ON a.name = g.account
+               WHERE g.company = %s AND g.is_cancelled = 0 AND g.posting_date BETWEEN %s AND %s
+                 AND a.account_type = 'Cost of Goods Sold' AND g.voucher_type != 'Delivery Note'
+               GROUP BY g.voucher_type, g.voucher_no
+               HAVING ABS(SUM(g.debit - g.credit)) > 0.5
+               ORDER BY ABS(SUM(g.debit - g.credit)) DESC LIMIT %s""", (target, d0, d1, lim), as_dict=True)
+    else:
+        cond = "outstanding_amount > 0.5" if kind == "unpaid_invoices" else "outstanding_amount < -0.5"
+        rows = frappe.db.sql(
+            f"""SELECT 'Sales Invoice' doctype, name, posting_date date, outstanding_amount amount,
+                       customer party, base_grand_total note
+                FROM `tabSales Invoice`
+                WHERE company = %s AND docstatus = 1 AND is_return = 0 AND posting_date BETWEEN %s AND %s
+                  AND {cond}
+                ORDER BY ABS(outstanding_amount) DESC LIMIT %s""", (target, d0, d1, lim), as_dict=True)
+    for r in rows:
+        r["date"] = str(r["date"])
+        r["amount"] = round(flt(r["amount"]), 2)
+        if kind != "cost_outside":
+            r["note"] = round(flt(r["note"]), 2)
+        elif r.get("party"):
+            r["party"] = str(r["party"])[:60]
+    return {"rows": rows, "total": len(rows)}
 
 
 @frappe.whitelist()
