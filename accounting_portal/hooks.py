@@ -79,4 +79,12 @@ scheduler_events = {
     "hourly": [
         "accounting_portal.api.matching.warm_caches",
     ],
+    # once a night (server clock is Istanbul: 04:00 = 02:00 in Morocco): ask
+    # Cathedis about the parcels that are still open, then rebuild the cycle
+    # radar snapshot — see api/cathedis_sync.py
+    "cron": {
+        "0 4 * * *": [
+            "accounting_portal.api.cathedis_sync.nightly",
+        ],
+    },
 }

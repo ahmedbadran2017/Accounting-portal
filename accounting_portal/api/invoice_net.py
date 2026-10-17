@@ -26,9 +26,9 @@ The work reuses the same two functions, so the invoice and its payment are what
 a normal day produces. The invoice is dated the manifest submit day, never later
 than the delivery day (a late manifest must not push September sales into
 October). Orders a person should look at are left alone: two delivery notes on
-one order (the same parcel keyed twice), a return note, zero value
-(exchanges), cancelled, or a prepayment on the order (a COD receipt on top
-would double it).
+one order (the same parcel keyed twice), a return note, zero value, an
+exchange (its price is a copy of the original order's), cancelled, or a
+prepayment on the order (a COD receipt on top would double it).
 """
 import frappe
 from frappe.utils import flt, getdate
@@ -85,11 +85,18 @@ def _skip_reason(dn, so):
            WHERE d.against_sales_order = %s AND dn.docstatus = 1 AND dn.is_return = 0""", so)[0][0]
     if notes > 1:
         return "two delivery notes"
-    s = frappe.db.get_value("Sales Order", so, ["grand_total", "status", "custom_sales_status"], as_dict=True)
+    s = frappe.db.get_value("Sales Order", so, ["grand_total", "status", "custom_sales_status",
+                                                "custom_is_from_sales_exchange"], as_dict=True)
     if not s or not flt(s.grand_total):
         return "zero value"
     if s.status == "Cancelled" or s.custom_sales_status == "Cancelled":
         return "cancelled"
+    # an exchange copies the original order's price, but the customer already
+    # paid on the original: invoicing it at full value doubled the revenue
+    # (174 such invoices cancelled 17 Oct 2026). Only the Sales Exchange
+    # difference is ever owed, and a person bills that.
+    if s.custom_is_from_sales_exchange or "-ex" in so:
+        return "exchange"
     if frappe.db.sql(
             """SELECT 1 FROM `tabPayment Entry Reference` per JOIN `tabPayment Entry` pe ON pe.name = per.parent
                WHERE pe.docstatus = 1 AND per.reference_doctype = 'Sales Order' AND per.reference_name = %s

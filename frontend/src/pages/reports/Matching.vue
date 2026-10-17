@@ -4,7 +4,9 @@
       <span class="text-[13px] font-bold">{{ L("Revenue ↔ Cost matching","مطابقة الإيراد والتكلفة","Rapprochement CA ↔ coût") }}</span>
       <span class="text-[11px] text-ink-muted">{{ L("every month: does each dirham of revenue have its cost, and each cost its revenue?","كل شهر: هل كل إيراد قصاده تكلفته وكل تكلفة قصادها إيرادها؟","chaque mois : chaque dirham a-t-il sa contrepartie ?") }}</span>
       <div class="ms-auto flex items-center gap-1.5">
-        <button @click="view = 'month'" class="text-[12px] font-semibold px-3 py-1.5 rounded-full border transition"
+        <button @click="view = 'radar'" class="text-[12px] font-semibold px-3 py-1.5 rounded-full border transition"
+                :class="view === 'radar' ? 'bg-accent text-white border-accent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ L("Radar","الرادار","Radar") }}</button>
+        <button @click="view = 'month'; if (!d0) load();" class="text-[12px] font-semibold px-3 py-1.5 rounded-full border transition"
                 :class="view === 'month' ? 'bg-accent text-white border-accent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ L("By month","بالشهور","Par mois") }}</button>
         <button @click="view = 'cycle'; if (!cy) loadCycle();" class="text-[12px] font-semibold px-3 py-1.5 rounded-full border transition"
                 :class="view === 'cycle' ? 'bg-accent text-white border-accent' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ L("By cycle","بالدورة","Par cycle") }}</button>
@@ -13,6 +15,9 @@
                 :class="year === yy ? 'bg-ink text-white border-ink' : 'bg-white text-ink-3 border-line-2 hover:bg-app-warm'">{{ yy }}</button>
       </div>
     </div>
+
+    <!-- ═══════════ RADAR: each month's orders carried to their last station ═══════════ -->
+    <CycleRadar v-if="view === 'radar'" ref="radarRef" :year="year" />
 
     <!-- ═══════════ CYCLE VIEW: every order must tell its full story ═══════════ -->
     <template v-if="view === 'cycle'">
@@ -182,6 +187,7 @@ import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import { useUi } from "@/composables/useUi";
 import UiButton from "@/components/UiButton.vue";
+import CycleRadar from "./CycleRadar.vue";
 
 const { locale } = useI18n();
 const L = (en, ar, fr) => (locale.value === "ar" ? ar : locale.value === "fr" ? fr : en);
@@ -189,7 +195,8 @@ const n = (v) => (v == null ? "—" : Math.round(v).toLocaleString("en-US"));
 
 const years = [2026, 2025];
 const year = ref(2026);
-const view = ref("month");
+const view = ref("radar");
+const radarRef = ref(null);
 const cy = ref(null);
 const cyLoading = ref(false);
 const cyBucket = ref("");
@@ -290,10 +297,14 @@ async function pickCycle(b) {
   } catch (e) { alert((e && e.message) || e); }
   finally { drillLoading.value = false; }
 }
-function reload() { load(); if (view.value === "cycle" || cy.value) loadCycle(); }
+// the radar reloads itself when `year` changes; the other two views load lazily
+function reload() {
+  if (view.value === "month" || d0.value) load();
+  if (view.value === "cycle" || cy.value) loadCycle();
+}
 const { entityId } = useUi();
-watch(entityId, reload);
-onMounted(load);
+watch(entityId, () => { reload(); if (radarRef.value) radarRef.value.reload(); });
+onMounted(() => { if (view.value === "month") load(); });
 </script>
 
 <style scoped>

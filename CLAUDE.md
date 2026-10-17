@@ -162,6 +162,11 @@ Deeper reference:
   - 13 orders are left with data errors.
   - 8 orders have a duplicate delivery note (same parcel), so stock is counted twice; cancelling those notes
     needs the owner's go-ahead.
+- **Cycle radar** (Reports → Matching → Radar, `api/radar.py`): each month's orders carried to their last
+  station (shipped → Cathedis → invoice → collection → cost), one verdict per order. Carrier truth comes from
+  the `Cathedis Parcel` mirror (`api/cathedis_sync.py`, nightly cron, open parcels only). After the first
+  deploy, press "Refresh from Cathedis" once to fill the year (~95K parcels).
+  - Exchanges (`custom_is_from_sales_exchange`) are never invoiced at their copied price; `invoice_net` skips them.
 - **Missing COD collection Payment Entries.** Some cash reached the bank with no invoice matched to it. It
   shows once the duplicate copies are gone. This is the "Cathedis close" feature (`api/cod_close.py`).
 - Clear P&L classifier: in `_cat()`, `770.012.*` subscriptions match the `770.01` premises prefix. Make
