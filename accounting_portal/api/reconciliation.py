@@ -236,6 +236,29 @@ def internal_transfer(company=None, from_account=None, to_account=None, amount=N
         notes=notes or f"Transfer {amt:,.0f} {from_account.split(' - ')[0]} → {to_account.split(' - ')[0]}")
 
 
+def _transfer_rates(fr_ccy, to_ccy, base, paid, received, date):
+    """source→base and target→base rates for an internal transfer.
+
+    Both legs must carry the same base value or ERPNext books the difference as
+    an exchange gain. Until 17 Oct 2026 a transfer out of a foreign-currency
+    account got rate 1 (USD→TRY took 8,000 USD at 8,000 TRY instead of 383,820):
+    31 Maslak petty-cash transfers since 10 Aug booked 770K TRY of gain that never
+    happened. The actual amounts set the rate whenever one side is in base; only
+    a foreign→foreign transfer needs the market rate."""
+    paid, received = flt(paid), flt(received)
+    if fr_ccy == base:
+        source = 1
+    elif to_ccy == base:
+        source = received / paid
+    else:
+        from erpnext.setup.utils import get_exchange_rate
+        source = flt(get_exchange_rate(fr_ccy, base, str(date)))
+        if not source:
+            frappe.throw(f"No {fr_ccy}→{base} exchange rate for {date}")
+    target = 1 if to_ccy == base else paid * source / received
+    return source, target
+
+
 def _transfer_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     company = action.company
@@ -250,11 +273,10 @@ def _transfer_poster(action):
     pe.paid_to = p["to"]
     pe.paid_amount = flt(p["amount"])
     pe.received_amount = flt(p.get("received") or p["amount"])
-    pe.paid_from_account_currency = fr_ccy or base
-    pe.paid_to_account_currency = to_ccy or base
-    # source→base and target→base rates so ERPNext balances both legs in base
-    pe.source_exchange_rate = 1 if (fr_ccy or base) == base else (
-        flt(pe.received_amount) / flt(pe.paid_amount) if fr_ccy == to_ccy else 1)
+    pe.paid_from_account_currency = fr_ccy = fr_ccy or base
+    pe.paid_to_account_currency = to_ccy = to_ccy or base
+    pe.source_exchange_rate, pe.target_exchange_rate = _transfer_rates(
+        fr_ccy, to_ccy, base, pe.paid_amount, pe.received_amount, pe.posting_date)
     if p.get("reference_no"):
         pe.reference_no = p["reference_no"]
         pe.reference_date = pe.posting_date
