@@ -218,6 +218,11 @@ def _carrier(dn, parcels, have_parcels, rdn):
             return "returned", flt(amt), False, r_dt or upd, label
         if ds == "Livré":
             return "delivered", flt(amt), False, d_dt or upd, label
+        if rdn:
+            # Cathedis often leaves a failed parcel at UNPAID ('Client
+            # Injoignable') after handing it back; our return delivery note
+            # proves the goods are home (2,549 of 2,700 "stuck" on 17 Oct 2026)
+            return "returned", flt(amt), False, upd, label + " · return received"
         return "open", flt(amt), False, upd, label
     trk = (dn.trk or "")
     if trk in ("Delivered", "Received"):
