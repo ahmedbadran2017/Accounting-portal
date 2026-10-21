@@ -33,9 +33,11 @@ override_whitelisted_methods = {}
 # unless they hold a logged one-hour pass. See api/deskguard.py (fail-open).
 before_request = [
     "accounting_portal.api.deskguard.block_desk_for_accountants",
-    # Claude/MCP: run_python_code only for System Manager / Assistant Admin
+    # Claude/MCP: run_python_code / run_database_query only for System Manager / Assistant Admin
     "accounting_portal.api.fac_guard.apply",
 ]
+# the same gate in background workers (a tool call can run inside a job)
+before_job = ["accounting_portal.api.fac_guard.apply"]
 
 # ── Server-side guards on core doctypes ──
 # FX guard: rejects purchase documents whose exchange rate is implausible vs the
