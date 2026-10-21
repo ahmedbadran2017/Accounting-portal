@@ -1,14 +1,18 @@
 """Who may run code or raw SQL on the server through Claude (frappe_assistant_core MCP).
 
-frappe_assistant_core ships every tool open to every connected user
-(`requires_permission = None`). Most tools check the caller's own DocType
-permissions (create/update/delete/submit call `frappe.has_permission` per
-document), so a read-only role keeps a user read-only there. Two do not:
+frappe_assistant_core ships its tools with `requires_permission = None`. Most of
+them check the caller's own DocType permissions (create/update/delete/submit
+call `frappe.has_permission` per document), so a read-only role keeps a user
+read-only there. Two tools are more dangerous:
 
-- `run_python_code` hands the code the whole `frappe` module, so any connected
-  user can call `frappe.set_user("Administrator")` and then write anything.
-- `run_database_query` runs raw SELECTs, which skip DocType permissions, so a
-  user limited to accounting could still read salaries or any other table.
+- `run_python_code` hands the code the whole `frappe` module (it can call
+  `frappe.set_user("Administrator")`).
+- `run_database_query` runs raw SELECTs, which skip DocType permissions.
+
+Both already refuse non-System-Managers inside their own execute() (checked on
+PROD 2026-10-22). This module is a second layer that does not depend on that
+internal check surviving an upgrade, and it also removes the two tools from
+the tool list of users who may not run them.
 
 The gate: those tools run only for Administrator, System Manager and Assistant
 Admin. Everyone else does not see them in the tool list, and a direct call is

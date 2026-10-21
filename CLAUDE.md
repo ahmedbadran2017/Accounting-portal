@@ -111,10 +111,12 @@ Deeper reference:
     - Bill from the **receipt**, not the PO rate.
     - A guard refuses receipt lines whose rate is far above stock valuation (`540af55`).
 12. **Claude / MCP access** (`api/fac_guard.py`, a `before_request` hook):
-    - `run_python_code` gets the whole `frappe` module, so it can `set_user("Administrator")`.
+    - `run_python_code` gets the whole `frappe` module and can `set_user("Administrator")`.
       `run_database_query` runs raw SELECTs, which skip DocType permissions.
-    - Both are gated to Administrator, System Manager and Assistant Admin, in `before_request` and in
-      `before_job`.
+    - The assistant app already refuses both to non-System-Managers inside `execute()`. `fac_guard` is a
+      second layer: it gates them to Administrator, System Manager and Assistant Admin in `before_request`
+      and `before_job`, and hides them from the tool list.
+    - Hook changes take effect only after `frappe.clear_cache()`.
     - Every other tool checks the caller's DocType permissions. A read-only person therefore needs a read-only
       role plus "Assistant User", never System Manager.
 
