@@ -31,7 +31,11 @@ override_whitelisted_methods = {}
 
 # Desk lock for `Portal Only` users: /app bounces to the portal's desk-pass page
 # unless they hold a logged one-hour pass. See api/deskguard.py (fail-open).
-before_request = ["accounting_portal.api.deskguard.block_desk_for_accountants"]
+before_request = [
+    "accounting_portal.api.deskguard.block_desk_for_accountants",
+    # Claude/MCP: run_python_code only for System Manager / Assistant Admin
+    "accounting_portal.api.fac_guard.apply",
+]
 
 # ── Server-side guards on core doctypes ──
 # FX guard: rejects purchase documents whose exchange rate is implausible vs the

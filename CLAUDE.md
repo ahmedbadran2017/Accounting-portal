@@ -110,6 +110,11 @@ Deeper reference:
 11. **Bills:** vendor bills are Purchase Invoices, not journal entries.
     - Bill from the **receipt**, not the PO rate.
     - A guard refuses receipt lines whose rate is far above stock valuation (`540af55`).
+12. **Claude / MCP access** (`api/fac_guard.py`, a `before_request` hook):
+    - `run_python_code` gets the whole `frappe` module, so it can `set_user("Administrator")`. It is gated to
+      Administrator, System Manager and Assistant Admin.
+    - Every other tool checks the caller's DocType permissions. A read-only person therefore needs a read-only
+      role plus "Assistant User", never System Manager.
 
 ## UI conventions (from the September 2026 restructure)
 - Say each fact once. `DocHeader` holds the id, party, date, status and the one key number. Everything
