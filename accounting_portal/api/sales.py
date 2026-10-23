@@ -911,6 +911,8 @@ BILL_DN_ACTION = "Bill Delivery Note"
 
 def _bill_dn_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    from accounting_portal.api.purchases import drop_dead_price_list
+    drop_dead_price_list("Delivery Note", p["delivery_note"])
     si = frappe.get_attr(
         "erpnext.stock.doctype.delivery_note.delivery_note.make_sales_invoice")(p["delivery_note"])
     si.update_stock = 0  # the Delivery Note already moved stock — don't double-update
