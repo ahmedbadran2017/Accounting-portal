@@ -1474,9 +1474,9 @@ def _drop_dead_default_price_lists():
     and if the default is disabled the mapper refuses it. That is what blocked
     PUR-INV-06637 on 23 Oct 2026: Buying Settings pointed at "Awani - Buying -
     20/10/2026", a versioned supplier list disabled the evening before, and every
-    import into a bill failed with that list's name on it. ERPNext also re-fills
-    an empty default with the next buying list anyone saves, so clearing the
-    setting by hand does not keep this from happening again.
+    import into a bill failed with that list's name on it. The setting is now
+    kept empty (api/price_list_guard.py); this covers a default someone sets by
+    hand and later disables.
 
     Only this request's cached blank document is changed (frappe.local), never
     the setting itself.
