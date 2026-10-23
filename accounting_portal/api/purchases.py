@@ -443,6 +443,7 @@ def _bust_purch_cache():
 
 def _make_receipt_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
+    drop_dead_price_list("Purchase Order", p["source"])
     pr = frappe.get_attr("erpnext.buying.doctype.purchase_order.purchase_order.make_purchase_receipt")(p["source"])
     pr.flags.ignore_permissions = True
     pr.insert()
@@ -469,6 +470,7 @@ def _make_invoice_poster(action):
     for it in items:
         frappe.db.set_value("Item", it, "disabled", 0, update_modified=False)
     try:
+        drop_dead_price_list("Purchase Receipt", p["source"])
         pi = frappe.get_attr("erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_purchase_invoice")(p["source"])
         pi.flags.ignore_permissions = True
         pi.insert()
@@ -786,6 +788,7 @@ def _group_bill_poster(action):
     mk = frappe.get_attr("erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_purchase_invoice")
     target = None
     for r in receipts:
+        drop_dead_price_list("Purchase Receipt", r)
         target = mk(r, target_doc=target)
     target.flags.ignore_permissions = True
     target.insert()
@@ -1445,6 +1448,7 @@ def drop_dead_price_list(doctype, name):
     lines and are not touched, so clearing the pointer changes no amount. The
     document gets a comment saying what was cleared.
     """
+    _drop_dead_default_price_lists()
     field = _PRICE_LIST_FIELD.get(doctype)
     if not field or not name:
         return None
@@ -1459,6 +1463,34 @@ def drop_dead_price_list(doctype, name):
     except Exception:
         pass
     return pl
+
+
+def _drop_dead_default_price_lists():
+    """Keep a disabled default price list off the documents ERPNext's mappers create.
+
+    A new document starts from the site's defaults, and Buying Settings' default
+    buying price list is one of them. When the source has no price list of its
+    own (or drop_dead_price_list just cleared it) the bill keeps that default,
+    and if the default is disabled the mapper refuses it. That is what blocked
+    PUR-INV-06637 on 23 Oct 2026: Buying Settings pointed at "Awani - Buying -
+    20/10/2026", a versioned supplier list disabled the evening before, and every
+    import into a bill failed with that list's name on it. ERPNext also re-fills
+    an empty default with the next buying list anyone saves, so clearing the
+    setting by hand does not keep this from happening again.
+
+    Only this request's cached blank document is changed (frappe.local), never
+    the setting itself.
+    """
+    from frappe.model.create_new import make_new_doc
+    defaults = frappe.defaults.get_defaults()
+    templates = frappe.local.new_doc_templates
+    for doctype, field in _PRICE_LIST_FIELD.items():
+        pl = defaults.get(field)
+        if not pl or frappe.db.get_value("Price List", pl, "enabled"):
+            continue
+        if doctype not in templates:
+            templates[doctype] = make_new_doc(doctype)
+        templates[doctype][field] = None
 
 
 def _mapped_lines(source, names, target, supplier, seen=None):
