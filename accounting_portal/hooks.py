@@ -77,6 +77,11 @@ doc_events = {
     "Sales Invoice": {
         "after_insert": "accounting_portal.api.invoice_net.on_draft_invoice",
     },
+    # a new price list must not become everyone's default — see api/price_list_guard.py
+    "Price List": {
+        "validate": "accounting_portal.api.price_list_guard.note_empty_defaults",
+        "on_update": "accounting_portal.api.price_list_guard.keep_defaults_empty",
+    },
 }
 
 # hourly cache warmer — the matching/cycle screens are year-wide scans
