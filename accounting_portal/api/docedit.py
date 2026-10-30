@@ -289,6 +289,12 @@ def get_draft(doctype=None, name=None):
             for c in cols:
                 row[c["field"]] = _val(r.get(c["field"]))
             rows.append(row)
+        if doctype in ("Purchase Invoice", "Sales Invoice") and cf == "items":
+            orders = _line_orders(doc)
+            at = next((i + 1 for i, c in enumerate(cols) if c["field"] == "item_name"), len(cols))
+            cols.insert(at, {"field": "_order", "type": "Data", "ro": True, "label": "Order"})
+            for row in rows:
+                row["_order"] = orders.get(row["name"]) or ""
         # A draft takes whatever the doctype allows. A submitted order takes lines
         # too — that is what the Desk's Update Items does — unless it is closed or
         # fully received/billed. A submitted invoice never does: there the editor
@@ -336,6 +342,43 @@ def get_draft(doctype=None, name=None):
             "currency": doc.get("currency") or doc.get("paid_from_account_currency") or frappe.get_cached_value("Company", doc.company, "default_currency"),
             "party_type_fixed": _PARTY_FIXED.get(doctype), "header": header, "child": child,
             "options": _options(doctype, doc.company)}
+
+
+def _line_orders(doc):
+    """The customer order behind each invoice line, read-only, for the editor.
+
+    A bill line names its purchase order; in cross-dock and consignment that order
+    was raised for one customer order, which is the number people recognise. A
+    return (debit or credit note) may have lost its order link — the portal drops
+    links to closed orders so the return can be saved (docflow._unlink_closed_orders)
+    — so it falls back to the line of the original bill or invoice it reverses."""
+    buying = doc.doctype == "Purchase Invoice"
+    items = doc.get("items") or []
+    back_field = "purchase_invoice_item" if buying else "sales_invoice_item"
+    orig_ids = [r.get(back_field) for r in items if r.get(back_field)]
+    orig = {}
+    if orig_ids:
+        cols = "name, po_detail, purchase_order" if buying else "name, so_detail, sales_order"
+        tbl = "Purchase Invoice Item" if buying else "Sales Invoice Item"
+        for o in frappe.db.sql(f"SELECT {cols} FROM `tab{tbl}` WHERE name IN %s", (tuple(orig_ids),), as_dict=True):
+            orig[o.name] = o
+    out, po_lines = {}, set()
+    for r in items:
+        o = orig.get(r.get(back_field)) or {}
+        if buying:
+            pod = r.get("po_detail") or o.get("po_detail")
+            po = r.get("purchase_order") or o.get("purchase_order")
+            out[r.name] = (pod, po)
+            if pod:
+                po_lines.add(pod)
+        else:
+            out[r.name] = r.get("sales_order") or o.get("sales_order") or ""
+    if buying:
+        so_of = dict(frappe.db.sql(
+            "SELECT name, sales_order FROM `tabPurchase Order Item` WHERE name IN %s AND IFNULL(sales_order,'')!=''",
+            (tuple(po_lines),))) if po_lines else {}
+        out = {k: (so_of.get(pod) or po or "") for k, (pod, po) in out.items()}
+    return out
 
 
 def _cast(spec_type, v):
