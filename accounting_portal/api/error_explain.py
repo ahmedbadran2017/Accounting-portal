@@ -145,6 +145,86 @@ def _over_return(doctype, name, message, **_):
     return x
 
 
+# ── 1b. A new note started from the original bill / invoice ─────────────────
+#
+# Same error, other side: the accountant pressed "Debit note" on the bill itself,
+# so the arguments name the original, not a return. Seen on PUR-INV-05670: three
+# lines already returned by PUR-INV-06738 and a draft PUR-INV-06735 holding the
+# other eight — the right move is to open that draft, not to start a fifth.
+
+def _original_returned(doctype, name, message, **_):
+    if doctype not in ("Purchase Invoice", "Sales Invoice") or not name:
+        return None
+    doc = frappe.get_doc(doctype, name)
+    if doc.get("is_return"):
+        return None
+    buying = doctype == "Purchase Invoice"
+    item_tbl = "Purchase Invoice Item" if buying else "Sales Invoice Item"
+    back = "purchase_invoice_item" if buying else "sales_invoice_item"
+    cur = doc.currency or "MAD"
+    done = dict(frappe.db.sql(
+        f"""SELECT i.{back}, SUM(ABS(i.qty)) FROM `tab{item_tbl}` i JOIN `tab{doctype}` p ON p.name=i.parent
+            WHERE p.return_against=%s AND p.docstatus=1 AND IFNULL(i.{back},'')!='' GROUP BY i.{back}""", (name,)))
+    gone = [r for r in doc.items if flt(done.get(r.name)) >= flt(r.qty) - 1e-9 and r.name in done]
+    prior = frappe.db.sql(
+        f"""SELECT name, grand_total{', bill_no' if buying else ''} FROM `tab{doctype}`
+            WHERE return_against=%s AND docstatus=1 ORDER BY posting_date""", (name,), as_dict=True)
+    drafts = frappe.db.sql(
+        f"""SELECT name, grand_total, (SELECT COUNT(*) FROM `tab{item_tbl}` i WHERE i.parent=p.name) n
+            FROM `tab{doctype}` p WHERE return_against=%s AND docstatus=0 AND is_return=1 ORDER BY name""",
+        (name,), as_dict=True)
+    if not (gone or drafts):
+        return None
+    note_kind = T("debit note", "إشعار مدين", "avoir") if buying else T("credit note", "إشعار دائن", "avoir")
+    left = len(doc.items) - len(gone)
+    if drafts:
+        d0 = drafts[0]
+        title = T(f"This bill already has a draft {note_kind['en']}", f"الفاتورة دي عليها {note_kind['ar']} مسودة بالفعل",
+                  f"Cette facture a déjà un {note_kind['fr']} en brouillon")
+        body = T(f"{d0.name} ({d0.n} lines · {_money(abs(d0.grand_total), cur)}) is waiting as a draft. Open it, adjust the lines and submit it — a new one would return the same goods twice.",
+                 f"{d0.name} ({d0.n} سطر · {_money(abs(d0.grand_total), cur)}) موجود كمسودة. افتحه وعدّل السطور واعتمده — لو عملت واحد جديد هيرجّع نفس البضاعة مرتين.",
+                 f"{d0.name} ({d0.n} lignes · {_money(abs(d0.grand_total), cur)}) attend en brouillon. Ouvrez-le, ajustez les lignes et validez — un nouveau retournerait deux fois la même marchandise.")
+    elif not left:
+        title = T("Everything on this bill is already returned", "كل سطور الفاتورة اترجّعت بالفعل", "Tout est déjà retourné sur cette facture")
+        body = T("Nothing is left to return.", "مفيش حاجة فاضلة ترجع.", "Il ne reste rien à retourner.")
+    else:
+        title = T(f"{len(gone)} lines of this bill are already returned", f"{len(gone)} سطر من الفاتورة اترجّعوا بالفعل",
+                  f"{len(gone)} lignes de cette facture sont déjà retournées")
+        body = T(f"The new {note_kind['en']} will carry only the {left} remaining lines.",
+                 f"الـ{note_kind['ar']} الجديد هياخد الـ{left} سطر الباقيين بس.",
+                 f"Le nouvel {note_kind['fr']} ne portera que les {left} lignes restantes.")
+    from accounting_portal.api.docedit import _line_orders
+    orders = _line_orders(doc)
+    x = {
+        "code": "return_from_original", "severity": "warning", "icon": "refresh", "title": title, "body": body,
+        "facts": [{"label": T("Already submitted", "مرحّل بالفعل", "Déjà validé"),
+                   "value": p.name + (f" · {p.bill_no}" if buying and p.get("bill_no") else ""),
+                   "amount": _money(p.grand_total, cur), "doc": {"doctype": doctype, "name": p.name}} for p in prior]
+                 + [{"label": T("Draft", "مسودة", "Brouillon"), "value": f"{d.name} · {d.n}",
+                     "amount": _money(d.grand_total, cur), "doc": {"doctype": doctype, "name": d.name}} for d in drafts],
+        "lines": {
+            "columns": [{"key": "idx", "label": T("Line", "السطر", "Ligne")},
+                        {"key": "item", "label": T("Already returned", "اترجّع بالفعل", "Déjà retourné")},
+                        {"key": "order", "label": T("Order", "الأوردر", "Commande")},
+                        {"key": "amount", "label": T("Amount", "المبلغ", "Montant"), "num": True}],
+            "rows": [{"idx": r.idx, "item": r.item_name or r.item_code, "order": orders.get(r.name) or "—",
+                      "amount": _money(abs(flt(r.amount)), cur)} for r in gone]} if gone else None,
+        "note": T(f"{len(drafts) - 1} more draft{'s' if len(drafts) > 2 else ''} on this bill.",
+                  f"فيه {len(drafts) - 1} مسودة زيادة على نفس الفاتورة.",
+                  f"{len(drafts) - 1} brouillon(s) de plus sur cette facture.") if len(drafts) > 1 else None,
+        "actions": [],
+    }
+    if drafts:
+        x["actions"].append({"kind": "open", "primary": True, "doctype": doctype, "name": drafts[0].name,
+                             "label": T(f"Open the draft {drafts[0].name}", f"افتح المسودة {drafts[0].name}",
+                                        f"Ouvrir le brouillon {drafts[0].name}")})
+    if len(drafts) > 1:
+        x["actions"].append({"kind": "delete_drafts", "doctype": doctype, "names": [d.name for d in drafts[1:]],
+                             "label": T(f"Delete the {len(drafts) - 1} extra draft(s)", f"امسح الـ{len(drafts) - 1} مسودة الزيادة",
+                                        f"Supprimer les {len(drafts) - 1} brouillons en trop")})
+    return x
+
+
 # ── 2. A linked order is closed / on hold ────────────────────────────────────
 
 _ORDER_RE = re.compile(r"(Purchase Order|Sales Order|Purchase Receipt|Delivery Note)\s+(.+?)\s+status is\s+(Closed|On Hold)")
@@ -287,6 +367,7 @@ def _dup_bill_no(doctype, name, message, **_):
 
 _HANDLERS = [
     (re.compile(r"StockOverReturnError|has already been returned"), _over_return),
+    (re.compile(r"StockOverReturnError|has already been returned|already has a draft return"), _original_returned),
     (re.compile(r"InvalidStatusError|status is (Closed|On Hold)"), _closed_order),
     (re.compile(r"NegativeStockError|units of .* needed in"), _negative_stock),
     (re.compile(r"Price List .* is disabled"), _price_list),

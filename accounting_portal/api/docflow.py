@@ -292,6 +292,34 @@ def _unlink_closed_orders(new):
                     row.set(detail, None)
 
 
+def _trim_return(new, src_doctype, src_name):
+    """ERPNext's make_debit_note / make_sales_return keep a line that an earlier
+    note already returned in full, at qty 0 — and its own validation then refuses
+    the note: "Item 47350849732862 has already been returned" (PUR-INV-05670,
+    2026-10-30, three of eleven lines returned by PUR-INV-06738). Those lines have
+    nothing left to return, so they are dropped.
+
+    A second draft against the same bill only duplicates the first one, which is
+    how four drafts piled up on that bill; open the existing draft instead."""
+    if not new.get("is_return") or not new.meta.has_field("items"):
+        return
+    draft = frappe.db.get_value(new.doctype, {"return_against": src_name, "is_return": 1, "docstatus": 0}, "name")
+    if draft:
+        frappe.throw(f"{src_name} already has a draft return {draft}. Open it and edit it instead of creating another.",
+                     title="Draft return exists")
+    keep = [r for r in new.get("items") or [] if flt(r.qty)]
+    if not keep:
+        done = frappe.db.sql_list(f"SELECT name FROM `tab{new.doctype}` WHERE return_against=%s AND docstatus=1",
+                                  (src_name,))
+        frappe.throw(f"Every line of {src_name} has already been returned ({', '.join(done) or '—'}). "
+                     "Nothing is left to return.", title="Already returned")
+    if len(keep) != len(new.items):
+        new.set("items", keep)
+        for i, r in enumerate(new.items, 1):
+            r.idx = i
+        new.run_method("calculate_taxes_and_totals")
+
+
 def _flow_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     doctype, name, key = p["doctype"], p["name"], p["key"]
@@ -323,6 +351,7 @@ def _flow_poster(action):
     new = _as_doc(new)
     new.flags.ignore_permissions = True
     _prepare_new(new, doctype, name)
+    _trim_return(new, doctype, name)
     _unlink_closed_orders(new)
     # A Payment Entry whose mode of payment is a Bank type cannot be saved without
     # a reference number and date — ERPNext throws "Reference No and Reference Date
