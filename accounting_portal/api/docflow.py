@@ -262,6 +262,36 @@ def _prepare_new(new, src_doctype, src_name):
                 for r in need:
                     r.warehouse = wh
 
+# A return copies the order links of the bill or invoice it reverses. ERPNext then
+# refuses to save it if any of those orders is Closed or On Hold ("Purchase Order
+# #178709-… status is Closed", 2026-10-30, a debit note on PUR-INV-05138-1 whose
+# January order was closed in September). The order is finished either way, so
+# the return has nothing to update on it: drop the link, keep `return_against`,
+# and the debit/credit note posts against its original bill as usual.
+_RETURN_LINKS = (("purchase_order", "po_detail", "Purchase Order"),
+                 ("purchase_receipt", "pr_detail", "Purchase Receipt"),
+                 ("sales_order", "so_detail", "Sales Order"),
+                 ("delivery_note", "dn_detail", "Delivery Note"))
+
+
+def _unlink_closed_orders(new):
+    if not new.get("is_return") or not new.meta.has_field("items"):
+        return
+    status = {}
+    for row in new.get("items") or []:
+        for link, detail, dt in _RETURN_LINKS:
+            ref = row.get(link) if row.meta.has_field(link) else None
+            if not ref:
+                continue
+            key = (dt, ref)
+            if key not in status:
+                status[key] = frappe.db.get_value(dt, ref, "status")
+            if status[key] in ("Closed", "On Hold"):
+                row.set(link, None)
+                if row.meta.has_field(detail):
+                    row.set(detail, None)
+
+
 def _flow_poster(action):
     p = action.payload if isinstance(action.payload, dict) else json.loads(action.payload or "{}")
     doctype, name, key = p["doctype"], p["name"], p["key"]
@@ -293,6 +323,7 @@ def _flow_poster(action):
     new = _as_doc(new)
     new.flags.ignore_permissions = True
     _prepare_new(new, doctype, name)
+    _unlink_closed_orders(new)
     # A Payment Entry whose mode of payment is a Bank type cannot be saved without
     # a reference number and date — ERPNext throws "Reference No and Reference Date
     # is mandatory for Bank transaction". Three payments failed on this today. The
