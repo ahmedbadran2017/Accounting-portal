@@ -491,6 +491,8 @@ def save_draft(doctype=None, name=None, header=None, rows=None, tax=None):
     if doc.meta.has_field("payment_schedule") and any(
             changed.get(f) for f in ("posting_date", "due_date", "bill_date", "transaction_date")):
         doc.set("payment_schedule", [])
+    if doctype == "Payment Entry":
+        realloc_payment(doc)
     doc.flags.ignore_permissions = True
     doc.save()
     _actions.record(
@@ -500,6 +502,28 @@ def save_draft(doctype=None, name=None, header=None, rows=None, tax=None):
         payload=json.dumps({"before": before, "after": changed, "rows": row_note}),
         result=json.dumps({"saved": name}), notes=f"Edited draft {name}")
     return get_draft(doctype, name)
+
+
+def realloc_payment(doc):
+    """Bring a payment's allocations back inside its amount.
+
+    The draft editor lets the amount change and left the allocation behind:
+    PAY-54942 went from 3,597 to 2,000 against order #268495, still allocated
+    3,597, and every submit then died on "Difference Amount must be zero" —
+    shown to Hanane as "Submitted · 0 · 1 failed" on 30 Oct 2026. The Desk form
+    re-allocates on its own when the amount moves; this does the same, oldest
+    reference first, and leaves any surplus unallocated (an advance)."""
+    left = flt(doc.paid_amount if doc.payment_type == "Receive" else (doc.received_amount or doc.paid_amount))
+    refs = doc.get("references") or []
+    if sum(flt(r.allocated_amount) for r in refs) <= left + 0.005:
+        return False
+    for r in refs:
+        r.allocated_amount = max(0.0, min(flt(r.outstanding_amount) or flt(r.allocated_amount), left))
+        left -= flt(r.allocated_amount)
+    doc.set("references", [r for r in refs if flt(r.allocated_amount) > 0.005])
+    for i, r in enumerate(doc.references, 1):
+        r.idx = i
+    return True
 
 
 def _submitted_header_changes(doc, spec, header):

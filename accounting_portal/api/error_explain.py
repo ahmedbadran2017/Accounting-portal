@@ -50,6 +50,13 @@ def _money(v, cur="MAD"):
 def _doc_from_args(args):
     dt = args.get("doctype") or args.get("dt")
     dn = args.get("name") or args.get("dn") or args.get("docname")
+    names = args.get("names")
+    if not dn and names:
+        try:
+            names = names if isinstance(names, list) else json.loads(names)
+        except Exception:
+            names = []
+        dn = names[0] if len(names) == 1 else None   # a batch of one (Submit on a single row)
     if dt and dn and frappe.db.exists(dt, dn):
         return dt, dn
     return None, None
@@ -225,6 +232,42 @@ def _original_returned(doctype, name, message, **_):
     return x
 
 
+# ── 1c. Payment allocated beyond its amount ─────────────────────────────────
+#
+# PAY-54942: amount edited 3,597 → 2,000, still allocated 3,597 to order #268495.
+
+def _payment_difference(doctype, name, message, **_):
+    if doctype != "Payment Entry" or not name:
+        return None
+    doc = frappe.get_doc("Payment Entry", name)
+    if doc.docstatus != 0:
+        return None
+    cur = doc.paid_to_account_currency if doc.payment_type == "Receive" else doc.paid_from_account_currency
+    cur = cur or "MAD"
+    amt = flt(doc.paid_amount if doc.payment_type == "Receive" else (doc.received_amount or doc.paid_amount))
+    alloc = sum(flt(r.allocated_amount) for r in doc.references)
+    if alloc <= amt + 0.005:
+        return None
+    return {
+        "code": "payment_over_allocated", "severity": "warning", "icon": "bank",
+        "title": T("The payment is allocated for more than its amount", "الدفعة متوزعة بأكتر من مبلغها",
+                   "Le paiement est affecté au-delà de son montant"),
+        "body": T(f"{name} is for {_money(amt, cur)} but still allocates {_money(alloc, cur)} to its documents — the amount was changed and the allocation was not. ERPNext refuses to post it until they match.",
+                  f"{name} مبلغها {_money(amt, cur)} لكن لسه متوزع منها {_money(alloc, cur)} على المستندات — المبلغ اتغيّر والتوزيع ماتغيّرش. ERPNext مش هيرحّلها لحد ما يتساووا.",
+                  f"{name} est de {_money(amt, cur)} mais affecte encore {_money(alloc, cur)} — le montant a changé, pas l'affectation. ERPNext refuse de la comptabiliser tant qu'ils diffèrent."),
+        "facts": [{"label": T("Allocated to", "متوزع على", "Affecté à"), "value": f"{r.reference_doctype} {r.reference_name}",
+                   "amount": _money(r.allocated_amount, cur), "doc": {"doctype": r.reference_doctype, "name": r.reference_name}}
+                  for r in doc.references],
+        "lines": None, "note": None,
+        "actions": [{"kind": "realloc_payment", "primary": True, "doctype": "Payment Entry", "name": name,
+                     "label": T(f"Allocate {_money(amt, cur)} and keep the payment as a draft",
+                                f"وزّع {_money(amt, cur)} بس وسيب الدفعة مسودة",
+                                f"Affecter {_money(amt, cur)} et garder le brouillon")},
+                    {"kind": "open", "doctype": "Payment Entry", "name": name,
+                     "label": T("Open the payment", "افتح الدفعة", "Ouvrir le paiement")}],
+    }
+
+
 # ── 2. A linked order is closed / on hold ────────────────────────────────────
 
 _ORDER_RE = re.compile(r"(Purchase Order|Sales Order|Purchase Receipt|Delivery Note)\s+(.+?)\s+status is\s+(Closed|On Hold)")
@@ -374,6 +417,7 @@ _HANDLERS = [
     (re.compile(r"Due Date cannot be before"), _due_date),
     (re.compile(r"Reference No and Reference Date is mandatory"), _bank_ref),
     (re.compile(r"Supplier Invoice No exists"), _dup_bill_no),
+    (re.compile(r"Difference Amount must be zero"), _payment_difference),
 ]
 
 
@@ -418,7 +462,7 @@ def explain(exc_type=None, message=None, args=None):
 
 # ── Action endpoints (drafts only, gated, audited) ───────────────────────────
 
-_EDITABLE = ("Purchase Invoice", "Sales Invoice")
+_EDITABLE = ("Purchase Invoice", "Sales Invoice", "Payment Entry")
 
 
 def _draft(doctype, name, company):
@@ -492,3 +536,18 @@ def clear_price_list(doctype=None, name=None, company=None):
     doc.save()
     _log(doc, "Cleared a disabled price list", {})
     return {"name": doc.name}
+
+
+@frappe.whitelist()
+def realloc_payment(doctype=None, name=None, company=None):
+    """Cap a draft payment's allocations at its amount (oldest reference first)."""
+    doc = _draft("Payment Entry", name, company)
+    from accounting_portal.api.docedit import realloc_payment as _realloc
+    before = {r.reference_name: flt(r.allocated_amount) for r in doc.references}
+    _realloc(doc)
+    doc.flags.ignore_permissions = True
+    doc.save()
+    _log(doc, "Re-allocated a payment", {"before": before,
+                                         "after": {r.reference_name: flt(r.allocated_amount) for r in doc.references}})
+    return {"name": doc.name}
+

@@ -31,7 +31,10 @@ export function useBulkDocs(doctype, table) {
       } else {
         let res = r && r.result; res = typeof res === "string" ? JSON.parse(res) : res;
         const ok = res?.ok ?? names.length, fail = res?.fail || 0;
-        (fail ? toast.error : toast.success)(`${verb}: ${ok} ${L("done", "تم", "ok")}${fail ? ` · ${fail} ${L("failed", "فشل", "échec")}` : ""}`);
+        // Nothing went through: say so first, with the reason — "Submitted: 0 done"
+        // read as success and left payments sitting in draft (30 Oct 2026).
+        if (fail && !ok) toast.error(`${L("Nothing went through", "ولا واحد اتنفّذ", "Rien n'est passé")} · ${fail} ${L("failed", "فشل", "échec")}: ${res?.failed?.[0]?.error || ""}`.slice(0, 220), 9000);
+        else (fail ? toast.error : toast.success)(`${verb}: ${ok} ${L("done", "تم", "ok")}${fail ? ` · ${fail} ${L("failed", "فشل", "échec")}: ${res?.failed?.[0]?.name} — ${res?.failed?.[0]?.error || ""}` : ""}`.slice(0, 220), fail ? 9000 : undefined);
       }
       st.clearSelection(); st.load();
     } catch (e) { toast.error(String(e?.message || e).slice(0, 180)); }

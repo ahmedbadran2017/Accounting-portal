@@ -7,6 +7,7 @@ the company scope is enforced per row, and the whole batch is routed through the
 write gateway (one Accounting Portal Action, material-amount approval gate).
 """
 import json
+import re
 
 import frappe
 
@@ -56,7 +57,7 @@ def _bulk_poster(action):
         except Exception as e:
             frappe.db.rollback(save_point=sp)
             frappe.clear_document_cache(dt, n)
-            failed.append({"name": n, "error": str(e)[:140]})
+            failed.append({"name": n, "error": re.sub(r"<[^>]+>", "", str(e))[:300]})
     return {"voucher_type": dt, "voucher_no": (done[0] if done else None),
             "result": {"op": op, "doctype": dt, "done": done, "failed": failed,
                        "ok": len(done), "fail": len(failed)}}
@@ -64,6 +65,26 @@ def _bulk_poster(action):
 
 _actions.register_poster(SUBMIT_ACTION, _bulk_poster)
 _actions.register_poster(CANCEL_ACTION, _bulk_poster)
+
+
+def _fresh_bulk_key(key):
+    """The key is the set of names, so a second press on the same selection used
+    to hand back the first press's result. When that result held a failure the
+    retry never ran — fix the draft, press Submit, read the same old failure.
+    Only the documents' state guards against a real double submit (a submitted
+    row is refused above), so a key whose run failed somewhere is spent."""
+    base, n = key, 0
+    while True:
+        row = frappe.db.get_value(_actions.APA, {"dedupe_key": key}, ["status", "result"], as_dict=True)
+        if not row or row.status != "Posted":
+            return key
+        try:
+            if not json.loads(row.result or "{}").get("fail"):
+                return key
+        except Exception:
+            return key
+        n += 1
+        key = f"{base}:r{n}"
 
 
 def _run(op, doctype, names, company):
@@ -92,7 +113,7 @@ def _run(op, doctype, names, company):
             frappe.throw(f"{r.name} is not {'a draft' if op == 'submit' else 'submitted'}")
     total = sum(flt(r.amt) for r in rows)
     action_type = SUBMIT_ACTION if op == "submit" else CANCEL_ACTION
-    key = f"bulk:{op}:{doctype}:" + _digest("".join(sorted(names)), 16)
+    key = _fresh_bulk_key(f"bulk:{op}:{doctype}:" + _digest("".join(sorted(names)), 16))
     return _actions.execute(
         action_type, target or rows[0].company, key,
         payload={"doctype": doctype, "names": sorted(names), "op": op},
@@ -100,17 +121,36 @@ def _run(op, doctype, names, company):
         notes=f"Bulk {op} · {len(names)} {doctype}")
 
 
+def _raise_lone_failure(out):
+    """A batch of one that failed is a failed submit, not a batch report.
+
+    The batch reply "Submitted · 0 · 1 failed" reads as success at a glance —
+    Hanane took PAY-54942/54943 for submitted on 30 Oct 2026 while both sat in
+    draft. Raising lets the client open the explanation popup with ERPNext's
+    own reason, the way any other failed write does. The audit row is already
+    written either way."""
+    res = (out or {}).get("result")
+    try:
+        res = json.loads(res) if isinstance(res, str) else (res or {})
+    except Exception:
+        return out
+    if res.get("ok") == 0 and res.get("fail") == 1 and len(res.get("failed") or []) == 1:
+        verb = {"submit": "submitted", "cancel": "cancelled"}.get(res.get("op"), res.get("op"))
+        frappe.throw(res["failed"][0]["error"], title=f"{res['failed'][0]['name']} was not {verb}")
+    return out
+
+
 @frappe.whitelist()
 def bulk_submit(doctype=None, names=None, company=None):
     """Submit the selected draft documents (one audited, gated batch)."""
-    return _run("submit", doctype, names, company)
+    return _raise_lone_failure(_run("submit", doctype, names, company))
 
 
 @frappe.whitelist()
 def bulk_cancel(doctype=None, names=None, company=None):
     """Cancel the selected submitted documents — reverses their GL. Gated by the
     batch total like any material posting."""
-    return _run("cancel", doctype, names, company)
+    return _raise_lone_failure(_run("cancel", doctype, names, company))
 
 
 # ── Bulk delete of drafts (the Desk list's Delete on a selection) ───────────────
@@ -129,7 +169,7 @@ def _bulk_delete_poster(action):
             frappe.delete_doc(dt, n, ignore_permissions=True)
             done.append(n)
         except Exception as e:
-            failed.append({"name": n, "error": str(e)[:140]})
+            failed.append({"name": n, "error": re.sub(r"<[^>]+>", "", str(e))[:300]})
     return {"voucher_type": dt, "voucher_no": None,
             "result": {"op": "delete", "doctype": dt, "done": done, "failed": failed, "ok": len(done), "fail": len(failed)}}
 

@@ -107,6 +107,7 @@ const ENDPOINT = {
   delete_drafts: "delete_drafts",
   unlink_closed: "unlink_closed",
   clear_price_list: "clear_price_list",
+  realloc_payment: "realloc_payment",
 };
 
 async function act(a, i) {

@@ -22,10 +22,10 @@ export function useBulkDocActions(doctype, { keyField = "name", onDone, L, ops =
       } else {
         const ok = r && r.ok != null ? r.ok : rows.length;
         const fail = (r && r.fail) || 0;
-        const msg = okMsg + ` · ${ok}` + (fail ? ` · ${fail} ${L("failed", "فشل", "échec")}` : "");
-        if (fail && !ok) toast.error(msg);
-        else if (fail) toast.info(msg);
-        else toast.success(msg);
+        const why = fail && r.failed && r.failed[0] ? `: ${r.failed[0].name} — ${r.failed[0].error}` : "";
+        if (fail && !ok) toast.error(`${L("Nothing went through", "ولا واحد اتنفّذ", "Rien n'est passé")} · ${fail} ${L("failed", "فشل", "échec")}${why}`.slice(0, 220), 9000);
+        else if (fail) toast.error(`${okMsg} · ${ok} · ${fail} ${L("failed", "فشل", "échec")}${why}`.slice(0, 220), 9000);
+        else toast.success(okMsg + ` · ${ok}`);
         onDone && onDone();
       }
     } catch (e) { toast.error(String((e && e.message) || L("Failed", "فشل", "Échec")).slice(0, 160)); }
