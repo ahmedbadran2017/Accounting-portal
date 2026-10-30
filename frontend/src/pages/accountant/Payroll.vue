@@ -7,6 +7,9 @@
         </button>
       </div>
       <DateFilterBar v-if="['cockpit','components','accounting'].includes(view)" :df="df" class="ms-auto" />
+      <UiButton v-if="can('post_entries')" variant="secondary" size="md" :class="['cockpit','components','accounting'].includes(view) ? '' : 'ms-auto'" @click="manualOpen = true">
+        <Icon name="coins" :size="14" />{{ L("Manual salary", "راتب يدوي", "Salaire manuel") }}
+      </UiButton>
     </div>
 
     <!-- ── COCKPIT ── -->
@@ -358,6 +361,7 @@
     </template>
     <AssignStructureModal v-if="assignEmp" :employee="assignEmp.name" :employee-name="assignEmp.nm" @close="assignEmp = null" @done="onAssigned" />
     <EmployeeEditModal v-if="newEmp" @close="newEmp = false" @done="loadEmps" />
+    <ManualSalaryModal v-if="manualOpen" :month="clMonth" @close="manualOpen = false" @done="onManualDone" />
   </div>
 </template>
 
@@ -371,6 +375,7 @@ import SearchSelect from "@/components/SearchSelect.vue";
 import TableLoading from "@/components/TableLoading.vue";
 import AssignStructureModal from "@/components/AssignStructureModal.vue";
 import EmployeeEditModal from "@/components/EmployeeEditModal.vue";
+import ManualSalaryModal from "@/components/ManualSalaryModal.vue";
 import PayAdjustments from "@/pages/accountant/PayAdjustments.vue";
 import HrQuick from "@/pages/accountant/HrQuick.vue";
 import SalaryStructures from "@/pages/accountant/SalaryStructures.vue";
@@ -511,6 +516,9 @@ function openEmp(name) { router.push({ path: "/accounting/payroll", query: { emp
 function openRun(name) { router.push({ path: "/accounting/payroll", query: { run: name } }); }
 const assignEmp = ref(null);
 const newEmp = ref(false);
+// One employee, any month, outside the run: a missed slip, a settlement, a transfer never booked.
+const manualOpen = ref(false);
+function onManualDone() { loadCockpit(); if (view.value === "close") loadClose(); if (view.value === "runs") loadRuns(); }
 function assignFor(r) { assignEmp.value = r; }
 function onAssigned() { loadEmps(); if (view.value === "close") loadClose(); }
 function openDept(dept) { empDept.value = dept; empStatus.value = "all"; empSearch.value = ""; view.value = "employees"; loadEmps(); }

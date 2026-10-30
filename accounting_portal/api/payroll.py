@@ -864,14 +864,7 @@ def _submit_reverter(doc):
         # a `Bank Entry` debiting it (313) — but a payment typed the other way
         # would be cancelled by a type test alone, so the credit side is
         # required as well.
-        for je in frappe.db.sql_list(
-                """SELECT DISTINCT je.name FROM `tabJournal Entry` je
-                   JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
-                   WHERE je.docstatus=1 AND je.voucher_type<>'Bank Entry'
-                     AND jea.reference_type='Payroll Entry' AND jea.reference_name=%s
-                     AND jea.credit>0 AND jea.account IN %s""", (pe, _payable_accounts(target) or ("",))):
-            _as_privileged(frappe.get_doc("Journal Entry", je)).cancel()
-            cancelled_je.append(je)
+        cancelled_je += _cancel_run_accruals(pe, target)
         for sl in frappe.get_all("Salary Slip", {"payroll_entry": pe, "docstatus": 1}, pluck="name"):
             _as_privileged(frappe.get_doc("Salary Slip", sl)).cancel()
             cancelled += 1
@@ -1776,6 +1769,382 @@ def set_structure_active(company=None, name=None, active=None):
                             notes=f"{'Activate' if flag else 'Deactivate'} salary structure {name}")
 
 
+# ── Manual salary (one employee, any month — the off-cycle path) ───────────────
+#
+# Everything above runs a month for everyone at once: Generate takes the active
+# staff with a structure, Pay posts today's date and holds back anyone whose
+# payable is overdrawn. That leaves no way to book the things the 2026 payroll
+# reconciliation is made of — a slip one person never got, a leaver's final
+# settlement, a salary from before the structures existed, a transfer that left
+# the bank in September and never reached the books. Three modes, one employee
+# and one month each:
+#
+#   slip     a real Salary Slip from the employee's structure (adjustments for
+#            the month included), through a one-person Payroll Entry so HRMS
+#            posts the accrual exactly as a normal run does
+#   amount   an accrual Journal Entry for a figure with no structure behind it:
+#            Dr the component's expense account / Cr payroll payable (employee)
+#   payment  a transfer already made: Dr payroll payable (employee) / Cr the bank
+#            or cash account, on its real date with its real reference
+#
+# Remarks follow the wording HRMS and the pay step use ("... for salaries from
+# <start> to <end>") so every report that attributes payroll lines to a month by
+# their remark — the reconciliation sheet among them — places these correctly.
+
+MANUAL_ACTION = "Manual salary"
+MANUAL_MODES = ("slip", "amount", "payment")
+
+
+def _pay_accounts(target):
+    return frappe.db.sql(
+        """SELECT name, account_name nm, account_type kind FROM `tabAccount`
+           WHERE company=%s AND is_group=0 AND disabled=0 AND root_type='Asset'
+             AND account_type IN ('Bank','Cash') ORDER BY account_type DESC, name""",
+        (target,), as_dict=True)
+
+
+def _month_ok(month):
+    if not (month and re.match(r"^\d{4}-\d{2}$", str(month))):
+        frappe.throw("Month must look like 2026-06")
+    return str(month)
+
+
+def _month_slips(target, employee, month):
+    start, end = _month_bounds(month)
+    return frappe.db.sql(
+        """SELECT name, net_pay, docstatus, payroll_entry FROM `tabSalary Slip`
+           WHERE company=%s AND employee=%s AND docstatus<2 AND start_date BETWEEN %s AND %s
+           ORDER BY docstatus DESC, name""", (target, employee, start, end), as_dict=True)
+
+
+def _month_ledger(target, employee, month):
+    """What the payable already holds for this person and month, read from the
+    remark the way the month is written on every payroll line, plus the
+    person's balance across everything."""
+    start, end = _month_bounds(month)
+    accs = _payable_accounts(target) or ("",)
+    rows = frappe.db.sql(
+        """SELECT voucher_no, posting_date, SUM(credit) cr, SUM(debit) dr FROM `tabGL Entry`
+           WHERE company=%s AND is_cancelled=0 AND account IN %s AND party_type='Employee' AND party=%s
+             AND remarks LIKE %s
+           GROUP BY voucher_no, posting_date ORDER BY posting_date""",
+        (target, accs, employee, f"%salaries from {start}%"), as_dict=True)
+    balance = _m(frappe.db.sql(
+        """SELECT SUM(credit-debit) FROM `tabGL Entry`
+           WHERE company=%s AND is_cancelled=0 AND account IN %s AND party_type='Employee' AND party=%s""",
+        (target, accs, employee))[0][0])
+    return {
+        "booked": _m(sum(flt(r.cr) for r in rows)),
+        "paid": _m(sum(flt(r.dr) for r in rows)),
+        "vouchers": [{"name": r.voucher_no, "date": str(r.posting_date), "booked": _m(r.cr), "paid": _m(r.dr)}
+                     for r in rows],
+        "balance": balance,
+    }
+
+
+def _slip_doc(target, employee, month, payroll_entry=None):
+    start, end = _month_bounds(month)
+    return frappe.get_doc({
+        "doctype": "Salary Slip", "employee": employee, "company": target,
+        "start_date": start, "end_date": end, "posting_date": end,
+        "payroll_frequency": "Monthly", "salary_slip_based_on_timesheet": 0,
+        "currency": _ccy(target), "exchange_rate": 1, "payroll_entry": payroll_entry,
+    })
+
+
+def _slip_preview(target, employee, month):
+    """The slip HRMS would build, computed in memory and never saved —
+    or HRMS's own reason it will not build one."""
+    ss = _slip_doc(target, employee, month)
+    try:
+        ss.validate()
+    except Exception as e:
+        frappe.clear_messages()
+        return {"ok": False, "error": re.sub(r"<[^>]+>", "", str(e))[:300]}
+    finally:
+        frappe.db.rollback()
+    # HRMS checks component accounts only when it posts the accrual — after the
+    # run has committed its slip. Say so here instead.
+    bare = sorted({r.salary_component for r in list(ss.earnings) + list(ss.deductions)
+                   if not frappe.db.get_value("Salary Component Account",
+                                              {"parent": r.salary_component, "company": target}, "account")})
+    if bare:
+        return {"ok": False, "error": f"Component without an account on {target}: {', '.join(bare)}."}
+    return {
+        "ok": True, "structure": ss.salary_structure,
+        "payment_days": flt(ss.payment_days), "working_days": flt(ss.total_working_days),
+        "earnings": [{"comp": r.salary_component, "amount": _m(r.amount)} for r in ss.earnings],
+        "deductions": [{"comp": r.salary_component, "amount": _m(r.amount)} for r in ss.deductions],
+        "gross": _m(ss.gross_pay), "deduction": _m(ss.total_deduction), "net": _m(ss.net_pay),
+    }
+
+
+@frappe.whitelist()
+def manual_salary_options(company=None):
+    """Every employee of the company — leavers and inactive staff included, they
+    are most of what an old correction is about — the earning components that
+    carry an account, and the bank and cash accounts a payment can come from."""
+    assert_portal_access()
+    target = _target(company)
+    if not target:
+        return {}
+    emps = frappe.db.sql(
+        """SELECT name, employee_name nm, status, date_of_joining joined, relieving_date relieved
+           FROM `tabEmployee` WHERE company=%s ORDER BY status='Active' DESC, employee_name""",
+        (target,), as_dict=True)
+    for e in emps:
+        e["joined"] = str(e["joined"] or "") or None
+        e["relieved"] = str(e["relieved"] or "") or None
+    return {"company": target, "currency": _ccy(target), "employees": emps,
+            "components": component_options(target).get("earnings") or [],
+            "default_component": "Net Wage of Employee",
+            "accounts": _pay_accounts(target), "payable_account": _payroll_defaults(target)[0]}
+
+
+@frappe.whitelist()
+def manual_salary_context(company=None, employee=None, month=None):
+    """What already exists for this person and month, and the slip HRMS would
+    make — read before anything is written, so a double entry is seen first."""
+    assert_portal_access()
+    target = _target(company)
+    if not (target and employee and month):
+        return {}
+    month = _month_ok(month)
+    emp = frappe.db.get_value("Employee", {"name": employee, "company": target},
+                              ["name", "employee_name", "status", "relieving_date"], as_dict=True)
+    if not emp:
+        frappe.throw("Employee not found in this company")
+    slips = _month_slips(target, employee, month)
+    for s in slips:
+        s["net_pay"] = _m(s["net_pay"])
+    closed = _closed_record(target, month)
+    return {
+        "employee": employee, "nm": emp.employee_name, "status": emp.status,
+        "relieved": str(emp.relieving_date or "") or None, "month": month,
+        "start": _month_bounds(month)[0], "end": _month_bounds(month)[1],
+        "closed": bool(closed), "slips": slips, "ledger": _month_ledger(target, employee, month),
+        "preview": None if slips else _slip_preview(target, employee, month),
+    }
+
+
+@frappe.whitelist()
+def manual_salary(company=None, employee=None, month=None, mode=None, amount=None, salary_component=None,
+                  posting_date=None, account=None, reference=None, notes=None):
+    assert_can_write()
+    target = _target(company)
+    if not (target and employee and month and mode in MANUAL_MODES):
+        frappe.throw("company, employee, month and mode (slip / amount / payment) are required")
+    month = _month_ok(month)
+    nm = frappe.db.get_value("Employee", {"name": employee, "company": target}, "employee_name")
+    if not nm:
+        frappe.throw("Employee not found in this company")
+    if _closed_record(target, month):
+        frappe.throw(f"Payroll {month} is closed. Reopen it on Month close before adding to it.")
+    start, end = _month_bounds(month)
+    payload = {"mode": mode, "employee": employee, "month": month}
+    from accounting_portal.api import _actions
+
+    if mode == "slip":
+        live = [s for s in _month_slips(target, employee, month)]
+        if live:
+            frappe.throw(f"{nm} already has a {month} slip ({live[0].name}, net {_m(live[0].net_pay)}). "
+                         "Use 'Manual amount' for anything on top of it.")
+        pv = _slip_preview(target, employee, month)
+        if not pv["ok"]:
+            frappe.throw(f"HRMS will not build a slip for {nm} in {month}: {pv['error']} "
+                         "Use 'Manual amount' instead.")
+        amt = pv["net"]
+        key = "manual-salary:slip:" + _digest(f"{target}:{employee}:{month}", 14)
+        return _actions.execute(MANUAL_ACTION, target, key, payload=payload, amount=amt,
+                                notes=notes or f"Salary slip {month} for {nm}")
+
+    amt = _m(amount)
+    if amt <= 0:
+        frappe.throw("Amount must be greater than zero")
+    pd = str(getdate(posting_date or end))
+
+    if mode == "amount":
+        comp = salary_component or "Net Wage of Employee"
+        if frappe.db.get_value("Salary Component", comp, "type") != "Earning":
+            frappe.throw(f"\"{comp}\" is not an earning component")
+        _assert_component_has_account(comp, target)
+        payload.update({"amount": amt, "salary_component": comp, "posting_date": pd, "notes": notes or ""})
+        key = "manual-salary:amount:" + _digest(f"{target}:{employee}:{month}:{comp}:{amt}:{pd}", 14)
+        return _actions.execute(MANUAL_ACTION, target, key, payload=payload, amount=amt,
+                                notes=notes or f"{comp} {month} for {nm}: {amt}")
+
+    if not posting_date:
+        frappe.throw("Give the date the money actually left")
+    if account not in {a.name for a in _pay_accounts(target)}:
+        frappe.throw("Pick a bank or cash account of this company")
+    ref = (reference or "").strip()[:140]
+    payload.update({"amount": amt, "posting_date": pd, "account": account, "reference": ref, "notes": notes or ""})
+    key = "manual-salary:payment:" + _digest(f"{target}:{employee}:{month}:{amt}:{pd}:{account}:{ref}", 14)
+    return _actions.execute(MANUAL_ACTION, target, key, payload=payload, amount=amt,
+                            notes=notes or f"Salary payment {month} to {nm}: {amt}")
+
+
+def _manual_poster(doc):
+    p = json.loads(doc.payload or "{}")
+    return {"slip": _manual_slip_post, "amount": _manual_amount_post,
+            "payment": _manual_payment_post}[p["mode"]](doc.company, p)
+
+
+def _manual_slip_post(target, p):
+    """A one-person Payroll Entry. Its on_submit builds the slip through HRMS and
+    commits on the way (create_salary_slips_for_employees), so a failure after
+    that point cannot be rolled back by the gateway and is cleaned up here."""
+    employee, month = p["employee"], p["month"]
+    start, end = _month_bounds(month)
+    payable, cc = _payroll_defaults(target)
+    emp = frappe.db.get_value("Employee", employee, ["employee_name", "department", "designation"], as_dict=True)
+    pe = _as_privileged(frappe.get_doc({
+        "doctype": "Payroll Entry", "company": target, "posting_date": end,
+        "start_date": start, "end_date": end, "payroll_frequency": "Monthly",
+        "currency": _ccy(target), "exchange_rate": 1, "salary_slip_based_on_timesheet": 0,
+        "payroll_payable_account": payable, "cost_center": cc,
+        "employees": [{"employee": employee, "employee_name": emp.employee_name,
+                       "department": emp.department, "designation": emp.designation}],
+    }))
+    pe.insert(ignore_permissions=True)
+    pe.submit()   # → create_salary_slips → commits
+    slip = frappe.db.get_value("Salary Slip", {"payroll_entry": pe.name, "docstatus": 0}, "name")
+    if not slip:
+        why = frappe.db.get_value("Payroll Entry", pe.name, "error_message") or "no slip was created"
+        _undo_manual_run(pe.name)
+        frappe.throw(f"HRMS did not create the slip: {re.sub(r'<[^>]+>', '', str(why))[:300]}")
+    try:
+        ss = _as_privileged(frappe.get_doc("Salary Slip", slip))
+        if flt(ss.net_pay) < 0:
+            frappe.throw(f"Net pay would be {_m(ss.net_pay)} — below zero")
+        frappe.flags.via_payroll_entry = True
+        try:
+            ss.submit()
+        finally:
+            frappe.flags.via_payroll_entry = False
+        pe = _as_privileged(frappe.get_doc("Payroll Entry", pe.name))
+        pe.make_accrual_jv_entry([ss])
+        pe.db_set({"salary_slips_submitted": 1, "status": "Submitted", "error_message": ""})
+    except Exception:
+        frappe.db.rollback()
+        _undo_manual_run(pe.name)
+        raise
+    je = frappe.db.sql_list(
+        """SELECT DISTINCT parent FROM `tabJournal Entry Account`
+           WHERE reference_type='Payroll Entry' AND reference_name=%s AND docstatus=1""", (pe.name,))
+    _bust_cockpit(target)
+    return {"voucher_type": "Payroll Entry", "voucher_no": pe.name,
+            "result": {"slip": slip, "net": _m(ss.net_pay), "accrual": je, "month": month}}
+
+
+def _undo_manual_run(pe_name):
+    """Take a one-person run back out: its accrual, its slip, the run itself."""
+    target = frappe.db.get_value("Payroll Entry", pe_name, "company")
+    _cancel_run_accruals(pe_name, target)
+    for name, ds in frappe.db.sql("SELECT name, docstatus FROM `tabSalary Slip` WHERE payroll_entry=%s", (pe_name,)):
+        if ds == 1:
+            _as_privileged(frappe.get_doc("Salary Slip", name)).cancel()
+        elif ds == 0:
+            frappe.delete_doc("Salary Slip", name, force=1, ignore_permissions=True)
+    if frappe.db.get_value("Payroll Entry", pe_name, "docstatus") == 1:
+        _as_privileged(frappe.get_doc("Payroll Entry", pe_name)).cancel()
+    frappe.db.commit()
+
+
+def _cancel_run_accruals(pe, target):
+    """Cancel the accrual JE(s) a run posted — the credit side on the payable,
+    never a payment. A Salary Slip's cancel leaves these in place."""
+    done = []
+    for je in frappe.db.sql_list(
+            """SELECT DISTINCT je.name FROM `tabJournal Entry` je
+               JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
+               WHERE je.docstatus=1 AND je.voucher_type<>'Bank Entry'
+                 AND jea.reference_type='Payroll Entry' AND jea.reference_name=%s
+                 AND jea.credit>0 AND jea.account IN %s""", (pe, _payable_accounts(target) or ("",))):
+        _as_privileged(frappe.get_doc("Journal Entry", je)).cancel()
+        done.append(je)
+    return done
+
+
+def _manual_amount_post(target, p):
+    start, end = _month_bounds(p["month"])
+    payable, cc = _payroll_defaults(target)
+    exp = frappe.db.get_value("Salary Component Account",
+                              {"parent": p["salary_component"], "company": target}, "account")
+    nm = frappe.db.get_value("Employee", p["employee"], "employee_name")
+    amt = flt(p["amount"])
+    remark = f"Accrual (manual) for salaries from {start} to {end} — {p['salary_component']}"
+    if p.get("notes"):
+        remark += f". {p['notes']}"
+    je = frappe.get_doc({
+        "doctype": "Journal Entry", "voucher_type": "Journal Entry", "company": target,
+        "posting_date": p["posting_date"], "user_remark": remark, "title": f"Salary {p['month']} – {nm}",
+        "accounts": [
+            {"account": exp, "cost_center": cc, "debit_in_account_currency": amt, "credit_in_account_currency": 0},
+            {"account": payable, "party_type": "Employee", "party": p["employee"],
+             "debit_in_account_currency": 0, "credit_in_account_currency": amt},
+        ],
+    })
+    je.insert(ignore_permissions=True)
+    je.submit()
+    _bust_cockpit(target)
+    return {"voucher_type": "Journal Entry", "voucher_no": je.name,
+            "result": {"employee": p["employee"], "month": p["month"], "amount": amt, "expense": exp}}
+
+
+def _manual_payment_post(target, p):
+    start, end = _month_bounds(p["month"])
+    payable, _cc = _payroll_defaults(target)
+    nm = frappe.db.get_value("Employee", p["employee"], "employee_name")
+    amt = flt(p["amount"])
+    # Tie the payment to the month's run when there is one, so the month's own
+    # pay step counts it and does not offer the same salary again.
+    pe = frappe.db.get_value("Salary Slip", {"employee": p["employee"], "company": target, "docstatus": 1,
+                                             "start_date": start}, "payroll_entry")
+    kind = frappe.db.get_value("Account", p["account"], "account_type")
+    mm = p["month"][5:7] + "-" + p["month"][2:4]
+    remark = f"Payment of salaries from {start} to {end}"
+    if p.get("notes"):
+        remark += f". {p['notes']}"
+    je = frappe.get_doc({
+        "doctype": "Journal Entry", "voucher_type": "Cash Entry" if kind == "Cash" else "Bank Entry",
+        "company": target, "posting_date": p["posting_date"], "multi_currency": 1,
+        "cheque_no": p.get("reference") or f"SALARY {mm} {nm}"[:140], "cheque_date": p["posting_date"],
+        "user_remark": remark, "title": f"Salary {p['month']} – {nm}",
+        "accounts": [
+            {"account": payable, "party_type": "Employee", "party": p["employee"],
+             "debit_in_account_currency": amt, "credit_in_account_currency": 0,
+             **({"reference_type": "Payroll Entry", "reference_name": pe} if pe else {})},
+            {"account": p["account"], "debit_in_account_currency": 0, "credit_in_account_currency": amt},
+        ],
+    })
+    je.insert(ignore_permissions=True)
+    je.submit()
+    _bust_cockpit(target)
+    return {"voucher_type": "Journal Entry", "voucher_no": je.name,
+            "result": {"employee": p["employee"], "month": p["month"], "amount": amt, "account": p["account"]}}
+
+
+def _manual_reverter(doc):
+    p = json.loads(doc.payload or "{}")
+    if p.get("mode") != "slip":
+        from accounting_portal.api import _actions
+        return _actions._cancel_voucher_reverter(doc)
+    pe = doc.voucher_no
+    if not (pe and frappe.db.exists("Payroll Entry", pe)):
+        return {"noop": True}
+    paid = frappe.db.sql(
+        """SELECT DISTINCT je.name FROM `tabJournal Entry` je
+           JOIN `tabJournal Entry Account` jea ON jea.parent=je.name
+           WHERE je.docstatus=1 AND je.voucher_type IN ('Bank Entry','Cash Entry')
+             AND jea.reference_type='Payroll Entry' AND jea.reference_name=%s""", (pe,))
+    if paid:
+        frappe.throw(f"This salary is already paid ({paid[0][0]}). Undo the payment first.")
+    _undo_manual_run(pe)
+    _bust_cockpit(doc.company)
+    return {"cancelled_run": pe}
+
+
 # Generate/pay register via the shared cancel-voucher undo where applicable.
 def _register():
     from accounting_portal.api import _actions
@@ -1810,6 +2179,8 @@ def _register():
     _actions._NO_GATE.add(SS_ACTION)
     _actions.register_poster(SS_ACTIVE_ACTION, _ss_active_poster)
     _actions._NO_GATE.add(SS_ACTIVE_ACTION)
+    _actions.register_poster(MANUAL_ACTION, _manual_poster)
+    _actions.register_reverter(MANUAL_ACTION, _manual_reverter)
 
 
 _register()
