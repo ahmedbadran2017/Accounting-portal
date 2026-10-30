@@ -15,6 +15,8 @@
  */
 import { reactive } from "vue";
 import { frappeApi, extractApiError } from "@/utils/helpers";
+import i18n from "@/i18n";
+import { showExplain } from "@/composables/useErrorExplain";
 
 // Real connectivity signal for the header chip (it used to be a hardcoded green
 // "synced" dot). ok flips false on a network/5xx failure and back on the next
@@ -45,10 +47,39 @@ async function _fetch(method, args) {
     err.status = res.status;
     err._body = body;
     if (res.status >= 500 || res.status === 0) { apiHealth.ok = false; apiHealth.lastFail = Date.now(); apiHealth.fails++; }
+    await _explain(method, args, body, err);
     throw err;
   }
   apiHealth.ok = true; apiHealth.lastOk = Date.now();
   return body && "message" in body ? body.message : body;
+}
+
+// A failed WRITE that the server raised (validation, ERPNext rule) is explained in
+// a popup instead of a four-second toast: api/error_explain.py reads the documents
+// involved and returns what happened and how to fix it. Reads, auth/permission
+// errors, network failures and the popup's own endpoints are left alone.
+const EXPLAIN = "accounting_portal.api.error_explain.explain";
+
+async function _explain(method, args, body, err) {
+  if (isRead(method) || method.startsWith("accounting_portal.api.error_explain")) return;
+  if (!body || !(body.exc_type || body.exception || body._server_messages)) return;
+  if ([401, 403].includes(err.status) || /^(PermissionError|AuthenticationError|CSRFTokenError)$/.test(body.exc_type || "")) return;
+  try {
+    const res = await Promise.race([
+      frappeApi(`/api/method/${EXPLAIN}`, {
+        exc_type: body.exc_type || "",
+        message: String(body.exception || err.message || "").slice(0, 2000),
+        args: JSON.stringify(args || {}),
+      }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+    ]);
+    const x = (await res.json())?.message;
+    if (!x || !x.title) return;
+    const lang = i18n.global.locale.value;
+    err.message = x.title[lang] || x.title.en || err.message;
+    err.explained = true;
+    showExplain(x);
+  } catch { /* the original error still reaches the caller */ }
 }
 
 async function call(method, args = null, opts = null) {

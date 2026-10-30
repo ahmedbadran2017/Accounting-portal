@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { explainCurrent } from "@/composables/useErrorExplain";
 
 // Minimal global toast queue. Components render <ToastHost/> once at the root.
 const toasts = ref([]);
@@ -19,7 +20,8 @@ export function useToast() {
   return {
     toasts,
     success: (m, t) => push(m, "success", t),
-    error: (m, t) => push(m, "error", t),
+    // While the explanation popup is open it already says what failed.
+    error: (m, t) => (explainCurrent.value ? null : push(m, "error", t)),
     info: (m, t) => push(m, "info", t),
     dismiss,
   };
