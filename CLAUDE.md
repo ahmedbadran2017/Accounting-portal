@@ -129,6 +129,10 @@ Deeper reference:
 - Money is shown large and counts small.
 - Arrow icons point right: back is `rotate-180 rtl:rotate-0`, next is `rtl:rotate-180`.
 - Reports show revenue **VAT-inclusive** (what the customer paid). Only VAT actually paid is a cost line.
+- **Errors on writes:** the API client sends every failed write to `api/error_explain.py`, which returns an
+  explanation (title, documents, fix buttons) shown in `ErrorExplainer.vue`.
+  - Add a handler there for any new ERPNext error the team hits, instead of polishing a toast.
+  - Fix buttons only ever touch drafts.
 
 ## Accounting facts the code depends on
 - Since June 2026, a delivered Sales Order can show `per_billed` = 83.33% even though its invoice exists:
