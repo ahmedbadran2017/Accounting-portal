@@ -486,14 +486,19 @@ function doPay() {
   runStep("pay", "accounting_portal.api.payroll.payroll_pay", { bank_account: payBank.value });
 }
 
-loadCockpit();
-watch(view, (v) => {
+// Each tab loads on first visit. That ran only on a tab CHANGE, so a link or a
+// reload that landed straight on ?t=close (or runs, employees…) never loaded and
+// sat on its skeleton until you clicked away and back.
+function loadView(v) {
   if (v === "employees" && !emps.value.length) loadEmps();
   if (v === "runs" && !runs.value.length) loadRuns();
   if (v === "components" && !k.value.earnings) loadComponents();
   if (v === "accounting" && !gl.value.rows) loadGL();
   if (v === "close" && !cl.value.month) loadClose();
-});
+}
+loadCockpit();
+loadView(view.value);
+watch(view, loadView);
 // Changing the month on the sheet changes it for the close tab too, so the
 // approval state and the figures it describes are never two different months.
 watch(clMonth, (m) => { if (m && cl.value.month && cl.value.month !== m) loadClose(); });

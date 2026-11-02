@@ -54,7 +54,7 @@
           <div class="overflow-y-auto max-h-[360px]">
             <table class="w-full text-[12px]">
               <tbody>
-                <tr v-for="(p, i) in d.deposits" :key="i" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="goReceipt(p.name)">
+                <tr v-for="(p, i) in d.deposits" :key="i" class="border-t border-line-hair hover:bg-app-warm/50 cursor-pointer" @click="goReceipt(p)">
                   <td class="px-4 py-2 font-mono text-[11px]">{{ p.name }}<div class="text-[11px] text-ink-muted font-sans">{{ p.date }} · {{ p.method }}</div></td>
                   <td class="px-4 py-2 text-end tnum font-semibold">{{ fmt(p.amount) }}</td>
                 </tr>
@@ -84,6 +84,7 @@ import TableLoading from "@/components/TableLoading.vue";
 import api from "@/services/api";
 import { currentCompany } from "@/composables/useLive";
 import UiButton from "@/components/UiButton.vue";
+import { routeForDoc } from "@/utils/helpers";
 
 const route = useRoute();
 const router = useRouter();
@@ -95,7 +96,12 @@ const d = ref(null);
 const loading = ref(true);
 function back() { router.push("/accounting/banking/remittance"); }
 function goOrder(n) { router.push({ path: "/accounting/sales/orders", query: { id: n } }); }
-function goReceipt(n) { router.push({ path: "/accounting/sales/payments", query: { id: n } }); }
+// A deposit is a customer payment, or — since the RDF reference format — the bank
+// journal that moved the batch out of the Cathedis clearing account.
+function goReceipt(p) {
+  const r = p.doctype === "Journal Entry" ? routeForDoc("Journal Entry", p.name) : null;
+  router.push(r || { path: "/accounting/sales/payments", query: { id: p.name } });
+}
 async function load() {
   const id = route.query.id;
   if (!id) { loading.value = false; return; }

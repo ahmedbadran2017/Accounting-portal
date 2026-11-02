@@ -84,6 +84,9 @@ def cod_remittances(company=None, search=None, variance_only=0, limit=100):
                      AND payment_type='Receive' AND reference_no IN %(r)s
                    GROUP BY reference_no""", {"c": target, "r": refs}, as_dict=True):
             deposits[r.ref] = r
+        for ref, rows in _bank_remittances(target, refs).items():
+            if ref not in deposits:
+                deposits[ref] = frappe._dict(amt=round(sum(x.amount for x in rows)), n=len(rows))
     out = []
     for b in batches:
         d = deposits.get(b["ref"])
@@ -94,6 +97,33 @@ def cod_remittances(company=None, search=None, variance_only=0, limit=100):
         b["date"] = str(b.get("date") or "")
         if not (int(variance_only or 0) and b["status"] == "matched"):
             out.append(b)
+    return out
+
+
+def _bank_remittances(target, refs):
+    """The bank side of each remittance: the journal that moves the batch from the
+    Cathedis clearing account to the bank, carrying the remittance reference as its
+    cheque number (ACC-JV-2026-07521 = RDF-191026-720890, 79,877.56).
+
+    Collection used to be read only from Payment Entries whose reference_no is the
+    batch reference. That held in the CATH… era; since the June 2026 format change
+    the per-order payments reference their invoices and none carries RDF-…, so every
+    batch showed "collected 0 · short" while the money was in the bank. A batch with
+    reference-stamped payments still uses those; the journal is the fallback, so
+    nothing is counted twice."""
+    out = {}
+    if not refs:
+        return out
+    for r in frappe.db.sql(
+            """SELECT je.cheque_no AS ref, je.name, je.posting_date AS date, ROUND(SUM(jea.credit)) AS amount
+               FROM `tabJournal Entry` je JOIN `tabJournal Entry Account` jea ON jea.parent = je.name
+               WHERE je.docstatus=1 AND je.company=%(c)s AND je.cheque_no IN %(r)s
+                 AND jea.account LIKE %(a)s AND jea.credit > 0
+               GROUP BY je.name ORDER BY je.posting_date DESC""",
+            {"c": target, "r": tuple(refs), "a": "108.021.003%"}, as_dict=True):
+        out.setdefault(r.ref, []).append(frappe._dict(
+            name=r.name, customer="Cathedis → banque", amount=flt(r.amount), date=r.date,
+            method="Journal", doctype="Journal Entry"))
     return out
 
 
@@ -117,6 +147,8 @@ def get_remittance(ref=None, company=None):
                   IFNULL(mode_of_payment,'—') AS method
            FROM `tabPayment Entry` WHERE company=%s AND docstatus=1 AND payment_type='Receive'
              AND reference_no=%s ORDER BY posting_date DESC LIMIT 500""", (target, ref), as_dict=True)
+    if not deposits:
+        deposits = _bank_remittances(target, [ref]).get(ref, [])
     expected = sum(flt(o.value) for o in orders)
     collected = sum(flt(d.amount) for d in deposits)
     carrier = frappe.db.get_value("Sales Order", {"custom_reference_number": ref, "company": target}, "custom_tracking_company") or "Cathedis"

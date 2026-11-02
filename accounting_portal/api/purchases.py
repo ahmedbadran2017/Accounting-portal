@@ -105,7 +105,7 @@ def get_bill(name):
         "Purchase Invoice", name,
         ["name", "supplier", "company", "grand_total", "base_grand_total", "currency",
          "outstanding_amount", "is_return", "status", "posting_date", "due_date", "bill_no",
-         "on_hold", "hold_comment"], as_dict=True,
+         "on_hold", "hold_comment", "docstatus"], as_dict=True,
     )
     if not pi:
         frappe.throw("Bill not found")
@@ -125,6 +125,8 @@ def get_bill(name):
     has_pr = n and all(i.pr for i in items)
     pi["items"] = items
     pi["match"] = {"po": bool(has_po), "grn": bool(has_pr), "matched": bool(has_po and has_pr)}
+    # _bill_status reads docstatus first; without it in the fetch every bill —
+    # submitted, overdue or paid — opened with a "Draft" badge under its amount.
     pi["status_norm"] = _bill_status(pi)
     pi["related_orders"] = sorted({i.po for i in items if i.po})
     pi["related_receipts"] = sorted({i.pr for i in items if i.pr})
