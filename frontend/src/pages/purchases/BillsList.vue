@@ -82,9 +82,9 @@
     </div>
     <TableLoading v-if="st.loading.value" />
     <div v-else-if="!displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No bills match your filters.","لا توجد فواتير مطابقة.","Aucune facture.") }}</div>
-    <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" v-model:owner="listOwner" owner-doctype="Purchase Invoice" :total="st.total.value" export-key="bills" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
+    <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" v-model:owner="listOwner" owner-doctype="Purchase Invoice" :total="st.total.value" export-key="bills" export-lines :export-filters="exportFilters" :extra-statuses="extraStatuses" />
     <ServerPager :t="st" />
-    <BulkBar :t="st" :actions="bulkActions" filename="bills" />
+    <BulkBar :t="st" :actions="bulkActions" filename="bills" lines-key="bills" />
     </div>
   </div>
 </template>

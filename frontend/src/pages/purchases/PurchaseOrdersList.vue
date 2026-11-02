@@ -66,10 +66,10 @@
       </div>
 
       <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" v-model:owner="listOwner"
-                   owner-doctype="Purchase Order" :total="st.total.value" export-key="purchase_orders"
+                   owner-doctype="Purchase Order" :total="st.total.value" export-key="purchase_orders" export-lines
                    :export-filters="exportFilters" :extra-statuses="extraStatuses" />
       <ServerPager :t="st" />
-      <BulkBar :t="st" :actions="bulkActions" filename="purchase-orders" />
+      <BulkBar :t="st" :actions="bulkActions" filename="purchase-orders" lines-key="purchase_orders" />
     </div>
   </div>
 </template>

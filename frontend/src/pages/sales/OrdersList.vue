@@ -79,7 +79,7 @@
             </tr>
           </tbody>
         </table>
-        <BulkBar :t="st" :actions="bulkActions" filename="orders" />
+        <BulkBar :t="st" :actions="bulkActions" filename="orders" lines-key="orders" />
       </div>
       <TableLoading v-if="st.loading.value" />
       <div v-else-if="!displayRows.length" class="py-14 text-center text-[12px] text-ink-muted">{{ lbl("No orders match your filters.", "لا توجد طلبات مطابقة.", "Aucune commande.") }}</div>

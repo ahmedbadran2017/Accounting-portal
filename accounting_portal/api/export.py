@@ -162,19 +162,16 @@ _LIST_EXPORTS = {
 }
 
 
-@frappe.whitelist()
-def list_xlsx(key=None, **filters):
-    """Excel of a whole filtered list. `key` picks the list; every other query
-    parameter is passed through to that list's own endpoint (company, search,
-    from_date, to_date, sort…), so the workbook matches the screen."""
-    assert_portal_access()
+def _collect_rows(key, filters):
+    """Every row of a filtered list, through the list's own endpoint, so an
+    export matches the screen."""
     spec = _LIST_EXPORTS.get(key)
     if not spec:
         frappe.throw("Unknown list")
     method, sheet, cols = spec
     fn = frappe.get_attr(method)
     filters.pop("cmd", None)
-    for junk in ("start", "page_size", "limit", "key"):
+    for junk in ("start", "page_size", "limit", "key", "names"):
         filters.pop(junk, None)
     filters = {k: v for k, v in filters.items() if v not in (None, "", "undefined")}
     # Only pass what the list endpoint actually declares. The URL carries whatever
@@ -198,6 +195,16 @@ def list_xlsx(key=None, **filters):
         start += page
         if len(got) < page or start >= min(total, _MAX_ROWS):
             break
+    return rows, filters, sheet, cols
+
+
+@frappe.whitelist()
+def list_xlsx(key=None, **filters):
+    """Excel of a whole filtered list. `key` picks the list; every other query
+    parameter is passed through to that list's own endpoint (company, search,
+    from_date, to_date, sort…), so the workbook matches the screen."""
+    assert_portal_access()
+    rows, filters, sheet, cols = _collect_rows(key, filters)
     data = [
         [sheet, filters.get("company") or "", "Rows", len(rows)],
         ["Filters", ", ".join(f"{k}={v}" for k, v in sorted(filters.items()) if k != "company") or "(none)"],
@@ -208,6 +215,96 @@ def list_xlsx(key=None, **filters):
     for r in rows:
         data.append([_num(r.get(f)) if f in numeric else (r.get(f) if r.get(f) is not None else "") for f, _l in cols])
     _send(f"{key}-{frappe.utils.nowdate()}.xlsx", sheet, data, [18] * len(cols))
+
+
+# ── The same lists, one row per line ─────────────────────────────────────────
+#
+# The list export has one row per document. Checking a supplier's bills against
+# their statement, or a consignment bill against the orders it covers, needs the
+# lines: item, quantity, rate, and the customer order each line serves (Hanane,
+# 2 Nov 2026, on Christelle Paris). Header fields repeat on every line so the
+# sheet filters and pivots on its own.
+
+_LINE_EXPORTS = {
+    # key: (doctype, child doctype, date field, party field, extra header fields, extra line fields)
+    "bills": ("Purchase Invoice", "Purchase Invoice Item", "posting_date", "supplier",
+              [("bill_no", "Supplier invoice"), ("bill_date", "Supplier invoice date"), ("is_return", "Return")],
+              [("purchase_order", "Purchase order"), ("purchase_receipt", "Receipt"), ("expense_account", "Account")]),
+    "invoices": ("Sales Invoice", "Sales Invoice Item", "posting_date", "customer",
+                 [("is_return", "Return")],
+                 [("sales_order", "Sales order"), ("delivery_note", "Delivery note"), ("income_account", "Account")]),
+    "purchase_orders": ("Purchase Order", "Purchase Order Item", "transaction_date", "supplier", [],
+                        [("sales_order", "Customer order"), ("received_qty", "Received qty"), ("billed_amt", "Billed")]),
+    "orders": ("Sales Order", "Sales Order Item", "transaction_date", "customer", [],
+               [("delivered_qty", "Delivered qty"), ("billed_amt", "Billed")]),
+}
+_LINE_NUM = {"qty", "rate", "amount", "net_amount", "base_amount", "received_qty", "delivered_qty", "billed_amt",
+             "grand_total"}
+
+
+@frappe.whitelist()
+def lines_xlsx(key=None, names=None, **filters):
+    """One row per line for the selected documents (`names`, JSON list) or, with
+    no selection, for the whole filtered list as on screen."""
+    assert_portal_access()
+    from accounting_portal.api.permissions import resolve_companies
+    spec = _LINE_EXPORTS.get(key)
+    if not spec:
+        frappe.throw("Line export is not available for this list")
+    dt, child, date_f, party_f, head_extra, line_extra = spec
+    company = filters.get("company")
+    if names:
+        names = frappe.parse_json(names) if isinstance(names, str) else names
+        names = [n for n in (names or []) if n][:5000]
+        sheet = f"{dt} lines"
+    else:
+        rows, _f, sheet, _c = _collect_rows(key, dict(filters))
+        names = [r.get("name") for r in rows if r.get("name")]
+        sheet = f"{sheet} — lines"
+    if not names:
+        frappe.throw("No documents to export")
+    allowed = tuple(resolve_companies(company) or ("",))
+    hmeta, cmeta = frappe.get_meta(dt), frappe.get_meta(child)
+    head = [(date_f, "Date"), (party_f, "Party")] + [h for h in head_extra if hmeta.has_field(h[0])] + \
+           [("currency", "Currency"), ("status", "Status"), ("grand_total", "Document total")]
+    line = [("idx", "Line"), ("item_code", "Item"), ("item_name", "Item name"), ("qty", "Qty"), ("uom", "UOM"),
+            ("rate", "Rate"), ("amount", "Amount"), ("net_amount", "Net amount"), ("base_amount", "Amount (company ccy)"),
+            ("item_tax_template", "Tax template"), ("warehouse", "Warehouse")] + \
+           [l for l in line_extra if cmeta.has_field(l[0])]
+    line = [l for l in line if l[0] == "idx" or cmeta.has_field(l[0])]
+    with_order = dt == "Purchase Invoice" and cmeta.has_field("po_detail")
+    sel = ", ".join([f"p.`{f}` AS `h_{f}`" for f, _l in head] + [f"i.`{f}` AS `l_{f}`" for f, _l in line]
+                    + (["poi.sales_order AS customer_order"] if with_order else []))
+    join = " LEFT JOIN `tabPurchase Order Item` poi ON poi.name = i.po_detail" if with_order else ""
+    out = []
+    for k in range(0, len(names), 500):
+        chunk = tuple(names[k:k + 500])
+        out += frappe.db.sql(
+            f"""SELECT p.name AS doc, {sel} FROM `tab{dt}` p JOIN `tab{child}` i ON i.parent = p.name {join}
+                WHERE p.name IN %(n)s AND p.company IN %(c)s
+                ORDER BY p.`{date_f}` DESC, p.name, i.idx""", {"n": chunk, "c": allowed}, as_dict=True)
+        if len(out) >= _MAX_ROWS:
+            break
+    cols = [("doc", dt)] + [(f"h_{f}", l) for f, l in head] + [(f"l_{f}", l) for f, l in line] + \
+           ([("customer_order", "Customer order")] if with_order else [])
+    data = [
+        [sheet, company or "", "Documents", len({r.doc for r in out}), "Lines", len(out)],
+        [],
+        [label for _f, label in cols],
+    ]
+    for r in out[:_MAX_ROWS]:
+        row = []
+        for f, _l in cols:
+            v = r.get(f)
+            bare = f.split("_", 1)[1] if f[:2] in ("h_", "l_") else f
+            if bare in _LINE_NUM:
+                row.append(flt(v))
+            elif bare == "is_return":
+                row.append("Yes" if v else "")
+            else:
+                row.append("" if v is None else (str(v) if not isinstance(v, (int, float)) else v))
+        data.append(row)
+    _send(f"{key}-lines-{frappe.utils.nowdate()}.xlsx", sheet[:28], data, [18] * len(cols))
 
 
 @frappe.whitelist()

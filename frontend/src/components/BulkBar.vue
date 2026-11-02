@@ -9,6 +9,9 @@
         <button @click="t.exportSelectedCSV(filename)" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-[10px] text-[12px] font-semibold bg-white/10 hover:bg-white/20 transition">
           <Icon name="download" :size="13" color="#fff" />{{ L("Export", "تصدير", "Exporter") }}
         </button>
+        <a v-if="linesKey" :href="linesUrl" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-[10px] text-[12px] font-semibold bg-white/10 hover:bg-white/20 transition">
+          <Icon name="download" :size="13" color="#fff" />{{ L("Export lines", "تصدير السطور", "Exporter les lignes") }}
+        </a>
         <button v-for="a in actions" :key="a.key" @click="start(a)" :disabled="busy || (a.disabled && a.disabled(t.selectedRows.value))"
                 class="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-[10px] text-[12px] font-bold text-white disabled:opacity-40 transition hover:brightness-110"
                 :style="{ background: a.color || '#0f766e' }">
@@ -39,7 +42,8 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
+import { currentCompany } from "@/composables/useLive";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import UiButton from "@/components/UiButton.vue";
@@ -49,6 +53,13 @@ const props = defineProps({
   actions: { type: Array, default: () => [] }, // {key,label,icon,color,run(rows),disabled(rows),confirm}
   filename: { type: String, default: "selection" },
   note: { type: String, default: "" },
+  // List key in api/export._LINE_EXPORTS: adds an Excel of the selected documents' lines.
+  linesKey: { type: String, default: "" },
+});
+const linesUrl = computed(() => {
+  const q = new URLSearchParams({ key: props.linesKey, company: currentCompany(),
+                                  names: JSON.stringify([...props.t.selected.value]) });
+  return `/api/method/accounting_portal.api.export.lines_xlsx?${q.toString()}`;
 });
 
 const { locale } = useI18n();

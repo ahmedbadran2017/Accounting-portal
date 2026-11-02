@@ -29,6 +29,10 @@
          :title="L('Excel of the whole filtered list','Excel للقائمة المفلترة كلها','Excel de toute la liste filtrée')">
         <Icon name="download" :size="12" color="#fff" />Excel
       </a>
+      <a v-if="exportKey && exportLines" :href="linesUrl" class="h-7 px-2.5 rounded-chip text-[11px] font-bold inline-flex items-center gap-1 border border-[#1d6f42] text-[#1d6f42] bg-white"
+         :title="L('Excel with one row per line (item, qty, rate, order) for the whole filtered list','Excel بسطر لكل صنف (الصنف، الكمية، السعر، الأوردر) للقائمة المفلترة كلها','Excel avec une ligne par article (article, qté, prix, commande) pour toute la liste filtrée')">
+        <Icon name="download" :size="12" color="#1d6f42" />{{ L("Excel · lines", "Excel · السطور", "Excel · lignes") }}
+      </a>
     </span>
   </div>
 </template>
@@ -47,6 +51,8 @@ const props = defineProps({
   // Which list to export (key in api/export._LIST_EXPORTS) + the filters on screen.
   exportKey: { type: String, default: "" },
   exportFilters: { type: Object, default: () => ({}) },
+  // Also offer the one-row-per-line workbook (api/export.lines_xlsx).
+  exportLines: { type: Boolean, default: false },
   // Extra business states beyond draft/submitted/cancelled, e.g. overdue for bills.
   extraStatuses: { type: Array, default: () => [] },
   // The doctype whose authors to offer; empty hides the control entirely.
@@ -83,4 +89,5 @@ const excelUrl = computed(() => {
   }
   return `/api/method/accounting_portal.api.export.list_xlsx?${q.toString()}`;
 });
+const linesUrl = computed(() => excelUrl.value.replace("export.list_xlsx", "export.lines_xlsx"));
 </script>

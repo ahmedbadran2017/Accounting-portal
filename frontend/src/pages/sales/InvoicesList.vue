@@ -55,9 +55,9 @@
       </div>
       <TableLoading v-if="st.loading.value" />
       <div v-else-if="!displayRows.length" class="py-12 text-center text-[12px] text-ink-muted">{{ L("No invoices match your filters.","لا توجد فواتير مطابقة.","Aucune facture.") }}</div>
-      <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" :total="st.total.value" export-key="invoices" :export-filters="exportFilters" :extra-statuses="extraStatuses" />
+      <ListToolbar v-model:status="listStatus" v-model:pageSize="listPageSize" :total="st.total.value" export-key="invoices" export-lines :export-filters="exportFilters" :extra-statuses="extraStatuses" />
     <ServerPager :t="st" />
-    <BulkBar :t="st" :actions="bulkActions" filename="invoices" />
+    <BulkBar :t="st" :actions="bulkActions" filename="invoices" lines-key="invoices" />
     </div>
   </div>
 </template>
