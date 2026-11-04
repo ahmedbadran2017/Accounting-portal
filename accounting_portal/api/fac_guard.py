@@ -18,6 +18,13 @@ The gate: those tools run only for Administrator, System Manager and Assistant
 Admin. Everyone else does not see them in the tool list, and a direct call is
 refused before anything runs.
 
+Since 2026-11-04 the write tools sit behind the same gate. A non-admin's
+DocType permissions already limit what they could write, but those
+permissions are shared with the portal and with roles like Portal Admin,
+which write supplier and dropshipper records; Mohamed and Salma are to read
+and download through Claude, never write. So every Claude user outside the
+three admin roles is read-only, whatever their roles allow elsewhere.
+
 How it attaches: `before_request` and `before_job` call `apply()`, which patches
 the classes once per process (gunicorn runs with --preload, so a patch made at
 import time is not guaranteed to land in every worker). `BaseTool._safe_execute`
@@ -31,7 +38,10 @@ upgrade), nothing is patched and an Error Log entry says so, once per process.
 """
 import frappe
 
-GATED_TOOLS = {"run_python_code", "run_database_query"}
+GATED_TOOLS = {"run_python_code", "run_database_query",
+               # writes — read-only Claude for everyone below the admin roles
+               "create_document", "update_document", "delete_document", "submit_document",
+               "run_workflow", "create_dashboard", "create_dashboard_chart"}
 GATED_ROLES = {"System Manager", "Assistant Admin"}
 
 _applied = False
@@ -46,8 +56,8 @@ def can_use_gated_tools(user=None):
 
 def _refuse(tool_name):
     frappe.throw(
-        f"{tool_name} is limited to System Manager / Assistant Admin. "
-        "Use the read tools (list_documents, get_document, generate_report).",
+        f"{tool_name} is limited to System Manager / Assistant Admin — Claude is read-only "
+        "for this account. Use the read tools (list_documents, get_document, generate_report).",
         frappe.PermissionError,
     )
 

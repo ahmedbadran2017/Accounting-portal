@@ -117,8 +117,12 @@ Deeper reference:
       second layer: it gates them to Administrator, System Manager and Assistant Admin in `before_request`
       and `before_job`, and hides them from the tool list.
     - Hook changes take effect only after `frappe.clear_cache()`.
-    - Every other tool checks the caller's DocType permissions. A read-only person therefore needs a read-only
-      role plus "Assistant User", never System Manager.
+    - Since 2026-11-04 the write tools (create/update/delete/submit_document, run_workflow, create_dashboard,
+      create_dashboard_chart) are behind the same gate: Claude is read-only for everyone outside those three
+      roles, whatever their DocType permissions allow in the portal (Mohamed, Salma).
+    - A read-only person needs "Accounting Reader" (read/report/export only) plus "Assistant User", never
+      System Manager, Sales User or Accounts User. Portal-invited users are Website Users until they hold a
+      desk_access role; a Website User cannot connect Claude ("Invalid client_id").
 
 ## UI conventions (from the September 2026 restructure)
 - Say each fact once. `DocHeader` holds the id, party, date, status and the one key number. Everything
