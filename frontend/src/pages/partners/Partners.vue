@@ -192,7 +192,7 @@
               <button type="button" class="jp-cashbox dark" :aria-expanded="banksOpen" @click="banksOpen = !banksOpen">
                 <span>{{ L("الكاش في البنوك والخزنة", "Cash in banks and petty cash") }}</span>
                 <b dir="ltr">{{ n(C.banks) }} <small>{{ MAD }}</small></b>
-                <em>{{ L(C.accounts.length + " حساب · دوس للتفاصيل", C.accounts.length + " accounts · tap for detail") }}</em>
+                <em>{{ L("المغرب", "Morocco") }} <span dir="ltr">{{ plain(C.banks_ma) }}</span> · {{ L("تركيا", "Türkiye") }} <span dir="ltr">{{ plain(C.banks_tr) }}</span> · {{ L("دوس للتفاصيل", "tap for detail") }}</em>
               </button>
               <div class="jp-cashbox blue">
                 <span>{{ L("عند Cathedis في الطريق", "COD held by Cathedis") }}</span>
@@ -211,7 +211,13 @@
               </div>
             </div>
             <div v-if="banksOpen" class="jp-accounts">
-              <div v-for="a in C.accounts" :key="a.account" class="jp-acc"><span dir="auto">{{ a.account }}</span><b dir="ltr">{{ n(a.balance) }}</b></div>
+              <template v-for="g in bankGroups" :key="g.k">
+                <div class="jp-acc-head"><span>{{ g.label }}</span><b dir="ltr">{{ plain(g.total) }} <small>{{ MAD }}</small></b></div>
+                <div v-for="a in g.rows" :key="a.account" class="jp-acc">
+                  <span dir="auto">{{ a.account }}</span>
+                  <b dir="ltr">{{ plain(a.balance) }}<small v-if="a.currency !== 'MAD'" class="ccy">{{ plain(a.balance_ccy) }} {{ a.currency }}</small></b>
+                </div>
+              </template>
             </div>
           </div>
 
@@ -587,6 +593,13 @@ const monthCards = computed(() => {
 
 // ── cash ──
 const banksOpen = ref(false);
+const bankGroups = computed(() => {
+  const acc = C.value.accounts || [];
+  return [
+    { k: "ma", label: L("المغرب", "Morocco"), total: C.value.banks_ma || 0 },
+    { k: "tr", label: L("تركيا", "Türkiye"), total: C.value.banks_tr || 0 },
+  ].map((g) => Object.assign(g, { rows: acc.filter((a) => (a.country || "ma") === g.k) })).filter((g) => g.rows.length);
+});
 function voyage(s) { const d = s.days_at_sea || 0; return Math.min(92, Math.max(6, (d / 25) * 100)) * p.value + "%"; }
 
 // ── trend ──
@@ -912,7 +925,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--red); outline-o
 .jp-cashbox.red { background: var(--red0); }
 .jp-accounts { border-top: 1px solid var(--line); display: flex; flex-direction: column; }
 .jp-acc { display: flex; justify-content: space-between; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
-.jp-acc b { font-family: "Plus Jakarta Sans", sans-serif; }
+.jp-acc b { font-family: "Plus Jakarta Sans", sans-serif; text-align: end; }
+.jp-acc b .ccy { display: block; font-size: 11px; font-weight: 600; color: var(--mut); }
+.jp-acc-head { display: flex; justify-content: space-between; gap: 10px; padding: 12px 2px 8px; border-bottom: 2px solid var(--ink); font-size: 13.5px; font-weight: 700; }
+.jp-acc-head b { font-family: "Plus Jakarta Sans", sans-serif; }
+.jp-acc-head small { font-size: 11px; color: var(--mut); font-weight: 600; }
 .jp-empty { font-size: 13px; color: #b9b2a6; }
 .jp-ship { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .jp-ship-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }

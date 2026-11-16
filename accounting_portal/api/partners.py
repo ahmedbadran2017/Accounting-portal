@@ -467,18 +467,28 @@ _NOT_CASH = ("108.", "133.", "102.001.400")
 
 
 def _cash():
-    rows = frappe.db.sql("""SELECT a.name, a.account_name, SUM(g.debit - g.credit) FROM `tabAccount` a
+    rows = frappe.db.sql("""SELECT a.name, a.account_name, a.account_currency,
+                                   SUM(g.debit - g.credit), SUM(g.debit_in_account_currency - g.credit_in_account_currency)
+                            FROM `tabAccount` a
                             JOIN `tabGL Entry` g ON g.account = a.name AND g.is_cancelled = 0
                             WHERE a.company = %s AND a.account_type IN ('Bank', 'Cash') AND a.is_group = 0
                             GROUP BY a.name""", (CO,))
     accounts = []
-    for name, label, bal in rows:
+    for name, label, ccy, bal, bal_ccy in rows:
         bal = flt(bal)
         low = (label or name).lower()
         if name.startswith(_NOT_CASH) or "credit" in low or "write off" in low or abs(bal) < 1:
             continue
-        accounts.append({"account": label or name, "balance": round(bal)})
-    accounts.sort(key=lambda x: -x["balance"])
+        # a foreign account that holds nothing in its own currency carries only an
+        # exchange-rate remainder in dirhams (Kuveyt Türk USD: $0, "4,237 MAD") — not cash
+        if (ccy or "MAD") != "MAD" and abs(flt(bal_ccy)) < 1:
+            continue
+        # where the money sits: lira and dollar accounts are the Turkish banks and
+        # the Istanbul petty cash (Kuveyt Türk, "- ML"); dirham accounts are Morocco
+        tr = (ccy or "MAD") != "MAD" or "kuveyt" in low or low.endswith("- ml")
+        accounts.append({"account": label or name, "balance": round(bal), "country": "tr" if tr else "ma",
+                         "currency": ccy or "MAD", "balance_ccy": round(flt(bal_ccy))})
+    accounts.sort(key=lambda x: (x["country"] != "ma", -x["balance"]))
     cod = frappe.db.sql("""SELECT COUNT(*), SUM(amount) FROM `tabCathedis Parcel`
                            WHERE status = 'UNPAID' AND delivery_status = 'Livré'""")
     stock = frappe.db.sql("""SELECT SUM(b.stock_value), SUM(b.actual_qty) FROM `tabBin` b
@@ -489,6 +499,8 @@ def _cash():
                           AND g.party_type = 'Supplier'""", (CO,))
     return {
         "banks": sum(a["balance"] for a in accounts), "accounts": accounts,
+        "banks_ma": sum(a["balance"] for a in accounts if a["country"] == "ma"),
+        "banks_tr": sum(a["balance"] for a in accounts if a["country"] == "tr"),
         "cod_at_carrier": round(flt(cod[0][1])) if cod else 0, "cod_parcels": int(cod[0][0] or 0) if cod else 0,
         "stock_value": round(flt(stock[0][0])) if stock else 0, "stock_units": round(flt(stock[0][1])) if stock else 0,
         "suppliers_balance": round(suppliers),
