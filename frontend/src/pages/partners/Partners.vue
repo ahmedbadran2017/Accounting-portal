@@ -95,13 +95,14 @@
                   <span v-for="c in channels" :key="c.k" class="jp-growx" :style="{ flexGrow: c.n || 0, background: c.color }" :title="c.label + ' · ' + c.n"></span>
                 </div>
                 <div class="jp-ch-legend">
-                  <span v-for="c in channels" :key="c.k"><i :style="{ background: c.color }"></i>{{ c.label }} <b dir="ltr">{{ n(c.n) }}</b> <em dir="ltr">{{ c.pct }}</em></span>
+                  <span v-for="c in channels" :key="c.k"><i :style="{ background: c.color }"></i>{{ c.label }} <b dir="ltr">{{ n(c.n) }}</b> <em dir="ltr">{{ c.pct }}</em><em v-if="c.conf != null" class="conf" dir="ltr">{{ c.conf }}% {{ L("تأكيد", "conf.") }}</em></span>
                 </div>
               </div>
-              <div v-if="P.excluded_duplicated || P.excluded_cancelled" class="jp-hero-excl">
-                {{ L("مش محسوب فيها:", "Not counted:") }}
-                <span v-if="P.excluded_duplicated"><b dir="ltr">{{ P.excluded_duplicated }}</b> {{ L("مكرر", "duplicated") }}</span>
-                <span v-if="P.excluded_cancelled"><b dir="ltr">{{ P.excluded_cancelled }}</b> {{ L("ملغي", "cancelled") }}</span>
+              <div class="jp-hero-excl">
+                <span>{{ L("منها:", "Of which:") }} <b dir="ltr">{{ n(P.cancelled) }}</b> {{ L("ملغي", "cancelled") }}</span>
+                <span><b dir="ltr">{{ n(P.duplicated) }}</b> {{ L("مكرر", "duplicated") }}</span>
+                <span>{{ L("الصافي", "Net") }} <b dir="ltr">{{ n(P.net_orders) }}</b></span>
+                <span v-if="P.confirm_rate != null">{{ L("نسبة التأكيد", "Confirmation") }} <b dir="ltr">{{ P.confirm_rate }}%</b></span>
               </div>
               <div class="jp-hours-wrap">
                 <div class="jp-hours-label">{{ P.single_day ? L("الطلبات بالساعة (توقيت المغرب)", "Orders by hour (Morocco time)") : L("الطلبات يوم بيوم", "Orders day by day") }}</div>
@@ -469,17 +470,17 @@ function rangeLabel(a, b) { return a && b ? `${a.slice(8)}/${a.slice(5, 7)} – 
 // Orders by channel: every channel is a Sales Order and already in the count.
 const CHANNELS = [
   { k: "shopify", label: () => "Shopify", color: "#ffffff" },
-  { k: "agent", label: () => "AI Agent", color: "#c4301c" },
-  { k: "landing", label: () => L("لاندينج بيدج", "Landing pages"), color: "#e2a93b" },
-  { k: "manual", label: () => L("يدوي", "Manual"), color: "#7a746b" },
+  { k: "agent", label: () => "Agent", color: "#c4301c" },
+  { k: "landing", label: () => "Landing", color: "#e2a93b" },
 ];
 const channels = computed(() => {
   const ch = P.value.channels;
   if (!ch) return [];
-  const total = CHANNELS.reduce((a, c) => a + ((ch[c.k] || [0])[0] || 0), 0) || 1;
+  const total = CHANNELS.reduce((a, c) => a + ((ch[c.k] || {}).n || 0), 0) || 1;
   return CHANNELS.map((c) => {
-    const v = (ch[c.k] || [0])[0] || 0;
-    return { k: c.k, label: c.label(), color: c.color, n: v, pct: Math.round((v / total) * 100) + "%" };
+    const x = ch[c.k] || {};
+    const v = x.n || 0;
+    return { k: c.k, label: c.label(), color: c.color, n: v, conf: x.confirm_rate, pct: Math.round((v / total) * 100) + "%" };
   }).filter((c) => c.n > 0);
 });
 // Hours of the Morocco day for a single day; one bar per day for a span.
@@ -835,6 +836,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--red); outline-o
 .jp-ch-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
 .jp-ch-legend b { color: #fff; font-family: "Plus Jakarta Sans", sans-serif; }
 .jp-ch-legend em { font-style: normal; color: #8f887d; font-family: "Plus Jakarta Sans", sans-serif; font-size: 11px; }
+.jp-ch-legend em.conf { color: #cdeeda; }
 .jp-hero-excl { position: relative; display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: #b9b2a6; margin-top: -6px; }
 .jp-hero-excl b { color: #e3ddd3; font-family: "Plus Jakarta Sans", sans-serif; }
 .jp-hours-wrap { position: relative; margin-top: auto; }

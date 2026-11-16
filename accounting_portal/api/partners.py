@@ -47,7 +47,7 @@ ROLE_PARTNER = "Partner"
 JUNK_ABOVE = 20000          # single orders above this are test / bogus (investor pack, Oct 2026)
 CATHEDIS = "108.021.003"
 TZ_SHIFT_H = -2             # server clock is Istanbul; partners read Morocco time
-CACHE_KEY = "ap_partners:summary:v3"
+CACHE_KEY = "ap_partners:summary:v4"
 MATURE_OPEN = 0.10          # a month's delivery rate is shown once ≤10% of its parcels are still moving
 CACHE_TTL = 300
 SUB_DT = "Partner Push Subscription"
@@ -101,81 +101,86 @@ def _prev_month(ym, k=1):
     return f"{y:04d}-{m:02d}"
 
 
-_ORDER_OK = """company = %(co)s AND docstatus = 1 AND status != 'Cancelled'
-               AND IFNULL(custom_sales_status, '') NOT IN ('Cancelled', 'Duplicated')
-               AND base_grand_total <= %(junk)s"""
+# ── orders: the business's own count ─────────────────────────────────────────
+# Orders are counted the way the team's order dashboard counts them, so the two
+# always agree: every submitted Sales Order, cancelled and duplicated ones
+# included, on its own order date (transaction_date — the shop's day for
+# Shopify, the day it was keyed for the agent and the landing pages). Cancelled
+# and duplicated are then shown apart, and the confirmation rate is confirmed ÷
+# (orders − cancelled − duplicated). Only bogus test orders above 20,000 MAD are
+# left out. "Today" is today in Morocco: after 22:00 there the server's clock
+# (Istanbul) has already moved to tomorrow.
 
+_ORDER_ALL = "company = %(co)s AND docstatus = 1 AND base_grand_total <= %(junk)s"
+_M_WINDOW = "transaction_date BETWEEN %(a)s AND %(b)s AND creation <= %(until)s"
+_IS_CANCELLED = "(status = 'Cancelled' OR IFNULL(custom_sales_status, '') = 'Cancelled')"
+_IS_DUPLICATE = "IFNULL(custom_sales_status, '') = 'Duplicated'"
 
-# ── the Morocco day ──────────────────────────────────────────────────────────
-# The books date an order on the server's day (Istanbul), which ends at 22:00 in
-# Morocco: at 22:25 a partner would see "tomorrow" with seven orders. Counts the
-# page shows are therefore cut by the Morocco day from the order's creation time.
-# (transaction_date is kept within a day of the window so a back-dated document
-# created today never lands in today.)
 
 def _m_today():
     return str(getdate(add_to_date(now_datetime(), hours=TZ_SHIFT_H)))
 
 
-def _m_bounds(d0, d1):
-    """Server-clock [start, end) of Morocco days d0..d1."""
-    return (get_datetime(add_to_date(f"{d0} 00:00:00", hours=-TZ_SHIFT_H)),
-            get_datetime(add_to_date(f"{add_days(d1, 1)} 00:00:00", hours=-TZ_SHIFT_H)))
-
-
 def _m_args(d0, d1, until=None):
-    s, e = _m_bounds(d0, d1)
-    if until and until < e:
-        e = until
-    return {"co": CO, "junk": JUNK_ABOVE, "s": s, "e": e,
-            "ta": add_days(d0, -1), "tb": add_days(d1, 1)}
-
-
-_M_WINDOW = "creation >= %(s)s AND creation < %(e)s AND transaction_date BETWEEN %(ta)s AND %(tb)s"
+    return {"co": CO, "junk": JUNK_ABOVE, "a": d0, "b": d1, "until": until or "2999-12-31"}
 
 
 def _m_orders(d0, d1, until=None):
-    """(count, value, confirmed) of real orders placed on Morocco days d0..d1."""
+    """(count, value, confirmed) of the orders dated d0..d1 (created by `until`)."""
     r = frappe.db.sql(f"""SELECT COUNT(*), SUM(base_grand_total), SUM(IFNULL(custom_sales_status, '') = 'Confirmed')
-                          FROM `tabSales Order` WHERE {_ORDER_OK} AND {_M_WINDOW}""", _m_args(d0, d1, until))
+                          FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW}""", _m_args(d0, d1, until))
     return int(r[0][0] or 0), flt(r[0][1]), int(flt(r[0][2]))
 
 
+def _m_status(d0, d1):
+    """(cancelled, duplicated) among the orders dated d0..d1."""
+    r = frappe.db.sql(f"""SELECT SUM({_IS_CANCELLED} AND NOT {_IS_DUPLICATE}), SUM({_IS_DUPLICATE})
+                          FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW}""", _m_args(d0, d1))
+    return int(flt(r[0][0])), int(flt(r[0][1]))
+
+
+def _confirm_rate(conf, n, cancelled, duplicated):
+    base = n - cancelled - duplicated
+    return round(conf / base * 100, 1) if base > 0 else None
+
+
 def _m_orders_by_day(d0, d1):
-    a = _m_args(d0, d1)
-    a["sh"] = TZ_SHIFT_H
     return {str(d): (int(n), flt(v)) for d, n, v in frappe.db.sql(
-        f"""SELECT DATE(DATE_ADD(creation, INTERVAL %(sh)s HOUR)) d, COUNT(*), SUM(base_grand_total)
-            FROM `tabSales Order` WHERE {_ORDER_OK} AND {_M_WINDOW} GROUP BY d""", a)}
+        f"""SELECT transaction_date, COUNT(*), SUM(base_grand_total)
+            FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW} GROUP BY transaction_date""", _m_args(d0, d1))}
 
 
 def _m_hours(day):
+    """Orders of the day by the hour they came in, in Morocco time."""
     a = _m_args(day, day)
     a["sh"] = TZ_SHIFT_H
     hours = [0] * 24
     for h, n in frappe.db.sql(f"""SELECT HOUR(DATE_ADD(creation, INTERVAL %(sh)s HOUR)), COUNT(*)
-                                  FROM `tabSales Order` WHERE {_ORDER_OK} AND {_M_WINDOW} GROUP BY 1""", a):
+                                  FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW} GROUP BY 1""", a):
         hours[int(h) % 24] += int(n)
     return hours
 
 
-# Where an order came from. Every channel lands as a Sales Order, so the counts
-# above already hold them all; this only splits them:
+# Where an order came from (the same three sources as the team's dashboard):
 #   shopify  the shop (Shopify order id / '#…' number)
 #   landing  the landing pages (custom_channel 'Landing Page', utm fb/ig/…)
-#   agent    the AI agent: channel 'Manual' created by the Guest API user, day and night
-#   manual   the team keying an order by hand (channel 'Manual' by a real user, or none)
+#   agent    everything else keyed into the system: the AI agent (channel 'Manual'
+#            by the Guest API user) and the few orders the team types by hand
 _CHANNEL = """CASE WHEN IFNULL(custom_channel, '') = 'Landing Page' THEN 'landing'
-                   WHEN IFNULL(custom_channel, '') = 'Manual' AND owner = 'Guest' THEN 'agent'
                    WHEN IFNULL(shopify_order_id, '') != '' OR name LIKE '#%%' OR IFNULL(custom_order_source, '') != '' THEN 'shopify'
-                   ELSE 'manual' END"""
+                   ELSE 'agent' END"""
 
 
 def _m_channels(d0, d1):
-    out = {"shopify": [0, 0.0], "landing": [0, 0.0], "agent": [0, 0.0], "manual": [0, 0.0]}
-    for ch, n, v in frappe.db.sql(f"""SELECT {_CHANNEL} ch, COUNT(*), SUM(base_grand_total) FROM `tabSales Order`
-                                      WHERE {_ORDER_OK} AND {_M_WINDOW} GROUP BY ch""", _m_args(d0, d1)):
-        out[ch] = [int(n), round(flt(v))]
+    out = {}
+    for ch, n, v, conf, canc, dup in frappe.db.sql(
+            f"""SELECT {_CHANNEL} ch, COUNT(*), SUM(base_grand_total),
+                       SUM(IFNULL(custom_sales_status, '') = 'Confirmed'),
+                       SUM({_IS_CANCELLED} AND NOT {_IS_DUPLICATE}), SUM({_IS_DUPLICATE})
+                FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW} GROUP BY ch""", _m_args(d0, d1)):
+        n, conf, canc, dup = int(n), int(flt(conf)), int(flt(canc)), int(flt(dup))
+        out[ch] = {"n": n, "value": round(flt(v)), "confirmed": conf,
+                   "confirm_rate": _confirm_rate(conf, n, canc, dup)}
     return out
 
 
@@ -257,13 +262,10 @@ def _period(key):
     d0, d1, p0, p1, live = _window(key)
     single = d0 == d1
     n, v, conf = _m_orders(d0, d1)
-    # what was left out of the count, so it reconciles with the shop's own list
-    excl = frappe.db.sql(f"""SELECT SUM(IFNULL(custom_sales_status, '') = 'Duplicated'),
-                                    SUM(status = 'Cancelled' OR IFNULL(custom_sales_status, '') = 'Cancelled')
-                             FROM `tabSales Order` WHERE company = %(co)s AND docstatus = 1 AND {_M_WINDOW}""",
-                         _m_args(d0, d1))
+    cancelled, duplicated = _m_status(d0, d1)
     out = {"key": key, "from": d0, "to": d1, "prev_from": p0, "prev_to": p1, "live": live,
-           "excluded_duplicated": int(flt(excl[0][0])), "excluded_cancelled": int(flt(excl[0][1])),
+           "cancelled": cancelled, "duplicated": duplicated, "net_orders": n - cancelled - duplicated,
+           "confirm_rate": _confirm_rate(conf, n, cancelled, duplicated),
            "single_day": single, "orders": n, "orders_value": round(v), "confirmed": conf,
            "avg_order": round(v / n, 1) if n else None}
     if key == "today":
@@ -320,12 +322,11 @@ def _period(key):
 
 
 def _funnel(d0, d1):
-    """The orders placed in the window, each counted at the furthest station it reached."""
+    """The orders dated in the window, each counted at the furthest station it reached."""
     a = _m_args(d0, d1)
-    received = int(_one(f"""SELECT COUNT(*) FROM `tabSales Order` WHERE company = %(co)s AND docstatus = 1
-                            AND base_grand_total <= %(junk)s AND {_M_WINDOW}""", a))
-    confirmed = int(_one(f"""SELECT COUNT(*) FROM `tabSales Order` WHERE {_ORDER_OK}
-                             AND IFNULL(custom_sales_status, '') = 'Confirmed' AND {_M_WINDOW}""", a))
+    received = int(_one(f"SELECT COUNT(*) FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW}", a))
+    confirmed = int(_one(f"""SELECT COUNT(*) FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW}
+                             AND IFNULL(custom_sales_status, '') = 'Confirmed'""", a))
     row = frappe.db.sql("""
         SELECT COUNT(DISTINCT so.name),
                COUNT(DISTINCT IF(p.delivery_date IS NOT NULL OR p.status = 'PAID', so.name, NULL)),
@@ -335,7 +336,7 @@ def _funnel(d0, d1):
         JOIN `tabDelivery Note` dn ON dn.name = di.parent AND dn.docstatus = 1 AND dn.is_return = 0
         LEFT JOIN `tabCathedis Parcel` p ON p.awb = dn.custom_awb AND IFNULL(dn.custom_awb, '') != ''
         WHERE so.company = %(co)s AND so.docstatus = 1 AND so.base_grand_total <= %(junk)s
-          AND so.creation >= %(s)s AND so.creation < %(e)s AND so.transaction_date BETWEEN %(ta)s AND %(tb)s""", a)
+          AND so.transaction_date BETWEEN %(a)s AND %(b)s""", a)
     shipped, delivered, collected = (int(x or 0) for x in row[0]) if row else (0, 0, 0)
     return {"from": d0, "to": d1, "received": received, "confirmed": confirmed,
             "shipped": shipped, "delivered": delivered, "collected": collected}
