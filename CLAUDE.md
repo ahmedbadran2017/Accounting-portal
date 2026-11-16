@@ -50,7 +50,7 @@ Deeper reference:
 - Partners page `/accounting/partners` (`api/partners.py`, `pages/partners/Partners.vue`): the one screen a
   user holding only the `Partner` role can open (it is NOT a portal role, so every other endpoint refuses
   them). Installable phone app: `/partners-sw.js` + `/partners.webmanifest` are served from the site root by
-  `PartnersPwaRenderer` (`page_renderer` hook), sources in `accounting_portal/pwa/`. Push = empty VAPID-signed
+  `PartnersPwaRenderer` (`page_renderer` hook), sources in `accounting_portal/pwa/` (file names with `_`: `get_app_path` scrubs `-`). Push = empty VAPID-signed
   pushes (PyJWT + cryptography, no pywebpush); the worker fetches `digest` for the text.
 - `accounting_portal/patches/` + `patches.txt`.
 - `frontend/` — Vue 3 + Vite + Tailwind + vue-i18n.

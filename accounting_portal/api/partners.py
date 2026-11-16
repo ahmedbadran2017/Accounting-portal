@@ -608,7 +608,8 @@ class PartnersPwaRenderer:
     control /accounting/partners. Registered through the `page_renderer` hook."""
 
     FILES = {
-        "partners-sw.js": ("partners-sw.js", "application/javascript"),
+        # on disk with an underscore: frappe.get_app_path scrubs "-" to "_"
+        "partners-sw.js": ("partners_sw.js", "application/javascript"),
         "partners.webmanifest": ("partners.webmanifest", "application/manifest+json"),
     }
 

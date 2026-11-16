@@ -1,4 +1,4 @@
-/* Justyol Partners — service worker (served at /partners-sw.js, scope /accounting/partners).
+/* Justyol Partners — service worker (served at /partners-sw.js (file partners_sw.js), scope /accounting/partners).
  *
  * - Opens offline: the page shell and the last numbers are kept; the page says
  *   how old they are.
