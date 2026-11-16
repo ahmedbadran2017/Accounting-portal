@@ -38,7 +38,7 @@ import json
 import time
 
 import frappe
-from frappe.utils import add_days, cint, flt, getdate, now_datetime, nowdate
+from frappe.utils import add_days, add_to_date, cint, date_diff, flt, get_datetime, getdate, now_datetime, nowdate
 
 from accounting_portal.api.permissions import get_portal_role, has_all_access
 
@@ -47,7 +47,7 @@ ROLE_PARTNER = "Partner"
 JUNK_ABOVE = 20000          # single orders above this are test / bogus (investor pack, Oct 2026)
 CATHEDIS = "108.021.003"
 TZ_SHIFT_H = -2             # server clock is Istanbul; partners read Morocco time
-CACHE_KEY = "ap_partners:summary:v2"
+CACHE_KEY = "ap_partners:summary:v3"
 MATURE_OPEN = 0.10          # a month's delivery rate is shown once ≤10% of its parcels are still moving
 CACHE_TTL = 300
 SUB_DT = "Partner Push Subscription"
@@ -106,27 +106,57 @@ _ORDER_OK = """company = %(co)s AND docstatus = 1 AND status != 'Cancelled'
                AND base_grand_total <= %(junk)s"""
 
 
-def _orders(d0, d1):
-    """(count, value) of real orders placed between two dates."""
-    r = frappe.db.sql(f"""SELECT COUNT(*), SUM(base_grand_total) FROM `tabSales Order`
-                          WHERE {_ORDER_OK} AND transaction_date BETWEEN %(a)s AND %(b)s""",
-                      {"co": CO, "junk": JUNK_ABOVE, "a": d0, "b": d1})
-    return int(r[0][0] or 0), flt(r[0][1])
+# ── the Morocco day ──────────────────────────────────────────────────────────
+# The books date an order on the server's day (Istanbul), which ends at 22:00 in
+# Morocco: at 22:25 a partner would see "tomorrow" with seven orders. Counts the
+# page shows are therefore cut by the Morocco day from the order's creation time.
+# (transaction_date is kept within a day of the window so a back-dated document
+# created today never lands in today.)
+
+def _m_today():
+    return str(getdate(add_to_date(now_datetime(), hours=TZ_SHIFT_H)))
 
 
-def _orders_by_day(d0, d1):
+def _m_bounds(d0, d1):
+    """Server-clock [start, end) of Morocco days d0..d1."""
+    return (get_datetime(add_to_date(f"{d0} 00:00:00", hours=-TZ_SHIFT_H)),
+            get_datetime(add_to_date(f"{add_days(d1, 1)} 00:00:00", hours=-TZ_SHIFT_H)))
+
+
+def _m_args(d0, d1, until=None):
+    s, e = _m_bounds(d0, d1)
+    if until and until < e:
+        e = until
+    return {"co": CO, "junk": JUNK_ABOVE, "s": s, "e": e,
+            "ta": add_days(d0, -1), "tb": add_days(d1, 1)}
+
+
+_M_WINDOW = "creation >= %(s)s AND creation < %(e)s AND transaction_date BETWEEN %(ta)s AND %(tb)s"
+
+
+def _m_orders(d0, d1, until=None):
+    """(count, value, confirmed) of real orders placed on Morocco days d0..d1."""
+    r = frappe.db.sql(f"""SELECT COUNT(*), SUM(base_grand_total), SUM(IFNULL(custom_sales_status, '') = 'Confirmed')
+                          FROM `tabSales Order` WHERE {_ORDER_OK} AND {_M_WINDOW}""", _m_args(d0, d1, until))
+    return int(r[0][0] or 0), flt(r[0][1]), int(flt(r[0][2]))
+
+
+def _m_orders_by_day(d0, d1):
+    a = _m_args(d0, d1)
+    a["sh"] = TZ_SHIFT_H
     return {str(d): (int(n), flt(v)) for d, n, v in frappe.db.sql(
-        f"""SELECT transaction_date, COUNT(*), SUM(base_grand_total) FROM `tabSales Order`
-            WHERE {_ORDER_OK} AND transaction_date BETWEEN %(a)s AND %(b)s GROUP BY transaction_date""",
-        {"co": CO, "junk": JUNK_ABOVE, "a": d0, "b": d1})}
+        f"""SELECT DATE(DATE_ADD(creation, INTERVAL %(sh)s HOUR)) d, COUNT(*), SUM(base_grand_total)
+            FROM `tabSales Order` WHERE {_ORDER_OK} AND {_M_WINDOW} GROUP BY d""", a)}
 
 
-def _orders_until(day, cutoff):
-    """Orders of `day` already created by `cutoff` (server clock) — a like-for-like
-    comparison with a day that is still running."""
-    return int(_one(f"""SELECT COUNT(*) FROM `tabSales Order`
-                        WHERE {_ORDER_OK} AND transaction_date = %(d)s AND creation <= %(c)s""",
-                    {"co": CO, "junk": JUNK_ABOVE, "d": day, "c": cutoff}))
+def _m_hours(day):
+    a = _m_args(day, day)
+    a["sh"] = TZ_SHIFT_H
+    hours = [0] * 24
+    for h, n in frappe.db.sql(f"""SELECT HOUR(DATE_ADD(creation, INTERVAL %(sh)s HOUR)), COUNT(*)
+                                  FROM `tabSales Order` WHERE {_ORDER_OK} AND {_M_WINDOW} GROUP BY 1""", a):
+        hours[int(h) % 24] += int(n)
+    return hours
 
 
 def _by_day(sql, d0, d1, args=None):
@@ -165,61 +195,111 @@ def _series(day_map, days, idx):
 
 # ── sections ─────────────────────────────────────────────────────────────────
 
-def _today():
+PERIODS = ("today", "yesterday", "7d", "30d", "month", "last_month")
+
+
+def _window(key):
+    """(d0, d1, prev0, prev1, live) in Morocco days. A single day compares with the
+    same weekday a week before (Cathedis neither delivers nor pays on Sundays);
+    a span compares with the span just before it; a month with the same days of
+    the month before."""
+    t = _m_today()
+    if key == "yesterday":
+        d = str(add_days(t, -1))
+        return d, d, str(add_days(d, -7)), str(add_days(d, -7)), False
+    if key in ("7d", "30d"):
+        n = 7 if key == "7d" else 30
+        d1 = str(add_days(t, -1))
+        d0 = str(add_days(d1, -(n - 1)))
+        return d0, d1, str(add_days(d0, -n)), str(add_days(d0, -1)), False
+    if key == "month":
+        d0 = t[:7] + "-01"
+        p0, pe = _month_bounds(_prev_month(t[:7]))
+        p1 = str(min(getdate(add_days(p0, date_diff(t, d0))), getdate(pe)))
+        return d0, t, p0, p1, True
+    if key == "last_month":
+        d0, d1 = _month_bounds(_prev_month(t[:7]))
+        p0, p1 = _month_bounds(_prev_month(t[:7], 2))
+        return d0, d1, p0, p1, False
+    return t, t, str(add_days(t, -7)), str(add_days(t, -7)), True
+
+
+def _totals(d0, d1):
+    sh, rt, dl, bk = _shipped(d0, d1), _returned(d0, d1), _delivered(d0, d1), _banked(d0, d1)
+    tot = lambda m, i: round(sum(flt(v[i]) for v in m.values()), 2)
+    return {"shipped": tot(sh, 0), "returned": tot(rt, 0), "delivered": tot(dl, 0),
+            "delivered_value": tot(dl, 1), "banked": tot(bk, 1)}, (sh, rt, dl, bk)
+
+
+def _period(key):
+    key = key if key in PERIODS else "today"
     now = now_datetime()
-    today = nowdate()
-    # 15 days: today plus two full weeks (Cathedis neither delivers nor pays on
-    # Sundays, so the page compares weeks, not single days)
-    days = [str(add_days(today, -i)) for i in range(14, -1, -1)]
-    d0 = days[0]
-    orders = _orders_by_day(d0, today)
-    shipped, returned = _shipped(d0, today), _returned(d0, today)
-    delivered, banked = _delivered(d0, today), _banked(d0, today)
-    n_today, v_today = orders.get(today, (0, 0.0))
-    yday, lweek = str(add_days(today, -1)), str(add_days(today, -7))
-    same_y = _orders_until(yday, add_days(now, -1))
-    same_w = _orders_until(lweek, add_days(now, -7))
-    # orders per hour of the books' day (server clock, Istanbul); the page labels
-    # each hour in Morocco time (tz_shift), so the day reads 22:00 → 21:00
-    hours = [0] * 24
-    for h, n in frappe.db.sql(f"""SELECT HOUR(creation), COUNT(*) FROM `tabSales Order`
-                                  WHERE {_ORDER_OK} AND transaction_date = %(d)s GROUP BY 1""",
-                              {"co": CO, "junk": JUNK_ABOVE, "d": today}):
-        hours[int(h) % 24] += int(n)
-    conf = frappe.db.sql(f"""SELECT SUM(IFNULL(custom_sales_status, '') = 'Confirmed') FROM `tabSales Order`
-                             WHERE {_ORDER_OK} AND transaction_date = %(d)s""",
-                         {"co": CO, "junk": JUNK_ABOVE, "d": today})
-    aov = [round(orders[d][1] / orders[d][0], 1) if orders.get(d, (0, 0))[0] else 0 for d in days]
-    return {
-        "date": today, "hour_now": now.hour, "tz_shift": TZ_SHIFT_H,
-        "orders": n_today, "orders_value": round(v_today),
-        "same_time_yesterday": same_y, "vs_yesterday_pct": _pct(n_today, same_y),
-        "same_time_last_week": same_w, "vs_last_week_pct": _pct(n_today, same_w),
-        "confirmed": int(flt(conf[0][0])) if conf else 0,
-        "hours": hours,
-        # day series, oldest → today: the page sums the last 7 full days ([-8:-1])
-        # against the 7 before them ([-15:-8]) — weekends never distort it
-        "days": days,
-        "series": {
-            "orders": _series(orders, days, 0), "orders_value": _series(orders, days, 1),
-            "shipped": _series(shipped, days, 0),
-            "delivered": _series(delivered, days, 0), "delivered_value": _series(delivered, days, 1),
-            "returned": _series(returned, days, 0), "banked": _series(banked, days, 1), "avg_order": aov,
-        },
+    d0, d1, p0, p1, live = _window(key)
+    single = d0 == d1
+    n, v, conf = _m_orders(d0, d1)
+    out = {"key": key, "from": d0, "to": d1, "prev_from": p0, "prev_to": p1, "live": live,
+           "single_day": single, "orders": n, "orders_value": round(v), "confirmed": conf,
+           "avg_order": round(v / n, 1) if n else None}
+    if key == "today":
+        # like for like: what yesterday and last week had by this same minute
+        y_n = _m_orders(str(add_days(d0, -1)), str(add_days(d0, -1)), add_days(now, -1))[0]
+        w_n = _m_orders(p0, p1, add_days(now, -7))[0]
+        out["compare"] = [{"k": "same_hour_yesterday", "prev": y_n, "pct": _pct(n, y_n)},
+                          {"k": "same_hour_last_week", "prev": w_n, "pct": _pct(n, w_n)}]
+        out["hour_now"] = (now.hour + TZ_SHIFT_H) % 24
+    else:
+        pn, pv, _pc = _m_orders(p0, p1)
+        out["compare"] = [{"k": "previous", "prev": pn, "pct": _pct(n, pn)}]
+        if key == "yesterday":
+            b = str(add_days(d0, -1))
+            bn = _m_orders(b, b)[0]
+            out["compare"].append({"k": "day_before", "prev": bn, "pct": _pct(n, bn)})
+        out["orders_value_prev"] = round(pv)
+        out["avg_order_prev"] = round(pv / pn, 1) if pn else None
+    # the chart: hours for a single day, days for a span
+    if single:
+        out["hours"] = _m_hours(d0)
+    else:
+        by = _m_orders_by_day(d0, d1)
+        out["days"] = [{"d": str(add_days(d0, i)), "n": (by.get(str(add_days(d0, i))) or (0, 0))[0]}
+                       for i in range(date_diff(d1, d0) + 1)]
+    # the operational cards: totals for the period against the comparison window,
+    # each with a day-by-day line (the week up to the day for a single day)
+    cur, maps = _totals(d0, d1)
+    prev, _pm = _totals(p0, p1)
+    s0 = str(add_days(d1, -6)) if single else d0
+    days = [str(add_days(s0, i)) for i in range(date_diff(d1, s0) + 1)]
+    if single:
+        maps = _totals(s0, d1)[1]
+    by_o = _m_orders_by_day(s0, d1)
+    sh, rt, dl, bk = maps
+    out["cards"] = {k: {"value": cur[k], "prev": prev[k], "pct": _pct(cur[k], prev[k])} for k in cur}
+    out["cards"]["avg_order"] = {"value": out["avg_order"], "prev": out.get("avg_order_prev"),
+                                 "pct": _pct(out["avg_order"] or 0, out.get("avg_order_prev") or 0)
+                                 if out.get("avg_order_prev") else None}
+    if key == "today":
+        yv = _m_orders(p0, p1)
+        out["cards"]["avg_order"]["prev"] = round(yv[1] / yv[0], 1) if yv[0] else None
+        out["cards"]["avg_order"]["pct"] = _pct(out["avg_order"] or 0, out["cards"]["avg_order"]["prev"] or 0) \
+            if out["cards"]["avg_order"]["prev"] else None
+    out["spark_days"] = days
+    out["spark"] = {
+        "shipped": _series(sh, days, 0), "returned": _series(rt, days, 0), "delivered": _series(dl, days, 0),
+        "delivered_value": _series(dl, days, 1), "banked": _series(bk, days, 1),
+        "avg_order": [round(by_o[d][1] / by_o[d][0], 1) if by_o.get(d, (0, 0))[0] else 0 for d in days],
     }
+    out["funnel"] = _funnel(d0, d1)
+    return out
 
 
-def _funnel():
-    """The orders of the last 30 days, each counted at the last station it reached."""
-    today = nowdate()
-    d0 = str(add_days(today, -29))
-    args = {"co": CO, "junk": JUNK_ABOVE, "a": d0, "b": today}
+def _funnel(d0, d1):
+    """The orders placed in the window, each counted at the furthest station it reached."""
+    a = _m_args(d0, d1)
     received = int(_one(f"""SELECT COUNT(*) FROM `tabSales Order` WHERE company = %(co)s AND docstatus = 1
-                            AND base_grand_total <= %(junk)s AND transaction_date BETWEEN %(a)s AND %(b)s""", args))
+                            AND base_grand_total <= %(junk)s AND {_M_WINDOW}""", a))
     confirmed = int(_one(f"""SELECT COUNT(*) FROM `tabSales Order` WHERE {_ORDER_OK}
-                             AND IFNULL(custom_sales_status, '') = 'Confirmed'
-                             AND transaction_date BETWEEN %(a)s AND %(b)s""", args))
-    row = frappe.db.sql(f"""
+                             AND IFNULL(custom_sales_status, '') = 'Confirmed' AND {_M_WINDOW}""", a))
+    row = frappe.db.sql("""
         SELECT COUNT(DISTINCT so.name),
                COUNT(DISTINCT IF(p.delivery_date IS NOT NULL OR p.status = 'PAID', so.name, NULL)),
                COUNT(DISTINCT IF(p.status = 'PAID', so.name, NULL))
@@ -228,9 +308,9 @@ def _funnel():
         JOIN `tabDelivery Note` dn ON dn.name = di.parent AND dn.docstatus = 1 AND dn.is_return = 0
         LEFT JOIN `tabCathedis Parcel` p ON p.awb = dn.custom_awb AND IFNULL(dn.custom_awb, '') != ''
         WHERE so.company = %(co)s AND so.docstatus = 1 AND so.base_grand_total <= %(junk)s
-          AND so.transaction_date BETWEEN %(a)s AND %(b)s""", args)
+          AND so.creation >= %(s)s AND so.creation < %(e)s AND so.transaction_date BETWEEN %(ta)s AND %(tb)s""", a)
     shipped, delivered, collected = (int(x or 0) for x in row[0]) if row else (0, 0, 0)
-    return {"from": d0, "to": today, "received": received, "confirmed": confirmed,
+    return {"from": d0, "to": d1, "received": received, "confirmed": confirmed,
             "shipped": shipped, "delivered": delivered, "collected": collected}
 
 
@@ -302,15 +382,15 @@ def _margin(ym):
 
 
 def _mtd():
-    today = nowdate()
+    today = _m_today()
     ym = today[:7]
     d0 = f"{ym}-01"
     day_n = getdate(today).day
     pm = _prev_month(ym)
     p0, p_end = _month_bounds(pm)
     p1 = str(min(getdate(add_days(p0, day_n - 1)), getdate(p_end)))
-    n, v = _orders(d0, today)
-    pn, pv = _orders(p0, p1)
+    n, v, _c = _m_orders(d0, today)
+    pn, pv, _pc = _m_orders(p0, p1)
     dv = _one("SELECT SUM(amount) FROM `tabCathedis Parcel` WHERE delivery_date BETWEEN %s AND %s", (d0, today))
     pdv = _one("SELECT SUM(amount) FROM `tabCathedis Parcel` WHERE delivery_date BETWEEN %s AND %s", (p0, p1))
     # the running month's parcels are mostly still on the way: count them, and
@@ -390,6 +470,11 @@ def _containers():
                                            WHERE w.company = %s AND w.name LIKE 'Container %%' AND b.actual_qty > 0
                                              AND b.item_code != 'Pallets'
                                            GROUP BY b.warehouse""", (CO,)):
+        # a container still at sea has not been emptied at all; leftovers in an
+        # arrived container's warehouse (stock moved between containers) are not a ship
+        if _one("""SELECT COUNT(*) FROM `tabStock Ledger Entry` WHERE warehouse = %s AND is_cancelled = 0
+                   AND actual_qty < 0""", (w,)):
+            continue
         no = cint("".join(ch for ch in w.split("-")[0] if ch.isdigit()))
         d = frappe.db.get_value("Shipment Costing", {"company": CO, "container_no": no},
                                 ["name", "container_id", "shipped_on"], as_dict=True) if no else None
@@ -404,13 +489,14 @@ def _containers():
 
 def _months():
     """The last twelve months, the running one last."""
-    ym = nowdate()[:7]
+    today = _m_today()
+    ym = today[:7]
     out = []
     for k in range(11, -1, -1):
         m = _prev_month(ym, k)
         d0, d1 = _month_bounds(m)
-        d1 = min(d1, nowdate())
-        n, v = _orders(d0, d1)
+        d1 = min(d1, today)
+        n, v, _c = _m_orders(d0, d1)
         dv = _one("SELECT SUM(amount) FROM `tabCathedis Parcel` WHERE delivery_date BETWEEN %s AND %s", (d0, d1))
         rate, dl, rt, still_open = _delivery_rate(d0, d1)
         mature = rate is not None and still_open <= MATURE_OPEN * (dl + rt + still_open)
@@ -419,37 +505,42 @@ def _months():
     return out
 
 
-def _build():
-    t0 = time.time()
-    data = {
-        "company": CO, "currency": "MAD", "generated_at": str(now_datetime())[:16],
-        "today": _today(), "funnel": _funnel(), "mtd": _mtd(), "cash": _cash(),
-        "containers": _containers(), "months": _months(),
-    }
-    data["build_ms"] = int((time.time() - t0) * 1000)
-    return data
+def _common():
+    return {"company": CO, "currency": "MAD", "generated_at": str(now_datetime())[:16], "tz_shift": TZ_SHIFT_H,
+            "morocco_today": _m_today(), "mtd": _mtd(), "cash": _cash(), "containers": _containers(),
+            "months": _months()}
+
+
+def _cached(key, fn, fresh=False):
+    cache = frappe.cache()
+    if not fresh:
+        hit = cache.get_value(key)
+        if hit:
+            return hit
+    val = fn()
+    cache.set_value(key, val, expires_in_sec=CACHE_TTL)
+    return val
 
 
 def warm():
-    """Hourly: rebuild the summary so a partner opening the app never waits for
-    the cost model (~9 s cold)."""
+    """Hourly: rebuild the shared sections and today, so a partner opening the app
+    never waits for the cost model (~9 s cold)."""
     try:
-        frappe.cache().set_value(CACHE_KEY, _build(), expires_in_sec=CACHE_TTL)
+        _cached(CACHE_KEY, _common, fresh=True)
+        _cached(CACHE_KEY + ":p:today", lambda: _period("today"), fresh=True)
     except Exception:
         frappe.log_error(title="Partners summary warm-up failed")
 
 
 @frappe.whitelist()
-def get_summary(fresh=0):
-    """Everything the page shows, cached five minutes (the page refreshes itself)."""
+def get_summary(period="today", fresh=0):
+    """Everything the page shows: the chosen period (today, yesterday, 7d, 30d,
+    month, last_month) plus the month, cash, containers and twelve months —
+    each cached five minutes (the page refreshes itself)."""
     assert_partner_access()
-    cache = frappe.cache()
-    if not cint(fresh):
-        hit = cache.get_value(CACHE_KEY)
-        if hit:
-            return hit
-    data = _build()
-    cache.set_value(CACHE_KEY, data, expires_in_sec=CACHE_TTL)
+    period = period if period in PERIODS else "today"
+    data = dict(_cached(CACHE_KEY, _common, cint(fresh)))
+    data["period"] = _cached(CACHE_KEY + ":p:" + period, lambda: _period(period), cint(fresh))
     return data
 
 
@@ -519,8 +610,8 @@ def _fmt(v):
 
 def _digest_text(lang="ar"):
     """Yesterday in one line: orders, deliveries, cash banked."""
-    yday = str(add_days(nowdate(), -1))
-    n, v = _orders(yday, yday)
+    yday = str(add_days(_m_today(), -1))
+    n, v, _c = _m_orders(yday, yday)
     dl = _delivered(yday, yday).get(yday, (0, 0))
     bk = _banked(yday, yday).get(yday, (0, 0))
     if lang == "en":

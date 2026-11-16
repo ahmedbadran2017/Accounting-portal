@@ -65,42 +65,45 @@
       <div v-if="toastMsg" class="jp-toast" role="status">{{ toastMsg }}</div>
 
       <template v-if="data">
-        <!-- ══ TODAY ══ -->
+        <!-- ══ PERIOD (today / yesterday / 7 days / 30 days / this month / last month) ══ -->
         <section v-if="show('today')" class="jp-sec">
-          <div v-if="!isPhone" class="jp-sec-head">
-            <h2>{{ L("النهارده", "Today") }} <small>{{ dayLabel(T.date) }}</small></h2>
-            <span class="jp-note">{{ L("الطلبات لحد دلوقتي، مقارنة بنفس الساعة إمبارح والأسبوع اللي فات", "Orders so far, against the same hour yesterday and last week") }}</span>
+          <div class="jp-sec-head">
+            <h2 v-if="!isPhone">{{ PERIOD_TITLE[P.key || "today"]() }} <small dir="ltr">{{ periodRange }}</small></h2>
+            <div class="jp-periods" role="tablist" :aria-label="L('الفترة', 'Period')">
+              <button v-for="pr in PERIODS" :key="pr.k" type="button" role="tab" :aria-selected="period === pr.k" :class="{ on: period === pr.k }" @click="pickPeriod(pr.k)">{{ pr.label() }}</button>
+            </div>
           </div>
-          <div class="jp-today">
+          <div class="jp-today" :class="{ busy: periodLoading }">
             <div class="jp-hero jp-rise" style="--d: .05s">
               <div class="jp-hero-glow" aria-hidden="true"></div>
               <div class="jp-hero-top">
-                <span>{{ L("طلبات النهارده لحد دلوقتي", "Orders today so far") }}</span>
-                <span class="jp-live"><span class="jp-dot" aria-hidden="true"></span>{{ L("مباشر", "Live") }}</span>
+                <span>{{ HERO_TITLE[P.key || "today"]() }}</span>
+                <span v-if="P.live" class="jp-live"><span class="jp-dot" aria-hidden="true"></span>{{ L("مباشر", "Live") }}</span>
+                <span v-else class="jp-live" dir="ltr">{{ periodRange }}</span>
               </div>
-              <div class="jp-hero-num" dir="ltr">{{ n(T.orders) }}</div>
+              <div class="jp-hero-num" dir="ltr">{{ n(P.orders) }}</div>
               <div class="jp-hero-chips">
-                <span class="jp-chip" :class="tone(T.vs_yesterday_pct)"><b dir="ltr">{{ arrow(T.vs_yesterday_pct) }}</b> {{ L("عن نفس الساعة إمبارح", "vs same hour yesterday") }}</span>
-                <span class="jp-chip" :class="tone(T.vs_last_week_pct)"><b dir="ltr">{{ arrow(T.vs_last_week_pct) }}</b> {{ L("عن الأسبوع اللي فات", "vs last week") }}</span>
+                <span v-for="c in (P.compare || [])" :key="c.k" class="jp-chip" :class="tone(c.pct)"><b dir="ltr">{{ arrow(c.pct) }}</b> {{ COMPARE[c.k] ? COMPARE[c.k]() : c.k }}</span>
               </div>
               <div class="jp-hero-meta">
-                <span>{{ L("قيمتها", "Worth") }} <b dir="ltr">{{ n(T.orders_value) }}</b> {{ MAD }}</span>
-                <span>{{ L("اتأكد منها", "Confirmed") }} <b dir="ltr">{{ n(T.confirmed) }}</b></span>
+                <span>{{ L("قيمتها", "Worth") }} <b dir="ltr">{{ n(P.orders_value) }}</b> {{ MAD }}</span>
+                <span>{{ L("اتأكد منها", "Confirmed") }} <b dir="ltr">{{ n(P.confirmed) }}</b></span>
+                <span v-if="!P.single_day && P.days">{{ L("في اليوم", "Per day") }} <b dir="ltr">{{ n((P.orders || 0) / P.days.length) }}</b></span>
               </div>
               <div class="jp-hours-wrap">
-                <div class="jp-hours-label">{{ L("الطلبات بالساعة (توقيت المغرب)", "Orders by hour (Morocco time)") }}</div>
+                <div class="jp-hours-label">{{ P.single_day ? L("الطلبات بالساعة (توقيت المغرب)", "Orders by hour (Morocco time)") : L("الطلبات يوم بيوم", "Orders day by day") }}</div>
                 <div class="jp-hours" dir="ltr">
-                  <div v-for="(h, i) in hours" :key="i" class="jp-hcol">
-                    <div class="jp-hbar jp-grow" :class="{ now: i === T.hour_now, future: i > T.hour_now }" :style="{ height: h.h, '--d': (0.1 + i * 0.025) + 's' }" :title="h.label + ':00 · ' + h.v"></div>
+                  <div v-for="(h, i) in heroBars" :key="i" class="jp-hcol">
+                    <div class="jp-hbar jp-grow" :class="{ now: h.now, future: h.future }" :style="{ height: h.h, '--d': (0.1 + i * (0.6 / heroBars.length)) + 's' }" :title="h.title"></div>
                   </div>
                 </div>
-                <div class="jp-hours-axis" dir="ltr"><span v-for="a in hourAxis" :key="a">{{ a }}</span></div>
+                <div class="jp-hours-axis" dir="ltr"><span v-for="(a, i) in heroAxis" :key="i">{{ a }}</span></div>
               </div>
             </div>
 
-            <div class="jp-cards-head" v-if="!isPhone">{{ L("آخر 7 أيام كاملة", "The last 7 full days") }} · <span dir="ltr">{{ weekLabel }}</span></div>
+            <div class="jp-cards-head" v-if="!isPhone">{{ CARDS_HEAD[P.key || "today"]() }}</div>
             <div class="jp-cards">
-              <div v-if="isPhone" class="jp-cards-head phone">{{ L("آخر 7 أيام كاملة", "The last 7 full days") }} · <span dir="ltr">{{ weekLabel }}</span></div>
+              <div v-if="isPhone" class="jp-cards-head phone">{{ CARDS_HEAD[P.key || "today"]() }}</div>
               <article v-for="(c, i) in dayCards" :key="c.key" class="jp-card jp-rise" :style="{ '--d': (0.1 + i * 0.05) + 's' }">
                 <div class="jp-card-top">
                   <span>{{ c.label }}</span>
@@ -116,11 +119,11 @@
             </div>
           </div>
 
-          <!-- funnel -->
+          <!-- funnel of the orders placed in the period -->
           <div class="jp-panel jp-rise" style="--d: .25s">
             <div class="jp-sec-head in">
-              <h3>{{ L("طلبات آخر 30 يوم: وصلت لحد فين", "The last 30 days of orders: how far they got") }}</h3>
-              <span class="jp-note">{{ L("كل طلب محسوب في آخر محطة وصلها", "Each order counted at the furthest station it reached") }}</span>
+              <h3>{{ L("طلبات الفترة دي: وصلت لحد فين", "This period's orders: how far they got") }}</h3>
+              <span class="jp-note">{{ L("كل طلب محسوب في آخر محطة وصلها — الطلبات الجديدة لسه في أولها", "Each order counted at the furthest station it reached — new orders are still early") }}</span>
             </div>
             <div class="jp-funnel">
               <div v-for="(f, i) in funnel" :key="f.key" class="jp-frow">
@@ -306,26 +309,74 @@ let mq = null;
 function setPhone() { isPhone.value = !!(mq && mq.matches); }
 const tab = ref(stored("jp_tab", "today"));
 const TABS = [
-  { k: "today", label: () => L("النهارده", "Today"), icon: "M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6L4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
+  { k: "today", label: () => L("الطلبات", "Orders"), icon: "M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6L4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
   { k: "month", label: () => L("الشهر", "Month"), icon: "M4 6h16v14H4zM4 10h16M9 3v4M15 3v4" },
   { k: "cash", label: () => L("الفلوس", "Cash"), icon: "M3 7h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1V6a2 2 0 0 1 2-2h11M17 13h.01" },
   { k: "trend", label: () => L("الاتجاه", "Trend"), icon: "M3 17l5-5 4 3 6-8M21 7h-4M21 7v4" },
 ];
-const TAB_TITLE = { today: () => L("النهارده", "Today"), month: () => L("الشهر لحد النهارده", "Month to date"), cash: () => L("الفلوس والمخزون", "Cash and stock"), trend: () => L("آخر 12 شهر", "Last 12 months") };
+const TAB_TITLE = { today: () => PERIOD_TITLE[period.value] ? PERIOD_TITLE[period.value]() : L("النهارده", "Today"), month: () => L("الشهر لحد النهارده", "Month to date"), cash: () => L("الفلوس والمخزون", "Cash and stock"), trend: () => L("آخر 12 شهر", "Last 12 months") };
 const show = (k) => !isPhone.value || tab.value === k;
 const scroller = ref(null);
 function go(k) { tab.value = k; store("jp_tab", k); play(); if (scroller.value) scroller.value.scrollTop = 0; }
 
 // ── data ──
 const data = ref(null), loading = ref(false), err = ref(""), online = ref(true);
-const T = computed(() => (data.value && data.value.today) || {});
+const P = computed(() => (data.value && data.value.period) || {});
+const PERIODS = [
+  { k: "today", label: () => L("النهارده", "Today") },
+  { k: "yesterday", label: () => L("إمبارح", "Yesterday") },
+  { k: "7d", label: () => L("آخر 7 أيام", "Last 7 days") },
+  { k: "30d", label: () => L("آخر 30 يوم", "Last 30 days") },
+  { k: "month", label: () => L("الشهر ده", "This month") },
+  { k: "last_month", label: () => L("الشهر اللي فات", "Last month") },
+];
+const PERIOD_TITLE = {
+  today: () => L("النهارده", "Today"), yesterday: () => L("إمبارح", "Yesterday"), "7d": () => L("آخر 7 أيام", "The last 7 days"),
+  "30d": () => L("آخر 30 يوم", "The last 30 days"), month: () => L("الشهر ده لحد النهارده", "This month so far"), last_month: () => L("الشهر اللي فات", "Last month"),
+};
+const HERO_TITLE = {
+  today: () => L("طلبات النهارده لحد دلوقتي", "Orders today so far"), yesterday: () => L("طلبات إمبارح", "Orders yesterday"),
+  "7d": () => L("طلبات آخر 7 أيام", "Orders, last 7 days"), "30d": () => L("طلبات آخر 30 يوم", "Orders, last 30 days"),
+  month: () => L("طلبات الشهر ده لحد دلوقتي", "Orders this month so far"), last_month: () => L("طلبات الشهر اللي فات", "Orders last month"),
+};
+const COMPARE = {
+  same_hour_yesterday: () => L("عن نفس الساعة إمبارح", "vs the same hour yesterday"),
+  same_hour_last_week: () => L("عن نفس الساعة الأسبوع اللي فات", "vs the same hour last week"),
+  previous: () => ({ yesterday: L("عن نفس اليوم الأسبوع اللي فات", "vs the same day last week"), "7d": L("عن الـ 7 أيام اللي قبلها", "vs the 7 days before"),
+    "30d": L("عن الـ 30 يوم اللي قبلها", "vs the 30 days before"), month: L("عن نفس الأيام الشهر اللي فات", "vs the same days last month"),
+    last_month: L("عن الشهر اللي قبله", "vs the month before") }[P.value.key] || L("عن الفترة اللي قبلها", "vs the period before")),
+  day_before: () => L("عن اليوم اللي قبله", "vs the day before"),
+};
+const CARDS_HEAD = {
+  today: () => L("النهارده لحد دلوقتي · مقارنة بنفس اليوم الأسبوع اللي فات", "Today so far · against the same day last week"),
+  yesterday: () => L("إمبارح · مقارنة بنفس اليوم الأسبوع اللي فات", "Yesterday · against the same day last week"),
+  "7d": () => L("آخر 7 أيام · مقارنة بالـ 7 اللي قبلها", "Last 7 days · against the 7 before"),
+  "30d": () => L("آخر 30 يوم · مقارنة بالـ 30 اللي قبلها", "Last 30 days · against the 30 before"),
+  month: () => L("الشهر ده · مقارنة بنفس الأيام الشهر اللي فات", "This month · against the same days last month"),
+  last_month: () => L("الشهر اللي فات · مقارنة بالشهر اللي قبله", "Last month · against the month before"),
+};
+const period = ref(stored("jp_period", "today"));
+const periodLoading = ref(false);
+async function pickPeriod(k) {
+  if (k === period.value) return;
+  period.value = k; store("jp_period", k);
+  periodLoading.value = true;
+  try { await load(); } finally { periodLoading.value = false; }
+}
+const periodRange = computed(() => {
+  const a = P.value.from, b = P.value.to;
+  if (!a) return "";
+  return a === b ? a.slice(8) + "/" + a.slice(5, 7) : rangeLabel(a, b);
+});
 const M = computed(() => (data.value && data.value.mtd) || {});
 const C = computed(() => (data.value && data.value.cash) || { accounts: [] });
 async function load(fresh = false) {
-  if (loading.value) return;
+  if (loading.value && !periodLoading.value) return;
   loading.value = true; err.value = "";
   try {
-    const res = await api.call(M_ + "get_summary", fresh ? { fresh: 1 } : {}, { fresh: true });
+    const args = { period: period.value };
+    if (fresh) args.fresh = 1;
+    const res = await api.call(M_ + "get_summary", args, { fresh: true });
     if (res) { data.value = res; play(); }
   } catch (e) {
     err.value = String((e && e.message) || e).slice(0, 180);
@@ -338,7 +389,7 @@ const updatedLabel = computed(() => {
   // two hours behind (tz_shift) — shifted by hand, browsers disagree on Morocco's zone
   const h = Number(g.slice(11, 13)), m = g.slice(14, 16);
   if (isNaN(h)) return g.slice(11, 16);
-  return String((h + ((T.value && T.value.tz_shift) || -2) + 24) % 24).padStart(2, "0") + ":" + m;
+  return String((h + ((data.value && data.value.tz_shift) || -2) + 24) % 24).padStart(2, "0") + ":" + m;
 });
 
 // ── count-up ──
@@ -374,6 +425,13 @@ function compact(v) {
   if (a >= 1e4) return (x / 1e3).toFixed(0) + "k";
   return Math.round(x).toLocaleString("en-US");
 }
+// a fixed figure (no count-up), compact on phones
+function plain(v, short) {
+  const x = Number(v || 0), a = Math.abs(x);
+  if (short && a >= 1e6) return (x / 1e6).toFixed(2) + "M";
+  if (short && a >= 1e4) return (x / 1e3).toFixed(0) + "k";
+  return x.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
 const pct = (v) => (v === null || v === undefined ? "—" : (v > 0 ? "▲ " : v < 0 ? "▼ " : "") + Math.abs(v).toFixed(1) + "%");
 const arrow = (v) => pct(v);
 const tone = (v) => (v === null || v === undefined ? "flat" : v >= 0 ? "good" : "bad");
@@ -391,65 +449,66 @@ function monthName(ym, short = false) {
   if (short) return lang.value === "ar" ? MONTHS_AR[i].slice(0, 3) : MONTHS_EN[i];
   return (lang.value === "ar" ? MONTHS_AR[i] : MONTHS_EN[i]) + " " + ym.slice(0, 4);
 }
-function dayLabel(d) {
-  if (!d) return "";
-  const x = new Date(d + "T12:00:00");
-  return x.toLocaleDateString(lang.value === "ar" ? "ar-MA" : "en-GB", { weekday: "long", day: "numeric", month: "long", numberingSystem: "latn" });
-}
 function rangeLabel(a, b) { return a && b ? `${a.slice(8)}/${a.slice(5, 7)} – ${b.slice(8)}/${b.slice(5, 7)}` : ""; }
-const weekLabel = computed(() => { const d = T.value.days || []; return d.length > 8 ? rangeLabel(d[d.length - 8], d[d.length - 2]) : ""; });
+
 
 // ── today ──
-// The books' day runs on the server clock (Istanbul); each hour is labelled in
-// Morocco time, so the bars read 22:00 (the evening before) → 21:00.
-const mhour = (i) => String((i + (T.value.tz_shift || 0) + 24) % 24).padStart(2, "0");
-const hours = computed(() => {
-  const hs = T.value.hours || [];
-  const max = Math.max(1, ...hs);
-  return hs.map((v, i) => ({ v, label: mhour(i), h: Math.max(4, (v / max) * 100) + "%" }));
+// Hours of the Morocco day for a single day; one bar per day for a span.
+const heroBars = computed(() => {
+  const pr = P.value;
+  if (pr.single_day) {
+    const hs = pr.hours || [];
+    const max = Math.max(1, ...hs);
+    return hs.map((v, i) => ({ h: Math.max(4, (v / max) * 100) + "%", title: String(i).padStart(2, "0") + ":00 · " + v,
+      now: pr.live && i === pr.hour_now, future: pr.live && i > pr.hour_now }));
+  }
+  const ds = pr.days || [];
+  const max = Math.max(1, ...ds.map((d) => d.n));
+  return ds.map((d, i) => ({ h: Math.max(4, (d.n / max) * 100) + "%", title: d.d + " · " + d.n,
+    now: pr.live && i === ds.length - 1, future: false }));
 });
-const hourAxis = computed(() => [0, 6, 12, 18, 23].map(mhour));
+const heroAxis = computed(() => {
+  const pr = P.value;
+  if (pr.single_day) return ["00", "06", "12", "18", "23"];
+  const ds = pr.days || [];
+  if (!ds.length) return [];
+  const pick = [0, Math.floor((ds.length - 1) / 2), ds.length - 1];
+  return pick.map((i) => ds[i].d.slice(8) + "/" + ds[i].d.slice(5, 7));
+});
 const ICONS = {
   truck: "M3 6h11v9H3zM14 9h4l3 3v3h-7zM7 18a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2zM18 18a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2z",
   check: "M20 6L9 17l-5-5", back: "M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3", cash: "M2 7h20v10H2zM12 12h.01M6 12h.01M18 12h.01",
   bag: "M6 7h12l1 13H5zM9 7a3 3 0 0 1 6 0", box: "M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8",
 };
-// Week cards: the last 7 full days against the 7 before them. Cathedis neither
-// delivers nor pays on Sundays, so a single day (a Monday looking at Sunday)
-// would read as a collapse; a week never does. The line is the 7 days, day by day.
-const wsum = (s, a, b) => s.slice(a, b).reduce((x, y) => x + Number(y || 0), 0);
-function dcard(key, s, label, unit, ink, tint, icon, opts = {}) {
-  s = s || [];
-  const y = opts.value != null ? opts.value : wsum(s, -8, -1);
-  const b = opts.prev != null ? opts.prev : wsum(s, -15, -8);
-  const d = b ? ((y - b) / b) * 100 : null;
+// The operational cards: the period's totals against the comparison window; the
+// line is day by day (the week up to the day, for a single day).
+function dcard(key, label, unit, ink, tint, icon, opts = {}) {
+  const c = (P.value.cards || {})[key] || {};
+  const d = c.pct;
   const upIsGood = opts.upIsGood !== false;
   return {
     key, label, unit, ink, tint, icon: ICONS[icon],
-    value: opts.compact ? compact(y) : n(y, opts.dec || 0),
-    delta: d === null ? "—" : (d >= 0 ? "▲ " : "▼ ") + Math.abs(d).toFixed(1) + "%",
-    good: d === null || Math.abs(d) < 0.05 ? null : (d >= 0) === upIsGood,
-    spark: spark(s.slice(-8, -1)),
-    note: opts.note || L("عن الـ 7 أيام اللي قبلها · الخط: يوم بيوم", "vs the 7 days before · line: day by day"),
+    value: c.value == null ? "—" : opts.compact ? compact(c.value) : n(c.value, opts.dec || 0),
+    delta: d === null || d === undefined ? "—" : (d >= 0 ? "▲ " : "▼ ") + Math.abs(d).toFixed(1) + "%",
+    good: d === null || d === undefined || Math.abs(d) < 0.05 ? null : (d >= 0) === upIsGood,
+    spark: spark(((P.value.spark || {})[key]) || []),
+    note: opts.note || (c.prev == null ? "" : L("قبلها: ", "Before: ") + plain(c.prev, opts.compact)),
   };
 }
 const dayCards = computed(() => {
-  const t = (T.value && T.value.series) || null;
-  if (!t) return [];
+  if (!P.value.cards) return [];
+  const big = isPhone.value;
   return [
-    dcard("ship", t.shipped, L("اتشحنت لـ Cathedis", "Shipped to Cathedis"), L("طرد", "parcels"), "#1d349a", "#e7f2ff", "truck"),
-    dcard("del", t.delivered, L("اتسلّمت للزبون", "Delivered"), L("طرد", "parcels"), "#0d8756", "#e7f5ee", "check", { note: L("حسب Cathedis · بيتحدّث كل ليلة", "Per Cathedis · updated nightly") }),
-    dcard("ret", t.returned, L("رجعت المخزن", "Returned to stock"), L("طرد", "parcels"), "#a3271a", "#fcefec", "back", { upIsGood: false }),
-    dcard("bank", t.banked, L("دخل البنك من التحصيل", "COD cash banked"), MAD.value, "#15110d", "#f4f1ea", "cash", { compact: isPhone.value }),
-    dcard("dval", t.delivered_value, L("قيمة اللي اتسلّم", "Delivered value"), MAD.value, "#b5811f", "#fff7e3", "bag", { compact: isPhone.value }),
-    dcard("aov", t.avg_order, L("متوسط الطلب", "Average order"), MAD.value, "#46413a", "#f4f1ea", "box", {
-      dec: 0, note: L("قيمة الطلبات ÷ عددها · عن الأسبوع اللي قبله", "Orders value ÷ count · vs the week before"),
-      value: wsum(t.orders_value || [], -8, -1) / Math.max(1, wsum(t.orders || [], -8, -1)),
-      prev: wsum(t.orders_value || [], -15, -8) / Math.max(1, wsum(t.orders || [], -15, -8)) }),
+    dcard("shipped", L("اتشحنت لـ Cathedis", "Shipped to Cathedis"), L("طرد", "parcels"), "#1d349a", "#e7f2ff", "truck"),
+    dcard("delivered", L("اتسلّمت للزبون", "Delivered"), L("طرد", "parcels"), "#0d8756", "#e7f5ee", "check"),
+    dcard("returned", L("رجعت المخزن", "Returned to stock"), L("طرد", "parcels"), "#a3271a", "#fcefec", "back", { upIsGood: false }),
+    dcard("banked", L("دخل البنك من التحصيل", "COD cash banked"), MAD.value, "#15110d", "#f4f1ea", "cash", { compact: big }),
+    dcard("delivered_value", L("قيمة اللي اتسلّم", "Delivered value"), MAD.value, "#b5811f", "#fff7e3", "bag", { compact: big }),
+    dcard("avg_order", L("متوسط الطلب", "Average order"), MAD.value, "#46413a", "#f4f1ea", "box"),
   ];
 });
 const funnel = computed(() => {
-  const f = (data.value && data.value.funnel) || {};
+  const f = P.value.funnel || {};
   const base = f.received || 1;
   const steps = [
     ["rec", L("جات", "Received"), f.received, "#15110d", null],
@@ -719,6 +778,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--red); outline-o
 .jp-draw { stroke-dasharray: 400; animation: jpDraw 1.5s var(--ease) both; }
 @keyframes jpDraw { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
 
+/* period filter */
+.jp-periods { display: flex; gap: 6px; flex-wrap: wrap; background: var(--bg3); border-radius: 999px; padding: 4px; }
+.jp-periods button { border: 0; background: transparent; border-radius: 999px; padding: 8px 14px; min-height: 38px; font-size: 13px; font-weight: 700; color: var(--ink2); white-space: nowrap; transition: background .2s, color .2s; }
+.jp-periods button.on { background: var(--blk); color: #fff; }
+.jp-today.busy { opacity: .55; transition: opacity .2s; pointer-events: none; }
+
 /* today */
 .jp-today { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 2fr); grid-template-areas: "hero head" "hero cards"; gap: 10px 14px; }
 .jp-hero { grid-area: hero; position: relative; overflow: hidden; background: var(--blk); color: #fff; border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
@@ -904,6 +969,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--red); outline-o
 .phone .jp-col-val { display: none; }
 .phone .jp-col-m { font-size: 9.5px; }
 .phone .jp-seg { display: flex; width: 100%; }
+.phone .jp-sec-head { flex-direction: column; align-items: stretch; }
+.phone .jp-periods { flex-wrap: nowrap; overflow-x: auto; border-radius: 14px; scrollbar-width: none; margin-inline: -2px; }
+.phone .jp-periods::-webkit-scrollbar { display: none; }
+.phone .jp-periods button { padding: 8px 12px; font-size: 12.5px; }
 .phone .jp-seg button { flex: 1; padding: 8px 4px; font-size: 12px; }
 .jp-pull { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--mut); overflow: hidden; transition: height .2s; }
 .jp-pull svg { width: 16px; height: 16px; }
