@@ -99,9 +99,10 @@
                 </div>
               </div>
               <div class="jp-hero-excl">
-                <span>{{ L("منها:", "Of which:") }} <b dir="ltr">{{ n(P.cancelled) }}</b> {{ L("ملغي", "cancelled") }}</span>
-                <span><b dir="ltr">{{ n(P.duplicated) }}</b> {{ L("مكرر", "duplicated") }}</span>
-                <span>{{ L("الصافي", "Net") }} <b dir="ltr">{{ n(P.net_orders) }}</b></span>
+                <span>{{ L("منها:", "Of which:") }} <b dir="ltr">{{ n(P.duplicated) }}</b> {{ L("مكرر", "duplicated") }}</span>
+                <span><b dir="ltr">{{ n(P.modified) }}</b> {{ L("معدّل", "modified") }}</span>
+                <span><b dir="ltr">{{ n(P.cancelled) }}</b> {{ L("ملغي", "cancelled") }}</span>
+                <span>{{ L("الطلبات الحقيقية", "Real orders") }} <b dir="ltr">{{ n(P.net_orders) }}</b></span>
                 <span v-if="P.confirm_rate != null">{{ L("نسبة التأكيد", "Confirmation") }} <b dir="ltr">{{ P.confirm_rate }}%</b></span>
               </div>
               <div class="jp-hours-wrap">
