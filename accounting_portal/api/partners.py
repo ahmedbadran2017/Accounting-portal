@@ -46,7 +46,7 @@ CO = "Justyol Morocco"
 ROLE_PARTNER = "Partner"
 JUNK_ABOVE = 20000          # single orders above this are test / bogus (investor pack, Oct 2026)
 CATHEDIS = "108.021.003"
-TZ_SHIFT_H = -2             # server clock is Istanbul; partners read Morocco time
+TZ_SHIFT_H = 0              # the day turns at midnight on the server clock (Istanbul), like the team's order dashboard
 CACHE_KEY = "ap_partners:summary:v4"
 MATURE_OPEN = 0.10          # a month's delivery rate is shown once ≤10% of its parcels are still moving
 CACHE_TTL = 300
@@ -108,8 +108,8 @@ def _prev_month(ym, k=1):
 # Shopify, the day it was keyed for the agent and the landing pages). Cancelled
 # and duplicated are then shown apart, and the confirmation rate is confirmed ÷
 # (orders − cancelled − duplicated). Only bogus test orders above 20,000 MAD are
-# left out. "Today" is today in Morocco: after 22:00 there the server's clock
-# (Istanbul) has already moved to tomorrow.
+# left out. The day turns at midnight on the server's clock (Istanbul), as on
+# that dashboard; hours are shown on the same clock.
 
 _ORDER_ALL = "company = %(co)s AND docstatus = 1 AND base_grand_total <= %(junk)s"
 _M_WINDOW = "transaction_date BETWEEN %(a)s AND %(b)s AND creation <= %(until)s"
@@ -118,7 +118,7 @@ _IS_DUPLICATE = "IFNULL(custom_sales_status, '') = 'Duplicated'"
 
 
 def _m_today():
-    return str(getdate(add_to_date(now_datetime(), hours=TZ_SHIFT_H)))
+    return str(getdate(add_to_date(now_datetime(), hours=TZ_SHIFT_H))) if TZ_SHIFT_H else nowdate()
 
 
 def _m_args(d0, d1, until=None):
@@ -151,7 +151,7 @@ def _m_orders_by_day(d0, d1):
 
 
 def _m_hours(day):
-    """Orders of the day by the hour they came in, in Morocco time."""
+    """Orders of the day by the hour they came in (server clock)."""
     a = _m_args(day, day)
     a["sh"] = TZ_SHIFT_H
     hours = [0] * 24
@@ -310,6 +310,11 @@ def _period(key):
         out["cards"]["avg_order"]["prev"] = round(yv[1] / yv[0], 1) if yv[0] else None
         out["cards"]["avg_order"]["pct"] = _pct(out["avg_order"] or 0, out["cards"]["avg_order"]["prev"] or 0) \
             if out["cards"]["avg_order"]["prev"] else None
+    if key == "today":
+        # deliveries come in from Cathedis once a night: today's are not in yet
+        for k in ("delivered", "delivered_value"):
+            out["cards"][k]["pct"] = None
+            out["cards"][k]["nightly"] = True
     out["spark_days"] = days
     out["spark"] = {
         "shipped": _series(sh, days, 0), "returned": _series(rt, days, 0), "delivered": _series(dl, days, 0),

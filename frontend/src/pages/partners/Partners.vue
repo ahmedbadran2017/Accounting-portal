@@ -105,7 +105,7 @@
                 <span v-if="P.confirm_rate != null">{{ L("نسبة التأكيد", "Confirmation") }} <b dir="ltr">{{ P.confirm_rate }}%</b></span>
               </div>
               <div class="jp-hours-wrap">
-                <div class="jp-hours-label">{{ P.single_day ? L("الطلبات بالساعة (توقيت المغرب)", "Orders by hour (Morocco time)") : L("الطلبات يوم بيوم", "Orders day by day") }}</div>
+                <div class="jp-hours-label">{{ P.single_day ? L("الطلبات بالساعة (توقيت تركيا)", "Orders by hour (Türkiye time)") : L("الطلبات يوم بيوم", "Orders day by day") }}</div>
                 <div class="jp-hours" dir="ltr">
                   <div v-for="(h, i) in heroBars" :key="i" class="jp-hcol">
                     <div class="jp-hbar jp-grow" :class="{ now: h.now, future: h.future }" :style="{ height: h.h, '--d': (0.1 + i * (0.6 / heroBars.length)) + 's' }" :title="h.title"></div>
@@ -399,11 +399,10 @@ async function load(fresh = false) {
 const updatedLabel = computed(() => {
   const g = data.value && data.value.generated_at;
   if (!g) return "—";
-  // generated_at is on the server clock (Istanbul); partners read Morocco time,
-  // two hours behind (tz_shift) — shifted by hand, browsers disagree on Morocco's zone
+  // the server clock (Istanbul) — the same clock the day turns on
   const h = Number(g.slice(11, 13)), m = g.slice(14, 16);
   if (isNaN(h)) return g.slice(11, 16);
-  return String((h + ((data.value && data.value.tz_shift) || -2) + 24) % 24).padStart(2, "0") + ":" + m;
+  return String((h + ((data.value && data.value.tz_shift) || 0) + 24) % 24).padStart(2, "0") + ":" + m;
 });
 
 // ── count-up ──
@@ -522,7 +521,8 @@ function dcard(key, label, unit, ink, tint, icon, opts = {}) {
     delta: d === null || d === undefined ? "—" : (d >= 0 ? "▲ " : "▼ ") + Math.abs(d).toFixed(1) + "%",
     good: d === null || d === undefined || Math.abs(d) < 0.05 ? null : (d >= 0) === upIsGood,
     spark: spark(((P.value.spark || {})[key]) || []),
-    note: opts.note || (c.prev == null ? "" : L("قبلها: ", "Before: ") + plain(c.prev, opts.compact)),
+    note: c.nightly ? L("بتتحدّث كل ليلة من Cathedis — أرقام النهارده بتكمل بكرة", "Updated nightly from Cathedis — today's arrive tomorrow")
+      : opts.note || (c.prev == null ? "" : L("قبلها: ", "Before: ") + plain(c.prev, opts.compact)),
   };
 }
 const dayCards = computed(() => {
