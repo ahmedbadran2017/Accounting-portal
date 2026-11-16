@@ -63,6 +63,7 @@
     <AgreedPrices v-else-if="activeSub === 'agreed'" />
     <ValuationDoctor v-else-if="activeSub === 'valuation'" />
     <LandedCockpit v-else-if="activeSub === 'cockpit'" />
+    <ShipmentCosting v-else-if="activeSub === 'shipcost'" />
     <ScaffoldTable v-else />
   </div>
 </template>
@@ -91,6 +92,7 @@ import CostTrace from "@/pages/items/CostTrace.vue";
 import Vendors from "@/pages/items/Vendors.vue";
 import ShipmentPipeline from "@/pages/items/ShipmentPipeline.vue";
 import LandedCockpit from "@/pages/items/LandedCockpit.vue";
+import ShipmentCosting from "@/pages/items/ShipmentCosting.vue";
 import InventoryCorrectionModal from "@/components/InventoryCorrectionModal.vue";
 import SetPriceModal from "@/components/SetPriceModal.vue";
 import NewServiceItemModal from "@/components/NewServiceItemModal.vue";

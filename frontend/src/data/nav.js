@@ -30,7 +30,7 @@ export const SUBTABS = {
     // so the landed-cost workbench, the item cost card, the valuation doctor
     // and the landed cockpit could only be reached by typing a URL.
     ["landed", "sub.landed"], ["costing", "sub.costing"],
-    ["valuation", "sub.valuation"], ["cockpit", "sub.cockpit"]],
+    ["valuation", "sub.valuation"], ["cockpit", "sub.cockpit"], ["shipcost", "sub.shipcost"]],
   banking: [
     ["accounts", "sub.accounts"],
     ["remittance", "sub.remittance"], ["variance", "sub.variance"], ["codclose", "sub.codclose"], ["settlements", "sub.settlements"], ["aging", "sub.aging"], ["bankrec", "sub.bankrec"], ["cleanup", "sub.cleanup"],

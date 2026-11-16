@@ -118,7 +118,8 @@
     "valuation": "Valuation fix",
     "shipments": "Shipments",
     "investors": "Investors",
-    "agreed": "Agreed prices"
+    "agreed": "Agreed prices",
+    "shipcost": "Shipment costing"
   },
   "jonly": {
     "cod": "COD remittance",

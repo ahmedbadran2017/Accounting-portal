@@ -1,0 +1,30 @@
+{
+ "actions": [],
+ "creation": "2026-11-16 21:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["side", "purchase_invoice", "invoice_item", "source_company", "account", "description", "full_amount", "amount", "is_manual", "attachment"],
+ "fields": [
+  {"fieldname": "side", "fieldtype": "Select", "label": "Side", "options": "Morocco\nTurkey", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "purchase_invoice", "fieldtype": "Link", "label": "Bill", "options": "Purchase Invoice", "in_list_view": 1},
+  {"fieldname": "invoice_item", "fieldtype": "Data", "label": "Bill line", "search_index": 1},
+  {"fieldname": "source_company", "fieldtype": "Link", "label": "Bill company", "options": "Company"},
+  {"fieldname": "account", "fieldtype": "Link", "label": "Account", "options": "Account"},
+  {"fieldname": "description", "fieldtype": "Data", "label": "Description"},
+  {"fieldname": "full_amount", "fieldtype": "Float", "label": "Bill line amount (company currency)"},
+  {"fieldname": "amount", "fieldtype": "Float", "label": "Amount on this shipment", "in_list_view": 1},
+  {"fieldname": "is_manual", "fieldtype": "Check", "label": "Manual amount"},
+  {"fieldname": "attachment", "fieldtype": "Attach", "label": "Receipt"}
+ ],
+ "istable": 1,
+ "modified": "2026-11-16 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Accounting Portal",
+ "name": "Shipment Costing Charge",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

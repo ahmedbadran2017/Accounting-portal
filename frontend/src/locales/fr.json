@@ -118,7 +118,8 @@
     "valuation": "Correction valo.",
     "shipments": "Expéditions",
     "investors": "Investisseurs",
-    "agreed": "Prix convenus"
+    "agreed": "Prix convenus",
+    "shipcost": "Coût des expéditions"
   },
   "jonly": {
     "cod": "Encaissement COD",

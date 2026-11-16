@@ -38,9 +38,12 @@ Deeper reference:
   - route rules
   - `before_request` → `deskguard.block_desk_for_accountants`
   - `doc_events`, `scheduler_events`
-- `accounting_portal/accounting_portal/doctype/` — two doctypes:
+- `accounting_portal/accounting_portal/doctype/`:
   - `Accounting Portal Action` — the audit log of every portal write
   - `Bank Statement Import AP`
+  - `Cathedis Parcel` — the carrier mirror for the cycle radar
+  - `Shipment Costing` (+ `… Receipt`, `… Charge`) — per-shipment landed cost, Items → Shipment costing
+    (`api/shipment_costing.py`). A working record: nothing posts to the ledger.
 - `accounting_portal/patches/` + `patches.txt`.
 - `frontend/` — Vue 3 + Vite + Tailwind + vue-i18n.
   - Locales: `src/locales/{en,ar,fr}.json`. Arabic is RTL. All three must stay in parity.
