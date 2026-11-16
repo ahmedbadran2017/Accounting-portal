@@ -376,7 +376,7 @@ const COMPARE = {
   day_before: () => L("عن اليوم اللي قبله", "vs the day before"),
 };
 const CARDS_HEAD = {
-  today: () => L("النهارده لحد دلوقتي · مقارنة بنفس اليوم الأسبوع اللي فات", "Today so far · against the same day last week"),
+  today: () => L("آخر 7 أيام كاملة · مقارنة بالـ 7 اللي قبلها", "The last 7 full days · against the 7 before") + (P.value.cards_from ? " · " + rangeLabel(P.value.cards_from, P.value.cards_to) : ""),
   yesterday: () => L("إمبارح · مقارنة بنفس اليوم الأسبوع اللي فات", "Yesterday · against the same day last week"),
   "7d": () => L("آخر 7 أيام · مقارنة بالـ 7 اللي قبلها", "Last 7 days · against the 7 before"),
   "30d": () => L("آخر 30 يوم · مقارنة بالـ 30 اللي قبلها", "Last 30 days · against the 30 before"),

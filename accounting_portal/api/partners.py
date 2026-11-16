@@ -47,7 +47,7 @@ ROLE_PARTNER = "Partner"
 JUNK_ABOVE = 20000          # single orders above this are test / bogus (investor pack, Oct 2026)
 CATHEDIS = "108.021.003"
 TZ_SHIFT_H = 0              # the day turns at midnight on the server clock (Istanbul), like the team's order dashboard
-CACHE_KEY = "ap_partners:summary:v6"
+CACHE_KEY = "ap_partners:summary:v7"
 MATURE_OPEN = 0.10          # a month's delivery rate is shown once ≤10% of its parcels are still moving
 CACHE_TTL = 300
 SUB_DT = "Partner Push Subscription"
@@ -314,29 +314,26 @@ def _period(key):
         out["days"] = [{"d": str(add_days(d0, i)), "n": (by.get(str(add_days(d0, i))) or (0, 0))[0]}
                        for i in range(date_diff(d1, d0) + 1)]
     # the operational cards: totals for the period against the comparison window,
-    # each with a day-by-day line (the week up to the day for a single day)
-    cur, maps = _totals(d0, d1)
-    prev, _pm = _totals(p0, p1)
-    s0 = str(add_days(d1, -6)) if single else d0
-    days = [str(add_days(s0, i)) for i in range(date_diff(d1, s0) + 1)]
-    if single:
-        maps = _totals(s0, d1)[1]
-    by_o = _m_orders_by_day(s0, d1)
+    # each with a day-by-day line. On "today" they show the last 7 full days
+    # instead: shipping, deliveries (in from Cathedis overnight) and remittances
+    # build up over the day, so a running day says nothing yet.
+    c0, c1, cp0, cp1 = (_window("7d")[:4] if key == "today" else (d0, d1, p0, p1))
+    one_day = c0 == c1
+    cur, maps = _totals(c0, c1)
+    prev, _pm = _totals(cp0, cp1)
+    s0 = str(add_days(c1, -6)) if one_day else c0
+    days = [str(add_days(s0, i)) for i in range(date_diff(c1, s0) + 1)]
+    if one_day:
+        maps = _totals(s0, c1)[1]
+    by_o = _m_orders_by_day(s0, c1)
     sh, rt, dl, bk = maps
+    out["cards_from"], out["cards_to"] = c0, c1
     out["cards"] = {k: {"value": cur[k], "prev": prev[k], "pct": _pct(cur[k], prev[k])} for k in cur}
-    out["cards"]["avg_order"] = {"value": out["avg_order"], "prev": out.get("avg_order_prev"),
-                                 "pct": _pct(out["avg_order"] or 0, out.get("avg_order_prev") or 0)
-                                 if out.get("avg_order_prev") else None}
-    if key == "today":
-        yv = _m_orders(p0, p1)
-        out["cards"]["avg_order"]["prev"] = round(yv[1] / yv[0], 1) if yv[0] else None
-        out["cards"]["avg_order"]["pct"] = _pct(out["avg_order"] or 0, out["cards"]["avg_order"]["prev"] or 0) \
-            if out["cards"]["avg_order"]["prev"] else None
-    if key == "today":
-        # deliveries come in from Cathedis once a night: today's are not in yet
-        for k in ("delivered", "delivered_value"):
-            out["cards"][k]["pct"] = None
-            out["cards"][k]["nightly"] = True
+    cn, cv, _cc = (n, v, 0) if key != "today" else _m_orders(c0, c1)
+    pn2, pv2, _pc2 = _m_orders(cp0, cp1)
+    aov, aov_prev = (round(cv / cn, 1) if cn else None), (round(pv2 / pn2, 1) if pn2 else None)
+    out["cards"]["avg_order"] = {"value": aov, "prev": aov_prev,
+                                 "pct": _pct(aov or 0, aov_prev) if aov_prev else None}
     out["spark_days"] = days
     out["spark"] = {
         "shipped": _series(sh, days, 0), "returned": _series(rt, days, 0), "delivered": _series(dl, days, 0),
