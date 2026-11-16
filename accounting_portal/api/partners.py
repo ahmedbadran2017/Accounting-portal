@@ -159,6 +159,26 @@ def _m_hours(day):
     return hours
 
 
+# Where an order came from. Every channel lands as a Sales Order, so the counts
+# above already hold them all; this only splits them:
+#   shopify  the shop (Shopify order id / '#…' number)
+#   landing  the landing pages (custom_channel 'Landing Page', utm fb/ig/…)
+#   agent    the AI agent: channel 'Manual' created by the Guest API user, day and night
+#   manual   the team keying an order by hand (channel 'Manual' by a real user, or none)
+_CHANNEL = """CASE WHEN IFNULL(custom_channel, '') = 'Landing Page' THEN 'landing'
+                   WHEN IFNULL(custom_channel, '') = 'Manual' AND owner = 'Guest' THEN 'agent'
+                   WHEN IFNULL(shopify_order_id, '') != '' OR name LIKE '#%%' OR IFNULL(custom_order_source, '') != '' THEN 'shopify'
+                   ELSE 'manual' END"""
+
+
+def _m_channels(d0, d1):
+    out = {"shopify": [0, 0.0], "landing": [0, 0.0], "agent": [0, 0.0], "manual": [0, 0.0]}
+    for ch, n, v in frappe.db.sql(f"""SELECT {_CHANNEL} ch, COUNT(*), SUM(base_grand_total) FROM `tabSales Order`
+                                      WHERE {_ORDER_OK} AND {_M_WINDOW} GROUP BY ch""", _m_args(d0, d1)):
+        out[ch] = [int(n), round(flt(v))]
+    return out
+
+
 def _by_day(sql, d0, d1, args=None):
     a = {"co": CO, "a": d0, "b": d1}
     a.update(args or {})
@@ -294,6 +314,7 @@ def _period(key):
         "delivered_value": _series(dl, days, 1), "banked": _series(bk, days, 1),
         "avg_order": [round(by_o[d][1] / by_o[d][0], 1) if by_o.get(d, (0, 0))[0] else 0 for d in days],
     }
+    out["channels"] = _m_channels(d0, d1)
     out["funnel"] = _funnel(d0, d1)
     return out
 

@@ -90,6 +90,14 @@
                 <span>{{ L("اتأكد منها", "Confirmed") }} <b dir="ltr">{{ n(P.confirmed) }}</b></span>
                 <span v-if="!P.single_day && P.days">{{ L("في اليوم", "Per day") }} <b dir="ltr">{{ n((P.orders || 0) / P.days.length) }}</b></span>
               </div>
+              <div v-if="channels.length" class="jp-channels">
+                <div class="jp-ch-bar" dir="ltr">
+                  <span v-for="c in channels" :key="c.k" class="jp-growx" :style="{ flexGrow: c.n || 0, background: c.color }" :title="c.label + ' · ' + c.n"></span>
+                </div>
+                <div class="jp-ch-legend">
+                  <span v-for="c in channels" :key="c.k"><i :style="{ background: c.color }"></i>{{ c.label }} <b dir="ltr">{{ n(c.n) }}</b> <em dir="ltr">{{ c.pct }}</em></span>
+                </div>
+              </div>
               <div v-if="P.excluded_duplicated || P.excluded_cancelled" class="jp-hero-excl">
                 {{ L("مش محسوب فيها:", "Not counted:") }}
                 <span v-if="P.excluded_duplicated"><b dir="ltr">{{ P.excluded_duplicated }}</b> {{ L("مكرر", "duplicated") }}</span>
@@ -458,6 +466,22 @@ function rangeLabel(a, b) { return a && b ? `${a.slice(8)}/${a.slice(5, 7)} – 
 
 
 // ── today ──
+// Orders by channel: every channel is a Sales Order and already in the count.
+const CHANNELS = [
+  { k: "shopify", label: () => "Shopify", color: "#ffffff" },
+  { k: "agent", label: () => "AI Agent", color: "#c4301c" },
+  { k: "landing", label: () => L("لاندينج بيدج", "Landing pages"), color: "#e2a93b" },
+  { k: "manual", label: () => L("يدوي", "Manual"), color: "#7a746b" },
+];
+const channels = computed(() => {
+  const ch = P.value.channels;
+  if (!ch) return [];
+  const total = CHANNELS.reduce((a, c) => a + ((ch[c.k] || [0])[0] || 0), 0) || 1;
+  return CHANNELS.map((c) => {
+    const v = (ch[c.k] || [0])[0] || 0;
+    return { k: c.k, label: c.label(), color: c.color, n: v, pct: Math.round((v / total) * 100) + "%" };
+  }).filter((c) => c.n > 0);
+});
 // Hours of the Morocco day for a single day; one bar per day for a span.
 const heroBars = computed(() => {
   const pr = P.value;
@@ -803,6 +827,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--red); outline-o
 .jp-chip b { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; }
 .jp-hero-meta { position: relative; display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: #e3ddd3; }
 .jp-hero-meta b { color: #fff; font-family: "Plus Jakarta Sans", sans-serif; font-size: 15px; }
+.jp-channels { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.jp-ch-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; gap: 2px; background: rgba(255,255,255,.08); }
+.jp-ch-bar span { display: block; min-width: 3px; }
+.jp-ch-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: #e3ddd3; }
+.jp-ch-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.jp-ch-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.jp-ch-legend b { color: #fff; font-family: "Plus Jakarta Sans", sans-serif; }
+.jp-ch-legend em { font-style: normal; color: #8f887d; font-family: "Plus Jakarta Sans", sans-serif; font-size: 11px; }
 .jp-hero-excl { position: relative; display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: #b9b2a6; margin-top: -6px; }
 .jp-hero-excl b { color: #e3ddd3; font-family: "Plus Jakarta Sans", sans-serif; }
 .jp-hours-wrap { position: relative; margin-top: auto; }
