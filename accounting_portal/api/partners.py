@@ -237,7 +237,13 @@ def _period(key):
     d0, d1, p0, p1, live = _window(key)
     single = d0 == d1
     n, v, conf = _m_orders(d0, d1)
+    # what was left out of the count, so it reconciles with the shop's own list
+    excl = frappe.db.sql(f"""SELECT SUM(IFNULL(custom_sales_status, '') = 'Duplicated'),
+                                    SUM(status = 'Cancelled' OR IFNULL(custom_sales_status, '') = 'Cancelled')
+                             FROM `tabSales Order` WHERE company = %(co)s AND docstatus = 1 AND {_M_WINDOW}""",
+                         _m_args(d0, d1))
     out = {"key": key, "from": d0, "to": d1, "prev_from": p0, "prev_to": p1, "live": live,
+           "excluded_duplicated": int(flt(excl[0][0])), "excluded_cancelled": int(flt(excl[0][1])),
            "single_day": single, "orders": n, "orders_value": round(v), "confirmed": conf,
            "avg_order": round(v / n, 1) if n else None}
     if key == "today":

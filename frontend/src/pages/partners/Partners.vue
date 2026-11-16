@@ -90,6 +90,11 @@
                 <span>{{ L("اتأكد منها", "Confirmed") }} <b dir="ltr">{{ n(P.confirmed) }}</b></span>
                 <span v-if="!P.single_day && P.days">{{ L("في اليوم", "Per day") }} <b dir="ltr">{{ n((P.orders || 0) / P.days.length) }}</b></span>
               </div>
+              <div v-if="P.excluded_duplicated || P.excluded_cancelled" class="jp-hero-excl">
+                {{ L("مش محسوب فيها:", "Not counted:") }}
+                <span v-if="P.excluded_duplicated"><b dir="ltr">{{ P.excluded_duplicated }}</b> {{ L("مكرر", "duplicated") }}</span>
+                <span v-if="P.excluded_cancelled"><b dir="ltr">{{ P.excluded_cancelled }}</b> {{ L("ملغي", "cancelled") }}</span>
+              </div>
               <div class="jp-hours-wrap">
                 <div class="jp-hours-label">{{ P.single_day ? L("الطلبات بالساعة (توقيت المغرب)", "Orders by hour (Morocco time)") : L("الطلبات يوم بيوم", "Orders day by day") }}</div>
                 <div class="jp-hours" dir="ltr">
@@ -798,6 +803,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--red); outline-o
 .jp-chip b { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; }
 .jp-hero-meta { position: relative; display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: #e3ddd3; }
 .jp-hero-meta b { color: #fff; font-family: "Plus Jakarta Sans", sans-serif; font-size: 15px; }
+.jp-hero-excl { position: relative; display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: #b9b2a6; margin-top: -6px; }
+.jp-hero-excl b { color: #e3ddd3; font-family: "Plus Jakarta Sans", sans-serif; }
 .jp-hours-wrap { position: relative; margin-top: auto; }
 .jp-hours-label { font-size: 11.5px; color: #b9b2a6; margin-bottom: 8px; }
 .jp-hours { display: flex; align-items: flex-end; gap: 3px; height: 110px; }
