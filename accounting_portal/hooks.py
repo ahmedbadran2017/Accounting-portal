@@ -84,6 +84,7 @@ doc_events = {
 scheduler_events = {
     "hourly": [
         "accounting_portal.api.matching.warm_caches",
+        "accounting_portal.api.partners.warm",
     ],
     # once a night (server clock is Istanbul: 04:00 = 02:00 in Morocco): ask
     # Cathedis about the parcels that are still open, then rebuild the cycle
@@ -92,5 +93,14 @@ scheduler_events = {
         "0 4 * * *": [
             "accounting_portal.api.cathedis_sync.nightly",
         ],
+        # 11:00 Istanbul = 09:00 Morocco: yesterday's numbers to every partner's
+        # phone that asked for them — see api/partners.py
+        "0 11 * * *": [
+            "accounting_portal.api.partners.send_daily_digest",
+        ],
     },
 }
+
+# The partners page installs as a phone app: its service worker and manifest are
+# served from the site root (a worker only controls pages below its own URL).
+page_renderer = ["accounting_portal.api.partners.PartnersPwaRenderer"]

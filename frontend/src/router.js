@@ -22,6 +22,7 @@ import AppLayout from "@/components/layout/AppLayout.vue";
 const Login = () => import("@/pages/auth/Login.vue");
 const DeskPass = () => import("@/pages/auth/DeskPass.vue");
 const Module = () => import("@/pages/Module.vue");
+const Partners = () => import("@/pages/partners/Partners.vue");
 
 const routes = [
   { path: "/", redirect: "/accounting/dashboard" },
@@ -30,6 +31,9 @@ const routes = [
   // Where a Desk-locked accountant lands when they open /app: explains the lock
   // and hands out a logged one-hour pass. Standalone (no app shell) on purpose.
   { path: "/accounting/desk-pass", name: "DeskPass", component: DeskPass, meta: { requiresAuth: true } },
+  // The partners' page — standalone (no app shell) and installable as a phone app.
+  // A user holding only the Partner role sees this page and nothing else.
+  { path: "/accounting/partners", name: "Partners", component: Partners, meta: { requiresAuth: true, standalone: true } },
   {
     path: "/accounting",
     component: AppLayout,
@@ -67,7 +71,11 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAuth && !auth.isLoggedIn.value) {
     return { name: "Login", query: { redirect: to.fullPath } };
   }
-  if (to.meta.guest && auth.isLoggedIn.value) return { name: "Module", params: { module: "dashboard" } };
+  const partnerOnly = auth.role.value === "Partner";
+  if (to.meta.guest && auth.isLoggedIn.value) {
+    return partnerOnly ? { name: "Partners" } : { name: "Module", params: { module: "dashboard" } };
+  }
+  if (partnerOnly && to.meta.requiresAuth && to.name !== "Partners") return { name: "Partners", replace: true };
   return true;
 });
 

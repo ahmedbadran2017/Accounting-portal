@@ -48,6 +48,13 @@ def get_session_info():
     # payload (instead of throwing) so the SPA shows a clear "no access" screen
     # rather than bouncing them to the login page with no explanation.
     if not (has_all_access(user) or get_portal_role(user)):
+        if "Partner" in frappe.get_roles(user):
+            # a partner sees one page — the SPA routes them there and nowhere else
+            return {
+                "user": user, "full_name": frappe.db.get_value("User", user, "full_name"),
+                "has_access": True, "role": "Partner", "is_partner": True, "is_admin": False,
+                "companies": [], "capabilities": {"partner": True}, "app_build": app_build(),
+            }
         return {
             "user": user, "full_name": frappe.db.get_value("User", user, "full_name"),
             "has_access": False, "role": None, "is_admin": False,

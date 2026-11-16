@@ -5,7 +5,7 @@
     <router-view />
     <ToastHost />
     <ErrorExplainer />
-    <TaskHubWidget portal="Accounting" />
+    <TaskHubWidget v-if="!$route.meta.standalone" portal="Accounting" />
   </div>
 </template>
 

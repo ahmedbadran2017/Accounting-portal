@@ -31,7 +31,9 @@ def _create_portal_roles():
     # "Portal Only" is a marker, not an access level: holders are bounced from the
     # ERPNext Desk to the portal (api/deskguard.py). Created here so a fresh site
     # has it; set_desk_locked() also creates it lazily on first use.
-    for role_name in PORTAL_ROLES + ["Portal Only"]:
+    # "Partner" opens only the partners page (api/partners.py); it is NOT a portal
+    # role, so every other endpoint keeps refusing it.
+    for role_name in PORTAL_ROLES + ["Portal Only", "Partner"]:
         if not frappe.db.exists("Role", role_name):
             frappe.get_doc({
                 "doctype": "Role",

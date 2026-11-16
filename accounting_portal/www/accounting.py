@@ -15,4 +15,10 @@ def get_context(context):
         context.asset_version = int(os.path.getmtime(app_js))
     except Exception:
         context.asset_version = frappe.utils.cint(frappe.utils.now_datetime().timestamp())
+    # The partners page installs as a phone app: give it its manifest and icons.
+    try:
+        path = (frappe.request.path if getattr(frappe, "request", None) else "") or ""
+    except Exception:
+        path = ""
+    context.partners_pwa = path.rstrip("/").startswith("/accounting/partners")
     return context

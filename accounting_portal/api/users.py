@@ -13,7 +13,17 @@ _ASSIGNABLE = [
     {"role": "Accounting Admin", "label": "Admin", "desc": "Full access, posts entries"},
     {"role": "Accountant", "label": "Accountant", "desc": "Posts entries (approval-gated)"},
     {"role": "Accounting Viewer", "label": "Viewer", "desc": "Read-only"},
+    {"role": "Partner", "label": "Partner", "desc": "Partners page only (phone app)"},
 ]
+# Partner is managed here but is not a portal role: it opens the partners page
+# and nothing else (api/partners.py). Its Has Role row is written directly
+# (set_marker) — a User.save() would let a Role Profile wipe it.
+PARTNER = "Partner"
+MANAGEABLE = set(PORTAL_ROLES_SET) | {PARTNER}
+
+
+def _role_of(user):
+    return get_portal_role(user) or (PARTNER if PARTNER in frappe.get_roles(user) else None)
 
 
 def _assert_manager():
@@ -28,7 +38,7 @@ def list_portal_users():
     assert_portal_access()
     rows = frappe.db.sql(
         """SELECT DISTINCT hr.parent AS user FROM `tabHas Role` hr WHERE hr.role IN %(roles)s""",
-        {"roles": tuple(PORTAL_ROLES_SET)}, as_dict=True)
+        {"roles": tuple(MANAGEABLE)}, as_dict=True)
     out = []
     for r in rows:
         info = frappe.db.get_value(
@@ -37,7 +47,7 @@ def list_portal_users():
             continue
         out.append({
             "user": r.user, "full_name": info.full_name or r.user,
-            "role": get_portal_role(r.user), "enabled": int(info.enabled or 0),
+            "role": _role_of(r.user), "enabled": int(info.enabled or 0),
             "last_active": str(info.last_active) if info.last_active else None,
             "image": info.user_image,
             # Desk lock marker (api/deskguard.py). Super Admins / System Managers are
@@ -78,14 +88,20 @@ def set_portal_role(user=None, role=None):
     _assert_manager()
     if not user or not frappe.db.exists("User", user):
         frappe.throw("User not found")
-    if role not in PORTAL_ROLES_SET:
+    if role not in MANAGEABLE:
         frappe.throw("Unknown role")
     if user == frappe.session.user and role != "Accounting Super Admin":
         frappe.throw("You can't downgrade your own Super Admin access")
+    if role == PARTNER:
+        for r in PORTAL_ROLES_SET:
+            set_marker(user, r, 0)
+        set_marker(user, PARTNER, 1)
+        return {"user": user, "role": _role_of(user)}
+    set_marker(user, PARTNER, 0)
     u = frappe.get_doc("User", user)
     u.remove_roles(*[r for r in PORTAL_ROLES_SET if r != role])
     u.add_roles(role)
-    return {"user": user, "role": get_portal_role(user)}
+    return {"user": user, "role": _role_of(user)}
 
 
 @frappe.whitelist()
@@ -111,14 +127,17 @@ def invite_user(email=None, full_name=None, role=None):
     email = (email or "").strip().lower()
     if not email or "@" not in email:
         frappe.throw("A valid email is required")
-    role = role if role in PORTAL_ROLES_SET else ROLE_VIEWER
+    role = role if role in MANAGEABLE else ROLE_VIEWER
     if frappe.db.exists("User", email):
         u = frappe.get_doc("User", email)
         if not u.enabled:
             u.enabled = 1
             u.save(ignore_permissions=True)
-        u.add_roles(role)
-        return {"user": email, "role": get_portal_role(email), "existed": True}
+        if role == PARTNER:
+            set_marker(email, PARTNER, 1)
+        else:
+            u.add_roles(role)
+        return {"user": email, "role": _role_of(email), "existed": True}
     u = frappe.get_doc({
         "doctype": "User", "email": email,
         "first_name": (full_name or email.split("@")[0]).strip(),
@@ -126,5 +145,8 @@ def invite_user(email=None, full_name=None, role=None):
     })
     u.flags.ignore_permissions = True
     u.insert()
-    u.add_roles(role)
-    return {"user": email, "role": get_portal_role(email), "existed": False}
+    if role == PARTNER:
+        set_marker(email, PARTNER, 1)
+    else:
+        u.add_roles(role)
+    return {"user": email, "role": _role_of(email), "existed": False}
