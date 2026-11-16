@@ -328,6 +328,15 @@ def _resolve_sku(sku, prefer=()):
                                   ORDER BY disabled, modified DESC""", (sku, sku))
     if not cands:
         cands = frappe.db.sql_list("SELECT parent FROM `tabItem Barcode` WHERE barcode = %s", (sku,))
+    if not cands and "." in sku:
+        # a code like 508.0070 printed (or read) as 508.007
+        cands = frappe.db.sql_list("SELECT name FROM `tabItem` WHERE custom_sku LIKE %s ORDER BY disabled",
+                                   (sku + "%",))
+        cands = [c for c in cands if (frappe.db.get_value("Item", c, "custom_sku") or "").rstrip("0") == sku.rstrip("0")]
+    if not cands:
+        # the colour variant: BRNS.11020 on the list, BRNS.11020-bej in the system
+        cands = frappe.db.sql_list("""SELECT name FROM `tabItem` WHERE custom_sku LIKE %s
+                                      ORDER BY disabled, modified DESC""", (sku + "-%",))
     for c in cands:
         if c in prefer:
             return c
