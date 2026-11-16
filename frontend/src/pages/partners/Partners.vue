@@ -95,7 +95,7 @@
                   <span v-for="c in channels" :key="c.k" class="jp-growx" :style="{ flexGrow: c.n || 0, background: c.color }" :title="c.label + ' · ' + c.n"></span>
                 </div>
                 <div class="jp-ch-legend">
-                  <span v-for="c in channels" :key="c.k"><i :style="{ background: c.color }"></i>{{ c.label }} <b dir="ltr">{{ n(c.n) }}</b> <em dir="ltr">{{ c.pct }}</em><em v-if="c.conf != null" class="conf" dir="ltr">{{ c.conf }}% {{ L("تأكيد", "conf.") }}</em></span>
+                  <span v-for="c in channels" :key="c.k"><i :style="{ background: c.color }"></i>{{ c.label }} <b dir="ltr">{{ n(c.n) }}</b> <em dir="ltr">{{ c.pct }}</em><em v-if="c.conf != null" class="conf" dir="ltr">{{ c.conf }}% {{ L("تأكيد", "conf.") }}</em><em v-if="c.open" dir="ltr">+{{ c.open }} {{ L("لسه", "open") }}</em></span>
                 </div>
               </div>
               <div class="jp-hero-excl">
@@ -103,7 +103,14 @@
                 <span><b dir="ltr">{{ n(P.modified) }}</b> {{ L("معدّل", "modified") }}</span>
                 <span><b dir="ltr">{{ n(P.cancelled) }}</b> {{ L("ملغي", "cancelled") }}</span>
                 <span>{{ L("الطلبات الحقيقية", "Real orders") }} <b dir="ltr">{{ n(P.net_orders) }}</b></span>
-                <span v-if="P.confirm_rate != null">{{ L("نسبة التأكيد", "Confirmation") }} <b dir="ltr">{{ P.confirm_rate }}%</b></span>
+              </div>
+              <div class="jp-confirm">
+                <div class="jp-confirm-main">
+                  <span>{{ L("نسبة التأكيد", "Confirmation rate") }}</span>
+                  <b dir="ltr">{{ P.confirm_rate == null ? "—" : P.confirm_rate + "%" }}</b>
+                </div>
+                <span v-if="P.still_open" class="jp-confirm-open">{{ L("لسه بيتكلّموا", "Still being called") }} <b dir="ltr">{{ n(P.still_open) }}</b></span>
+                <span v-if="P.out_of_stock" class="jp-confirm-oos">{{ L("ملغي لأن المنتج خلص", "Lost to stock-outs") }} <b dir="ltr">{{ n(P.out_of_stock) }}</b></span>
               </div>
               <div class="jp-hours-wrap">
                 <div class="jp-hours-label">{{ P.single_day ? L("الطلبات بالساعة (توقيت تركيا)", "Orders by hour (Türkiye time)") : L("الطلبات يوم بيوم", "Orders day by day") }}</div>
@@ -486,7 +493,7 @@ const channels = computed(() => {
   return CHANNELS.map((c) => {
     const x = ch[c.k] || {};
     const v = x.n || 0;
-    return { k: c.k, label: c.label(), color: c.color, n: v, conf: x.confirm_rate, pct: Math.round((v / total) * 100) + "%" };
+    return { k: c.k, label: c.label(), color: c.color, n: v, conf: x.confirm_rate, open: x.open || 0, pct: Math.round((v / total) * 100) + "%" };
   }).filter((c) => c.n > 0);
 });
 // Hours of the Morocco day for a single day; one bar per day for a span.
@@ -851,6 +858,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--red); outline-o
 .jp-ch-legend b { color: #fff; font-family: "Plus Jakarta Sans", sans-serif; }
 .jp-ch-legend em { font-style: normal; color: #8f887d; font-family: "Plus Jakarta Sans", sans-serif; font-size: 11px; }
 .jp-ch-legend em.conf { color: #cdeeda; }
+.jp-confirm { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 10px 12px; }
+.jp-confirm-main { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; color: #e3ddd3; }
+.jp-confirm-main b { font-family: "Plus Jakarta Sans", sans-serif; font-size: 22px; font-weight: 800; color: #cdeeda; }
+.jp-confirm-open, .jp-confirm-oos { font-size: 11.5px; border-radius: 999px; padding: 3px 10px; }
+.jp-confirm-open { background: rgba(255,255,255,.1); color: #e3ddd3; }
+.jp-confirm-oos { background: rgba(196,48,28,.25); color: #ffd9d2; }
+.jp-confirm b { font-family: "Plus Jakarta Sans", sans-serif; }
 .jp-hero-excl { position: relative; display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: #b9b2a6; margin-top: -6px; }
 .jp-hero-excl b { color: #e3ddd3; font-family: "Plus Jakarta Sans", sans-serif; }
 .jp-hours-wrap { position: relative; margin-top: auto; }

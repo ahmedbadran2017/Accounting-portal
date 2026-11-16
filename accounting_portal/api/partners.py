@@ -47,7 +47,7 @@ ROLE_PARTNER = "Partner"
 JUNK_ABOVE = 20000          # single orders above this are test / bogus (investor pack, Oct 2026)
 CATHEDIS = "108.021.003"
 TZ_SHIFT_H = 0              # the day turns at midnight on the server clock (Istanbul), like the team's order dashboard
-CACHE_KEY = "ap_partners:summary:v5"
+CACHE_KEY = "ap_partners:summary:v6"
 MATURE_OPEN = 0.10          # a month's delivery rate is shown once ≤10% of its parcels are still moving
 CACHE_TTL = 300
 SUB_DT = "Partner Push Subscription"
@@ -106,9 +106,11 @@ def _prev_month(ym, k=1):
 # always agree: every submitted Sales Order, cancelled and duplicated ones
 # included, on its own order date (transaction_date — the shop's day for
 # Shopify, the day it was keyed for the agent and the landing pages). Duplicated,
-# modified and cancelled are then shown apart, and the confirmation rate is
-# confirmed ÷ (orders − duplicated − modified): a real cancellation is a failed
-# confirmation and stays in. Only bogus test orders above 20,000 MAD are
+# modified and cancelled are then shown apart. The confirmation rate is
+# confirmed ÷ the real orders already decided — (orders − duplicated − modified −
+# still being called): a real cancellation is a failed confirmation and stays in,
+# an order the call centre is still calling is not a failure yet (a running day
+# would otherwise read far too low). Out-of-stock cancellations are shown apart. Only bogus test orders above 20,000 MAD are
 # left out. The day turns at midnight on the server's clock (Istanbul), as on
 # that dashboard; hours are shown on the same clock.
 
@@ -125,6 +127,11 @@ _IS_MODIFIED = (f"(NOT {_IS_DUPLICATE} AND IFNULL(custom_cancellation_reason, ''
                 "IN ('Modification', 'Out of stock & Modified'))")
 _IS_CANCELLED = (f"(NOT {_IS_DUPLICATE} AND NOT {_IS_MODIFIED} "
                  "AND (status = 'Cancelled' OR IFNULL(custom_sales_status, '') = 'Cancelled'))")
+# still being called: not confirmed, not cancelled yet — not a failure until decided
+_IS_OPEN = (f"(NOT {_IS_DUPLICATE} AND NOT {_IS_MODIFIED} AND NOT {_IS_CANCELLED} "
+            "AND IFNULL(custom_sales_status, '') IN ('', 'Pending', 'Follow Up', 'Did not Answer', 'On Hold'))")
+# lost because the product ran out — a stock problem, not the call centre's
+_IS_OUT_OF_STOCK = f"({_IS_CANCELLED} AND IFNULL(custom_cancellation_reason, '') = 'Out of stock')"
 
 
 def _m_today():
@@ -143,14 +150,16 @@ def _m_orders(d0, d1, until=None):
 
 
 def _m_status(d0, d1):
-    """(cancelled, duplicated, modified) among the orders dated d0..d1."""
-    r = frappe.db.sql(f"""SELECT SUM({_IS_CANCELLED}), SUM({_IS_DUPLICATE}), SUM({_IS_MODIFIED})
+    """{cancelled, duplicated, modified, open, out_of_stock} among the orders dated d0..d1."""
+    r = frappe.db.sql(f"""SELECT SUM({_IS_CANCELLED}), SUM({_IS_DUPLICATE}), SUM({_IS_MODIFIED}),
+                                 SUM({_IS_OPEN}), SUM({_IS_OUT_OF_STOCK})
                           FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW}""", _m_args(d0, d1))
-    return int(flt(r[0][0])), int(flt(r[0][1])), int(flt(r[0][2]))
+    keys = ("cancelled", "duplicated", "modified", "open", "out_of_stock")
+    return {k: int(flt(v)) for k, v in zip(keys, r[0])}
 
 
-def _confirm_rate(conf, n, duplicated, modified):
-    base = n - duplicated - modified
+def _confirm_rate(conf, n, duplicated, modified, still_open):
+    base = n - duplicated - modified - still_open
     return round(conf / base * 100, 1) if base > 0 else None
 
 
@@ -183,14 +192,15 @@ _CHANNEL = """CASE WHEN IFNULL(custom_channel, '') = 'Landing Page' THEN 'landin
 
 def _m_channels(d0, d1):
     out = {}
-    for ch, n, v, conf, canc, dup, mod in frappe.db.sql(
+    for ch, n, v, conf, canc, dup, mod, op in frappe.db.sql(
             f"""SELECT {_CHANNEL} ch, COUNT(*), SUM(base_grand_total),
                        SUM(IFNULL(custom_sales_status, '') = 'Confirmed'),
-                       SUM({_IS_CANCELLED}), SUM({_IS_DUPLICATE}), SUM({_IS_MODIFIED})
+                       SUM({_IS_CANCELLED}), SUM({_IS_DUPLICATE}), SUM({_IS_MODIFIED}), SUM({_IS_OPEN})
                 FROM `tabSales Order` WHERE {_ORDER_ALL} AND {_M_WINDOW} GROUP BY ch""", _m_args(d0, d1)):
-        n, conf, canc, dup, mod = int(n), int(flt(conf)), int(flt(canc)), int(flt(dup)), int(flt(mod))
+        n, conf, canc, dup, mod, op = (int(flt(x)) for x in (n, conf, canc, dup, mod, op))
         out[ch] = {"n": n, "value": round(flt(v)), "confirmed": conf, "cancelled": canc,
-                   "duplicated": dup, "modified": mod, "confirm_rate": _confirm_rate(conf, n, dup, mod)}
+                   "duplicated": dup, "modified": mod, "open": op,
+                   "confirm_rate": _confirm_rate(conf, n, dup, mod, op)}
     return out
 
 
@@ -272,11 +282,12 @@ def _period(key):
     d0, d1, p0, p1, live = _window(key)
     single = d0 == d1
     n, v, conf = _m_orders(d0, d1)
-    cancelled, duplicated, modified = _m_status(d0, d1)
+    st = _m_status(d0, d1)
     out = {"key": key, "from": d0, "to": d1, "prev_from": p0, "prev_to": p1, "live": live,
-           "cancelled": cancelled, "duplicated": duplicated, "modified": modified,
-           "net_orders": n - duplicated - modified,
-           "confirm_rate": _confirm_rate(conf, n, duplicated, modified),
+           "cancelled": st["cancelled"], "duplicated": st["duplicated"], "modified": st["modified"],
+           "still_open": st["open"], "out_of_stock": st["out_of_stock"],
+           "net_orders": n - st["duplicated"] - st["modified"],
+           "confirm_rate": _confirm_rate(conf, n, st["duplicated"], st["modified"], st["open"]),
            "single_day": single, "orders": n, "orders_value": round(v), "confirmed": conf,
            "avg_order": round(v / n, 1) if n else None}
     if key == "today":
