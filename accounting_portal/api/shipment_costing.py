@@ -146,10 +146,10 @@ def _taken(invoice_items, exclude=None):
 
 def _items(receipts):
     return frappe.db.sql(
-        """SELECT i.item_code, MAX(i.item_name) item_name, SUM(i.qty) qty, SUM(i.base_amount) booked,
+        """SELECT i.item_code, COALESCE(MAX(it.item_name), MAX(i.item_name)) item_name, MAX(it.custom_sku) sku, SUM(i.qty) qty, SUM(i.base_amount) booked,
                   MAX(IFNULL(it.weight_per_unit, 0)) weight, MAX(i.rate) pr_rate,
                   MAX(pr.currency) pr_currency, MAX(pr.conversion_rate) pr_cr, MIN(pr.posting_date) d,
-                  MAX(pr.supplier) supplier
+                  MAX(pr.supplier) supplier, MAX(it.image) image
            FROM `tabPurchase Receipt Item` i JOIN `tabPurchase Receipt` pr ON pr.name = i.parent
            LEFT JOIN `tabItem` it ON it.name = i.item_code
            WHERE i.parent IN %s GROUP BY i.item_code ORDER BY SUM(i.qty) DESC""",
@@ -221,7 +221,7 @@ def _compute(target, s):
     for it in _items(receipts):
         rate, ccy, src, flag = _source_price(it)
         mad, fxflag = _to_mad(rate, ccy, fx, it.pr_currency, it.pr_cr, first)
-        rows.append(dict(item_code=it.item_code, item_name=it.item_name, qty=flt(it.qty), weight=flt(it.weight),
+        rows.append(dict(item_code=it.item_code, item_name=it.item_name, sku=it.sku or it.item_code, image=it.image, qty=flt(it.qty), weight=flt(it.weight),
                          price=_m(rate, 4), currency=ccy or "MAD", source=src, flag=flag or fxflag,
                          price_mad=mad, booked_unit=flt(it.booked) / flt(it.qty) if flt(it.qty) else 0))
     kg = sum(r["qty"] * r["weight"] for r in rows if r["weight"])

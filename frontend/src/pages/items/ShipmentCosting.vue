@@ -22,7 +22,20 @@
                       :class="modeFilter === m.k ? 'bg-white text-accent-dark shadow-card' : 'text-ink-3'" @click="modeFilter = m.k">{{ m.label() }}</button>
             </div>
           </div>
+          <div class="px-3.5 py-2 border-b border-line-hair space-y-2">
+            <div class="relative">
+              <Icon name="search" :size="13" class="absolute top-1/2 -translate-y-1/2 start-2.5 text-ink-muted pointer-events-none" />
+              <input id="sc-ship-q" v-model="shipQ" :placeholder="L('Receipt, supplier or declaration', 'استلام، مورد أو تصريح', 'Réception, fournisseur ou déclaration')" class="fld fld-sm w-full ps-7" />
+            </div>
+            <div class="flex flex-wrap gap-1">
+              <button v-for="(v, sk) in STATE" :key="sk" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border transition"
+                      :class="[v.cls, stateFilter === sk ? 'border-current' : 'border-transparent', stateFilter && stateFilter !== sk ? 'opacity-45' : '']"
+                      @click="stateFilter = stateFilter === sk ? '' : sk">{{ v.label() }} <span class="tnum" dir="ltr">{{ stateCounts[sk] || 0 }}</span></button>
+            </div>
+          </div>
+          <div v-if="!ovLoad && !rows.length" class="px-4 py-5 text-[12px] text-ink-muted">{{ L("No shipment matches.", "مفيش شحنة مطابقة.", "Aucune expédition.") }}</div>
           <div v-if="ovLoad" class="px-4 py-6 text-[12px] text-ink-muted">{{ L("Loading…", "جارٍ التحميل…", "Chargement…") }}</div>
+          <div class="max-h-[640px] overflow-y-auto">
           <button v-for="r in rows" :key="r.key" class="w-full text-start px-3.5 py-2.5 border-b border-line-hair block"
                   :class="selKey === r.key ? 'bg-[#e7f4f1] shadow-[inset_-3px_0_0_#0f766e]' : 'hover:bg-app-warm/60'" @click="open(r.key)">
             <span class="flex items-center justify-between gap-2">
@@ -34,6 +47,7 @@
               <span class="tnum whitespace-nowrap" dir="ltr">{{ r.per_kg ? fmt(r.per_kg, 2) + ' /kg' : fmt(r.kg, 0) + ' kg' }}</span>
             </span>
           </button>
+          </div>
         </div>
 
         <div v-if="det" class="bg-white rounded-card border border-line shadow-card overflow-hidden">
@@ -118,7 +132,7 @@
               <div class="text-[11px] font-semibold text-ink-3 mb-1">{{ L("Receipts in this shipment", "الاستلامات في الشحنة", "Réceptions de l'expédition") }}</div>
               <div class="flex flex-wrap items-center gap-1.5">
                 <span v-for="(r, i) in ed.receipts" :key="r" class="inline-flex items-center gap-1.5 font-mono text-[12px] px-2.5 py-1 rounded-full bg-[#e7f4f1] text-accent-dark" dir="ltr">
-                  {{ r }}<button v-if="editable && i > 0" class="text-[12px]" :aria-label="L('Remove','شيل','Retirer')" @click="removeReceipt(r)">✕</button>
+                  <router-link :to="routeForDoc('Purchase Receipt', r) || ''" class="hover:underline" :title="L('Open receipt', 'افتح الاستلام', 'Ouvrir la réception')">{{ r }}</router-link><button v-if="editable && i > 0" class="text-[12px]" :aria-label="L('Remove','شيل','Retirer')" @click="removeReceipt(r)">✕</button>
                 </span>
                 <button v-if="editable" class="text-[12px] px-2.5 py-1 rounded-full border border-dashed border-line text-ink-3" @click="toggleMerge">+ {{ L("Add receipt", "ضم استلام", "Ajouter réception") }}</button>
               </div>
@@ -188,9 +202,17 @@
           </div>
 
           <!-- items -->
-          <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <span class="text-[13px] font-bold">{{ L("Items", "الأصناف", "Articles") }}</span>
-            <label class="flex items-center gap-2 text-[12px]">
+            <span class="text-[11.5px] text-ink-muted tnum" dir="ltr">{{ (calc.items || []).length }}</span>
+            <div class="relative ms-2">
+              <Icon name="search" :size="13" class="absolute top-1/2 -translate-y-1/2 start-2 text-ink-muted pointer-events-none" />
+              <input id="sc-item-q" v-model="itemQ" :placeholder="L('Name or SKU', 'الاسم أو SKU', 'Nom ou SKU')" class="fld fld-sm w-[180px] ps-7" />
+            </div>
+            <button v-if="t.kg !== undefined" class="text-[11.5px] px-2.5 py-1 rounded-full border"
+                    :class="onlyNoWeight ? 'bg-rose-50 border-rose-200 text-rose-700 font-semibold' : 'border-line text-ink-3'"
+                    @click="onlyNoWeight = !onlyNoWeight">{{ L("Missing weight only", "الناقص وزن بس", "Sans poids seulement") }} · <span class="tnum" dir="ltr">{{ (calc.issues || {}).no_weight || 0 }}</span></button>
+            <label class="flex items-center gap-2 text-[12px] ms-auto">
               <span class="text-ink-3">{{ L("Turkey costs spread by", "توزيع مصاريف تركيا", "Frais Turquie répartis par") }}</span>
               <select v-model="ed.tr_basis" :disabled="!editable" class="fld fld-sm" @change="touch">
                 <option value="Weight">{{ L("weight", "الوزن", "poids") }}</option>
@@ -199,7 +221,7 @@
             </label>
           </div>
           <div class="overflow-x-auto border border-line rounded-[12px]">
-            <table class="w-full min-w-[860px] text-[12.5px]">
+            <table class="w-full min-w-[820px] text-[12.5px]">
               <thead class="bg-app-warm/40 text-[11px] text-ink-muted">
                 <tr>
                   <th class="text-start px-3 py-2 font-semibold">{{ L("Item", "الصنف", "Article") }}</th>
@@ -208,37 +230,67 @@
                   <th class="text-end px-2 py-2 font-semibold">{{ L("Supplier price", "سعر المورد", "Prix fournisseur") }}</th>
                   <th class="text-end px-2 py-2 font-semibold">{{ L("After Turkey", "بعد تركيا", "Après Turquie") }}</th>
                   <th class="text-end px-2 py-2 font-semibold">{{ L("+ Morocco", "+ المغرب", "+ Maroc") }}</th>
-                  <th class="text-end px-2 py-2 font-semibold">{{ L("Final", "النهائي", "Final") }}</th>
-                  <th class="text-end px-3 py-2 font-semibold">{{ L("Booked", "المتسجل", "Comptabilisé") }}</th>
+                  <th class="text-end px-2 py-2 font-semibold text-ink-2">{{ L("Final / unit", "النهائي / قطعة", "Final / unité") }}</th>
+                  <th class="text-end px-3 py-2 font-semibold">{{ L("Booked / unit", "المتسجل / قطعة", "Comptabilisé / unité") }}</th>
                 </tr>
               </thead>
               <tbody>
-                <template v-for="it in calc.items || []" :key="it.item_code">
-                  <tr class="border-t border-line-hair" :class="openItem === it.item_code ? 'bg-[#e7f4f1]' : ''">
-                    <td class="px-3 py-1.5 max-w-[260px]">
-                      <button class="text-start truncate block w-full hover:underline" dir="auto" @click="openItem = openItem === it.item_code ? '' : it.item_code">{{ it.item_name || it.item_code }}</button>
-                      <span v-if="it.flag" class="text-[10.5px] font-semibold" :class="it.flag === 'from_receipt' ? 'text-amber-700' : 'text-rose-700'">{{ FLAG[it.flag] ? FLAG[it.flag]() : it.flag }}</span>
+                <tr v-if="!shownItems.length"><td colspan="8" class="px-3 py-4 text-center text-[12px] text-ink-muted">{{ L("No item matches.", "مفيش صنف مطابق.", "Aucun article.") }}</td></tr>
+                <template v-for="it in shownItems" :key="it.item_code">
+                  <tr class="border-t border-line-hair align-middle" :class="openItem === it.item_code ? 'bg-[#e7f4f1]' : 'hover:bg-app-warm/30'">
+                    <td class="px-3 py-1.5">
+                      <div class="flex items-center gap-2.5 min-w-0 max-w-[300px]">
+                        <img v-if="it.image" :src="it.image" alt="" loading="lazy" class="w-9 h-9 rounded-[8px] object-cover flex-shrink-0 border border-line-hair bg-app-warm" />
+                        <span v-else class="w-9 h-9 rounded-[8px] flex-shrink-0 border border-line-hair bg-app-warm grid place-items-center text-ink-muted"><Icon name="box" :size="15" /></span>
+                        <div class="min-w-0">
+                          <button class="text-start line-clamp-2 leading-snug hover:underline" dir="auto" :title="it.item_name" @click="openItem = openItem === it.item_code ? '' : it.item_code">{{ it.item_name || it.item_code }}</button>
+                          <div class="flex items-center gap-1.5 mt-0.5">
+                            <button class="font-mono text-[11px] font-semibold text-ink-3 hover:text-accent-dark inline-flex items-center gap-1" dir="ltr" :title="L('Copy SKU', 'نسخ الـ SKU', 'Copier le SKU')" @click="copySku(it.sku || it.item_code)">
+                              {{ it.sku || it.item_code }}<Icon :name="copied === (it.sku || it.item_code) ? 'check' : 'copy'" :size="11" />
+                            </button>
+                            <span v-if="it.flag" class="text-[10.5px] font-semibold px-1.5 rounded-full" :class="it.flag === 'from_receipt' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'">{{ FLAG[it.flag] ? FLAG[it.flag]() : it.flag }}</span>
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     <td class="px-2 py-1.5 text-end tnum" dir="ltr">{{ fmt(it.qty, 0) }}</td>
                     <td class="px-2 py-1.5 text-end">
-                      <input type="number" step="0.001" :value="it.weight || ''" :disabled="!canWrite || status === 'Locked'"
-                             class="fld fld-sm w-[80px] tnum text-end" :class="it.no_weight ? 'border-rose-300 bg-rose-50' : ''" dir="ltr"
-                             :aria-label="L('Weight per unit (kg)', 'وزن القطعة بالكيلو', 'Poids unitaire (kg)')" @change="saveWeight(it, $event.target.value)" />
+                      <input type="number" step="0.001" min="0" :value="it.weight || ''" :disabled="!canWrite || status === 'Locked'" :data-w="it.item_code"
+                             class="fld fld-sm w-[78px] tnum text-end" :class="it.no_weight ? 'border-rose-300 bg-rose-50' : ''" dir="ltr" placeholder="kg"
+                             :aria-label="L('Weight per unit (kg)', 'وزن القطعة بالكيلو', 'Poids unitaire (kg)')"
+                             @change="saveWeight(it, $event.target.value)" @keydown.enter.prevent="nextWeight(it.item_code)" />
                     </td>
-                    <td class="px-2 py-1.5 text-end tnum" dir="ltr">{{ fmt(it.price, 2) }} <span class="text-ink-muted">{{ CCY[it.currency] || it.currency }}</span></td>
+                    <td class="px-2 py-1.5 text-end tnum whitespace-nowrap" dir="ltr">{{ fmt(it.price, 2) }} <span class="text-ink-muted">{{ CCY[it.currency] || it.currency }}</span></td>
                     <td class="px-2 py-1.5 text-end tnum" dir="ltr">{{ fmt(it.after_turkey, 2) }}</td>
-                    <td class="px-2 py-1.5 text-end tnum" dir="ltr">{{ fmt(it.ma_unit, 2) }}</td>
+                    <td class="px-2 py-1.5 text-end tnum" :class="it.ma_unit ? '' : 'text-ink-muted'" dir="ltr">{{ fmt(it.ma_unit, 2) }}</td>
                     <td class="px-2 py-1.5 text-end tnum font-bold" dir="ltr">{{ fmt(it.final, 2) }}</td>
-                    <td class="px-3 py-1.5 text-end tnum text-ink-3" dir="ltr">{{ fmt(it.booked_unit, 2) }}</td>
+                    <td class="px-3 py-1.5 text-end tnum whitespace-nowrap" dir="ltr">
+                      <span class="text-ink-3">{{ fmt(it.booked_unit, 2) }}</span>
+                      <span v-if="gap(it) !== null" class="block text-[10.5px] font-semibold" :class="gapCls(gap(it))">{{ gap(it) > 0 ? "+" : "" }}{{ gap(it) }}%</span>
+                    </td>
                   </tr>
                   <tr v-if="openItem === it.item_code" class="bg-app-warm/50">
                     <td colspan="8" class="px-3 py-2 text-[12px] text-ink-2">
                       <div class="tnum" dir="ltr">{{ eqLine(it) }}</div>
-                      <div class="text-ink-muted mt-0.5">{{ L("Price from", "السعر من", "Prix de") }} {{ it.source === 'receipt' ? L('the receipt (no supplier bill found)', 'الاستلام (مفيش فاتورة مورد)', 'la réception') : it.source || '—' }}</div>
+                      <div class="text-ink-muted mt-0.5">{{ L("Price from", "السعر من", "Prix de") }} {{ it.source === 'receipt' ? L('the receipt (no supplier bill found)', 'الاستلام (مفيش فاتورة مورد)', 'la réception') : it.source || '—' }}
+                        · <span class="tnum" dir="ltr">{{ fmt(it.qty * (it.weight || 0), 1) }} kg</span> {{ L("on this line", "في السطر ده", "sur la ligne") }}</div>
                     </td>
                   </tr>
                 </template>
               </tbody>
+              <tfoot v-if="(calc.items || []).length" class="border-t-2 border-line bg-app-warm/40 text-[12px] font-semibold">
+                <tr>
+                  <td class="px-3 py-2">{{ L("Shipment total", "إجمالي الشحنة", "Total expédition") }}</td>
+                  <td class="px-2 py-2 text-end tnum" dir="ltr">{{ fmt(t.units, 0) }}</td>
+                  <td class="px-2 py-2 text-end tnum" dir="ltr">{{ fmt(t.kg, 0) }} kg</td>
+                  <td colspan="3" class="px-2 py-2 text-end text-[11px] text-ink-muted font-normal">{{ L("qty × unit cost", "الكمية × تكلفة القطعة", "qté × coût unitaire") }}</td>
+                  <td class="px-2 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(t.total, 0) }}</td>
+                  <td class="px-3 py-2 text-end tnum whitespace-nowrap" dir="ltr">
+                    <span class="text-ink-3">{{ fmt(t.booked, 0) }}</span>
+                    <span v-if="t.booked" class="block text-[10.5px]" :class="gapCls(pct(t.total, t.booked))">{{ pct(t.total, t.booked) > 0 ? "+" : "" }}{{ pct(t.total, t.booked) }}%</span>
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
           <div class="text-[11.5px] text-ink-muted">{{ L("Weights save straight to the item and are logged. Everything else is saved with the shipment.", "الأوزان بتتحفظ على الصنف نفسه على طول ومتسجلة. باقي التعديلات بتتحفظ مع الشحنة.", "Les poids sont enregistrés sur l'article ; le reste avec l'expédition.") }}</div>
@@ -262,6 +314,7 @@ import { useAuth } from "@/composables/useAuth";
 import { useToast } from "@/composables/useToast";
 import Icon from "@/components/Icon.vue";
 import UiButton from "@/components/UiButton.vue";
+import { routeForDoc } from "@/utils/helpers";
 
 const { locale } = useI18n();
 const { entityId } = useUi();
@@ -313,7 +366,34 @@ const cands = ref({ Morocco: { open: false, loading: false, rows: [] }, Turkey: 
 const manual = ref({ Morocco: { amount: "", desc: "" }, Turkey: { amount: "", desc: "" } });
 const fxOpen = ref(false), fxRows = ref([]);
 
-const rows = computed(() => (ov.value.rows || []).filter((r) => !modeFilter.value || r.mode === modeFilter.value));
+const shipQ = ref(""), stateFilter = ref("");
+const itemQ = ref(""), onlyNoWeight = ref(false), copied = ref("");
+const byMode = computed(() => (ov.value.rows || []).filter((r) => !modeFilter.value || r.mode === modeFilter.value));
+const stateCounts = computed(() => byMode.value.reduce((a, r) => ((a[r.state] = (a[r.state] || 0) + 1), a), {}));
+const rows = computed(() => {
+  const q = shipQ.value.trim().toLowerCase();
+  return byMode.value.filter((r) => (!stateFilter.value || r.state === stateFilter.value)
+    && (!q || [r.receipts.join(" "), r.supplier, r.customs_declaration, r.name].join(" ").toLowerCase().includes(q)));
+});
+const shownItems = computed(() => {
+  const q = itemQ.value.trim().toLowerCase();
+  return (calc.value.items || []).filter((it) => (!onlyNoWeight.value || it.no_weight)
+    && (!q || [it.item_code, it.sku, it.item_name].join(" ").toLowerCase().includes(q)));
+});
+const pct = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);
+const gap = (it) => (it.booked_unit && it.final ? pct(it.final, it.booked_unit) : null);
+// Small gaps are noise; a large one either way is what the reviewer should look at.
+const gapCls = (g) => (g === null ? "" : Math.abs(g) < 10 ? "text-ink-muted" : Math.abs(g) < 30 ? "text-amber-700" : "text-rose-700");
+async function copySku(code) {
+  try { await navigator.clipboard.writeText(code); copied.value = code; setTimeout(() => { if (copied.value === code) copied.value = ""; }, 1200); }
+  catch { /* clipboard blocked: nothing to do */ }
+}
+function nextWeight(code) {
+  const list = shownItems.value, i = list.findIndex((x) => x.item_code === code);
+  const nx = list[i + 1];
+  const el = nx && document.querySelector(`input[data-w="${CSS.escape(nx.item_code)}"]`);
+  if (el) { el.focus(); el.select(); } else document.activeElement?.blur();
+}
 const t = computed(() => calc.value.totals || {});
 const status = computed(() => (det.value && det.value.shipment.status) || "Draft");
 const editable = computed(() => canWrite.value && status.value === "Draft");
@@ -384,6 +464,8 @@ async function loadOverview() {
   finally { ovLoad.value = false; }
 }
 function take(r) {
+  const first = (x) => (x && x.shipment && (x.shipment.receipts || [])[0]) || "";
+  const same = first(det.value) && first(det.value) === first(r);
   det.value = r;
   ed.value = Object.assign({}, r.shipment, { fx_rate: r.shipment.fx_rate || "", charges: (r.shipment.charges || []).map(keyed) });
   calc.value = r.calc || {};
@@ -391,6 +473,7 @@ function take(r) {
   dirty.value = false; actErr.value = "";
   cands.value = { Morocco: { open: false, loading: false, rows: [] }, Turkey: { open: false, loading: false, rows: [] } };
   mergeOpen.value = false;
+  if (!same) { itemQ.value = ""; onlyNoWeight.value = false; openItem.value = ""; }
 }
 async function open(key) {
   if (dirty.value && !window.confirm(L("Discard unsaved changes?", "تسيب التعديلات من غير حفظ؟", "Abandonner les modifications ?"))) return;
