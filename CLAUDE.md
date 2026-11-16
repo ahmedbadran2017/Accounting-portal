@@ -42,8 +42,10 @@ Deeper reference:
   - `Accounting Portal Action` — the audit log of every portal write
   - `Bank Statement Import AP`
   - `Cathedis Parcel` — the carrier mirror for the cycle radar
-  - `Shipment Costing` (+ `… Receipt`, `… Charge`) — per-shipment landed cost, Items → Shipment costing
-    (`api/shipment_costing.py`). A working record: nothing posts to the ledger.
+  - `Shipment Costing` (+ `… Receipt`, `… Charge`, `… Line`) — per-shipment landed cost, Items → Shipment costing
+    (`api/shipment_costing.py`). A working record: nothing posts to the ledger. Sea containers 1–29 are
+    loaded from their Drive packing lists (`data/containers_seed.json`, `load_containers`): cost = supplier
+    bill × what SHIPPED, carried by what ARRIVED (pieces kept at customs raise the unit cost, no write-off).
 - `accounting_portal/patches/` + `patches.txt`.
 - `frontend/` — Vue 3 + Vite + Tailwind + vue-i18n.
   - Locales: `src/locales/{en,ar,fr}.json`. Arabic is RTL. All three must stay in parity.

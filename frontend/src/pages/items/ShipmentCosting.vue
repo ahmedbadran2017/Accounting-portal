@@ -25,7 +25,7 @@
           <div class="px-3.5 py-2 border-b border-line-hair space-y-2">
             <div class="relative">
               <Icon name="search" :size="13" class="absolute top-1/2 -translate-y-1/2 start-2.5 text-ink-muted pointer-events-none" />
-              <input id="sc-ship-q" v-model="shipQ" :placeholder="L('Receipt, supplier or declaration', 'استلام، مورد أو تصريح', 'Réception, fournisseur ou déclaration')" class="fld fld-sm w-full ps-7" />
+              <input id="sc-ship-q" v-model="shipQ" :placeholder="L('Container, receipt, supplier…', 'كونتينر، استلام، مورد…', 'Conteneur, réception, fournisseur…')" class="fld fld-sm w-full ps-7" />
             </div>
             <div class="flex flex-wrap gap-1">
               <button v-for="(v, sk) in STATE" :key="sk" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full border transition"
@@ -39,10 +39,20 @@
           <button v-for="r in rows" :key="r.key" class="w-full text-start px-3.5 py-2.5 border-b border-line-hair block"
                   :class="selKey === r.key ? 'bg-[#e7f4f1] shadow-[inset_-3px_0_0_#0f766e]' : 'hover:bg-app-warm/60'" @click="open(r.key)">
             <span class="flex items-center justify-between gap-2">
-              <span class="font-mono text-[12.5px] font-semibold truncate" dir="ltr">{{ r.receipts[0] }}<span v-if="r.receipts.length > 1" class="text-ink-muted"> +{{ r.receipts.length - 1 }}</span></span>
+              <span v-if="r.container_no" class="text-[13px] font-bold truncate">
+                {{ L("Container", "كونتينر", "Conteneur") }} {{ r.container_no }}
+                <span class="font-mono text-[11px] font-semibold text-ink-muted" dir="ltr">{{ r.container_id }}</span>
+              </span>
+              <span v-else class="font-mono text-[12.5px] font-semibold truncate" dir="ltr">{{ r.receipts[0] }}<span v-if="r.receipts.length > 1" class="text-ink-muted"> +{{ r.receipts.length - 1 }}</span></span>
               <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap" :class="STATE[r.state].cls">{{ STATE[r.state].label() }}</span>
             </span>
-            <span class="flex justify-between gap-2 text-[11.5px] text-ink-muted mt-1">
+            <span v-if="r.container_no" class="flex justify-between gap-2 text-[11.5px] text-ink-muted mt-1">
+              <span class="truncate" dir="ltr">{{ r.date || "—" }} · {{ r.maslak_invoice || "—" }}</span>
+              <span class="tnum whitespace-nowrap" dir="ltr">
+                {{ fmt(r.received, 0) }}<span v-if="r.missing" class="font-semibold ms-1" :class="r.missing > 0 ? (r.missing > Math.max(10, r.shipped * 0.02) ? 'text-rose-700' : 'text-amber-700') : 'text-sky-700'">{{ r.missing > 0 ? "−" : "+" }}{{ fmt(Math.abs(r.missing), 0) }}</span>
+              </span>
+            </span>
+            <span v-else class="flex justify-between gap-2 text-[11.5px] text-ink-muted mt-1">
               <span class="truncate">{{ r.mode === 'Air' ? L('Air','جوي','Aérien') : L('Sea','بحري','Maritime') }} · {{ r.supplier }} · {{ r.date }}<span v-if="r.customs_declaration"> · #{{ r.customs_declaration }}</span></span>
               <span class="tnum whitespace-nowrap" dir="ltr">{{ r.per_kg ? fmt(r.per_kg, 2) + ' /kg' : fmt(r.kg, 0) + ' kg' }}</span>
             </span>
@@ -85,8 +95,20 @@
           <!-- header -->
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-              <div class="font-mono text-[18px] font-bold" dir="ltr">{{ ed.receipts.join(' + ') }}</div>
-              <div class="text-[12.5px] text-ink-3 mt-0.5">
+              <template v-if="isContainer">
+                <div class="text-[18px] font-bold">{{ L("Container", "كونتينر", "Conteneur") }} {{ ed.container_no }}
+                  <span class="font-mono text-[14px] font-semibold text-ink-3 ms-1" dir="ltr">{{ ed.container_id }}</span></div>
+                <div class="text-[12.5px] text-ink-3 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span dir="ltr">{{ ed.shipped_on || calc.anchor }}</span>
+                  <span v-if="ed.maslak_invoice">· <span class="font-mono" dir="ltr">{{ ed.maslak_invoice }}</span></span>
+                  <span v-if="ed.export_declaration">· {{ L("export", "تصدير", "export") }} <span class="font-mono" dir="ltr">{{ ed.export_declaration }}</span></span>
+                  <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" :class="ed.packing_source === 'Packing list' ? 'bg-[#e7f4f1] text-accent-dark' : 'bg-amber-50 text-amber-800'">{{ SRC[ed.packing_source] ? SRC[ed.packing_source]() : ed.packing_source }}</span>
+                  <a v-if="ed.drive_folder" :href="'https://drive.google.com/drive/folders/' + ed.drive_folder" target="_blank" rel="noopener" class="text-accent-dark hover:underline">{{ L("Drive folder", "فولدر Drive", "Dossier Drive") }} ↗</a>
+                </div>
+                <div v-if="ed.notes" class="text-[11.5px] text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1 mt-1.5 max-w-[680px]" dir="auto">{{ ed.notes }}</div>
+              </template>
+              <div v-else class="font-mono text-[18px] font-bold" dir="ltr">{{ ed.receipts.join(' + ') }}</div>
+              <div v-if="!isContainer" class="text-[12.5px] text-ink-3 mt-0.5">
                 {{ calc.receipts && calc.receipts[0] && calc.receipts[0].date }} · {{ calc.receipts && calc.receipts[0] && calc.receipts[0].supplier }}
                 · <span class="tnum" dir="ltr">{{ fmt(t.units, 0) }}</span> {{ L("units", "قطعة", "unités") }} · <span class="tnum" dir="ltr">{{ fmt(t.kg, 0) }}</span> kg
               </div>
@@ -129,14 +151,21 @@
               <input v-model="ed.bill_of_lading" :disabled="!editable" class="fld fld-md mt-1 w-full" dir="ltr" @input="touch" />
             </label>
             <div class="sm:col-span-2 lg:col-span-4">
-              <div class="text-[11px] font-semibold text-ink-3 mb-1">{{ L("Receipts in this shipment", "الاستلامات في الشحنة", "Réceptions de l'expédition") }}</div>
-              <div class="flex flex-wrap items-center gap-1.5">
+              <div class="text-[11px] font-semibold text-ink-3 mb-1">{{ isContainer ? L("Recorded arrival (receipts / transfers)", "التسجيل في السيستم (استلامات / تحويلات)", "Arrivée enregistrée (réceptions / transferts)") : L("Receipts in this shipment", "الاستلامات في الشحنة", "Réceptions de l'expédition") }}</div>
+              <div v-if="isContainer" class="flex flex-wrap items-center gap-1.5">
+                <span v-if="!(calc.receipts || []).length" class="text-[12px] text-rose-700">{{ L("No receipt or transfer recorded for this container.", "مفيش استلام ولا تحويل متسجل للكونتينر ده.", "Aucune réception ni transfert enregistré.") }}</span>
+                <span v-for="v in calc.receipts || []" :key="v.name" class="inline-flex items-center gap-1.5 font-mono text-[12px] px-2.5 py-1 rounded-full bg-[#e7f4f1] text-accent-dark" dir="ltr">
+                  <router-link v-if="v.kind === 'receipt'" :to="routeForDoc('Purchase Receipt', v.name) || ''" class="hover:underline">{{ v.name }}</router-link><span v-else>{{ v.name }}</span>
+                  <span class="text-ink-muted font-sans text-[11px]">{{ v.date }}</span>
+                </span>
+              </div>
+              <div v-else class="flex flex-wrap items-center gap-1.5">
                 <span v-for="(r, i) in ed.receipts" :key="r" class="inline-flex items-center gap-1.5 font-mono text-[12px] px-2.5 py-1 rounded-full bg-[#e7f4f1] text-accent-dark" dir="ltr">
                   <router-link :to="routeForDoc('Purchase Receipt', r) || ''" class="hover:underline" :title="L('Open receipt', 'افتح الاستلام', 'Ouvrir la réception')">{{ r }}</router-link><button v-if="editable && i > 0" class="text-[12px]" :aria-label="L('Remove','شيل','Retirer')" @click="removeReceipt(r)">✕</button>
                 </span>
                 <button v-if="editable" class="text-[12px] px-2.5 py-1 rounded-full border border-dashed border-line text-ink-3" @click="toggleMerge">+ {{ L("Add receipt", "ضم استلام", "Ajouter réception") }}</button>
               </div>
-              <div v-if="mergeOpen" class="mt-2 border border-line rounded-[10px] bg-white p-2 space-y-1">
+              <div v-if="mergeOpen && !isContainer" class="mt-2 border border-line rounded-[10px] bg-white p-2 space-y-1">
                 <div v-if="!mergeCands.length" class="text-[12px] text-ink-muted px-1">{{ L("No free receipts within three weeks.", "مفيش استلامات فاضية في حدود 3 أسابيع.", "Aucune réception libre.") }}</div>
                 <div v-for="c in mergeCands" :key="c.name" class="flex items-center justify-between gap-2 text-[12px] px-1">
                   <span><span class="font-mono" dir="ltr">{{ c.name }}</span> · {{ c.date }} · {{ c.supplier }} · <span class="tnum" dir="ltr">{{ fmt(c.kg, 0) }}</span> kg</span>
@@ -220,7 +249,91 @@
               </select>
             </label>
           </div>
-          <div class="overflow-x-auto border border-line rounded-[12px]">
+          <!-- container: shipped (packing list) vs arrived -->
+          <div v-if="isContainer" class="overflow-x-auto border border-line rounded-[12px]">
+            <table class="w-full min-w-[900px] text-[12.5px]">
+              <thead class="bg-app-warm/40 text-[11px] text-ink-muted">
+                <tr>
+                  <th class="text-start px-3 py-2 font-semibold">{{ L("Item", "الصنف", "Article") }}</th>
+                  <th class="text-end px-2 py-2 font-semibold">{{ L("Shipped", "خرج", "Expédié") }}</th>
+                  <th class="text-end px-2 py-2 font-semibold">{{ L("Arrived", "وصل", "Arrivé") }}</th>
+                  <th class="text-end px-2 py-2 font-semibold">{{ L("kg / unit", "كجم / قطعة", "kg / unité") }}</th>
+                  <th class="text-end px-2 py-2 font-semibold">{{ L("Supplier price", "سعر المورد", "Prix fournisseur") }}</th>
+                  <th class="text-end px-2 py-2 font-semibold">{{ L("+ Turkey", "+ تركيا", "+ Turquie") }}</th>
+                  <th class="text-end px-2 py-2 font-semibold">{{ L("+ Morocco", "+ المغرب", "+ Maroc") }}</th>
+                  <th class="text-end px-2 py-2 font-semibold text-ink-2" :title="L('Line cost ÷ units that arrived', 'تكلفة السطر ÷ اللي وصل', 'Coût de la ligne ÷ unités arrivées')">{{ L("Cost / arrived unit", "تكلفة القطعة الواصلة", "Coût / unité arrivée") }}</th>
+                  <th class="text-end px-3 py-2 font-semibold">{{ L("Booked / unit", "المتسجل / قطعة", "Comptabilisé / unité") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!shownItems.length"><td colspan="9" class="px-3 py-4 text-center text-[12px] text-ink-muted">{{ L("No item matches.", "مفيش صنف مطابق.", "Aucun article.") }}</td></tr>
+                <template v-for="(it, ix) in shownItems" :key="(it.item_code || it.sku) + ix">
+                  <tr class="border-t border-line-hair align-middle" :class="openItem === rowKey(it) ? 'bg-[#e7f4f1]' : 'hover:bg-app-warm/30'">
+                    <td class="px-3 py-1.5">
+                      <div class="flex items-center gap-2.5 min-w-0 max-w-[300px]">
+                        <img v-if="it.image" :src="it.image" alt="" loading="lazy" class="w-9 h-9 rounded-[8px] object-cover flex-shrink-0 border border-line-hair bg-app-warm" />
+                        <span v-else class="w-9 h-9 rounded-[8px] flex-shrink-0 border border-line-hair bg-app-warm grid place-items-center text-ink-muted"><Icon name="box" :size="15" /></span>
+                        <div class="min-w-0">
+                          <button class="text-start line-clamp-2 leading-snug hover:underline" dir="auto" :title="it.item_name" @click="openItem = openItem === rowKey(it) ? '' : rowKey(it)">{{ it.item_name || it.sku || "—" }}</button>
+                          <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <template v-if="it.flag === 'no_sku'">
+                              <input v-if="editable" :value="it.sku || ''" :placeholder="L('Type the SKU', 'اكتب الـ SKU', 'Saisir le SKU')" class="fld fld-sm w-[130px] font-mono text-[11px]" dir="ltr" @change="setLineSku(it, $event.target.value)" />
+                              <span class="text-[10.5px] font-semibold px-1.5 rounded-full bg-rose-50 text-rose-700">{{ L("SKU unknown", "الـ SKU مش معروف", "SKU inconnu") }}</span>
+                            </template>
+                            <button v-else class="font-mono text-[11px] font-semibold text-ink-3 hover:text-accent-dark inline-flex items-center gap-1" dir="ltr" :title="L('Copy SKU', 'نسخ الـ SKU', 'Copier le SKU')" @click="copySku(it.sku || it.item_code)">
+                              {{ it.sku || it.item_code }}<Icon :name="copied === (it.sku || it.item_code) ? 'check' : 'copy'" :size="11" />
+                            </button>
+                            <span v-if="it.flag && it.flag !== 'no_sku'" class="text-[10.5px] font-semibold px-1.5 rounded-full" :class="it.flag === 'from_receipt' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'">{{ FLAG[it.flag] ? FLAG[it.flag]() : it.flag }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-2 py-1.5 text-end tnum" dir="ltr">{{ it.shipped ? fmt(it.shipped, 0) : "—" }}</td>
+                    <td class="px-2 py-1.5 text-end tnum whitespace-nowrap" dir="ltr">
+                      {{ it.received ? fmt(it.received, 0) : "—" }}
+                      <span v-if="it.qty_flag" class="block text-[10.5px] font-semibold" :class="QF[it.qty_flag].cls">{{ QF[it.qty_flag].label(it) }}</span>
+                    </td>
+                    <td class="px-2 py-1.5 text-end">
+                      <span v-if="it.weight_src === 'packing'" class="tnum" dir="ltr" :title="L('From the packing list gross weight', 'من الوزن الإجمالي في الـ packing list', 'Poids brut de la liste de colisage')">{{ fmt(it.weight, 3) }}<span class="block text-[10px] text-ink-muted">{{ L("packing list", "packing list", "colisage") }}</span></span>
+                      <input v-else-if="it.item_code" type="number" step="0.001" min="0" :value="it.weight || ''" :disabled="!canWrite || status === 'Locked'" :data-w="it.item_code"
+                             class="fld fld-sm w-[78px] tnum text-end" :class="it.no_weight ? 'border-rose-300 bg-rose-50' : ''" dir="ltr" placeholder="kg"
+                             :aria-label="L('Weight per unit (kg)', 'وزن القطعة بالكيلو', 'Poids unitaire (kg)')"
+                             @change="saveWeight(it, $event.target.value)" @keydown.enter.prevent="nextWeight(it.item_code)" />
+                    </td>
+                    <td class="px-2 py-1.5 text-end tnum whitespace-nowrap" dir="ltr">{{ it.price ? fmt(it.price, 2) : "—" }} <span class="text-ink-muted">{{ CCY[it.currency] || it.currency }}</span></td>
+                    <td class="px-2 py-1.5 text-end tnum" :class="it.tr_unit ? '' : 'text-ink-muted'" dir="ltr">{{ fmt(it.tr_unit, 2) }}</td>
+                    <td class="px-2 py-1.5 text-end tnum" :class="it.ma_unit ? '' : 'text-ink-muted'" dir="ltr">{{ fmt(it.ma_unit, 2) }}</td>
+                    <td class="px-2 py-1.5 text-end tnum font-bold" dir="ltr">{{ it.final ? fmt(it.final, 2) : "—" }}</td>
+                    <td class="px-3 py-1.5 text-end tnum whitespace-nowrap" dir="ltr">
+                      <span class="text-ink-3">{{ it.booked_unit ? fmt(it.booked_unit, 2) : "—" }}</span>
+                      <span v-if="gap(it) !== null" class="block text-[10.5px] font-semibold" :class="gapCls(gap(it))">{{ gap(it) > 0 ? "+" : "" }}{{ gap(it) }}%</span>
+                    </td>
+                  </tr>
+                  <tr v-if="openItem === rowKey(it)" class="bg-app-warm/50">
+                    <td colspan="9" class="px-3 py-2 text-[12px] text-ink-2">
+                      <div class="tnum" dir="ltr">{{ eqLineC(it) }}</div>
+                      <div class="text-ink-muted mt-0.5">{{ L("Price from", "السعر من", "Prix de") }} {{ it.source === 'receipt' ? L('the arrival voucher (no supplier bill found)', 'التسجيل نفسه (مفيش فاتورة مورد)', "l'arrivée (aucune facture)") : it.source || '—' }}</div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+              <tfoot v-if="(calc.items || []).length" class="border-t-2 border-line bg-app-warm/40 text-[12px] font-semibold">
+                <tr>
+                  <td class="px-3 py-2">{{ L("Container total", "إجمالي الكونتينر", "Total conteneur") }}</td>
+                  <td class="px-2 py-2 text-end tnum" dir="ltr">{{ fmt(t.shipped, 0) }}</td>
+                  <td class="px-2 py-2 text-end tnum whitespace-nowrap" dir="ltr">{{ fmt(t.received, 0) }}<span v-if="t.missing" class="block text-[10.5px]" :class="t.missing > 0 ? 'text-rose-700' : 'text-sky-700'">{{ t.missing > 0 ? "−" : "+" }}{{ fmt(Math.abs(t.missing), 0) }}</span></td>
+                  <td class="px-2 py-2 text-end tnum" dir="ltr">{{ fmt(t.kg, 0) }} kg</td>
+                  <td colspan="3" class="px-2 py-2 text-end text-[11px] text-ink-muted font-normal">{{ L("shipped × unit cost", "اللي خرج × تكلفة القطعة", "expédié × coût unitaire") }}</td>
+                  <td class="px-2 py-2 text-end tnum font-bold" dir="ltr">{{ fmt(t.total, 0) }}</td>
+                  <td class="px-3 py-2 text-end tnum whitespace-nowrap" dir="ltr">
+                    <span class="text-ink-3">{{ fmt(t.booked, 0) }}</span>
+                    <span v-if="t.booked" class="block text-[10.5px]" :class="gapCls(pct(t.total, t.booked))">{{ pct(t.total, t.booked) > 0 ? "+" : "" }}{{ pct(t.total, t.booked) }}%</span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div v-else class="overflow-x-auto border border-line rounded-[12px]">
             <table class="w-full min-w-[820px] text-[12.5px]">
               <thead class="bg-app-warm/40 text-[11px] text-ink-muted">
                 <tr>
@@ -349,8 +462,22 @@ const FLAG = {
   from_receipt: () => L("price from receipt", "السعر من الاستلام", "prix de la réception"),
   missing: () => L("no price", "مفيش سعر", "sans prix"),
   fx_missing: () => L("no exchange rate", "مفيش سعر صرف", "sans taux"),
+  no_sku: () => L("SKU unknown", "الـ SKU مش معروف", "SKU inconnu"),
 };
 const CCY = { TRY: "₺", MAD: "د.م", USD: "$" };
+const SRC = {
+  "Packing list": () => L("from the packing list", "من الـ packing list", "liste de colisage"),
+  "Category only": () => L("packing list by category — arrival used", "packing list بالفئات — اتاخد اللي وصل", "colisage par catégorie — arrivée utilisée"),
+  "No document": () => L("no document — arrival used", "مفيش مستند — اتاخد اللي وصل", "sans document — arrivée utilisée"),
+};
+// shipped vs arrived: a few pieces short is what customs keeps; more is a recording gap
+const QF = {
+  customs: { cls: "text-amber-700", label: (it) => "−" + fmt(it.shipped - it.received, 0) + " " + L("customs?", "جمارك؟", "douane ?") },
+  short: { cls: "text-rose-700", label: (it) => "−" + fmt(it.shipped - it.received, 0) + " " + L("short", "ناقص", "manquant") },
+  over: { cls: "text-sky-700", label: (it) => "+" + fmt(it.received - it.shipped, 0) + " " + L("more than shipped", "أكتر من اللي خرج", "plus qu'expédié") },
+  not_received: { cls: "text-rose-700", label: () => L("not recorded", "مش متسجل", "non enregistré") },
+  not_shipped: { cls: "text-sky-700", label: () => L("not on the packing list", "مش في الـ packing list", "hors liste") },
+};
 
 const ov = ref({}), ovLoad = ref(true), loadErr = ref("");
 const modeFilter = ref("");
@@ -373,7 +500,7 @@ const stateCounts = computed(() => byMode.value.reduce((a, r) => ((a[r.state] = 
 const rows = computed(() => {
   const q = shipQ.value.trim().toLowerCase();
   return byMode.value.filter((r) => (!stateFilter.value || r.state === stateFilter.value)
-    && (!q || [r.receipts.join(" "), r.supplier, r.customs_declaration, r.name].join(" ").toLowerCase().includes(q)));
+    && (!q || [r.receipts.join(" "), r.supplier, r.customs_declaration, r.key, r.container_no ? "container " + r.container_no + " كونتينر " + r.container_no : "", r.container_id, r.maslak_invoice].join(" ").toLowerCase().includes(q)));
 });
 const shownItems = computed(() => {
   const q = itemQ.value.trim().toLowerCase();
@@ -397,10 +524,12 @@ function nextWeight(code) {
 const t = computed(() => calc.value.totals || {});
 const status = computed(() => (det.value && det.value.shipment.status) || "Draft");
 const editable = computed(() => canWrite.value && status.value === "Draft");
+const isContainer = computed(() => !!ed.value.container_no);
+const rowKey = (it) => it.item_code || "?" + (it.sku || it.item_name);
 const kpis = computed(() => {
   const k = ov.value.kpi || {};
   return [
-    { key: "n", label: L("Import receipts 2026", "استلامات مستوردة 2026", "Réceptions import 2026"), value: fmt(k.receipts, 0), sub: fmt(k.kg, 0) + " kg", color: "#1c2622" },
+    { key: "n", label: L("Sea containers", "كونتينرات بحري", "Conteneurs"), value: fmt(k.containers, 0), sub: k.missing_units ? fmt(k.missing_units, 0) + " " + L("units short on arrival", "قطعة ناقصة عند الوصول", "unités manquantes à l'arrivée") : L("shipped = arrived", "اللي خرج = اللي وصل", "expédié = arrivé"), color: "#1c2622" },
     { key: "c", label: L("Waiting on 153.03", "مستنية على 153.03", "En attente 153.03"), value: fmt(k.clearing_153, 0), sub: L("MAD not in any cost yet", "د.م مش داخلة في أي تكلفة", "MAD hors coût"), color: "#b45309" },
     { key: "d", label: L("Complete shipments", "شحنات مكتملة", "Expéditions complètes"), value: (k.complete || 0) + " / " + (k.shipments || 0), sub: L("Morocco + Turkey linked", "المغرب وتركيا مربوطين", "Maroc + Turquie liés"), color: "#047857" },
     { key: "w", label: L("Lines without weight", "أسطر من غير وزن", "Lignes sans poids"), value: fmt(k.no_weight_lines, 0), sub: L("fill before spreading by kg", "تتكمّل قبل التوزيع بالكيلو", "à compléter"), color: "#be123c" },
@@ -431,6 +560,11 @@ const issueList = computed(() => {
   if (i.price_from_receipt) out.push(i.price_from_receipt + " " + L("priced from the receipt", "سعرهم من الاستلام", "prix de la réception"));
   if (i.fx_missing) out.push(L("exchange rate missing", "سعر الصرف ناقص", "taux manquant"));
   if (i.no_morocco_costs) out.push(L("no Morocco costs linked", "مفيش مصاريف مغرب مربوطة", "aucun frais Maroc"));
+  if (i.short) out.push(i.short + " " + L("items arrived short", "صنف وصل ناقص", "articles arrivés en moins"));
+  if (i.customs) out.push(i.customs + " " + L("items a few pieces short (customs?)", "صنف ناقص قطع قليلة (جمارك؟)", "articles avec quelques pièces en moins (douane ?)"));
+  if (i.over) out.push(i.over + " " + L("items recorded but not on the packing list", "صنف متسجل ومش في الـ packing list", "articles enregistrés hors liste"));
+  if (i.no_sku) out.push(i.no_sku + " " + L("lines without a known SKU", "سطر من غير SKU معروف", "lignes sans SKU"));
+  if (i.no_vouchers) out.push(L("no receipt recorded", "مفيش استلام متسجل", "aucune réception"));
   return out;
 });
 
@@ -439,6 +573,18 @@ function sideTotal(side) { return chargesOf(side).reduce((a, c) => a + (Number(c
 function freeCands(side) {
   const used = new Set((ed.value.charges || []).map((c) => c.invoice_item).filter(Boolean));
   return (cands.value[side].rows || []).filter((b) => !used.has(b.line));
+}
+function eqLineC(it) {
+  const fx = calc.value.fx;
+  const p = it.currency === "MAD" ? fmt(it.price, 2) : `${fmt(it.price, 2)} ${CCY[it.currency] || it.currency} × ${it.currency === "TRY" ? fx : "rate"}`;
+  return `(${p} = ${fmt(it.price_mad, 2)}  +  Turkey ${fmt(it.tr_unit, 2)}  +  ${fmt(it.weight, 3)} kg × ${fmt(calc.value.totals.morocco_per_kg, 2)})  × ${fmt(it.shipped, 0)} shipped = ${fmt(it.line_total, 0)}  ÷ ${fmt(it.received, 0)} arrived  →  ${fmt(it.final, 2)} MAD`;
+}
+function setLineSku(it, v) {
+  const sku = (v || "").trim();
+  const ln = (ed.value.lines || []).find((l) => !l.item_code && (l.sku || l.description) === (it.sku || it.item_name));
+  if (!ln) return;
+  ln.sku = sku; ln.item_code = null;
+  touch();
 }
 function eqLine(it) {
   const fx = calc.value.fx;
@@ -454,6 +600,11 @@ function payload() {
     name: e.name, receipts: e.receipts, mode: e.mode, fx_rate: e.fx_rate ? Number(e.fx_rate) : null,
     customs_declaration: e.customs_declaration, bill_of_lading: e.bill_of_lading, tr_basis: e.tr_basis,
     charges: (e.charges || []).map(({ _k, ...c }) => c),
+    ...(e.container_no ? {
+      container_no: e.container_no, container_id: e.container_id, maslak_invoice: e.maslak_invoice,
+      export_declaration: e.export_declaration, shipped_on: e.shipped_on, packing_source: e.packing_source,
+      drive_folder: e.drive_folder, notes: e.notes, transfers: e.transfers || [], lines: e.lines || [],
+    } : {}),
   };
 }
 

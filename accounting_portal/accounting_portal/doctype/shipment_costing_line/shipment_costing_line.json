@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "creation": "2026-11-16 23:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "sku",
+  "description",
+  "shipped_qty",
+  "gross_kg",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sku",
+   "fieldtype": "Data",
+   "label": "SKU (as on the packing list)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "fieldname": "shipped_qty",
+   "fieldtype": "Float",
+   "label": "Shipped qty",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "gross_kg",
+   "fieldtype": "Float",
+   "label": "Gross kg",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Data",
+   "label": "Note"
+  }
+ ],
+ "istable": 1,
+ "modified": "2026-11-16 23:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Accounting Portal",
+ "name": "Shipment Costing Line",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

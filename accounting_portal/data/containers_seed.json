@@ -1,0 +1,4728 @@
+[
+ {
+  "no": 1,
+  "container_id": "BMOU4360820",
+  "invoice": "MSK2025000000031",
+  "declaration": null,
+  "shipped_on": "2025-09-24",
+  "folder": "1xL-sq-gWcOc4BUi5Pz3K_yxQx7bLzf5y",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Spice Rack",
+    "qty": 200,
+    "gross_kg": 223
+   },
+   {
+    "sku": null,
+    "description": "2000 ml Spice Rack",
+    "qty": 100,
+    "gross_kg": 161
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1205 ml Spice Rack",
+    "qty": 500,
+    "gross_kg": 621
+   },
+   {
+    "sku": null,
+    "description": "2000 ml Spice Rack",
+    "qty": 199,
+    "gross_kg": 171
+   },
+   {
+    "sku": null,
+    "description": "1200 ml Spice Rack",
+    "qty": 200,
+    "gross_kg": 128
+   },
+   {
+    "sku": "MCH009884",
+    "description": "500 ml Spice Rack",
+    "qty": 500,
+    "gross_kg": 353
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 Litre Spice Rack",
+    "qty": 400,
+    "gross_kg": 696
+   },
+   {
+    "sku": "MCH09177",
+    "description": "1700 ml Spice Rack",
+    "qty": 1307,
+    "gross_kg": 2378
+   }
+  ],
+  "note": "No purchase receipt: this container went into stock through manual Material Receipts (Aria receipt, Oct 2025). SKUs inferred from the descriptions; 2000 ml and the 1200 ml line (both 1205 ml and 1200 ml appear) are unknown."
+ },
+ {
+  "no": 2,
+  "container_id": "SEKU5616590",
+  "invoice": "MSK2025000000032",
+  "declaration": "H25-31118",
+  "shipped_on": "2025-10-06",
+  "folder": "1fHc1r0TZ-B_hm2EyVXCkx7Hd4SoQVgWc",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2025-03348",
+   "MAT-PRE-2025-03618"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH009884",
+    "description": "500 ml Spice Rack",
+    "qty": 1500,
+    "gross_kg": 990.0
+   },
+   {
+    "sku": "MCH09177",
+    "description": "1700 ml Spice Rack",
+    "qty": 2452,
+    "gross_kg": 4169.0
+   }
+  ],
+  "note": "SKUs inferred from the descriptions (no codes on this packing list)."
+ },
+ {
+  "no": 3,
+  "container_id": "SEGU6472852",
+  "invoice": "MSK2025000000034",
+  "declaration": "H25-31978",
+  "shipped_on": "2025-10-14",
+  "folder": "1KDI2JL----PO2zS2EMcHnMQJrbZUTpHC",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2025-03659"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH009884",
+    "description": "500 ml Spice Rack",
+    "qty": 757,
+    "gross_kg": 750.0
+   },
+   {
+    "sku": "MCH09177",
+    "description": "1700 ml Spice Rack",
+    "qty": 2830,
+    "gross_kg": 5150.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 4,
+  "container_id": "TXGU7826097",
+  "invoice": "MSK2025000000035",
+  "declaration": "H25-32638",
+  "shipped_on": "2025-10-20",
+  "folder": "1-_80JkP6eNjpTfM4NmoD_q_xVkDuc6yl",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2025-03660"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH009884",
+    "description": "500 ml Spice Rack",
+    "qty": 240,
+    "gross_kg": 200
+   },
+   {
+    "sku": "MCH09177",
+    "description": "1700 ml Spice Rack",
+    "qty": 1980,
+    "gross_kg": 3532
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 300,
+    "gross_kg": 400
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 984,
+    "gross_kg": 1318
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 5,
+  "container_id": "CMAU9530773",
+  "invoice": "MSK2025000000037",
+  "declaration": "H25-33381",
+  "shipped_on": "2025-10-27",
+  "folder": "145H-cDIBNVeaGLOe7NM-sR-PqHRk7KdQ",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2025-03676"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1700 ml Spice Rack",
+    "qty": 1903,
+    "gross_kg": 3335
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 500,
+    "gross_kg": 682
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1015,
+    "gross_kg": 1433
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 6,
+  "container_id": "TRHU6503172",
+  "invoice": "MSK2025000000042",
+  "declaration": null,
+  "shipped_on": "2025-11-04",
+  "folder": "1BtGC-RJ5xBI3yP0w4xV2kULnbGn2V4B7",
+  "source": "No document",
+  "receipts": [
+   "MAT-PRE-2025-03696",
+   "MAT-PRE-2025-03697"
+  ],
+  "transfers": [],
+  "lines": [],
+  "note": "No packing list in Drive. Cost sheet: 4,302 units. Shipped quantities taken as received."
+ },
+ {
+  "no": 7,
+  "container_id": "TLLU406072",
+  "invoice": "MSK2025000000043",
+  "declaration": null,
+  "shipped_on": null,
+  "folder": null,
+  "source": "No document",
+  "receipts": [
+   "MAT-PRE-2025-03775"
+  ],
+  "transfers": [],
+  "lines": [],
+  "note": "No folder in Drive. Cost sheet: 4,643 units. Shipped quantities taken as received."
+ },
+ {
+  "no": 8,
+  "container_id": "TCNU383616",
+  "invoice": "MSK2025000000044",
+  "declaration": null,
+  "shipped_on": null,
+  "folder": null,
+  "source": "No document",
+  "receipts": [
+   "MAT-PRE-2026-00190",
+   "MAT-PRE-2026-00208"
+  ],
+  "transfers": [],
+  "lines": [],
+  "note": "No folder in Drive. Cost sheet: 4,784 units (received 4,758). Shipped quantities taken as received."
+ },
+ {
+  "no": 9,
+  "container_id": "CMAU364317",
+  "invoice": "MSK2025000000045",
+  "declaration": null,
+  "shipped_on": null,
+  "folder": null,
+  "source": "No document",
+  "receipts": [
+   "MAT-PRE-2026-00124"
+  ],
+  "transfers": [],
+  "lines": [],
+  "note": "No folder in Drive. Cost sheet: 4,302 units. Shipped quantities taken as received."
+ },
+ {
+  "no": 10,
+  "container_id": "CMAU3881512",
+  "invoice": "MSK2025000000046",
+  "declaration": "H25-38576",
+  "shipped_on": "2025-12-10",
+  "folder": null,
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00318"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 933,
+    "gross_kg": 1660
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1000,
+    "gross_kg": 1377
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 1500,
+    "gross_kg": 1062
+   },
+   {
+    "sku": "JY-MCH09195",
+    "description": "300 ml Spice Rack",
+    "qty": 650,
+    "gross_kg": 782
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass/ Spice Rack",
+    "qty": 1500,
+    "gross_kg": 1692
+   }
+  ],
+  "note": "No folder; quantities from the commercial invoice and export declaration H25-38576."
+ },
+ {
+  "no": 11,
+  "container_id": "TRHU5882451",
+  "invoice": "MSK2025000000048",
+  "declaration": "H25-39364",
+  "shipped_on": "2025-12-17",
+  "folder": "1gTtKX-qNzzve9623Wy5XPufB7y0KqFFf",
+  "source": "Category only",
+  "receipts": [
+   "MAT-PRE-2026-00519"
+  ],
+  "transfers": [],
+  "lines": [],
+  "note": "Packing list gives categories only (6 lines); shipped quantities taken as received (totals match: 4,504)."
+ },
+ {
+  "no": 12,
+  "container_id": "ARKU8346881",
+  "invoice": "MSK2025000000050",
+  "declaration": "H25-39779",
+  "shipped_on": "2025-12-23",
+  "folder": "1Nqrk4oUggAyGyvy8bp8zEnu2U0nJ4qXb",
+  "source": "Category only",
+  "receipts": [
+   "MAT-PRE-2026-00520"
+  ],
+  "transfers": [],
+  "lines": [],
+  "note": "Packing list gives categories only (9 lines); shipped quantities taken as received (totals match: 4,622)."
+ },
+ {
+  "no": 13,
+  "container_id": "WBPU7062586",
+  "invoice": "MSK2025000000051",
+  "declaration": "H25-40508",
+  "shipped_on": "2025-12-30",
+  "folder": "1qggX--EAN8jK_ES2ytrjtbeKDlmhWcyB",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00521"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH100013",
+    "description": "12 Li Spice Rack",
+    "qty": 1000,
+    "gross_kg": 1892
+   },
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 990,
+    "gross_kg": 1735
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 500,
+    "gross_kg": 634.5
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 1500,
+    "gross_kg": 1064.5
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass/ Spice Rack",
+    "qty": 426,
+    "gross_kg": 510
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 500,
+    "gross_kg": 698
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 14,
+  "container_id": "TLLU4352069",
+  "invoice": "MSK2026000000001",
+  "declaration": "H26-00254",
+  "shipped_on": "2026-01-06",
+  "folder": "1rL_1vdX-ox6S3cYSuuZq02HRQBkcpdmC",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00522"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH100013",
+    "description": "12 Li Spice Rack",
+    "qty": 1000,
+    "gross_kg": 1885
+   },
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 270,
+    "gross_kg": 504
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 672,
+    "gross_kg": 827
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 1215,
+    "gross_kg": 865
+   },
+   {
+    "sku": "MCH10188",
+    "description": "1300 ml Spice Rack",
+    "qty": 500,
+    "gross_kg": 179
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1000,
+    "gross_kg": 1336
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass/ Spice Rack",
+    "qty": 750,
+    "gross_kg": 851
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 15,
+  "container_id": "HPCU4837198",
+  "invoice": "MSK2026000000002",
+  "declaration": "H26-01420",
+  "shipped_on": "2026-01-16",
+  "folder": "129ING4yFBfXfcG78IRZDyo3VpLUqaDZj",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00523"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 450,
+    "gross_kg": 828
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 1008,
+    "gross_kg": 1236
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 2370,
+    "gross_kg": 1662
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1000,
+    "gross_kg": 1354
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass/ Spice Rack",
+    "qty": 500,
+    "gross_kg": 600
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 16,
+  "container_id": "UETU6578467",
+  "invoice": "MSK2026000000004",
+  "declaration": "H26-01904",
+  "shipped_on": "2026-01-22",
+  "folder": "1m1ED9-2Vr3cQrsNfTYinwEC12k7axy28",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00526-1"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH100013",
+    "description": "12 pcs Set Spice Rack",
+    "qty": 576,
+    "gross_kg": 1120.0
+   },
+   {
+    "sku": "X86521365985762",
+    "description": "Set of 6 Peggy maxi 2L rectangular storage containers with white label",
+    "qty": 10,
+    "gross_kg": 7.88
+   },
+   {
+    "sku": "8696287521METAL",
+    "description": "Durable steel sink drainer",
+    "qty": 10,
+    "gross_kg": 1.8
+   },
+   {
+    "sku": "85695847854127",
+    "description": "Set of 3 refrigerator organizers without lids",
+    "qty": 9,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "9696089865973",
+    "description": "Set of storage containers with sliding lids - 12 pieces, 3 capacities",
+    "qty": 10,
+    "gross_kg": 27.0
+   },
+   {
+    "sku": "8696287105062",
+    "description": "Transparent 1-liter microwave lid",
+    "qty": 10,
+    "gross_kg": 2.46
+   },
+   {
+    "sku": "8696287100987",
+    "description": "Clip-on egg holder for refrigerator",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "8696287091652",
+    "description": "3-Tier White Shower Shelf",
+    "qty": 10,
+    "gross_kg": 7.5
+   },
+   {
+    "sku": "8695321475702",
+    "description": "Set of 18 square food storage containers with spoons",
+    "qty": 10,
+    "gross_kg": 13.5
+   },
+   {
+    "sku": "8683589881349",
+    "description": "Set of 3 White Multifunctional Storage Baskets",
+    "qty": 10,
+    "gross_kg": 5.28
+   },
+   {
+    "sku": "8683589881233",
+    "description": "Set of 5 glass spice jars with bamboo stand and spoons",
+    "qty": 10,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "8683589881226",
+    "description": "Set of 3 corrugated glass jars with wooden lids",
+    "qty": 10,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "8683589881097",
+    "description": "15 Litre Airtight Food Storage Container with Sliding Lid",
+    "qty": 10,
+    "gross_kg": 7.5
+   },
+   {
+    "sku": "8683589881066",
+    "description": "15 Litre Airtight Food Storage Container with Sliding Lid - Grey",
+    "qty": 10,
+    "gross_kg": 3.82
+   },
+   {
+    "sku": "8683589881004",
+    "description": "Glass Teapot with Bamboo Lid - 1 Litre",
+    "qty": 10,
+    "gross_kg": 6.0
+   },
+   {
+    "sku": "8683589880960",
+    "description": "Set of 3 natural bamboo organizer baskets with lining",
+    "qty": 10,
+    "gross_kg": 8.0
+   },
+   {
+    "sku": "8683589880731",
+    "description": "Glass Jar with Bamboo Lid - 280 ml",
+    "qty": 10,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "8683589880724",
+    "description": "Set of 6 Glass Espresso Cups 95ml",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "8683589880700",
+    "description": "900ml Graduated Glass Oil Bottle with Wooden Lid",
+    "qty": 10,
+    "gross_kg": 4.94
+   },
+   {
+    "sku": "8683589880670",
+    "description": "Set of 4 food storage containers with lids",
+    "qty": 10,
+    "gross_kg": 11.24
+   },
+   {
+    "sku": "8683589880618",
+    "description": "Natural Wood Paper Towel Holder",
+    "qty": 10,
+    "gross_kg": 2.66
+   },
+   {
+    "sku": "8683589880601",
+    "description": "Round Natural Wood Serving Tray",
+    "qty": 10,
+    "gross_kg": 11.12
+   },
+   {
+    "sku": "8683589880403",
+    "description": "Square storage box with 3 compartments",
+    "qty": 10,
+    "gross_kg": 4.32
+   },
+   {
+    "sku": "8683589880335",
+    "description": "Kitchen utensil set with stand - 5 pieces",
+    "qty": 10,
+    "gross_kg": 6.52
+   },
+   {
+    "sku": "8683589880304",
+    "description": "Multifunctional 3-Tier Corner Shelf",
+    "qty": 10,
+    "gross_kg": 12.38
+   },
+   {
+    "sku": "8683589880175",
+    "description": "Multifunctional stand for lid and spoon",
+    "qty": 5,
+    "gross_kg": 0.6
+   },
+   {
+    "sku": "8683589879766",
+    "description": "2-Piece Metal Paper Towel Holder",
+    "qty": 1,
+    "gross_kg": 0.35
+   },
+   {
+    "sku": "8683589879612",
+    "description": "6-Piece Set Adjustable Drawer Organizer Box",
+    "qty": 10,
+    "gross_kg": 7.68
+   },
+   {
+    "sku": "8683589879438",
+    "description": "Bamboo Wicker Round 3-Piece Organizer Basket Set",
+    "qty": 10,
+    "gross_kg": 9.56
+   },
+   {
+    "sku": "8683589878929",
+    "description": "4-Piece Round Storage Container Set, Striped Beige",
+    "qty": 10,
+    "gross_kg": 5.92
+   },
+   {
+    "sku": "8683589878912",
+    "description": "Black Metal Wire Basket with Wooden Handle",
+    "qty": 12,
+    "gross_kg": 7.1
+   },
+   {
+    "sku": "8683589878882",
+    "description": "Natural Bamboo 2-Piece Tray Set",
+    "qty": 10,
+    "gross_kg": 10.4
+   },
+   {
+    "sku": "8683589878875",
+    "description": "2-Piece Natural Bamboo Serving Tray Set",
+    "qty": 10,
+    "gross_kg": 7.92
+   },
+   {
+    "sku": "8683589878844",
+    "description": "4 Black Screen Printed Spice Labels",
+    "qty": 10,
+    "gross_kg": 0.22
+   },
+   {
+    "sku": "8683589878516",
+    "description": "6-Piece 2.8 Liter Perforated Storage Box Set, Blue",
+    "qty": 10,
+    "gross_kg": 8.0
+   },
+   {
+    "sku": "8683589876567",
+    "description": "2-Piece Multi-Purpose Fine Cleaning Brush Set",
+    "qty": 10,
+    "gross_kg": 1.2
+   },
+   {
+    "sku": "8683589872965",
+    "description": "12-Piece Lux Airtight Food and Spice Storage Container Set 0.25 Lt",
+    "qty": 10,
+    "gross_kg": 7.04
+   },
+   {
+    "sku": "8683589872743",
+    "description": "8-Piece Set Plastic Food Scoop Set",
+    "qty": 10,
+    "gross_kg": 1.74
+   },
+   {
+    "sku": "8683589872699",
+    "description": "Half Fruit and Vegetable Preservation Container for 3-Compartment Refrigerator",
+    "qty": 2,
+    "gross_kg": 0.59
+   },
+   {
+    "sku": "8683589872606",
+    "description": "Set of 2 Stackable Storage Containers with Elastic Bands",
+    "qty": 10,
+    "gross_kg": 4.2
+   },
+   {
+    "sku": "8683589872033",
+    "description": "6-Piece Self-Stringed Storage Container Set with Locking Lids, 2 Liters",
+    "qty": 10,
+    "gross_kg": 15.0
+   },
+   {
+    "sku": "8683589871999",
+    "description": "Bella Breakfast Colored",
+    "qty": 10,
+    "gross_kg": 6.0
+   },
+   {
+    "sku": "8683589871623",
+    "description": "Set of 3 refrigerator organizers with lid",
+    "qty": 10,
+    "gross_kg": 17.0
+   },
+   {
+    "sku": "8683589870558",
+    "description": "Acrylic Measuring Cup 1 Liter",
+    "qty": 10,
+    "gross_kg": 2.5
+   },
+   {
+    "sku": "8683589870541",
+    "description": "3-Piece Microwave and Freezer Safe VIP Storage Container Set with Lids",
+    "qty": 6,
+    "gross_kg": 2.6
+   },
+   {
+    "sku": "8683589870527",
+    "description": "3-Piece Microwave and Freezer Safe VIP Storage Container Set with Lids",
+    "qty": 4,
+    "gross_kg": 1.7
+   },
+   {
+    "sku": "8683589869934",
+    "description": "13-Piece Cabinet Drawer Organizer",
+    "qty": 1,
+    "gross_kg": 0.55
+   },
+   {
+    "sku": "8683589867718",
+    "description": "3-Compartment Adjustable Vegetable and Fruit Storage Container, 5 Liters",
+    "qty": 10,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "8683589867534",
+    "description": "Fruit and Vegetable Washing and Straining Strainer",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589867138",
+    "description": "4-Liter Square Bowl with Separate Strainer",
+    "qty": 1,
+    "gross_kg": 0.46
+   },
+   {
+    "sku": "8683589867121",
+    "description": "4-Piece Hexagonal Bowl Set White",
+    "qty": 1,
+    "gross_kg": 0.4
+   },
+   {
+    "sku": "8683589867114",
+    "description": "4-Piece Hexagonal Bowl Set, White",
+    "qty": 1,
+    "gross_kg": 0.4
+   },
+   {
+    "sku": "8683589867091",
+    "description": "12-Piece Airtight Storage Container Set",
+    "qty": 10,
+    "gross_kg": 6.04
+   },
+   {
+    "sku": "8683589867053",
+    "description": "12-Piece Airtight Storage Container Set",
+    "qty": 10,
+    "gross_kg": 6.06
+   },
+   {
+    "sku": "8683589866971",
+    "description": "Countertop Spoon Organizer, 5-Compartment Cutlery Holder",
+    "qty": 5,
+    "gross_kg": 1.65
+   },
+   {
+    "sku": "8683589866346",
+    "description": "6-Piece Acrylic Stackable Spice Jar Set with Spoons and Stand",
+    "qty": 10,
+    "gross_kg": 6.22
+   },
+   {
+    "sku": "8683589866254",
+    "description": "7-Piece Refrigerator Freezer Organizer and Storage Container Set",
+    "qty": 10,
+    "gross_kg": 16.2
+   },
+   {
+    "sku": "8683589866223",
+    "description": "12-Piece 350ml Refrigerator Freezer Organizer",
+    "qty": 10,
+    "gross_kg": 5.38
+   },
+   {
+    "sku": "8683589866063",
+    "description": "5-Piece Glass Spice Set with Bamboo Stand and Spoons",
+    "qty": 10,
+    "gross_kg": 14.28
+   },
+   {
+    "sku": "8683589865257",
+    "description": "3-Piece 2-Liter Microwave-Safe Storage Container Set, Colorful",
+    "qty": 10,
+    "gross_kg": 6.86
+   },
+   {
+    "sku": "8683589865172",
+    "description": "5-Compartment Multipurpose Transparent Storage Container Set with Lid",
+    "qty": 10,
+    "gross_kg": 10.98
+   },
+   {
+    "sku": "8683589864786",
+    "description": "7-Compartment White Makeup Organizer",
+    "qty": 8,
+    "gross_kg": 3.3
+   },
+   {
+    "sku": "8683589861143",
+    "description": "6-Piece Organizer Basket with Handles",
+    "qty": 10,
+    "gross_kg": 16.76
+   },
+   {
+    "sku": "8683589860740",
+    "description": "Set of 4, 3 Compartments, Round Storage Containers, 1.2 Liters",
+    "qty": 9,
+    "gross_kg": 5.45
+   },
+   {
+    "sku": "8683589859119",
+    "description": "Mega Size 4-Pack Round Flour and Legume Containers, 7 Liters",
+    "qty": 10,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "8683589859102",
+    "description": "Mega Size 2-Piece Round Flour and Legume Container, 7 Liters",
+    "qty": 10,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "8683589856422",
+    "description": "Set of 6 5.5 Liter Strip Mega Size Food Storage Containers",
+    "qty": 10,
+    "gross_kg": 17.94
+   },
+   {
+    "sku": "8683589855708",
+    "description": "30-Compartment Egg Rack Storage Container",
+    "qty": 10,
+    "gross_kg": 5.92
+   },
+   {
+    "sku": "8683589854862",
+    "description": "Bella Refrigerator Organizer with 4 Colorful Lids, 1.65 Liters",
+    "qty": 10,
+    "gross_kg": 6.0
+   },
+   {
+    "sku": "8683589854190",
+    "description": "Accordion Trash Can - Hanging Design - 6 Liters",
+    "qty": 10,
+    "gross_kg": 4.7
+   },
+   {
+    "sku": "8683589852608",
+    "description": "6 Labeled Storage Boxes for Powder and Tablet Detergent",
+    "qty": 10,
+    "gross_kg": 13.44
+   },
+   {
+    "sku": "8683589852240",
+    "description": "Hanging Trash Can with Lid",
+    "qty": 10,
+    "gross_kg": 5.04
+   },
+   {
+    "sku": "8683589852196",
+    "description": "6 Silicone Heat Insulating Cup Lids",
+    "qty": 10,
+    "gross_kg": 1.18
+   },
+   {
+    "sku": "8683589849516",
+    "description": "Acrylic 2-Piece Square Storage Container",
+    "qty": 10,
+    "gross_kg": 9.82
+   },
+   {
+    "sku": "8683589848656",
+    "description": "Set of 9 rectangular, airtight storage containers, 0.67 L",
+    "qty": 10,
+    "gross_kg": 10.62
+   },
+   {
+    "sku": "8683589847321",
+    "description": "2-Pack Detergent Labeled 5.5 Liter Strip Mega Size Detergent Storage Box",
+    "qty": 10,
+    "gross_kg": 7.4
+   },
+   {
+    "sku": "8683589845501",
+    "description": "Set of 2, 1.5 Liter Storage Containers with Strainers, for Olives and Pickles",
+    "qty": 4,
+    "gross_kg": 2.29
+   },
+   {
+    "sku": "8683589835441",
+    "description": "Peggy Rectangular Storage Container Set of 9 with Colorful Labels",
+    "qty": 10,
+    "gross_kg": 7.76
+   },
+   {
+    "sku": "8683589829853",
+    "description": "Mini Refrigerator Organizer Box (Pack of 4)",
+    "qty": 6,
+    "gross_kg": 1.8
+   },
+   {
+    "sku": "8683589829808",
+    "description": "Refrigerator Organizer Box Set of 4",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589828788",
+    "description": "Acrylic 4-Piece Bathroom Set",
+    "qty": 10,
+    "gross_kg": 9.0
+   },
+   {
+    "sku": "8683589828733",
+    "description": "Metal Mold Soap Dish, Black",
+    "qty": 10,
+    "gross_kg": 3.42
+   },
+   {
+    "sku": "8683589823004",
+    "description": "Pastel Colored Tupy Bowl Set of 4 with Lids",
+    "qty": 10,
+    "gross_kg": 12.18
+   },
+   {
+    "sku": "8683589819571",
+    "description": "6-Piece Multi Set Spice Jar with Spoon, Large Size",
+    "qty": 10,
+    "gross_kg": 6.0
+   },
+   {
+    "sku": "8652316587483",
+    "description": "12-Piece Spice Spoon Set",
+    "qty": 10,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "8457896526591",
+    "description": "360 Degree Rotating Bathroom & Refrigerator Organizer Tray White",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "869628074029",
+    "description": "2-Piece Refrigerator Organizer Set",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "MCH10682",
+    "description": "24-Pack Refrigerator Egg Tray with Locking Lid",
+    "qty": 10,
+    "gross_kg": 3.4
+   },
+   {
+    "sku": "MCH0011366",
+    "description": "7-Piece Hard Plastic Breakfast Set with Bamboo-Look Trays",
+    "qty": 10,
+    "gross_kg": 5.62
+   },
+   {
+    "sku": "MCH0011554",
+    "description": "8-Piece Round Storage Container Set",
+    "qty": 10,
+    "gross_kg": 9.46
+   },
+   {
+    "sku": "JY-21301",
+    "description": "Round Cake Dome with Wooden Stand and Plastic Lid (Urun Aciklamasi lists SKU MCH10719)",
+    "qty": 10,
+    "gross_kg": 7.32
+   },
+   {
+    "sku": "MCH0011521",
+    "description": "6-Piece Airtight Container Set with Strainer for Olives and Pickles, 650 ml",
+    "qty": 10,
+    "gross_kg": 7.78
+   },
+   {
+    "sku": "MCH0011825",
+    "description": "Set of 6 Wooden Look Round Snack Bowls",
+    "qty": 10,
+    "gross_kg": 2.64
+   },
+   {
+    "sku": "MCH10038",
+    "description": "3-Piece Refrigerator Organizer, 1.6 Liter",
+    "qty": 10,
+    "gross_kg": 8.0
+   },
+   {
+    "sku": "JY-06302",
+    "description": "Rectangular Transparent Acrylic Napkin Holder (Urun Aciklamasi lists SKU MCH10193)",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "JY-114001",
+    "description": "Round Multipurpose Portable Picnic Set for 4 People",
+    "qty": 10,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "JY-141301",
+    "description": "Foldable Sliding Dish Drying Basket",
+    "qty": 10,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "MCH08852",
+    "description": "4-Piece Accordion Folding Strainer Set",
+    "qty": 10,
+    "gross_kg": 7.58
+   },
+   {
+    "sku": "MCH0011589",
+    "description": "12-Piece Silicone Cupcake and Cookie Mold Set",
+    "qty": 10,
+    "gross_kg": 1.7
+   },
+   {
+    "sku": "MCH0011580",
+    "description": "7 Different Silicone Cake and Cookie Mold Set",
+    "qty": 10,
+    "gross_kg": 2.0
+   },
+   {
+    "sku": "MCH0011591",
+    "description": "5-Piece Bamboo Handle Silicone Spatula Set",
+    "qty": 10,
+    "gross_kg": 1.0
+   },
+   {
+    "sku": "MCH0011320",
+    "description": "Adhesive Modular 3-Tier Bathroom Organizer Shelf",
+    "qty": 10,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "MCH08627",
+    "description": "Luxury Stainless Steel Grater with Black Container",
+    "qty": 10,
+    "gross_kg": 2.78
+   },
+   {
+    "sku": "MCH0011454",
+    "description": "Set of 2 Acacia Borosilicate Oil Pots with Stand 2x300ml",
+    "qty": 10,
+    "gross_kg": 5.28
+   },
+   {
+    "sku": "MCH0011479",
+    "description": "3-Piece Borosilicate Glass Carafe Set with Stand 1000 ml",
+    "qty": 10,
+    "gross_kg": 9.64
+   },
+   {
+    "sku": "JY-151301",
+    "description": "Set of 2 Amber Glass Liquid Soap Dispensers with Bamboo Base 500 ml",
+    "qty": 15,
+    "gross_kg": 10.2
+   },
+   {
+    "sku": "JY-121001",
+    "description": "4-Piece Acacia Borosilicate Glass Jar Set with Lids, 320 ml",
+    "qty": 10,
+    "gross_kg": 8.6
+   },
+   {
+    "sku": "MCH10627",
+    "description": "Paris Set of 6 Stainless Steel Dinner Forks",
+    "qty": 10,
+    "gross_kg": 1.8
+   },
+   {
+    "sku": "MCH10569",
+    "description": "12-Piece Lux Round Gold Teaspoon Set",
+    "qty": 10,
+    "gross_kg": 1.68
+   },
+   {
+    "sku": "MCH0011476",
+    "description": "Stainless Steel Potato Masher",
+    "qty": 10,
+    "gross_kg": 2.36
+   },
+   {
+    "sku": "MCH10626",
+    "description": "Paris Set of 6 Stainless Steel Dessert Spoons",
+    "qty": 10,
+    "gross_kg": 1.0
+   },
+   {
+    "sku": "MCH11171",
+    "description": "Ceramic Square Set of 4 Snack Plates",
+    "qty": 10,
+    "gross_kg": 7.86
+   },
+   {
+    "sku": "JY-63101",
+    "description": "Set of 3 Ceramic Square Snack Plates",
+    "qty": 15,
+    "gross_kg": 7.5
+   },
+   {
+    "sku": "JY-09301",
+    "description": "25-Pack Microfiber Cleaning Cloths",
+    "qty": 10,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "MCH0011446",
+    "description": "3-Piece Acacia Serving Set",
+    "qty": 10,
+    "gross_kg": 1.66
+   },
+   {
+    "sku": "MCH0011452",
+    "description": "Mushroom-Shaped Bamboo Salt and Pepper Shaker",
+    "qty": 10,
+    "gross_kg": 2.0
+   },
+   {
+    "sku": "TNCE.00765",
+    "description": "B - Plain silver pot 22 cm / 26 cm",
+    "qty": 4,
+    "gross_kg": 8.79
+   },
+   {
+    "sku": "TNCE.00764",
+    "description": "B - Plain silver pot 22 cm / 24 cm",
+    "qty": 6,
+    "gross_kg": 11.05
+   },
+   {
+    "sku": "TNCE.00763",
+    "description": "B - Plain silver pot, 22 cm",
+    "qty": 6,
+    "gross_kg": 9.23
+   },
+   {
+    "sku": "DÜDTEN.0502",
+    "description": "Pressure cooker B - Silver Steel / 5 L",
+    "qty": 4,
+    "gross_kg": 6.31
+   },
+   {
+    "sku": "DÜDTEN.0501",
+    "description": "Pressure cooker B - Silver Steel / 3.5 L",
+    "qty": 4,
+    "gross_kg": 6.05
+   },
+   {
+    "sku": "DÜDTEN.0503",
+    "description": "Pressure cooker B - Silver Steel / 7 L",
+    "qty": 4,
+    "gross_kg": 7.63
+   },
+   {
+    "sku": "DÜDTEN.0420",
+    "description": "4 Liter Stainless Steel Pressure Cooker Bonera / 4L",
+    "qty": 4,
+    "gross_kg": 7.36
+   },
+   {
+    "sku": "BON2257",
+    "description": "Omega Stainless Steel Deep Pot / 26x16 cm",
+    "qty": 4,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "BON2256",
+    "description": "Omega Stainless Steel Deep Pot / 24x14 cm",
+    "qty": 6,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "BON2255",
+    "description": "Omega Stainless Steel Deep Pot / 22x12 cm",
+    "qty": 6,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "BON2261",
+    "description": "Omega Steel Shallow Planter / 24x10 cm",
+    "qty": 6,
+    "gross_kg": 11.0
+   },
+   {
+    "sku": "BON2262",
+    "description": "Omega Steel shallow planter / 26x10 cm",
+    "qty": 4,
+    "gross_kg": 8.8
+   },
+   {
+    "sku": "BON1053",
+    "description": "Special pressure cooker with silver glass lid / 8 L",
+    "qty": 4,
+    "gross_kg": 9.5
+   },
+   {
+    "sku": "BON1052",
+    "description": "Special pressure cooker with silver glass lid / 6 L",
+    "qty": 4,
+    "gross_kg": 9.81
+   },
+   {
+    "sku": "BON1051",
+    "description": "Special pressure cooker with silver glass lid / 4 L",
+    "qty": 4,
+    "gross_kg": 7.98
+   },
+   {
+    "sku": "BON2102",
+    "description": "Master Chef deep saucepan / 20x10 cm",
+    "qty": 6,
+    "gross_kg": 8.33
+   },
+   {
+    "sku": "BON2108",
+    "description": "Master Chef deep saucepan / 32x22 cm",
+    "qty": 3,
+    "gross_kg": 10.27
+   },
+   {
+    "sku": "BON2107",
+    "description": "Master Chef deep saucepan / 30x20 cm",
+    "qty": 4,
+    "gross_kg": 13.34
+   },
+   {
+    "sku": "BON2106",
+    "description": "Master Chef deep saucepan / 28x18 cm",
+    "qty": 4,
+    "gross_kg": 11.42
+   },
+   {
+    "sku": "BON2101",
+    "description": "Master Chef deep saucepan / 18x10 cm",
+    "qty": 6,
+    "gross_kg": 6.83
+   },
+   {
+    "sku": "BON2103",
+    "description": "Master Chef deep saucepan / 22x12 cm",
+    "qty": 6,
+    "gross_kg": 9.61
+   },
+   {
+    "sku": "BER 21010",
+    "description": "Berlin Gastro pot / 36x24 cm (23.5 L)",
+    "qty": 2,
+    "gross_kg": 8.01
+   },
+   {
+    "sku": "BER 2109",
+    "description": "Berlin Gastro Planter / 34x23 cm 21 L",
+    "qty": 3,
+    "gross_kg": 8.76
+   },
+   {
+    "sku": "BER 2108",
+    "description": "Berlin Gastro pot / 32x22 cm (17.6 L)",
+    "qty": 3,
+    "gross_kg": 9.36
+   },
+   {
+    "sku": "BER 2107",
+    "description": "Berlin Gastro Planter / 30x20 cm 14 L",
+    "qty": 4,
+    "gross_kg": 11.23
+   },
+   {
+    "sku": "BER 2106",
+    "description": "Berlin Gastro Planter / 28x18 cm 11 L",
+    "qty": 4,
+    "gross_kg": 9.48
+   },
+   {
+    "sku": "EMY8007",
+    "description": "22 cm cream enamel frying pan with basket",
+    "qty": 6,
+    "gross_kg": 8.99
+   },
+   {
+    "sku": "EMY8005",
+    "description": "Set of 3 enamel storage containers with lids - brown",
+    "qty": 6,
+    "gross_kg": 7.49
+   },
+   {
+    "sku": "EMY8008",
+    "description": "22 cm Enamel Frying Pan with Basket - Brown",
+    "qty": 6,
+    "gross_kg": 8.84
+   },
+   {
+    "sku": "EMY900",
+    "description": "8-piece enamel grater set mustard yellow",
+    "qty": 6,
+    "gross_kg": 10.91
+   },
+   {
+    "sku": "EMY8018",
+    "description": "Cream enamel saucepan / 26 cm",
+    "qty": 4,
+    "gross_kg": 10.19
+   },
+   {
+    "sku": "EMY8017",
+    "description": "Cream enamel saucepan / 24 cm",
+    "qty": 4,
+    "gross_kg": 8.53
+   },
+   {
+    "sku": "EMY8004",
+    "description": "Set of 3 enamel storage containers with lids - cream",
+    "qty": 6,
+    "gross_kg": 7.87
+   },
+   {
+    "sku": "EMY1001",
+    "description": "Set of 3 enamel storage containers with lids - Red",
+    "qty": 6,
+    "gross_kg": 7.6
+   },
+   {
+    "sku": "PRO1054",
+    "description": "Red titanium wok pan Bonera Pro-Plus / 28 cm",
+    "qty": 8,
+    "gross_kg": 7.17
+   },
+   {
+    "sku": "PRO1053",
+    "description": "Red titanium wok pan Bonera Pro-Plus / 24 cm",
+    "qty": 8,
+    "gross_kg": 5.38
+   },
+   {
+    "sku": "510.0122",
+    "description": "Pro-Plus Single Frying Pan Red / 30cm",
+    "qty": 10,
+    "gross_kg": 11.84
+   },
+   {
+    "sku": "510.012",
+    "description": "Pro-Plus Single Frying Pan Red / 26cm",
+    "qty": 10,
+    "gross_kg": 9.1
+   },
+   {
+    "sku": "510.0117",
+    "description": "Pro-Plus Single Frying Pan Red / 20cm",
+    "qty": 10,
+    "gross_kg": 6.08
+   },
+   {
+    "sku": "PRO2003",
+    "description": "Pro-Plus red saucepan / 24 cm",
+    "qty": 4,
+    "gross_kg": 9.31
+   },
+   {
+    "sku": "PRO2006",
+    "description": "24 cm titanium saucepan with glass lid Pro-Plus red",
+    "qty": 4,
+    "gross_kg": 7.38
+   },
+   {
+    "sku": "PRO2001",
+    "description": "Pro-Plus red saucepan / 20 cm",
+    "qty": 4,
+    "gross_kg": 6.38
+   },
+   {
+    "sku": "PRO1093",
+    "description": "Granite Omelette Pan Pro Plus / 22 cm",
+    "qty": 6,
+    "gross_kg": 6.59
+   },
+   {
+    "sku": "PRO1092",
+    "description": "Granite Omelette Pan Pro Plus / 20 cm",
+    "qty": 6,
+    "gross_kg": 5.6
+   },
+   {
+    "sku": "579.0109",
+    "description": "Vivo Granite Crepe / 28cm",
+    "qty": 12,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "579.0093",
+    "description": "Vivo Granite Crepe / 26cm",
+    "qty": 13,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "727.0005",
+    "description": "Vogue Single Frypan Black / 30cm",
+    "qty": 8,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "510.0124",
+    "description": "Vogue Single Frypan Black / 20cm",
+    "qty": 8,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "509.0057",
+    "description": "Vogue Granite Casserole for Stuffed Eggplant / 32 cm",
+    "qty": 4,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "509.0055",
+    "description": "Vogue Granite Casserole for Stuffed Eggplant / 28 cm",
+    "qty": 4,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "509.0049",
+    "description": "Vogue Granite Casserole for Stuffed Eggplant / 24cm",
+    "qty": 4,
+    "gross_kg": 7.5
+   },
+   {
+    "sku": "508.007",
+    "description": "Granite casserole dish wood-look handles / 20cm",
+    "qty": 4,
+    "gross_kg": 6.0
+   },
+   {
+    "sku": "508.0072",
+    "description": "Granite casserole dish wood-look handles / 24cm",
+    "qty": 4,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Spice Rack",
+    "qty": 500,
+    "gross_kg": 600.0
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 1189,
+    "gross_kg": 1440.0
+   },
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 510,
+    "gross_kg": 930.0
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 540,
+    "gross_kg": 425.0
+   }
+  ],
+  "note": "17 box counts on the packing list were corrected from the box-number ranges (total 4,680, matches the B/L)."
+ },
+ {
+  "no": 17,
+  "container_id": "ARKU8392790",
+  "invoice": "MSK2026000000005",
+  "declaration": "H26-02434",
+  "shipped_on": "2026-01-27",
+  "folder": "1Y1R5ZTDvebAKiLjOLkA-NxJf0JsSiMT-",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00527"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 620,
+    "gross_kg": 1116.5
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 1344,
+    "gross_kg": 1627.2
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 1000,
+    "gross_kg": 736.5
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1000,
+    "gross_kg": 1353.4
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass Spice Rack",
+    "qty": 1000,
+    "gross_kg": 1136.4
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 18,
+  "container_id": "ARKU8502407",
+  "invoice": "MSK2026000000006",
+  "declaration": "H26-02518",
+  "shipped_on": "2026-01-27",
+  "folder": "1Y5TE38e5DkqvnuXxPn2mMQF4Hohhwai1",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00528"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH100013",
+    "description": "12 Pcs Set Spice Rack",
+    "qty": 5016,
+    "gross_kg": 7520.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 19,
+  "container_id": "ARKU8532649",
+  "invoice": "MSK2026000000007",
+  "declaration": "H26-03782",
+  "shipped_on": "2026-02-06",
+  "folder": "1FoAEp_ZSop5wIV3jv-GKF74y7xpEc1nL",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00529"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 1072,
+    "gross_kg": 1327.9
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 375,
+    "gross_kg": 332.0
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1990,
+    "gross_kg": 2650.1
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass Spice Rack",
+    "qty": 1499,
+    "gross_kg": 1690.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 20,
+  "container_id": "TCNU6574125",
+  "invoice": "MSK2026000000009",
+  "declaration": "H26-04928",
+  "shipped_on": "2026-02-16",
+  "folder": "1AzMAK4H1irZhGGNGfa2x9U1uJjVfoSfb",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00530"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 560,
+    "gross_kg": 1014.3
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 784,
+    "gross_kg": 975.6
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 540,
+    "gross_kg": 426.9
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1530,
+    "gross_kg": 2039.0
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass Spice Rack",
+    "qty": 1000,
+    "gross_kg": 1137.2
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 21,
+  "container_id": "ARKU8542631",
+  "invoice": "MSK2026000000011",
+  "declaration": "H26-05790",
+  "shipped_on": "2026-02-23",
+  "folder": "1usubb3HQa3B7xj3LaLU6hr6YqoflWdRk",
+  "source": "Packing list",
+  "receipts": [
+   "MAT-PRE-2026-00548"
+  ],
+  "transfers": [],
+  "lines": [
+   {
+    "sku": "MCH100013",
+    "description": "12 Li Spice Rack",
+    "qty": 432,
+    "gross_kg": 687.0
+   },
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 400,
+    "gross_kg": 719.0
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 1120,
+    "gross_kg": 1343.6
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 540,
+    "gross_kg": 403.5
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1078,
+    "gross_kg": 1503.9
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass Spice Rack",
+    "qty": 745,
+    "gross_kg": 863.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 22,
+  "container_id": "TCNU5020068",
+  "invoice": "MSK2026000000015",
+  "declaration": "H26-15163",
+  "shipped_on": "2026-05-07",
+  "folder": "1xaAAUG-gc6zcLyNerpKyubLnrY0a8XLt",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [
+   "STE-06239"
+  ],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 1360,
+    "gross_kg": 2365.0
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Glass Spice Rack",
+    "qty": 816,
+    "gross_kg": 930.0
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 400,
+    "gross_kg": 535.0
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 559,
+    "gross_kg": 790.0
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 1011,
+    "gross_kg": 750.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 23,
+  "container_id": "CMAU7616498",
+  "invoice": "MSK2026000000024",
+  "declaration": "H26-27980",
+  "shipped_on": "2026-08-12",
+  "folder": "1VvOSg_7uzK1GP5fLwX2NBvTdkoGAEbHM",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [
+   "STE-09250"
+  ],
+  "lines": [
+   {
+    "sku": "MCH0011827",
+    "description": "Plastic food storage container 3+1 compartments",
+    "qty": 10,
+    "gross_kg": 1.96
+   },
+   {
+    "sku": "MCH0011556",
+    "description": "Plastic round food container set 4pc",
+    "qty": 30,
+    "gross_kg": 10.35
+   },
+   {
+    "sku": "MCH0011773",
+    "description": "Plastic rectangular food container set 4pc",
+    "qty": 35,
+    "gross_kg": 13.125
+   },
+   {
+    "sku": "MCH00125451",
+    "description": "Stainless steel serving bowl set 4pc",
+    "qty": 10,
+    "gross_kg": 3.06
+   },
+   {
+    "sku": "MCH00125421",
+    "description": "Stainless steel serving bowl set 4pc",
+    "qty": 10,
+    "gross_kg": 2.43
+   },
+   {
+    "sku": "MCH0011494",
+    "description": "Plastic slim dustbin with double lid",
+    "qty": 10,
+    "gross_kg": 1.88
+   },
+   {
+    "sku": "MCH10979",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 10,
+    "gross_kg": 50.8
+   },
+   {
+    "sku": "MCH0013275",
+    "description": "Glass spice jar set 3pc with stand & spoons",
+    "qty": 15,
+    "gross_kg": 11.52
+   },
+   {
+    "sku": "MCH04853",
+    "description": "Plastic spice jar set 3pc with stand & spoons",
+    "qty": 5,
+    "gross_kg": 3.84
+   },
+   {
+    "sku": "MCH10978",
+    "description": "Stainless steel breakfast serving set 11pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011378",
+    "description": "Stainless steel square bowl set 12pc",
+    "qty": 10,
+    "gross_kg": 7.14
+   },
+   {
+    "sku": "MCH0011377",
+    "description": "Stainless steel square bowl set 6pc",
+    "qty": 10,
+    "gross_kg": 3.57
+   },
+   {
+    "sku": "MCH0011459",
+    "description": "Silicone & wood kitchen utensil set 6pc",
+    "qty": 10,
+    "gross_kg": 2.63
+   },
+   {
+    "sku": "MCH0011372",
+    "description": "Plastic breakfast serving set with tray 4pc",
+    "qty": 10,
+    "gross_kg": 2.3
+   },
+   {
+    "sku": "MCH0011373",
+    "description": "Plastic breakfast serving set with tray 4pc",
+    "qty": 10,
+    "gross_kg": 2.3
+   },
+   {
+    "sku": "MCH0011218",
+    "description": "Plastic kitchen organizer with strainer",
+    "qty": 10,
+    "gross_kg": 3.8
+   },
+   {
+    "sku": "MCH0011955",
+    "description": "Plastic foldable drying rack",
+    "qty": 10,
+    "gross_kg": 1.88
+   },
+   {
+    "sku": "MCH0011955",
+    "description": "Plastic foldable drying rack",
+    "qty": 10,
+    "gross_kg": 1.88
+   },
+   {
+    "sku": "MCH08627",
+    "description": "Stainless steel grater",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "MCH08852",
+    "description": "Plastic foldable strainer set 4pc",
+    "qty": 10,
+    "gross_kg": 7.26
+   },
+   {
+    "sku": "MCH10719",
+    "description": "Plastic cake dome with wooden stand",
+    "qty": 10,
+    "gross_kg": 4.8
+   },
+   {
+    "sku": "MCH11740",
+    "description": "Stainless steel serving dish set 4pc with stand",
+    "qty": 10,
+    "gross_kg": 3.35
+   },
+   {
+    "sku": "MCH11159",
+    "description": "Plastic serving dish set 12pc",
+    "qty": 10,
+    "gross_kg": 4.06
+   },
+   {
+    "sku": "MCH11164",
+    "description": "Stainless steel serving dish set 6pc",
+    "qty": 10,
+    "gross_kg": 2.03
+   },
+   {
+    "sku": "MCH0011809",
+    "description": "Wooden folding tray table",
+    "qty": 20,
+    "gross_kg": 23.4
+   },
+   {
+    "sku": "MCH0011809",
+    "description": "Wooden folding tray table",
+    "qty": 10,
+    "gross_kg": 11.7
+   },
+   {
+    "sku": "MCH0012956",
+    "description": "Plastic foldable laundry basket 32L",
+    "qty": 10,
+    "gross_kg": 10.38
+   },
+   {
+    "sku": "MCH0012956",
+    "description": "Plastic foldable laundry basket 32L",
+    "qty": 10,
+    "gross_kg": 10.38
+   },
+   {
+    "sku": "MCH0011424",
+    "description": "Plastic dish drying rack",
+    "qty": 5,
+    "gross_kg": 9.275
+   },
+   {
+    "sku": "MCH0011424",
+    "description": "Plastic dish drying rack",
+    "qty": 10,
+    "gross_kg": 18.55
+   },
+   {
+    "sku": "MCH09531",
+    "description": "Stainless steel serving spoon set 12pc",
+    "qty": 10,
+    "gross_kg": 0.4
+   },
+   {
+    "sku": "MCH0011460",
+    "description": "Glass spice jar set 6pc with bamboo lids",
+    "qty": 10,
+    "gross_kg": 7.35
+   },
+   {
+    "sku": "MCH0011459",
+    "description": "Silicone & wood kitchen utensil set 6pc",
+    "qty": 10,
+    "gross_kg": 2.63
+   },
+   {
+    "sku": "OMN0011702",
+    "description": "Woven rattan-look decorative basket planter",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "MCH0013232",
+    "description": "Wooden-look toilet paper holder stand",
+    "qty": 10,
+    "gross_kg": 5.18
+   },
+   {
+    "sku": "MCH0012836",
+    "description": "Porcelain coffee cup set 4pc",
+    "qty": 10,
+    "gross_kg": 5.07
+   },
+   {
+    "sku": "MCH0012684",
+    "description": "Silicone & bamboo kitchen utensil set 5pc",
+    "qty": 10,
+    "gross_kg": 0.92
+   },
+   {
+    "sku": "MCH10701",
+    "description": "Glass spice jar set 6pc with bamboo lids",
+    "qty": 10,
+    "gross_kg": 7.35
+   },
+   {
+    "sku": "MCH0011458",
+    "description": "Stainless steel measuring spoon set 4pc",
+    "qty": 10,
+    "gross_kg": 0.44
+   },
+   {
+    "sku": "MCH0011463",
+    "description": "Stainless steel serving spoon set 12pc",
+    "qty": 10,
+    "gross_kg": 0.38
+   },
+   {
+    "sku": "MCH0012072",
+    "description": "Plastic storage box with lid set 2pc 17L",
+    "qty": 20,
+    "gross_kg": 20.6
+   },
+   {
+    "sku": "MCH0012072",
+    "description": "Plastic storage box with lid set 2pc 17L",
+    "qty": 10,
+    "gross_kg": 10.3
+   },
+   {
+    "sku": "MCH0012043",
+    "description": "Plastic rotating makeup organizer",
+    "qty": 10,
+    "gross_kg": 6.35
+   },
+   {
+    "sku": "MCH0012054",
+    "description": "Plastic soap dispenser set",
+    "qty": 20,
+    "gross_kg": 4.4
+   },
+   {
+    "sku": "MCH0012054",
+    "description": "Plastic soap dispenser set",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "MCH0012054",
+    "description": "Plastic soap dispenser set",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "MCH0012848",
+    "description": "Plastic bathroom set",
+    "qty": 10,
+    "gross_kg": 11.86
+   },
+   {
+    "sku": "MCH0012050",
+    "description": "Plastic bathroom organizer with bamboo drawer",
+    "qty": 10,
+    "gross_kg": 7.34
+   },
+   {
+    "sku": "MCH0012842",
+    "description": "Plastic bathroom organizer with bamboo drawer",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "MCH0012048",
+    "description": "Plastic bathroom set 3pc with bamboo",
+    "qty": 10,
+    "gross_kg": 11.86
+   },
+   {
+    "sku": "MCH0012846",
+    "description": "Plastic bathroom set 3pc with bamboo & stand",
+    "qty": 10,
+    "gross_kg": 11.86
+   },
+   {
+    "sku": "MCH0012049",
+    "description": "Plastic bathroom set 3pc with bamboo",
+    "qty": 10,
+    "gross_kg": 11.86
+   },
+   {
+    "sku": "MCH0012047",
+    "description": "Plastic bathroom set 3pc with bamboo",
+    "qty": 10,
+    "gross_kg": 11.86
+   },
+   {
+    "sku": "MCH0011365",
+    "description": "Wooden footed cake stand",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "MCH0011205",
+    "description": "Stainless steel tea spoon set 6pc",
+    "qty": 10,
+    "gross_kg": 1.18
+   },
+   {
+    "sku": "MCH10982",
+    "description": "Stainless steel tea spoon set 6pc gold",
+    "qty": 10,
+    "gross_kg": 0.8
+   },
+   {
+    "sku": "MCH10983",
+    "description": "Stainless steel tea spoon set 6pc",
+    "qty": 10,
+    "gross_kg": 0.8
+   },
+   {
+    "sku": "MCH0011203",
+    "description": "Stainless steel tea spoon set 6pc gold",
+    "qty": 10,
+    "gross_kg": 1.18
+   },
+   {
+    "sku": "MCH0011200",
+    "description": "Stainless steel tea spoon set 6pc gold",
+    "qty": 10,
+    "gross_kg": 1.18
+   },
+   {
+    "sku": "MCH0011862",
+    "description": "Glass spice jar with bamboo lid",
+    "qty": 10,
+    "gross_kg": 1.7
+   },
+   {
+    "sku": "MCH0011855",
+    "description": "Glass spice jar with bamboo lid",
+    "qty": 10,
+    "gross_kg": 2.7
+   },
+   {
+    "sku": "MCH10509",
+    "description": "Glass oil & vinegar bottle set 2pc",
+    "qty": 10,
+    "gross_kg": 11.7
+   },
+   {
+    "sku": "MCH10500",
+    "description": "Glass oil & vinegar bottle 750ml",
+    "qty": 10,
+    "gross_kg": 7.02
+   },
+   {
+    "sku": "MCH0011854",
+    "description": "Ceramic footed serving plate 25cm",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "MCH0011854",
+    "description": "Ceramic footed serving plate 25cm",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "MCH0011526",
+    "description": "Glass oil bottle with dispenser 1000ml",
+    "qty": 20,
+    "gross_kg": 14.6
+   },
+   {
+    "sku": "MCH08852",
+    "description": "Plastic foldable strainer set 4pc",
+    "qty": 10,
+    "gross_kg": 7.26
+   },
+   {
+    "sku": "MCH08841",
+    "description": "Adhesive labels for containers 25pc",
+    "qty": 10,
+    "gross_kg": 0.05
+   },
+   {
+    "sku": "MCH0012676",
+    "description": "Ceramic dessert plate set 6pc",
+    "qty": 10,
+    "gross_kg": 21.59
+   },
+   {
+    "sku": "OMN0011791",
+    "description": "Plastic organizer box set 4pc 4L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "MCH10813",
+    "description": "Plastic lemon squeezer",
+    "qty": 10,
+    "gross_kg": 1.26
+   },
+   {
+    "sku": "MCH10687",
+    "description": "Plastic 2-tier bathroom organizer shelf",
+    "qty": 10,
+    "gross_kg": 3.76
+   },
+   {
+    "sku": "MCH0013273",
+    "description": "Microfiber cleaning cloth with handle",
+    "qty": 10,
+    "gross_kg": 0.8
+   },
+   {
+    "sku": "MCH09118",
+    "description": "Glass spice jar set 6pc salt & pepper",
+    "qty": 10,
+    "gross_kg": 7.31
+   },
+   {
+    "sku": "MCH10708",
+    "description": "Plastic citrus squeezer with measuring cup 4pc",
+    "qty": 10,
+    "gross_kg": 1.7
+   },
+   {
+    "sku": "MCH0012832",
+    "description": "Acrylic spice jar set 6pc with lids",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "8683589861327",
+    "description": "Plastic round food container 3-compartment 2pc",
+    "qty": 10,
+    "gross_kg": 2.38
+   },
+   {
+    "sku": "8683589861334",
+    "description": "Plastic round food container 3-compartment 4pc",
+    "qty": 10,
+    "gross_kg": 4.76
+   },
+   {
+    "sku": "8683589860733",
+    "description": "Plastic round food container 3-compartment 2pc",
+    "qty": 10,
+    "gross_kg": 2.38
+   },
+   {
+    "sku": "8683589855708",
+    "description": "Plastic egg storage tray 30-slot",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589854190",
+    "description": "Plastic hanging dustbin 6L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589852264",
+    "description": "Plastic ice cube tray with lid 8-slot 2pc",
+    "qty": 10,
+    "gross_kg": 0.68
+   },
+   {
+    "sku": "8683589852288",
+    "description": "Plastic ice cube tray with lid 8-slot 2pc",
+    "qty": 10,
+    "gross_kg": 0.68
+   },
+   {
+    "sku": "8683589852271",
+    "description": "Plastic ice cube tray with lid 8-slot 2pc",
+    "qty": 10,
+    "gross_kg": 0.68
+   },
+   {
+    "sku": "8683589852257",
+    "description": "Plastic ice cube tray with lid 8-slot 2pc",
+    "qty": 10,
+    "gross_kg": 0.68
+   },
+   {
+    "sku": "8683589852233",
+    "description": "Plastic hanging dustbin with lid",
+    "qty": 10,
+    "gross_kg": 3.15
+   },
+   {
+    "sku": "8683589843132",
+    "description": "Plastic fridge storage container 2pc large",
+    "qty": 10,
+    "gross_kg": 4.48
+   },
+   {
+    "sku": "8683589834758",
+    "description": "Plastic fridge storage container 2pc small",
+    "qty": 10,
+    "gross_kg": 2.61
+   },
+   {
+    "sku": "8683589876796",
+    "description": "Stainless steel bowl with lid set 4pc",
+    "qty": 10,
+    "gross_kg": 16.6
+   },
+   {
+    "sku": "8683589819571",
+    "description": "Plastic spice jar set 6pc with spoons",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "8683589880182",
+    "description": "Plastic spoon & lid holder",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "8696287091652",
+    "description": "Plastic 3-tier shower shelf organizer",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589881783",
+    "description": "Glass jar with bamboo lid 450ml 2pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "MCH09125",
+    "description": "Plastic fridge organizer box set 6pc",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "MCH0013180",
+    "description": "Plastic water bottle with straw 500ml",
+    "qty": 5,
+    "gross_kg": 1.8
+   },
+   {
+    "sku": "MCH0013178",
+    "description": "Plastic water bottle with straw 500ml",
+    "qty": 5,
+    "gross_kg": 1.8
+   },
+   {
+    "sku": "MCH0013195",
+    "description": "Plastic water bottle with straw 500ml",
+    "qty": 5,
+    "gross_kg": 1.8
+   },
+   {
+    "sku": "MCH0013184",
+    "description": "Plastic water bottle with silicone cover 500ml",
+    "qty": 5,
+    "gross_kg": 1.4
+   },
+   {
+    "sku": "MCH0013181",
+    "description": "Plastic water bottle with silicone cover 500ml",
+    "qty": 5,
+    "gross_kg": 1.4
+   },
+   {
+    "sku": "MCH0013183",
+    "description": "Plastic water bottle with silicone cover 500ml",
+    "qty": 5,
+    "gross_kg": 1.4
+   },
+   {
+    "sku": "MCH0013182",
+    "description": "Plastic water bottle with silicone cover 500ml",
+    "qty": 5,
+    "gross_kg": 1.4
+   },
+   {
+    "sku": "MCH0011520",
+    "description": "Plastic olive/pickle container with strainer 2pc 650ml",
+    "qty": 5,
+    "gross_kg": 0.925
+   },
+   {
+    "sku": "MCH0011519",
+    "description": "Plastic olive/pickle container with strainer 2pc 650ml",
+    "qty": 5,
+    "gross_kg": 0.925
+   },
+   {
+    "sku": "MCH0011518",
+    "description": "Plastic olive/pickle container with strainer 2pc 650ml",
+    "qty": 5,
+    "gross_kg": 0.925
+   },
+   {
+    "sku": "MCH09041",
+    "description": "Plastic egg storage container 24-slot",
+    "qty": 10,
+    "gross_kg": 2.45
+   },
+   {
+    "sku": "MCH10682",
+    "description": "Plastic egg storage container 24-slot",
+    "qty": 10,
+    "gross_kg": 2.45
+   },
+   {
+    "sku": "MCH08352",
+    "description": "Plastic round food container set 3pc",
+    "qty": 5,
+    "gross_kg": 2.35
+   },
+   {
+    "sku": "MCH11049",
+    "description": "Glass spice jar set 12pc with bamboo lids",
+    "qty": 10,
+    "gross_kg": 14.75
+   },
+   {
+    "sku": "MCH09271",
+    "description": "Plastic vacuum food container set 9pc",
+    "qty": 10,
+    "gross_kg": 8.9
+   },
+   {
+    "sku": "MCH0012696",
+    "description": "Ceramic dessert plate set 6pc",
+    "qty": 10,
+    "gross_kg": 21.59
+   },
+   {
+    "sku": "MCH0013272",
+    "description": "Plastic dish drying tray",
+    "qty": 10,
+    "gross_kg": 2.3
+   },
+   {
+    "sku": "MCH0011989",
+    "description": "Plastic breakfast serving set with silicone lids 8pc",
+    "qty": 20,
+    "gross_kg": 12.5
+   },
+   {
+    "sku": "MCH0011289",
+    "description": "Acrylic cotton pad organizer box 3pc",
+    "qty": 10,
+    "gross_kg": 2.0
+   },
+   {
+    "sku": "MCH0011288",
+    "description": "Acrylic cotton pad organizer box 4pc",
+    "qty": 10,
+    "gross_kg": 2.35
+   },
+   {
+    "sku": "MCH0012829",
+    "description": "Acrylic spice jar set 12pc with lids",
+    "qty": 10,
+    "gross_kg": 8.9
+   },
+   {
+    "sku": "MCH09938",
+    "description": "Acrylic spice jar set 6pc with lids",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "MCH09688",
+    "description": "Plastic spice jar set 6pc with spoons",
+    "qty": 10,
+    "gross_kg": 11.34
+   },
+   {
+    "sku": "MCH10370",
+    "description": "Plastic fridge storage container set 6pc 250ml",
+    "qty": 10,
+    "gross_kg": 2.3
+   },
+   {
+    "sku": "MCH10999",
+    "description": "Plastic soap dispenser with sponge holder",
+    "qty": 10,
+    "gross_kg": 4.75
+   },
+   {
+    "sku": "MCH0013065",
+    "description": "Glass oil & vinegar bottle set with wooden tray",
+    "qty": 10,
+    "gross_kg": 3.15
+   },
+   {
+    "sku": "MCH0011805",
+    "description": "Bamboo footed serving stand & coaster",
+    "qty": 10,
+    "gross_kg": 0.74
+   },
+   {
+    "sku": "MCH0013069",
+    "description": "Bamboo serving utensil set 5pc",
+    "qty": 10,
+    "gross_kg": 2.44
+   },
+   {
+    "sku": "MCH0011612",
+    "description": "Bamboo serving utensil set 4pc",
+    "qty": 10,
+    "gross_kg": 2.05
+   },
+   {
+    "sku": "MCH0013067",
+    "description": "Wooden oil bottle tray",
+    "qty": 10,
+    "gross_kg": 0.49
+   },
+   {
+    "sku": "MCH0013061",
+    "description": "Plastic spoon rest holder with wood",
+    "qty": 20,
+    "gross_kg": 2.1
+   },
+   {
+    "sku": "MCH0013039",
+    "description": "Silicone baking mold set 7pc",
+    "qty": 10,
+    "gross_kg": 6.0
+   },
+   {
+    "sku": "MCH0011587",
+    "description": "Silicone chocolate mold set 8pc",
+    "qty": 10,
+    "gross_kg": 0.92
+   },
+   {
+    "sku": "MCH0014318",
+    "description": "Stainless steel tea spoon set 6pc",
+    "qty": 10,
+    "gross_kg": 0.5
+   },
+   {
+    "sku": "MCH0011821",
+    "description": "Ceramic oval serving plate 25cm",
+    "qty": 10,
+    "gross_kg": 1.94
+   },
+   {
+    "sku": "MCH0011818",
+    "description": "Ceramic oval serving plate 24cm",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "MCH0011817",
+    "description": "Ceramic oval serving plate 28cm",
+    "qty": 10,
+    "gross_kg": 1.38
+   },
+   {
+    "sku": "MCH0012638",
+    "description": "Plastic snack serving bowl 2pc 12cm",
+    "qty": 10,
+    "gross_kg": 0.45
+   },
+   {
+    "sku": "MCH10188",
+    "description": "Plastic detergent storage box 2pc 1200ml",
+    "qty": 10,
+    "gross_kg": 1.3
+   },
+   {
+    "sku": "MCH09452",
+    "description": "Plastic detergent storage box 2pc 2L",
+    "qty": 10,
+    "gross_kg": 1.6
+   },
+   {
+    "sku": "MCH009886",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 10,
+    "gross_kg": 50.8
+   },
+   {
+    "sku": "MCH09360",
+    "description": "Porcelain breakfast set 12pc",
+    "qty": 10,
+    "gross_kg": 49.0
+   },
+   {
+    "sku": "MCH0011901",
+    "description": "Plastic round food container set 3pc",
+    "qty": 10,
+    "gross_kg": 1.8
+   },
+   {
+    "sku": "MCH0011895",
+    "description": "Plastic round food container set 3pc",
+    "qty": 10,
+    "gross_kg": 1.8
+   },
+   {
+    "sku": "MCH0011524",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011222",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 10,
+    "gross_kg": 49.0
+   },
+   {
+    "sku": "MCH0013307",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011768",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0013332",
+    "description": "Porcelain breakfast set 15pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011770",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011769",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0012814",
+    "description": "Glass serving bowl set 6pc with stand",
+    "qty": 10,
+    "gross_kg": 5.64
+   },
+   {
+    "sku": "MCH0012908",
+    "description": "Plastic cake storage container with stand",
+    "qty": 10,
+    "gross_kg": 4.8
+   },
+   {
+    "sku": "MCH0012493",
+    "description": "Glass sugar bowl set 4pc gold",
+    "qty": 5,
+    "gross_kg": 0.585
+   },
+   {
+    "sku": "MCH0011499",
+    "description": "Plastic 2-tier wheeled organizer shelf",
+    "qty": 10,
+    "gross_kg": 15.34
+   },
+   {
+    "sku": "MCH0013155",
+    "description": "Plastic 2-tier organizer shelf",
+    "qty": 10,
+    "gross_kg": 15.3
+   },
+   {
+    "sku": "MCH0013305",
+    "description": "Plastic 4-tier wheeled organizer shelf",
+    "qty": 10,
+    "gross_kg": 19.2
+   },
+   {
+    "sku": "MCH0011499",
+    "description": "Plastic 2-tier wheeled organizer shelf",
+    "qty": 10,
+    "gross_kg": 15.34
+   },
+   {
+    "sku": "MCH0011499",
+    "description": "Plastic 2-tier wheeled organizer shelf",
+    "qty": 10,
+    "gross_kg": 15.34
+   },
+   {
+    "sku": "MCH0011502",
+    "description": "Plastic 3-tier wheeled organizer shelf",
+    "qty": 20,
+    "gross_kg": 30.68
+   },
+   {
+    "sku": "MCH0013149",
+    "description": "Plastic 3-tier organizer shelf",
+    "qty": 10,
+    "gross_kg": 15.3
+   },
+   {
+    "sku": "MCH0013146",
+    "description": "Plastic 4-tier organizer shelf",
+    "qty": 10,
+    "gross_kg": 19.2
+   },
+   {
+    "sku": "MCH0013305",
+    "description": "Plastic 4-tier wheeled organizer shelf",
+    "qty": 10,
+    "gross_kg": 19.2
+   },
+   {
+    "sku": "MCH0013146",
+    "description": "Plastic 4-tier organizer shelf",
+    "qty": 10,
+    "gross_kg": 19.2
+   },
+   {
+    "sku": "MCH0012792",
+    "description": "Plastic snack serving bowl 2pc 8.5cm",
+    "qty": 10,
+    "gross_kg": 1.37
+   },
+   {
+    "sku": "MCH0011512",
+    "description": "Porcelain footed breakfast set 11pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011529",
+    "description": "Porcelain footed breakfast set 11pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011360",
+    "description": "Porcelain footed breakfast set 11pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011511",
+    "description": "Porcelain breakfast set 13pc",
+    "qty": 5,
+    "gross_kg": 24.5
+   },
+   {
+    "sku": "MCH0011739",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 25.4
+   },
+   {
+    "sku": "MCH10446",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 25.4
+   },
+   {
+    "sku": "MCH09211",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 25.4
+   },
+   {
+    "sku": "MCH09212",
+    "description": "Porcelain breakfast set 14pc",
+    "qty": 5,
+    "gross_kg": 25.4
+   },
+   {
+    "sku": "MCH0011413",
+    "description": "Plastic fridge storage container set 12pc",
+    "qty": 10,
+    "gross_kg": 5.4
+   },
+   {
+    "sku": "MCH09176",
+    "description": "Plastic food storage container set 12pc 1.2L",
+    "qty": 410,
+    "gross_kg": 471.5
+   },
+   {
+    "sku": "MCH09045",
+    "description": "Plastic flour/legume container set 4pc 6L",
+    "qty": 236,
+    "gross_kg": 318.6
+   },
+   {
+    "sku": "MCH09177",
+    "description": "Plastic food storage container set 12pc 1.75L",
+    "qty": 466,
+    "gross_kg": 792.2
+   },
+   {
+    "sku": "X86521365985762",
+    "description": "Plastic food storage container set 6pc 2L",
+    "qty": 20,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "8683589810806",
+    "description": "Stainless steel mixing bowl & strainer set 5pc",
+    "qty": 30,
+    "gross_kg": 10.5
+   },
+   {
+    "sku": "8683589847321",
+    "description": "Plastic detergent storage box 2pc 5.5L",
+    "qty": 20,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "8683589871999",
+    "description": "Plastic breakfast container",
+    "qty": 20,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "8683589866223",
+    "description": "Plastic fridge storage container set 12pc 350ml",
+    "qty": 30,
+    "gross_kg": 12.54
+   },
+   {
+    "sku": "8683589867138",
+    "description": "Plastic square bowl with strainer 4L",
+    "qty": 20,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "8683589867534",
+    "description": "Plastic washing strainer",
+    "qty": 30,
+    "gross_kg": 10.5
+   },
+   {
+    "sku": "8683589829839",
+    "description": "Plastic fridge organizer box set 6pc",
+    "qty": 20,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "8683589867121",
+    "description": "Plastic hexagon bowl set 4pc",
+    "qty": 30,
+    "gross_kg": 10.5
+   },
+   {
+    "sku": "8683589867114",
+    "description": "Plastic hexagon bowl set 4pc",
+    "qty": 30,
+    "gross_kg": 9.0
+   },
+   {
+    "sku": "8683589871128",
+    "description": "Plastic airtight storage container set 8pc",
+    "qty": 20,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "8683589867718",
+    "description": "Plastic adjustable veg/fruit container set 3pc 5L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880786",
+    "description": "Plastic rectangular storage container set 8pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589854879",
+    "description": "Plastic fridge organizer set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589870541",
+    "description": "Plastic food storage container set 3pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880885",
+    "description": "Stainless steel bowl set 4pc",
+    "qty": 20,
+    "gross_kg": 16.5
+   },
+   {
+    "sku": "8683589865257",
+    "description": "Plastic food storage container set 3pc 2L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589881394",
+    "description": "Plastic round bowl set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589881349",
+    "description": "Plastic organizer box set 3pc",
+    "qty": 20,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "8683589878844",
+    "description": "Adhesive spice labels 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589872606",
+    "description": "Plastic storage container set 2pc 1100ml",
+    "qty": 20,
+    "gross_kg": 22.0
+   },
+   {
+    "sku": "8683589870527",
+    "description": "Plastic food storage container set 3pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589854862",
+    "description": "Plastic fridge organizer set 4pc 1.65L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8652316587483",
+    "description": "Stainless steel spice spoon set 12pc",
+    "qty": 20,
+    "gross_kg": 4.4
+   },
+   {
+    "sku": "8683589871135",
+    "description": "Plastic airtight storage container set 12pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880403",
+    "description": "Plastic compartment storage container set 3pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884814",
+    "description": "Plastic batter dispenser jug 900ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884487",
+    "description": "Plastic storage container set 2pc 2400ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884456",
+    "description": "Porcelain soap dispenser with bamboo lid 400ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884463",
+    "description": "Porcelain soap dispenser with bamboo lid 350ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884470",
+    "description": "Porcelain soap dispenser with bamboo lid 280ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884449",
+    "description": "Porcelain soap dispenser with bamboo lid 300ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884319",
+    "description": "Plastic round bowl set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884289",
+    "description": "Plastic round bowl set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884111",
+    "description": "Glass vase 25cm",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589884036",
+    "description": "Plastic bathroom set 4pc 550ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589883701",
+    "description": "Stainless steel bowl set 4pc large",
+    "qty": 10,
+    "gross_kg": 16.6
+   },
+   {
+    "sku": "8683589883695",
+    "description": "Stainless steel bowl set 4pc large",
+    "qty": 10,
+    "gross_kg": 16.6
+   },
+   {
+    "sku": "8683589883589",
+    "description": "Plastic bathroom set 4pc 550ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589883572",
+    "description": "Plastic bathroom set 4pc 550ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589882421",
+    "description": "Plastic egg storage container set 2pc 15-slot",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589882100",
+    "description": "Plastic square airtight container set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589882056",
+    "description": "Plastic square storage container set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589881844",
+    "description": "Plastic adjustable 3-compartment container 6L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589881844",
+    "description": "Plastic adjustable 3-compartment container 6L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589881707",
+    "description": "Plastic spice spoon set 3pc",
+    "qty": 10,
+    "gross_kg": 0.5
+   },
+   {
+    "sku": "8683589881714",
+    "description": "Plastic spice spoon set 3pc",
+    "qty": 10,
+    "gross_kg": 0.5
+   },
+   {
+    "sku": "8683589881011",
+    "description": "Plastic rectangular food container set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880885",
+    "description": "Stainless steel bowl set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880748",
+    "description": "Glass jar with bamboo lid set 3pc 350ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880731",
+    "description": "Glass jar with bamboo lid set 3pc 280ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880779",
+    "description": "Plastic rectangular storage container set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880427",
+    "description": "Wooden napkin holder",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880410",
+    "description": "Wooden napkin holder",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880281",
+    "description": "Plastic lunch box",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880182",
+    "description": "Plastic spoon & lid holder",
+    "qty": 10,
+    "gross_kg": 2.5
+   },
+   {
+    "sku": "8683589880175",
+    "description": "Plastic spoon & ladle holder",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589879469",
+    "description": "Plastic mixing bowl set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589879476",
+    "description": "Plastic mixing bowl set 4pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589878769",
+    "description": "Plastic compartment storage container set 3pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589878769",
+    "description": "Plastic compartment storage container set 3pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589878875",
+    "description": "Wooden serving tray set 2pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589878882",
+    "description": "Bamboo serving tray set 2pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589878219",
+    "description": "Plastic storage box set 6pc 2.8L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589878318",
+    "description": "Plastic storage box set 6pc 2.8L",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589877397",
+    "description": "Plastic step stool",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589877380",
+    "description": "Plastic step stool",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589877373",
+    "description": "Plastic step stool",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589877342",
+    "description": "Plastic stool large",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589877359",
+    "description": "Plastic stool large",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589877335",
+    "description": "Plastic stool small",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589877311",
+    "description": "Plastic stool small",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589876758",
+    "description": "Plastic fridge organizer container set 4pc 1.75L",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589876352",
+    "description": "Plastic adjustable veg/fruit container set 7pc",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589876321",
+    "description": "Plastic adjustable veg/fruit container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589876307",
+    "description": "Plastic adjustable veg/fruit container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589876413",
+    "description": "Plastic adjustable veg/fruit container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "8683589876079",
+    "description": "Plastic adjustable veg/fruit container set 6pc",
+    "qty": 10,
+    "gross_kg": 7.98
+   },
+   {
+    "sku": "8683589876062",
+    "description": "Plastic adjustable veg/fruit container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589876154",
+    "description": "Plastic rectangular food container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589876185",
+    "description": "Plastic rectangular food container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589876178",
+    "description": "Plastic rectangular food container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589876161",
+    "description": "Plastic rectangular food container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589873184",
+    "description": "Plastic dish drying mat & organizer set 2pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589873146",
+    "description": "Plastic dish drying mat & organizer set 2pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589872705",
+    "description": "Stainless steel food scoop set 4pc",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "8683589872736",
+    "description": "Stainless steel food scoop set 4pc",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "8683589872729",
+    "description": "Stainless steel food scoop set 4pc",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "8683589872644",
+    "description": "Plastic storage container set 3pc",
+    "qty": 10,
+    "gross_kg": 18.9
+   },
+   {
+    "sku": "8683589872675",
+    "description": "Plastic storage container set 3pc",
+    "qty": 10,
+    "gross_kg": 18.9
+   },
+   {
+    "sku": "8683589872668",
+    "description": "Plastic storage container set 2pc 1100ml",
+    "qty": 10,
+    "gross_kg": 11.0
+   },
+   {
+    "sku": "8683589872637",
+    "description": "Plastic storage container set 2pc 1100ml",
+    "qty": 10,
+    "gross_kg": 11.0
+   },
+   {
+    "sku": "8683589871913",
+    "description": "Plastic 2-tier wheeled organizer shelf",
+    "qty": 10,
+    "gross_kg": 12.4
+   },
+   {
+    "sku": "8683589871906",
+    "description": "Plastic 2-tier wheeled organizer shelf",
+    "qty": 10,
+    "gross_kg": 12.4
+   },
+   {
+    "sku": "8683589871456",
+    "description": "Plastic food storage container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589871470",
+    "description": "Plastic food storage container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589871463",
+    "description": "Plastic food storage container set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589869958",
+    "description": "Plastic makeup/jewelry organizer set 6pc",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589869996",
+    "description": "Plastic makeup organizer with drawers 7-compartment",
+    "qty": 10,
+    "gross_kg": 2.1
+   },
+   {
+    "sku": "8683589869989",
+    "description": "Plastic makeup organizer with drawers 7-compartment",
+    "qty": 10,
+    "gross_kg": 2.1
+   },
+   {
+    "sku": "8683589867183",
+    "description": "Plastic makeup organizer box 5-compartment",
+    "qty": 10,
+    "gross_kg": 2.82
+   },
+   {
+    "sku": "8683589867169",
+    "description": "Plastic potato & garlic masher",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589867145",
+    "description": "Stainless steel clip measuring spoon",
+    "qty": 10,
+    "gross_kg": 1.0
+   },
+   {
+    "sku": "8683589867015",
+    "description": "Plastic spoon organizer 5-compartment",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589866995",
+    "description": "Plastic spoon organizer 5-compartment",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "8683589866957",
+    "description": "Plastic spoon organizer 5-compartment",
+    "qty": 10,
+    "gross_kg": 2.2
+   },
+   {
+    "sku": "8683589866216",
+    "description": "Plastic fridge storage container set 6pc 350ml",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589865998",
+    "description": "Plastic makeup organizer with lid 7-compartment 2pc",
+    "qty": 10,
+    "gross_kg": 4.2
+   },
+   {
+    "sku": "8683589866001",
+    "description": "Plastic makeup organizer with lid 7-compartment 2pc",
+    "qty": 10,
+    "gross_kg": 4.2
+   },
+   {
+    "sku": "8683589865981",
+    "description": "Plastic makeup organizer with lid 7-compartment 2pc",
+    "qty": 10,
+    "gross_kg": 4.2
+   },
+   {
+    "sku": "8683589865851",
+    "description": "Plastic washing strainer",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589865219",
+    "description": "Plastic sink-side dish strainer",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "MCH09177",
+    "description": "Plastic food storage container set 12pc 1.75L",
+    "qty": 36,
+    "gross_kg": 61.2
+   },
+   {
+    "sku": "8685111601746",
+    "description": "Plastic dish rack 2pc",
+    "qty": 10,
+    "gross_kg": 11.5
+   },
+   {
+    "sku": "8685111601739",
+    "description": "Plastic dish rack 2pc",
+    "qty": 10,
+    "gross_kg": 11.5
+   },
+   {
+    "sku": "8684849186174",
+    "description": "Plastic drawer organizer 4-compartment",
+    "qty": 10,
+    "gross_kg": 6.5
+   },
+   {
+    "sku": "8684849186181",
+    "description": "Plastic drawer organizer 4-compartment",
+    "qty": 10,
+    "gross_kg": 6.5
+   },
+   {
+    "sku": "8684849186198",
+    "description": "Plastic drawer organizer 4-compartment",
+    "qty": 10,
+    "gross_kg": 6.5
+   },
+   {
+    "sku": "8684349995337",
+    "description": "Plastic strainer with handle 2pc",
+    "qty": 10,
+    "gross_kg": 7.25
+   },
+   {
+    "sku": "8685111602033",
+    "description": "Glass pitcher with lid 1L",
+    "qty": 10,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "8685111602064",
+    "description": "Glass pitcher with lid 1L",
+    "qty": 10,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "8685111601777",
+    "description": "Glass bedside pitcher with cup 730ml",
+    "qty": 10,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "8685111602040",
+    "description": "Glass pitcher with lid 1L",
+    "qty": 10,
+    "gross_kg": 12.0
+   },
+   {
+    "sku": "8685111605683",
+    "description": "Plastic lunch box 3-compartment with cutlery",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "8685111605652",
+    "description": "Plastic lunch box 3-compartment with cutlery",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "8685111605669",
+    "description": "Plastic lunch box 3-compartment with cutlery",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "8685111605676",
+    "description": "Plastic lunch box 3-compartment with cutlery",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "8685111607373",
+    "description": "Plastic round food container set 3pc",
+    "qty": 10,
+    "gross_kg": 7.5
+   },
+   {
+    "sku": "8685111607366",
+    "description": "Plastic round food container set 3pc",
+    "qty": 10,
+    "gross_kg": 7.5
+   },
+   {
+    "sku": "8685111607359",
+    "description": "Plastic round food container set 3pc",
+    "qty": 10,
+    "gross_kg": 7.5
+   },
+   {
+    "sku": "8684849181964",
+    "description": "Plastic drawer cutlery organizer 2pc",
+    "qty": 10,
+    "gross_kg": 4.05
+   },
+   {
+    "sku": "8682013100360N1",
+    "description": "Plastic ladle & lid holder",
+    "qty": 10,
+    "gross_kg": 2.55
+   },
+   {
+    "sku": "8684349996976",
+    "description": "Plastic kitchen utensil set with rack 6pc",
+    "qty": 10,
+    "gross_kg": 8.25
+   },
+   {
+    "sku": "8694816811459N1",
+    "description": "Plastic pot lid organizer",
+    "qty": 10,
+    "gross_kg": 4.5
+   },
+   {
+    "sku": "8685111601319",
+    "description": "Plastic cutting mat set 3pc",
+    "qty": 10,
+    "gross_kg": 5.3
+   },
+   {
+    "sku": "8685111605782",
+    "description": "Plastic mini strainer with handle 0.75L",
+    "qty": 10,
+    "gross_kg": 3.1
+   },
+   {
+    "sku": "8685111605782",
+    "description": "Plastic mini strainer with handle 0.75L",
+    "qty": 10,
+    "gross_kg": 3.1
+   },
+   {
+    "sku": "8685111605768",
+    "description": "Plastic strainer & bowl set 3pc",
+    "qty": 10,
+    "gross_kg": 6.3
+   },
+   {
+    "sku": "8685111605768",
+    "description": "Plastic strainer & bowl set 3pc",
+    "qty": 10,
+    "gross_kg": 6.3
+   },
+   {
+    "sku": "8684349995344",
+    "description": "Plastic strainer with handle 2pc",
+    "qty": 10,
+    "gross_kg": 7.25
+   },
+   {
+    "sku": "8682013101466N1",
+    "description": "Plastic pot lid organizer",
+    "qty": 10,
+    "gross_kg": 4.5
+   },
+   {
+    "sku": "8684349997386",
+    "description": "Plastic drawer cutlery organizer 3pc",
+    "qty": 10,
+    "gross_kg": 3.2
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 24,
+  "container_id": "ECMU5764781",
+  "invoice": "MSK2026000000026",
+  "declaration": "H26-32161",
+  "shipped_on": "2026-09-11",
+  "folder": "1Ts4T4VWmKN6jC6U8uEkqtXVzJ16ZfPrr",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [
+   "STE-10962",
+   "STE-12551"
+  ],
+  "lines": [
+   {
+    "sku": "8683589884739",
+    "description": "Ceramic Breakfast Set 14 Pcs for 6 Persons, Lavender Pattern",
+    "qty": 10,
+    "gross_kg": 43.4
+   },
+   {
+    "sku": "8683589884715",
+    "description": "Glass Mixing Bowl with Lid and Grater 5 L",
+    "qty": 10,
+    "gross_kg": 16.4
+   },
+   {
+    "sku": "8683589883817",
+    "description": "Glass Oil Bottle Set 2 Pcs with Wooden Stand 400 ml",
+    "qty": 10,
+    "gross_kg": 14.6
+   },
+   {
+    "sku": "8683589882391",
+    "description": "Glass Bathroom Set 2 Pcs White (Soap Dispenser + Toothbrush Holder) 425 cc",
+    "qty": 10,
+    "gross_kg": 6.9
+   },
+   {
+    "sku": "8683589882407",
+    "description": "Glass Bathroom Set 2 Pcs Black (Soap Dispenser + Toothbrush Holder) 425 cc",
+    "qty": 10,
+    "gross_kg": 6.9
+   },
+   {
+    "sku": "8683589881301",
+    "description": "Foldable Basket 19 L, Pink",
+    "qty": 10,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "8683589881318",
+    "description": "Foldable Basket 19 L, Anthracite",
+    "qty": 10,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "8683589881288",
+    "description": "Foldable Basket 19 L + Foldable Bucket 12 L, Anthracite",
+    "qty": 10,
+    "gross_kg": 14.2
+   },
+   {
+    "sku": "8683589881332",
+    "description": "Foldable Bucket 12 L, Pink",
+    "qty": 10,
+    "gross_kg": 6.4
+   },
+   {
+    "sku": "8683589881325",
+    "description": "Foldable Bucket 12 L, Anthracite",
+    "qty": 10,
+    "gross_kg": 6.4
+   },
+   {
+    "sku": "8683589866063",
+    "description": "Glass Spice Jar Set 5 Pcs with Bamboo Stand and Spoons",
+    "qty": 10,
+    "gross_kg": 14.28
+   },
+   {
+    "sku": "8683589861068",
+    "description": "Acrylic Round Salad Bowl with Servers 23 cm, Anthracite",
+    "qty": 10,
+    "gross_kg": 4.5
+   },
+   {
+    "sku": "8683589852455",
+    "description": "2-Tier Bathroom Shelf Organizer / Shampoo Holder, White",
+    "qty": 10,
+    "gross_kg": 6.2
+   },
+   {
+    "sku": "8683589852462",
+    "description": "3-Tier Bathroom Shelf Organizer / Shampoo Holder, White",
+    "qty": 10,
+    "gross_kg": 7.25
+   },
+   {
+    "sku": "865216549865876",
+    "description": "Multi-Purpose Colander / Rice and Pasta Strainer 3 L, Anthracite",
+    "qty": 10,
+    "gross_kg": 3.75
+   },
+   {
+    "sku": "8696287M302BEYAZ",
+    "description": "360 Degree Rotating Makeup Organizer",
+    "qty": 10,
+    "gross_kg": 9.7
+   },
+   {
+    "sku": "8683589875867",
+    "description": "360 Degree Rotating Makeup Organizer",
+    "qty": 10,
+    "gross_kg": 9.7
+   },
+   {
+    "sku": "8683589881769",
+    "description": "Bathroom Set 3 Pcs with Bamboo Lid (Cotton Holder)",
+    "qty": 10,
+    "gross_kg": 6.1
+   },
+   {
+    "sku": "BRNS.11031",
+    "description": "Plastic Storage Box 10 L (Modubox)",
+    "qty": 12,
+    "gross_kg": 7.56
+   },
+   {
+    "sku": "BRNS.11020",
+    "description": "Dish Drying Rack (Dryline)",
+    "qty": 24,
+    "gross_kg": 4.8
+   },
+   {
+    "sku": "BRNS.10568",
+    "description": "Dish Rack Drip Tray",
+    "qty": 12,
+    "gross_kg": 8.1
+   },
+   {
+    "sku": "BRNS.29006",
+    "description": "Wood-Look Soap Dispenser Set 3 Pcs",
+    "qty": 24,
+    "gross_kg": 7.632
+   },
+   {
+    "sku": "BRNS.29008",
+    "description": "Wood-Look Bathroom Accessory Set 5 Pcs",
+    "qty": 8,
+    "gross_kg": 1.016
+   },
+   {
+    "sku": "BRNS.20005",
+    "description": "Plastic Waste Bin",
+    "qty": 8,
+    "gross_kg": 3.8
+   },
+   {
+    "sku": "BRNS.29005",
+    "description": "Wood-Look Plastic Waste Bin",
+    "qty": 8,
+    "gross_kg": 3.8
+   },
+   {
+    "sku": "BRNS.50552",
+    "description": "Silicone Air Fryer Baking Mould",
+    "qty": 48,
+    "gross_kg": 46.08
+   },
+   {
+    "sku": "BRNS.11002",
+    "description": "Self-Adhesive Wall Hook",
+    "qty": 120,
+    "gross_kg": 24.0
+   },
+   {
+    "sku": "BRNS.10022",
+    "description": "Round Dough Cutter, White",
+    "qty": 96,
+    "gross_kg": 48.48
+   },
+   {
+    "sku": "BRNS.13018",
+    "description": "Round Dough Cutter, White",
+    "qty": 48,
+    "gross_kg": 5.04
+   },
+   {
+    "sku": "BRNS.10556",
+    "description": "Upright Utensil Holder",
+    "qty": 36,
+    "gross_kg": 35.64
+   },
+   {
+    "sku": "BRNS.11021",
+    "description": "Sliding Utensil and Knife Holder",
+    "qty": 12,
+    "gross_kg": 5.076
+   },
+   {
+    "sku": "BRNS.10887",
+    "description": "Wood-Look Cutlery Tray 4 Compartments",
+    "qty": 24,
+    "gross_kg": 3.84
+   },
+   {
+    "sku": "BRNS.10888",
+    "description": "Wood-Look Cutlery Tray 5 Compartments",
+    "qty": 24,
+    "gross_kg": 5.592
+   },
+   {
+    "sku": "BRNS.10889",
+    "description": "Wood-Look Cutlery Tray 7 Compartments",
+    "qty": 24,
+    "gross_kg": 5.736
+   },
+   {
+    "sku": "BRNS.10890",
+    "description": "Wood-Look Cutlery Tray Maxi 7 Compartments",
+    "qty": 24,
+    "gross_kg": 9.6
+   },
+   {
+    "sku": "BRNS.20886",
+    "description": "Wood-Look Utensil / Ladle Holder 3 Compartments",
+    "qty": 12,
+    "gross_kg": 2.88
+   },
+   {
+    "sku": "BRNS.27002",
+    "description": "Cutlery Tray 6 Compartments 47x49 cm",
+    "qty": 12,
+    "gross_kg": 4.56
+   },
+   {
+    "sku": "BRNS.13880",
+    "description": "Shelf Organizer Maxi, White",
+    "qty": 24,
+    "gross_kg": 7.104
+   },
+   {
+    "sku": "BRNS.13881",
+    "description": "Shelf Organizer Small, White",
+    "qty": 24,
+    "gross_kg": 4.392
+   },
+   {
+    "sku": "BRNS.13017",
+    "description": "Foldable Grater",
+    "qty": 36,
+    "gross_kg": 7.596
+   },
+   {
+    "sku": "BRNS.13024",
+    "description": "Garlic Press (Boxed)",
+    "qty": 144,
+    "gross_kg": 144.0
+   },
+   {
+    "sku": "MCH10567",
+    "description": "Coffee Cup Set 4 Pcs for 2 Persons, Stackable, Gold Striped, 100 ml",
+    "qty": 15,
+    "gross_kg": 8.31
+   },
+   {
+    "sku": "MCH0012906",
+    "description": "Mini Square Snack / Serving Bowl Set 6 Pcs, Acacia Wood-Look",
+    "qty": 15,
+    "gross_kg": 1.56
+   },
+   {
+    "sku": "MCH0013119",
+    "description": "Stainless Steel Airtight Food Storage Container 500 ml, Brown",
+    "qty": 15,
+    "gross_kg": 2.4
+   },
+   {
+    "sku": "MCH0013120",
+    "description": "Stainless Steel Airtight Food Storage Container 500 ml, Pink",
+    "qty": 15,
+    "gross_kg": 2.4
+   },
+   {
+    "sku": "MCH0013121",
+    "description": "Stainless Steel Airtight Food Storage Container 500 ml, Green",
+    "qty": 15,
+    "gross_kg": 2.4
+   },
+   {
+    "sku": "MCH0011820",
+    "description": "Wood-Look Oval Serving Boat Plate 24 cm, 6 Pcs",
+    "qty": 15,
+    "gross_kg": 9.78
+   },
+   {
+    "sku": "MCH0011813",
+    "description": "Wood-Look Breakfast Serving Set 8 Pcs (Plates and Bowls)",
+    "qty": 15,
+    "gross_kg": 10.47
+   },
+   {
+    "sku": "MCH0013251",
+    "description": "Leak-Proof Glass Water Bottle 1 L",
+    "qty": 10,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "MCH0012489",
+    "description": "Stainless Steel Beaded Serving / Candy Bowl Set 4 Pcs, Silver",
+    "qty": 10,
+    "gross_kg": 1.44
+   },
+   {
+    "sku": "MCH0013248",
+    "description": "Wood-Look Airtight Spice Jar Set 6 Pcs with Labels, 350 ml",
+    "qty": 10,
+    "gross_kg": 4.88
+   },
+   {
+    "sku": "MCH09266",
+    "description": "Storage Container Set 3 Pcs 5 L with Sliding Lid and Labels",
+    "qty": 15,
+    "gross_kg": 19.14
+   },
+   {
+    "sku": "MCH10640",
+    "description": "Coffee Cup Set 12 Pcs for 6 Persons, Gold Striped",
+    "qty": 10,
+    "gross_kg": 15.5
+   },
+   {
+    "sku": "MCH0011948",
+    "description": "Multi-Purpose Storage Container with Measuring Lid 1.2 L, Green",
+    "qty": 10,
+    "gross_kg": 3.68
+   },
+   {
+    "sku": "MCH0011949",
+    "description": "Multi-Purpose Storage Container with Measuring Lid 1.2 L, Set of 2, Green",
+    "qty": 10,
+    "gross_kg": 9.94
+   },
+   {
+    "sku": "MCH0013270",
+    "description": "Piping / Pastry Bag with 9 Nozzles",
+    "qty": 10,
+    "gross_kg": 0.54
+   },
+   {
+    "sku": "MCH10368",
+    "description": "Food Storage Container Set 4 Pcs 2500 ml (Fridge and Microwave Safe)",
+    "qty": 10,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "MCH0011822",
+    "description": "Wood-Look Rectangular Serving Boat Plate 25 cm, 4 Pcs",
+    "qty": 15,
+    "gross_kg": 7.5
+   },
+   {
+    "sku": "MCH0011828",
+    "description": "Airtight Breakfast Storage Container 3+1 Compartments, Set of 2 (3x0.25 L + 1x1.2 L)",
+    "qty": 10,
+    "gross_kg": 1.96
+   },
+   {
+    "sku": "MCH0013224",
+    "description": "Detox Water Bottle with Straw and Infuser 600 ml, Brown",
+    "qty": 10,
+    "gross_kg": 2.04
+   },
+   {
+    "sku": "MCH0013223",
+    "description": "Detox Water Bottle with Straw and Infuser 600 ml, Pink",
+    "qty": 10,
+    "gross_kg": 2.04
+   },
+   {
+    "sku": "MCH0013222",
+    "description": "Detox Water Bottle with Straw and Infuser 600 ml, Yellow",
+    "qty": 10,
+    "gross_kg": 2.04
+   },
+   {
+    "sku": "MCH0012830",
+    "description": "Acrylic Square Airtight Spice Jar Set 6 Pcs with Labels 300 ml, Grey",
+    "qty": 14,
+    "gross_kg": 6.356
+   },
+   {
+    "sku": "MCH0009876",
+    "description": "Spice Jar Set 4 Pcs with Bamboo Lids and Stand, 350 ml",
+    "qty": 15,
+    "gross_kg": 15.0
+   },
+   {
+    "sku": "MCH0013130",
+    "description": "Stainless Steel Airtight Food Storage Container 300 ml, Grey",
+    "qty": 15,
+    "gross_kg": 2.01
+   },
+   {
+    "sku": "MCH0013127",
+    "description": "Stainless Steel Airtight Food Storage Container 300 ml, Brown",
+    "qty": 15,
+    "gross_kg": 2.01
+   },
+   {
+    "sku": "MCH0013128",
+    "description": "Stainless Steel Airtight Food Storage Container 300 ml, Pink",
+    "qty": 15,
+    "gross_kg": 2.01
+   },
+   {
+    "sku": "MCH0013250",
+    "description": "Salt, Pepper and Spice Shaker Set 3 Pcs with Bamboo Stand",
+    "qty": 10,
+    "gross_kg": 2.44
+   },
+   {
+    "sku": "MCH0013253",
+    "description": "Glass Honey Jar with Wooden Lid and Spoon 500 ml",
+    "qty": 10,
+    "gross_kg": 2.44
+   },
+   {
+    "sku": "MCH0012603",
+    "description": "Acacia Wood-Look 2-Compartment Snack / Serving Bowl Set 4 Pcs, 19.5 cm",
+    "qty": 16,
+    "gross_kg": 5.088
+   },
+   {
+    "sku": "MCH0011830",
+    "description": "Airtight Breakfast Storage Container 4+1 Compartments, Set of 2 (3x0.25 L + 1x1.6 L)",
+    "qty": 10,
+    "gross_kg": 6.24
+   },
+   {
+    "sku": "MCH0012036",
+    "description": "Bathroom Set 6 Pcs with Toilet Paper Holder Stand, White",
+    "qty": 10,
+    "gross_kg": 19.08
+   },
+   {
+    "sku": "MCH0011410",
+    "description": "Borosilicate Glass Oil and Vinegar Bottle Set with Wooden Stand 200 ml",
+    "qty": 15,
+    "gross_kg": 6.48
+   },
+   {
+    "sku": "MCH0011707",
+    "description": "Dry Food Storage Container Set 2 Pcs with Wheels and Sliding Lid 12 L",
+    "qty": 10,
+    "gross_kg": 16.84
+   },
+   {
+    "sku": "MCH10737",
+    "description": "Glass Spice Jar Set 6 Pcs with Bamboo Lids and Labels 290 ml",
+    "qty": 10,
+    "gross_kg": 11.48
+   },
+   {
+    "sku": "MCH10837",
+    "description": "Food Storage Container Set 4 Pcs 2300 ml, Anthracite (Fridge and Microwave Safe)",
+    "qty": 10,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "MCH11171",
+    "description": "Ceramic Square Snack / Serving Plate Set 4 Pcs",
+    "qty": 10,
+    "gross_kg": 7.86
+   },
+   {
+    "sku": "MCH10457",
+    "description": "Food Storage Container Set 4 Pcs 2300 ml (Fridge and Microwave Safe)",
+    "qty": 10,
+    "gross_kg": 9.44
+   },
+   {
+    "sku": "MCH0011743",
+    "description": "Bamboo Footed Serving Stand / Coaster Set 4 Pcs",
+    "qty": 10,
+    "gross_kg": 0.74
+   },
+   {
+    "sku": "MCH0012044",
+    "description": "Self-Adhesive Paper Towel Holder, Wood Pattern, Black",
+    "qty": 10,
+    "gross_kg": 2.22
+   },
+   {
+    "sku": "MCH0011589",
+    "description": "Silicone Cupcake Mould Set 12 Pcs, Beige",
+    "qty": 15,
+    "gross_kg": 2.55
+   },
+   {
+    "sku": "MCH0011590",
+    "description": "Silicone Cupcake Mould Set 12 Pcs, Grey",
+    "qty": 15,
+    "gross_kg": 2.52
+   },
+   {
+    "sku": "MCH0011595",
+    "description": "Silicone Tip Serving Tongs with Acacia Handle",
+    "qty": 15,
+    "gross_kg": 1.02
+   },
+   {
+    "sku": "MCH0012796",
+    "description": "Acacia Wood-Look Snack / Serving Bowl Set 2 Pcs, 8.5 cm",
+    "qty": 10,
+    "gross_kg": 1.3
+   },
+   {
+    "sku": "MCH0012796",
+    "description": "Acacia Wood-Look Snack / Serving Bowl Set 2 Pcs, 8.5 cm",
+    "qty": 10,
+    "gross_kg": 1.3
+   },
+   {
+    "sku": "MCH11029",
+    "description": "Rectangular Glass Baking Dish Lid with Steam Vent, 40x27 cm",
+    "qty": 10,
+    "gross_kg": 2.48
+   },
+   {
+    "sku": "MCH08853",
+    "description": "Acrylic Storage Bowl Set 4 Pcs with Lids, 400 ml",
+    "qty": 10,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "MCH0011921",
+    "description": "Bamboo Cutting Board and Serving Tray with Stand",
+    "qty": 10,
+    "gross_kg": 10.7
+   },
+   {
+    "sku": "MCH0011917",
+    "description": "Acacia Wood Square Napkin Holder",
+    "qty": 10,
+    "gross_kg": 4.0
+   },
+   {
+    "sku": "MCH0011998",
+    "description": "Stainless Steel Grater Set 4 Pcs with Silicone Handle, Lid and Container 800 ml",
+    "qty": 10,
+    "gross_kg": 4.5
+   },
+   {
+    "sku": "MCH0012827",
+    "description": "Stainless Steel Colander with Handles, Enamel-Look",
+    "qty": 10,
+    "gross_kg": 5.0
+   },
+   {
+    "sku": "MCH0011476",
+    "description": "Stainless Steel Potato Masher",
+    "qty": 10,
+    "gross_kg": 3.0
+   },
+   {
+    "sku": "MCH0012691",
+    "description": "Stainless Steel Adjustable Balloon Whisk 25 cm",
+    "qty": 10,
+    "gross_kg": 0.9
+   },
+   {
+    "sku": "MCH0011274",
+    "description": "Acacia Wood Salad Serving Set 2 Pcs (Spoon and Fork)",
+    "qty": 10,
+    "gross_kg": 1.08
+   },
+   {
+    "sku": "MCH0011462",
+    "description": "Serving and Spice Spoon Set 6 Pcs, White",
+    "qty": 10,
+    "gross_kg": 0.38
+   },
+   {
+    "sku": "MCH0011441",
+    "description": "Round Locking Storage Container Set 2 Pcs, Large, Anthracite",
+    "qty": 10,
+    "gross_kg": 8.76
+   },
+   {
+    "sku": "MCH0011438",
+    "description": "Dry Food Storage Container Set 4 Pcs with Locking Lid 8 L, Anthracite",
+    "qty": 10,
+    "gross_kg": 14.42
+   },
+   {
+    "sku": "MCH08377",
+    "description": "Spice Jar Set 12 Pcs with Built-in Spoon Lid, 300 ml",
+    "qty": 30,
+    "gross_kg": 75.0
+   },
+   {
+    "sku": "MCH009880",
+    "description": "Rectangular Storage Container Set 12 Pcs 400 ml",
+    "qty": 50,
+    "gross_kg": 50.0
+   },
+   {
+    "sku": "MCH10192",
+    "description": "Greaseproof Serving Paper 60 Pcs, Assorted Patterns",
+    "qty": 20,
+    "gross_kg": 8.0
+   },
+   {
+    "sku": "MCH09864",
+    "description": "Rectangular Fridge Storage Container Set 6 Pcs 3.5 L, Grey",
+    "qty": 10,
+    "gross_kg": 10.0
+   },
+   {
+    "sku": "MCH009885",
+    "description": "Breakfast Serving Set 14 Pcs for 6 Persons, Stackable",
+    "qty": 50,
+    "gross_kg": 175.0
+   },
+   {
+    "sku": "MCH09269",
+    "description": "Airtight Locking Storage Container Set 3 Pcs (400 + 800 + 1400 ml)",
+    "qty": 50,
+    "gross_kg": 25.0
+   },
+   {
+    "sku": "MCH08627",
+    "description": "Stainless Steel Grater with Container, Black",
+    "qty": 30,
+    "gross_kg": 10.5
+   },
+   {
+    "sku": "MCH08852",
+    "description": "Collapsible Kitchen Set 4 Pcs (Whisk and Strainers)",
+    "qty": 30,
+    "gross_kg": 24.0
+   },
+   {
+    "sku": "MCH08841",
+    "description": "Washable Storage and Spice Jar Labels (Stickers) 25 Pcs",
+    "qty": 10,
+    "gross_kg": 0.05
+   },
+   {
+    "sku": "MCH0009876",
+    "description": "Spice Jar Set 4 Pcs with Bamboo Lids and Stand, 350 ml",
+    "qty": 50,
+    "gross_kg": 50.0
+   },
+   {
+    "sku": "MCH09266",
+    "description": "Storage Container Set 3 Pcs 5 L with Sliding Lid and Labels",
+    "qty": 50,
+    "gross_kg": 65.0
+   },
+   {
+    "sku": "8683589884487",
+    "description": "Storage Container Set 2 Pcs with Elastic Strap 2400 ml, Pink",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589883589",
+    "description": "Bathroom Set 4 Pcs 550 ml, Cream (Soap Dispenser, Toothbrush Holder, Organizer)",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589883572",
+    "description": "Bathroom Set 4 Pcs 550 ml, Anthracite (Soap Dispenser, Toothbrush Holder, Organizer)",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589882421",
+    "description": "Egg Storage Container Set 2 Pcs (15 Eggs Each) with Clear Lid",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589880175",
+    "description": "Spoon and Ladle Rest, Anthracite",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589867121",
+    "description": "Hexagonal Bowl Set 4 Pcs, White / Anthracite",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589867015",
+    "description": "Countertop Utensil Organizer 5 Compartments, Anthracite",
+    "qty": 10,
+    "gross_kg": 3.5
+   },
+   {
+    "sku": "8683589823004",
+    "description": "Bowl Set 4 Pcs with Lids, Assorted Colours",
+    "qty": 10,
+    "gross_kg": 12.5
+   },
+   {
+    "sku": "8652316587483",
+    "description": "Spice Spoon Set 12 Pcs",
+    "qty": 100,
+    "gross_kg": 22.0
+   },
+   {
+    "sku": "MCH10494",
+    "description": "Chef Mixing Bowl and Strainer Set 5 Pcs",
+    "qty": 20,
+    "gross_kg": 13.0
+   },
+   {
+    "sku": "84569562366979",
+    "description": "Spoon and Pot Lid Holder, Beige",
+    "qty": 20,
+    "gross_kg": 1.6
+   },
+   {
+    "sku": "8683589882100",
+    "description": "Square Airtight Storage Container Set 4 Pcs, Anthracite",
+    "qty": 20,
+    "gross_kg": 7.0
+   },
+   {
+    "sku": "8683589880885",
+    "description": "Bowl Set 4 Pcs (without Lids)",
+    "qty": 20,
+    "gross_kg": 16.5
+   },
+   {
+    "sku": "8683589819571",
+    "description": "Spice Jar Set 6 Pcs with Spoon, Large Size, Black",
+    "qty": 10,
+    "gross_kg": 2.5
+   },
+   {
+    "sku": "8683589832266",
+    "description": "Rectangular Spice Storage Container Set 6 Pcs 400 ml, Anthracite, Printed Labels",
+    "qty": 30,
+    "gross_kg": 13.5
+   },
+   {
+    "sku": "MCH09178",
+    "description": "Square Dry Food Storage Container Set 12 Pcs (4x0.55 L + 4x1.2 L + 4x1.75 L)",
+    "qty": 1000,
+    "gross_kg": 750.0
+   },
+   {
+    "sku": "MCH09045",
+    "description": "Square Dry Food Storage Container Set 4 Pcs, Mega Size 6 L",
+    "qty": 229,
+    "gross_kg": 334.95
+   },
+   {
+    "sku": "MCH009884",
+    "description": "Storage Container Set 12 Pcs, 0.5 L",
+    "qty": 508,
+    "gross_kg": 616.8
+   },
+   {
+    "sku": "MCH09139",
+    "description": "Oil Bottle / Storage Container, 0.75 L",
+    "qty": 180,
+    "gross_kg": 270.0
+   },
+   {
+    "sku": "MCH0011257",
+    "description": "Luxury Breakfast Serving Set Plate",
+    "qty": 100,
+    "gross_kg": 350.0
+   },
+   {
+    "sku": "MCH009886",
+    "description": "Luxury Breakfast Serving Set Plate",
+    "qty": 100,
+    "gross_kg": 350.0
+   },
+   {
+    "sku": "MCH10104",
+    "description": "Luxury Breakfast Serving Set Plate",
+    "qty": 100,
+    "gross_kg": 350.0
+   }
+  ],
+  "note": "Two versions of the packing list: 4,536 (edited 21 Oct, used here, matches the transfer) vs 4,544 (e-invoice XML, MCH09045 231 and MCH009884 514). To confirm."
+ },
+ {
+  "no": 25,
+  "container_id": "TCNU6384531",
+  "invoice": "MSK2026000000030",
+  "declaration": "H26-33417",
+  "shipped_on": "2026-09-24",
+  "folder": "1M5BHmEg7XT4buJTc5ShLwBkJNZP6ABFA",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [
+   "STE-12383"
+  ],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 432,
+    "gross_kg": 700.0
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 713,
+    "gross_kg": 970.0
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 615,
+    "gross_kg": 615.0
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1045,
+    "gross_kg": 1265.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 26,
+  "container_id": "TGBU4938228",
+  "invoice": "MSK2026000000031",
+  "declaration": "H26-34881",
+  "shipped_on": "2026-10-05",
+  "folder": "1aQvktSDnnT_Og0n0l76KlXuk4hNoiDxk",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [
+   "STE-12385"
+  ],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 1210,
+    "gross_kg": 1970.0
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 666,
+    "gross_kg": 880.0
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 677,
+    "gross_kg": 690.0
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 305,
+    "gross_kg": 375.0
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Spice Rack",
+    "qty": 250,
+    "gross_kg": 310.0
+   },
+   {
+    "sku": "MCH09178",
+    "description": "Mix Set Spice Rack",
+    "qty": 580,
+    "gross_kg": 475.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 27,
+  "container_id": "TGBU5277903",
+  "invoice": "MSK2026000000032",
+  "declaration": "H26-35257",
+  "shipped_on": "2026-10-07",
+  "folder": "1XbsJHw4owbSKwMV-v5CP5VbPKdlTTCdk",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [
+   "STE-12388"
+  ],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 1677,
+    "gross_kg": 3005.0
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 623,
+    "gross_kg": 885.0
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 208,
+    "gross_kg": 290.0
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 150,
+    "gross_kg": 225.0
+   },
+   {
+    "sku": "MCH09139",
+    "description": "750 ml Spice Rack",
+    "qty": 750,
+    "gross_kg": 935.0
+   },
+   {
+    "sku": "MCH09178",
+    "description": "Mix Set Spice Rack",
+    "qty": 420,
+    "gross_kg": 410.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 28,
+  "container_id": "TCNU1047543",
+  "invoice": "MSK2026000000033",
+  "declaration": "H26-39670",
+  "shipped_on": "2026-11-11",
+  "folder": "1ac0m-ExF-rqePUOUHdVjEUJTIxNe9CdF",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [
+   "STE-15227"
+  ],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 1200,
+    "gross_kg": 1750.0
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 1070,
+    "gross_kg": 1250.0
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 315,
+    "gross_kg": 255.0
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 477,
+    "gross_kg": 680.0
+   },
+   {
+    "sku": "MCH09864",
+    "description": "Storage Box Set",
+    "qty": 50,
+    "gross_kg": 65.0
+   },
+   {
+    "sku": "MCH0011460",
+    "description": "200 ml Set Spice Rack",
+    "qty": 50,
+    "gross_kg": 40.0
+   },
+   {
+    "sku": "MCH0013143",
+    "description": "Storage Rack",
+    "qty": 30,
+    "gross_kg": 60.0
+   }
+  ],
+  "note": ""
+ },
+ {
+  "no": 29,
+  "container_id": "FFAU4428216",
+  "invoice": "MSK2026000000034",
+  "declaration": "H26-39671",
+  "shipped_on": "2026-11-12",
+  "folder": "1l1A1WBKdZltA6mFI_dl8aICDWwEuNLRx",
+  "source": "Packing list",
+  "receipts": [],
+  "transfers": [
+   "STE-15232"
+  ],
+  "lines": [
+   {
+    "sku": "MCH09177",
+    "description": "1750 ml Spice Rack",
+    "qty": 150,
+    "gross_kg": 240.0
+   },
+   {
+    "sku": "MCH09176",
+    "description": "1200 ml Spice Rack",
+    "qty": 630,
+    "gross_kg": 790.0
+   },
+   {
+    "sku": "MCH009884",
+    "description": "550 ml Spice Rack",
+    "qty": 1098,
+    "gross_kg": 970.0
+   },
+   {
+    "sku": "MCH09045",
+    "description": "6 L Spice Rack",
+    "qty": 1326,
+    "gross_kg": 2100.0
+   }
+  ],
+  "note": ""
+ }
+]

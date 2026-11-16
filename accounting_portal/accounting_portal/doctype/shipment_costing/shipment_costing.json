@@ -6,35 +6,208 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": ["company", "mode", "status", "column_break_1", "customs_declaration", "bill_of_lading", "fx_rate", "tr_basis", "section_break_1", "receipts", "charges", "section_break_2", "sent_by", "locked_by", "notes"],
+ "field_order": [
+  "company",
+  "mode",
+  "status",
+  "column_break_1",
+  "customs_declaration",
+  "bill_of_lading",
+  "fx_rate",
+  "tr_basis",
+  "container_section",
+  "container_no",
+  "container_id",
+  "maslak_invoice",
+  "column_break_2",
+  "export_declaration",
+  "shipped_on",
+  "packing_source",
+  "drive_folder",
+  "section_break_1",
+  "receipts",
+  "lines",
+  "charges",
+  "section_break_2",
+  "sent_by",
+  "locked_by",
+  "notes"
+ ],
  "fields": [
-  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company", "reqd": 1, "in_list_view": 1},
-  {"fieldname": "mode", "fieldtype": "Select", "label": "Mode", "options": "Sea\nAir", "default": "Sea", "in_list_view": 1},
-  {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Draft\nReview\nLocked", "default": "Draft", "in_list_view": 1},
-  {"fieldname": "column_break_1", "fieldtype": "Column Break"},
-  {"fieldname": "customs_declaration", "fieldtype": "Data", "label": "Customs declaration", "search_index": 1},
-  {"fieldname": "bill_of_lading", "fieldtype": "Data", "label": "Bill of lading / container"},
-  {"fieldname": "fx_rate", "fieldtype": "Float", "label": "TRY → MAD (blank = month table)", "precision": "6"},
-  {"fieldname": "tr_basis", "fieldtype": "Select", "label": "Turkey costs spread by", "options": "Weight\nValue", "default": "Weight"},
-  {"fieldname": "section_break_1", "fieldtype": "Section Break"},
-  {"fieldname": "receipts", "fieldtype": "Table", "label": "Receipts", "options": "Shipment Costing Receipt"},
-  {"fieldname": "charges", "fieldtype": "Table", "label": "Charges", "options": "Shipment Costing Charge"},
-  {"fieldname": "section_break_2", "fieldtype": "Section Break"},
-  {"fieldname": "sent_by", "fieldtype": "Link", "label": "Sent for review by", "options": "User", "read_only": 1},
-  {"fieldname": "locked_by", "fieldtype": "Link", "label": "Locked by", "options": "User", "read_only": 1},
-  {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "label": "Mode",
+   "options": "Sea\nAir",
+   "default": "Sea",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nReview\nLocked",
+   "default": "Draft",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customs_declaration",
+   "fieldtype": "Data",
+   "label": "Customs declaration",
+   "search_index": 1
+  },
+  {
+   "fieldname": "bill_of_lading",
+   "fieldtype": "Data",
+   "label": "Bill of lading / container"
+  },
+  {
+   "fieldname": "fx_rate",
+   "fieldtype": "Float",
+   "label": "TRY → MAD (blank = month table)",
+   "precision": "6"
+  },
+  {
+   "fieldname": "tr_basis",
+   "fieldtype": "Select",
+   "label": "Turkey costs spread by",
+   "options": "Weight\nValue",
+   "default": "Weight"
+  },
+  {
+   "fieldname": "container_section",
+   "fieldtype": "Section Break",
+   "label": "Container"
+  },
+  {
+   "fieldname": "container_no",
+   "fieldtype": "Int",
+   "label": "Container no.",
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "container_id",
+   "fieldtype": "Data",
+   "label": "Container ID"
+  },
+  {
+   "fieldname": "maslak_invoice",
+   "fieldtype": "Data",
+   "label": "Maslak export invoice"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "export_declaration",
+   "fieldtype": "Data",
+   "label": "Turkish export declaration"
+  },
+  {
+   "fieldname": "shipped_on",
+   "fieldtype": "Date",
+   "label": "Shipped on"
+  },
+  {
+   "fieldname": "packing_source",
+   "fieldtype": "Select",
+   "label": "Shipped quantities from",
+   "options": "\nPacking list\nCategory only\nNo document"
+  },
+  {
+   "fieldname": "drive_folder",
+   "fieldtype": "Data",
+   "label": "Drive folder id"
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "receipts",
+   "fieldtype": "Table",
+   "label": "Receipts",
+   "options": "Shipment Costing Receipt"
+  },
+  {
+   "fieldname": "lines",
+   "fieldtype": "Table",
+   "label": "Shipped lines (packing list)",
+   "options": "Shipment Costing Line"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Shipment Costing Charge"
+  },
+  {
+   "fieldname": "section_break_2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sent_by",
+   "fieldtype": "Link",
+   "label": "Sent for review by",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "locked_by",
+   "fieldtype": "Link",
+   "label": "Locked by",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-16 21:00:00.000000",
+ "modified": "2026-11-16 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Accounting Portal",
  "name": "Shipment Costing",
  "owner": "Administrator",
  "permissions": [
-  {"read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1, "role": "System Manager"},
-  {"read": 1, "report": 1, "export": 1, "role": "Accounts Manager"},
-  {"read": 1, "report": 1, "export": 1, "role": "Accounting Reader"}
+  {
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "role": "Accounts Manager"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "role": "Accounting Reader"
+  }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
