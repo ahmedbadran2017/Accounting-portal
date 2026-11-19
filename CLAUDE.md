@@ -117,7 +117,9 @@ Deeper reference:
     - If only the account is wrong (2026, small count): edit the lines, then run a
       `Repost Accounting Ledger`. No correction journal entries.
     - If the amount or party is wrong: cancel and amend.
-    - 2025 is closed: leave it.
+    - 2025 stays OPEN in the ERP until 2026 is closed (owner, 19 Nov 2026). Fix a 2025 error in 2025, on
+      its real date, not as a 2026-01-01 correction. Do not freeze or lock 2025. The 2025 return was filed on
+      31 Mar 2026, so the ERP's 2025 can now differ from it: say so whenever you show 2025 figures.
 11. **Bills:** vendor bills are Purchase Invoices, not journal entries.
     - Bill from the **receipt**, not the PO rate.
     - A guard refuses receipt lines whose rate is far above stock valuation (`540af55`).
