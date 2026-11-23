@@ -2192,7 +2192,7 @@ _register()
 # hour-based, not month-based:
 #
 #     rate      = base / contract hours (208)
-#     hours     = contract + public holidays + overtime x rate − missing − delay
+#     hours     = contract + public holidays + overtime x OVERTIME_RATE − missing − delay
 #     gross     = hours x rate
 #     net       = gross + bonus + commission − advance
 #
@@ -2209,7 +2209,10 @@ _register()
 SHEET_KEY = "ap_payroll_sheet"
 DEFAULT_CONTRACT_HOURS = 208.0      # 48h/week x 52 / 12, the sheet's own basis
 HOURS_PER_DAY = 8.0
-OVERTIME_RATE = 1.5
+# Overtime hours are paid at the plain hourly rate (x1), not x1.5 — Hanane,
+# 2026-11-23, confirmed by the owner. The component keeps its historical
+# "50%" name because every past slip uses it.
+OVERTIME_RATE = 1.0
 DEFAULT_GRACE_MINUTES = 15.0
 # Employee ids are HR-EMP-*, so a settings row keyed like this cannot collide
 # with a person inside the same override store.
@@ -2706,7 +2709,7 @@ def payroll_sheet_bank(company=None, employee=None, rib=None, bank_name=None):
 # components their slips already use, and the slip that follows lands on the
 # sheet's net by construction:
 #
-#     base (structure)  +  holiday x rate  +  overtime x 1.5 x rate
+#     base (structure)  +  holiday x rate  +  overtime x OVERTIME_RATE x rate
 #                       −  (missing + delay) x rate  −  advance
 #
 # Bonuses are the one thing it refuses to write. The sheet's bonus column reads

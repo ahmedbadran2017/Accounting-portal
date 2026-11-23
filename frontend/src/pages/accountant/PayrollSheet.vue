@@ -220,9 +220,9 @@
         </table>
       </div>
       <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted leading-relaxed">
-        {{ L("Rate = base ÷ contract hours. Total = contract + holiday + overtime×1.5 − missing − delay. Edited cells are shaded; clear one to hand it back to the system. RIB is written onto the employee record; Sent records who ticked it and when.",
-              "سعر الساعة = الأساسي ÷ الساعات التعاقدية. الإجمالي = تعاقدي + أعياد + إضافي×١٫٥ − غياب − تأخير. الخلايا المعدّلة مظللة؛ فضّيها ترجع للنظام. رقم الحساب بيتكتب على الموظف نفسه، و«اتحوّل» بيسجّل مين علّمها وإمتى.",
-              "Taux = base ÷ heures. Total = contrat + fériés + sup×1,5 − absence − retard. Le RIB est écrit sur la fiche employé.") }}
+        {{ L("Rate = base ÷ contract hours. Total = contract + holiday + overtime − missing − delay. Edited cells are shaded; clear one to hand it back to the system. RIB is written onto the employee record; Sent records who ticked it and when.",
+              "سعر الساعة = الأساسي ÷ الساعات التعاقدية. الإجمالي = تعاقدي + أعياد + إضافي − غياب − تأخير. الخلايا المعدّلة مظللة؛ فضّيها ترجع للنظام. رقم الحساب بيتكتب على الموظف نفسه، و«اتحوّل» بيسجّل مين علّمها وإمتى.",
+              "Taux = base ÷ heures. Total = contrat + fériés + sup − absence − retard. Le RIB est écrit sur la fiche employé.") }}
       </div>
     </div>
     <PayrollApproveModal v-if="showApprove" :month="month" @close="showApprove = false" @done="load" />
@@ -235,7 +235,7 @@
 //
 // The team's real model lives in a Google Sheet and is hour-based:
 //   rate  = base / 208
-//   hours = 208 + public holidays + overtime×1.5 − missing − delay
+//   hours = 208 + public holidays + overtime − missing − delay
 //   gross = hours × rate
 // Checked against their own January figures to the dirham, and against August's
 // submitted slips, which match the spreadsheet on every line — because the sheet
