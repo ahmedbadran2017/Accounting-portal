@@ -214,6 +214,13 @@ def _dup_poster(action):
             new.set(fld, None)
     if new.meta.has_field("bill_no"):
         new.bill_no = None          # a supplier invoice number belongs to one bill only
+    # A copy is a new bank movement, so it has not been reconciled yet. ERPNext
+    # copies clearance_date, and the copy then reached the books already
+    # "cleared" on the original's bank date: PAY-47613 (from PAY-25172) carried
+    # 2026-07-07 and PAY-47617 (from PAY-26795-1) carried 2026-05-21. Both were
+    # invisible in Bank reconciliation, which lists only uncleared entries.
+    if new.meta.has_field("clearance_date"):
+        new.clearance_date = None
     # The copied payment schedule carries the original due dates, which is what
     # actually triggered the rejection. Emptying it makes ERPNext rebuild it from
     # the new posting date and the payment terms.
