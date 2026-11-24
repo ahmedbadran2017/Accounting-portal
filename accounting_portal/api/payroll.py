@@ -699,6 +699,7 @@ def payroll_generate(company=None, month=None, notes=None):
                          f"{' (' + ', '.join(runs[:4]) + ('…' if len(runs) > 4 else '') + ')' if runs else ''}. "
                          "Nothing left to generate — see Runs.")
     key = "payroll-run:" + _digest(f"{target}:{month}", 14)
+    key = _fresh_key(key, "Payroll Entry")
     return _actions.execute(RUN_ACTION, target, key, payload={"month": month},
                             amount=0, notes=notes or f"Generate payroll slips {month}")
 
@@ -786,6 +787,7 @@ def payroll_submit_slips(company=None, month=None, notes=None):
         (target, month))[0][0])
     from accounting_portal.api import _actions
     key = "payroll-submit:" + _digest(f"{target}:{month}", 14)
+    key = _fresh_key(key, "Payroll Entry")
     return _actions.execute(SUBMIT_SLIPS_ACTION, target, key, payload={"month": month},
                             amount=net, notes=notes or f"Submit payroll slips {month}")
 
@@ -950,6 +952,7 @@ def payroll_pay(company=None, month=None, bank_account=None, notes=None):
     total = _m(sum(p["amount"] for p in plan))
     from accounting_portal.api import _actions
     key = "payroll-pay:" + _digest(f"{target}:{month}:{bank_account}:{total}", 14)
+    key = _fresh_key(key, "Journal Entry")
     return _actions.execute(PAY_ACTION, target, key,
                             payload={"month": month, "bank_account": bank_account},
                             amount=total, notes=notes or f"Pay salaries {month}")
@@ -1209,14 +1212,26 @@ def _fresh_adj_key(key):
     wrote nothing — on 5 Oct that sent eleven re-keys to the Desk. A key whose
     line is gone or cancelled is spent: move to the next one.
     """
+    return _fresh_key(key, "Additional Salary")
+
+
+def _fresh_key(key, voucher_doctype):
+    """Move past a dedupe key whose document no longer stands.
+
+    Run, submit and pay are keyed on the month alone, so once September 2026 had
+    been run, cancelled and wiped (23 Nov 2026), Generate returned the old
+    cancelled run as "already done" and created no slips. A Posted action whose
+    voucher is missing or cancelled is spent; a live one keeps deduping, so a
+    genuine double-click still posts once.
+    """
     base, n = key, 0
     while True:
         row = frappe.db.get_value("Accounting Portal Action", {"dedupe_key": key},
                                   ["status", "voucher_no"], as_dict=True)
         if not row or row.status != "Posted":
             return key
-        if row.voucher_no and frappe.db.get_value("Additional Salary", row.voucher_no, "docstatus") == 1:
-            return key   # the line is live: a genuine double-submit, keep deduping
+        if row.voucher_no and frappe.db.get_value(voucher_doctype, row.voucher_no, "docstatus") == 1:
+            return key   # the document is live: a genuine double-submit, keep deduping
         n += 1
         key = f"{base}:r{n}"
 

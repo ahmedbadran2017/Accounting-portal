@@ -11,7 +11,13 @@
             {{ L("Everything this will write, before it writes it", "كل اللي هيتكتب، قبل ما يتكتب", "Tout ce qui sera écrit") }}
           </div>
         </div>
-        <button @click="$emit('close')" class="ms-auto w-7 h-7 grid place-items-center rounded-[8px] hover:bg-app-warm text-ink-muted">
+        <!-- The same action as the footer, at the top. On Hanane's screen the
+             footer never showed (23 Nov 2026) though it was compiled, served and
+             visible on every size we tried; the header is always on screen. -->
+        <UiButton variant="primary" size="sm" class="ms-auto" :busy="busy" :disabled="!canApprove" @click="go">
+          {{ p.approved ? L("Re-approve", "إعادة الاعتماد", "Réapprouver") : L("Approve the month", "اعتمد الشهر", "Approuver") }}
+        </UiButton>
+        <button @click="$emit('close')" class="w-7 h-7 grid place-items-center rounded-[8px] hover:bg-app-warm text-ink-muted">
           <Icon name="close" :size="14" /></button>
       </header>
 
@@ -92,7 +98,7 @@
 
       <footer class="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t border-line-hair">
         <UiButton variant="quiet" @click="$emit('close')">{{ L("Cancel", "إلغاء", "Annuler") }}</UiButton>
-        <UiButton variant="primary" :busy="busy" :disabled="loading || !!(p.blocks && p.blocks.length) || !p.documents" @click="go">
+        <UiButton variant="primary" :busy="busy" :disabled="!canApprove" @click="go">
           {{ p.approved ? L("Re-approve", "إعادة الاعتماد", "Réapprouver") : L("Approve the month", "اعتمد الشهر", "Approuver") }}
         </UiButton>
       </footer>
@@ -105,7 +111,7 @@
 // documents it will create. "Are you sure?" tells you nothing; this names the
 // component, the arithmetic and the amount for every line, and refuses outright
 // when something upstream would make the slip wrong.
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "@/components/Icon.vue";
 import UiButton from "@/components/UiButton.vue";
@@ -127,6 +133,7 @@ const short = (c) => String(c || "").split(" - ")[0].replace(/\s+/g, " ").trim()
 const p = ref({});
 const loading = ref(true);
 const busy = ref(false);
+const canApprove = computed(() => !loading.value && !(p.value.blocks && p.value.blocks.length) && !!p.value.documents);
 
 async function load() {
   loading.value = true;
