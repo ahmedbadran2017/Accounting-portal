@@ -2206,8 +2206,14 @@ _register()
 # The team's real payroll model lives in a Google Sheet ("EXTRA 2026") and is
 # hour-based, not month-based:
 #
-#     rate      = base / contract hours (208)
-#     hours     = contract + public holidays + overtime x OVERTIME_RATE − missing − delay
+#     rate      = base / 208, always — the hours of a full month
+#     hours     = general + public holidays + overtime x OVERTIME_RATE − missing − delay
+#
+# "General hours" is the hours this month pays for: 208 for a full month, fewer
+# for someone who joined or left inside it (e.g. 96h of a 208h month pays
+# 96/208 of the salary). It used to be the divisor of the rate as well, so a
+# partial month always came out at the full salary (96h x base/96 = base) —
+# reported 25 Nov 2026 on four October 2026 joiners.
 #     gross     = hours x rate
 #     net       = gross + bonus + commission − advance
 #
@@ -2250,6 +2256,12 @@ SHEET_HOLIDAY_COMPONENT = "National Holiday  & Public Holiday Pay - Ulusal Bayra
 SHEET_OVERTIME_COMPONENT = "Overtime - Fazla Mesai 50%"
 SHEET_ABSENCE_COMPONENT = "Due to Late Entry or Absence Encashment"
 SHEET_ADVANCE_COMPONENT = "Advance Deduction - Avans Kesintisi"
+# The structure's own monthly salary line. A partial month is written onto it
+# with overwrite, so the slip carries general hours x rate instead of HRMS's
+# day-count proration (a mid-month joiner, October 2026: 12/27 days by HRMS
+# vs 96/208 hours by the sheet). An overwritten row is not prorated again —
+# checked on DEV, 25 Nov 2026.
+SHEET_BASE_COMPONENT = "Net Wage of Employee"
 
 
 def _sheet_store(target, month):
@@ -2493,8 +2505,9 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
     for e in emps:
         o = ov.get(e.name, {})
         base = _base_salary(e.base, e.salary_structure)
-        hours = flt(o.get("contract_hours") or DEFAULT_CONTRACT_HOURS)
-        rate = (base / hours) if hours else 0.0
+        # Paid hours this month; 0 is a real value (nothing to pay), not "unset".
+        hours = flt(o["contract_hours"]) if o.get("contract_hours") not in (None, "") else DEFAULT_CONTRACT_HOURS
+        rate = base / DEFAULT_CONTRACT_HOURS
         a = att.get(e.name) or frappe._dict({})
         tracked = e.name in punched
         # An employee with no punch at all this month is not absent — they are
@@ -2544,6 +2557,12 @@ def payroll_sheet(company=None, month=None, start=0, page_size=None):
             "employee": e.name, "employee_name": e.nm,
             "designation": e.designation, "department": e.department,
             "base": _m(base), "rate": flt(rate, 4), "contract_hours": hours,
+            # Joined or left inside the month: HRMS would prorate the slip by
+            # days, so approval writes the sheet's own figure over it.
+            "partial": bool((e.date_of_joining and str(e.date_of_joining) > start)
+                            or (e.relieving_date and str(e.relieving_date) < end)),
+            "joined": str(e.date_of_joining or "")[:10], "relieved": str(e.relieving_date or "")[:10],
+            "structure": e.salary_structure,
             "holiday_hours": hol, "overtime_hours": over, "missing_hours": missing,
             "delay_hours": delay, "total_hours": flt(max(total_hours, 0), 2),
             "gross": gross, "bonus": _m(bonus), "advance": _m(advance),
@@ -2833,8 +2852,43 @@ def _approve_lines(target, month):
 
     for r in rows:
         rate = flt(r["rate"])
-        base, ch = flt(r["base"]), flt(r["contract_hours"]) or DEFAULT_CONTRACT_HOURS
+        base, ch = flt(r["base"]), DEFAULT_CONTRACT_HOURS
         per = []
+        # A month that is not a full one: general hours below 208, or a joiner /
+        # leaver HRMS would cut by days. The salary line becomes hours x rate.
+        paid_h = flt(r["contract_hours"])
+        if abs(paid_h - ch) > 0.001 or r.get("partial"):
+            pay = _m(base * paid_h / ch)
+            # Overwrite only replaces a line the structure has. On a structure
+            # without it, the same document ADDS a second salary on top.
+            if pay > 0 and not frappe.db.exists("Salary Detail", {
+                    "parent": r.get("structure"), "parenttype": "Salary Structure",
+                    "parentfield": "earnings", "salary_component": SHEET_BASE_COMPONENT}):
+                blocks.append(f"{r['employee_name']}: structure {r.get('structure')} has no "
+                              f"\"{SHEET_BASE_COMPONENT}\" line, so a partial month ({paid_h}h) cannot be written onto it.")
+            if any(a.comp == SHEET_BASE_COMPONENT for a in manual.get(r["employee"], [])):
+                blocks.append(f"{r['employee_name']}: Adjustments already hold a \"{SHEET_BASE_COMPONENT}\" line for "
+                              f"{month}; the sheet writes the partial month itself ({paid_h}h). Remove that line first.")
+            # HRMS still prorates by days any earning whose component depends on
+            # payment days — on DEV a mid-month joiner's bonus came out at ~40% of it.
+            if r.get("partial"):
+                cut_by_days = [f"{a.comp.split(' - ')[0]} {_m(a.amount)}" for a in manual.get(r["employee"], [])
+                               if a.type == "Earning" and frappe.db.get_value("Salary Component", a.comp, "depends_on_payment_days")]
+                if flt(r["holiday_hours"]) and frappe.db.get_value("Salary Component", SHEET_HOLIDAY_COMPONENT, "depends_on_payment_days"):
+                    cut_by_days.append(f"{SHEET_HOLIDAY_COMPONENT.split(' - ')[0]} ({r['holiday_hours']}h)")
+                if cut_by_days:
+                    warns.append(f"{r['employee_name']} joined or left inside {month}: HRMS will cut "
+                                 + ", ".join(cut_by_days) + " by the days worked, so the slip will come out below the sheet. Key a bonus for them "
+                                 "on \"Bonus Payment - İkramiye\" instead (same account, not cut by days).")
+            if pay > 0:
+                per.append({"component": SHEET_BASE_COMPONENT, "type": "Earning", "amount": pay,
+                            "overwrite": 1, "basis": f"{paid_h}h x {flt(rate, 2)} (replaces {_m(base)})"})
+            else:
+                per.append({"component": SHEET_ABSENCE_COMPONENT, "type": "Deduction", "amount": _m(base),
+                            "basis": f"0h this month — the whole {_m(base)}"})
+            if r.get("partial") and abs(paid_h - ch) <= 0.001:
+                warns.append(f"{r['employee_name']} joined {r['joined']} or left {r['relieved'] or '—'} inside "
+                             f"{month}, but the sheet still carries {flt(ch)} general hours — a full month is paid.")
         hol = _m(base * flt(r["holiday_hours"]) / ch)
         ot = _m(base * flt(r["overtime_hours"]) * OVERTIME_RATE / ch)
         # One component, because the company has one: it is literally named
@@ -2842,6 +2896,8 @@ def _approve_lines(target, month):
         # Never more than the month's salary — a deduction past it is a
         # negative slip, not a correction.
         cut = min(_m(base * (flt(r["missing_hours"]) + flt(r["delay_hours"])) / ch), _m(base))
+        if per and per[0]["component"] == SHEET_ABSENCE_COMPONENT:
+            cut = 0   # the whole salary is already taken off above
         adv = _m(r["advance"])
         # Split across the actual advance documents, oldest first, because each
         # deduction settles ONE of them by reference. A part-payment — the
@@ -2977,7 +3033,8 @@ def _approve_poster(doc):
                 "doctype": "Additional Salary", "company": target, "employee": l["employee"],
                 "salary_component": i["component"], "type": i["type"],
                 "amount": flt(i["amount"]), "currency": _ccy(target),
-                "payroll_date": pay_date, "overwrite_salary_structure_amount": 0,
+                "payroll_date": pay_date,
+                "overwrite_salary_structure_amount": 1 if i.get("overwrite") else 0,
                 # Only the advance lines carry one. On submit HRMS settles that
                 # advance; on cancel it un-settles it, so the reverter needs no
                 # advance handling of its own.

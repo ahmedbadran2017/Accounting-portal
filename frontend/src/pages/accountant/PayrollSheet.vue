@@ -110,7 +110,7 @@
               <th class="px-2 py-2 text-start">{{ L("Contract", "العقد", "Contrat") }}</th>
               <th class="px-2 py-2 text-end">{{ L("Base", "الأساسي", "Base") }}</th>
               <th class="px-2 py-2 text-end">{{ L("/hour", "/ساعة", "/heure") }}</th>
-              <th class="px-2 py-2 text-end">{{ L("Contract h", "تعاقدي", "Contrat") }}</th>
+              <th class="px-2 py-2 text-end">{{ L("General h", "ساعات الشهر", "Heures") }}</th>
               <th class="px-2 py-2 text-end">{{ L("Holiday", "أعياد", "Fériés") }}</th>
               <th class="px-2 py-2 text-end">{{ L("Overtime", "إضافي", "Heures sup") }}</th>
               <th class="px-2 py-2 text-end">{{ L("Missing", "غياب", "Absence") }}</th>
@@ -220,9 +220,9 @@
         </table>
       </div>
       <div class="px-4 py-2 border-t border-line-hair text-[11px] text-ink-muted leading-relaxed">
-        {{ L("Rate = base ÷ contract hours. Total = contract + holiday + overtime − missing − delay. Edited cells are shaded; clear one to hand it back to the system. RIB is written onto the employee record; Sent records who ticked it and when.",
-              "سعر الساعة = الأساسي ÷ الساعات التعاقدية. الإجمالي = تعاقدي + أعياد + إضافي − غياب − تأخير. الخلايا المعدّلة مظللة؛ فضّيها ترجع للنظام. رقم الحساب بيتكتب على الموظف نفسه، و«اتحوّل» بيسجّل مين علّمها وإمتى.",
-              "Taux = base ÷ heures. Total = contrat + fériés + sup − absence − retard. Le RIB est écrit sur la fiche employé.") }}
+        {{ L("Rate = base ÷ 208. General hours = the hours this month pays for: 208 for a full month, fewer for someone who joined or left during it. Total = general + holiday + overtime − missing − delay. Edited cells are shaded; clear one to hand it back to the system. RIB is written onto the employee record; Sent records who ticked it and when.",
+              "سعر الساعة = الأساسي ÷ 208. ساعات الشهر = الساعات المدفوعة الشهر ده: 208 للشهر الكامل، وأقل لو الموظف دخل أو خرج في نص الشهر. الإجمالي = ساعات الشهر + أعياد + إضافي − غياب − تأخير. الخلايا المعدّلة مظللة؛ فضّيها ترجع للنظام. رقم الحساب بيتكتب على الموظف نفسه، و«اتحوّل» بيسجّل مين علّمها وإمتى.",
+              "Taux = base ÷ 208. Heures = heures payées ce mois : 208 pour un mois complet, moins en cas d'entrée ou de sortie en cours de mois. Total = heures + fériés + sup − absence − retard. Le RIB est écrit sur la fiche employé.") }}
       </div>
     </div>
     <PayrollApproveModal v-if="showApprove" :month="month" @close="showApprove = false" @done="load" />
