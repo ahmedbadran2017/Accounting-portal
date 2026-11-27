@@ -293,8 +293,17 @@ def get_draft(doctype=None, name=None):
             orders = _line_orders(doc)
             at = next((i + 1 for i, c in enumerate(cols) if c["field"] == "item_name"), len(cols))
             cols.insert(at, {"field": "_order", "type": "Data", "ro": True, "label": "Order"})
+            # The SKU sits beside the order: on a supplier's bill the item code is
+            # a barcode, and the SKU is what the accountant matches against the
+            # supplier's statement.
+            cols.insert(at + 1, {"field": "_sku", "type": "Data", "ro": True, "label": "SKU"})
+            codes = list({r.item_code for r in (doc.get(cf) or []) if r.get("item_code")})
+            skus = dict(frappe.db.sql("SELECT name, custom_sku FROM `tabItem` WHERE name IN %s",
+                                      (tuple(codes),))) if codes else {}
+            line_code = {r.name: r.get("item_code") for r in (doc.get(cf) or [])}
             for row in rows:
                 row["_order"] = orders.get(row["name"]) or ""
+                row["_sku"] = skus.get(line_code.get(row["name"])) or ""
         # A draft takes whatever the doctype allows. A submitted order takes lines
         # too — that is what the Desk's Update Items does — unless it is closed or
         # fully received/billed. A submitted invoice never does: there the editor

@@ -375,6 +375,7 @@ function addRow() {
 function onItemPicked(r, o) {
   r.item_code = o.item_code;
   if ("item_name" in r) r.item_name = o.item_name || o.item_code;
+  if ("_sku" in r) r._sku = o.sku || "";
   if ("rate" in r && !Number(r.rate) && Number(o.rate)) r.rate = Number(o.rate);
   if ("qty" in r && !Number(r.qty)) r.qty = d.value.is_return ? -1 : 1;
 }
